@@ -2202,23 +2202,56 @@ class OverlayView: NSView {
         guard let field = sizeInputField else { return }
         let input = field.stringValue.trimmingCharacters(in: .whitespaces)
 
-        // Parse "W × H", "WxH", "W*H", "W H"
+        // Parse "W × H", "WxH", "W*H", "W H", or just a single number
         let separators = CharacterSet(charactersIn: "\u{00D7}xX*").union(.whitespaces)
         let parts = input.components(separatedBy: separators).filter { !$0.isEmpty }
 
-        if parts.count == 2, let w = Int(parts[0]), let h = Int(parts[1]), w > 0, h > 0 {
-            let scale = window?.backingScaleFactor ?? 2.0
-            let newW = CGFloat(w) / scale
-            let newH = CGFloat(h) / scale
+        let scale = window?.backingScaleFactor ?? 2.0
+        var newW: CGFloat?
+        var newH: CGFloat?
 
+        if parts.count == 2, let w = Int(parts[0]), let h = Int(parts[1]), w > 0, h > 0 {
+            // Both dimensions provided
+            newW = CGFloat(w) / scale
+            newH = CGFloat(h) / scale
+        } else if parts.count == 1, let value = Int(parts[0]), value > 0 {
+            // Only one dimension provided - use aspect ratio lock if available
+            let pixelValue = CGFloat(value) / scale
+            if aspectRatioLock != .none {
+                let ratio = aspectRatioLock.ratio
+                // Determine if user entered width or height based on current selection
+                if selectionRect.width >= selectionRect.height {
+                    // Landscape: assume entered value is width
+                    newW = pixelValue
+                    newH = pixelValue / ratio
+                } else {
+                    // Portrait: assume entered value is height
+                    newH = pixelValue
+                    newW = pixelValue * ratio
+                }
+            } else {
+                // No aspect ratio lock - can't determine which dimension was entered
+                // Fall back to maintaining current aspect ratio
+                let currentRatio = selectionRect.width / selectionRect.height
+                if selectionRect.width >= selectionRect.height {
+                    newW = pixelValue
+                    newH = pixelValue / currentRatio
+                } else {
+                    newH = pixelValue
+                    newW = pixelValue * currentRatio
+                }
+            }
+        }
+
+        if let w = newW, let h = newH {
             // Resize from center of current selection
             let centerX = selectionRect.midX
             let centerY = selectionRect.midY
             selectionRect = NSRect(
-                x: centerX - newW / 2,
-                y: centerY - newH / 2,
-                width: newW,
-                height: newH
+                x: centerX - w / 2,
+                y: centerY - h / 2,
+                width: w,
+                height: h
             )
         }
 
