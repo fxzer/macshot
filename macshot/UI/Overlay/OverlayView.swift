@@ -31,7 +31,6 @@ protocol OverlayViewDelegate: AnyObject {
     func overlayViewDidChangeWindowSnapState()
     func overlayViewRemoteSelectionDidFinish(_ rect: NSRect)
     func overlayViewDidRequestAddCapture()
-    func overlayViewDidChangeWindowSnapState()
     func overlayViewDidChangeAspectRatioLock()
     func overlayViewDidChangeMouseLocation()
 }
@@ -5700,12 +5699,116 @@ class OverlayView: NSView {
             return
         }
 
-        // Cmd+scroll or plain mouse wheel (non-trackpad) → zoom
-        guard isCommandScroll || !isTrackpadPhased else { return }
-        let cursor = convert(event.locationInWindow, from: nil)
-        let delta = event.deltaY
-        let factor: CGFloat = 0.1
-        setZoom(zoomLevel + delta * factor, cursorView: cursor)
+        // Cmd+scroll → zoom (browser-style)
+        if isCommandScroll {
+            let cursor = convert(event.locationInWindow, from: nil)
+            let delta = event.deltaY
+            let factor: CGFloat = 0.1
+            setZoom(zoomLevel + delta * factor, cursorView: cursor)
+            return
+        }
+
+        // Plain mouse wheel (non-trackpad) without Cmd → adjust annotation property
+        guard !isTrackpadPhased else { return }
+
+        // If an annotation is selected, adjust its property (stroke width or font size)
+        if let ann = selectedAnnotation {
+            let delta = event.deltaY
+            let step: CGFloat = 0.5  // adjustment step size
+
+            if ann.tool == .text {
+                // Adjust font size for text annotations
+                let oldSize = ann.fontSize
+                let newSize = max(8, oldSize - delta * step)
+                if newSize != oldSize {
+                    let snapshot = ann.clone()
+                    ann.fontSize = newSize
+                    pushPropertyChangeUndo(annotation: ann, snapshot: snapshot)
+                    needsDisplay = true
+                    // Update tool options row if showing this annotation
+                    if selectedAnnotation === ann {
+                        toolOptionsRowView?.rebuild(forAnnotation: ann)
+                    }
+                }
+            } else if ann.tool == .number {
+                // Adjust number size
+                let oldSize = currentNumberSize
+                let newSize = max(8, oldSize - delta * step)
+                if newSize != oldSize {
+                    currentNumberSize = newSize
+                    UserDefaults.standard.set(newSize, forKey: "numberStrokeWidth")
+                    // Re-create the number annotation with new size
+                    if let index = annotations.firstIndex(where: { $0 === ann }) {
+                        let snapshot = ann.clone()
+                        let newAnn = ann.clone()
+                        newAnn.strokeWidth = currentNumberSize
+                        annotations[index] = newAnn
+                        selectedAnnotation = newAnn
+                        undoStack.append(.added(newAnn))
+                        undoStack.append(.deleted(ann, index))
+                        redoStack.removeAll()
+                    }
+                    needsDisplay = true
+                }
+            } else if ann.tool == .marker {
+                // Adjust marker size
+                let oldSize = currentMarkerSize
+                let newSize = max(2, oldSize - delta * step)
+                if newSize != oldSize {
+                    currentMarkerSize = newSize
+                    UserDefaults.standard.set(newSize, forKey: "markerStrokeWidth")
+                    // Update the marker annotation
+                    if let index = annotations.firstIndex(where: { $0 === ann }) {
+                        let snapshot = ann.clone()
+                        let newAnn = ann.clone()
+                        newAnn.strokeWidth = currentMarkerSize * 6
+                        annotations[index] = newAnn
+                        selectedAnnotation = newAnn
+                        undoStack.append(.added(newAnn))
+                        undoStack.append(.deleted(ann, index))
+                        redoStack.removeAll()
+                    }
+                    needsDisplay = true
+                }
+            } else if ann.tool == .loupe {
+                // Adjust loupe size
+                let oldSize = currentLoupeSize
+                let newSize = max(50, oldSize - delta * step * 10)
+                if newSize != oldSize {
+                    currentLoupeSize = newSize
+                    UserDefaults.standard.set(newSize, forKey: "loupeSize")
+                    // Update the loupe annotation
+                    if let index = annotations.firstIndex(where: { $0 === ann }) {
+                        let snapshot = ann.clone()
+                        let newAnn = ann.clone()
+                        annotations[index] = newAnn
+                        selectedAnnotation = newAnn
+                        undoStack.append(.added(newAnn))
+                        undoStack.append(.deleted(ann, index))
+                        redoStack.removeAll()
+                    }
+                    needsDisplay = true
+                }
+            } else {
+                // Adjust stroke width for other tools
+                let oldWidth = ann.strokeWidth
+                let newWidth = max(1, oldWidth - delta * step)
+                if newWidth != oldWidth {
+                    let snapshot = ann.clone()
+                    ann.strokeWidth = newWidth
+                    pushPropertyChangeUndo(annotation: ann, snapshot: snapshot)
+                    needsDisplay = true
+                    // Update tool options row if showing this annotation
+                    if selectedAnnotation === ann {
+                        toolOptionsRowView?.rebuild(forAnnotation: ann)
+                    }
+                }
+            }
+            return
+        }
+
+        // No annotation selected and no Cmd key → ignore (require Cmd for canvas zoom)
+        return
     }
 
     override func magnify(with event: NSEvent) {
