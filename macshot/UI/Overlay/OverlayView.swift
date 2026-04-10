@@ -28,6 +28,7 @@ protocol OverlayViewDelegate: AnyObject {
     func overlayViewDidRequestInputMonitoringPermission()
     func overlayViewDidBeginSelection()
     func overlayViewRemoteSelectionDidChange(_ rect: NSRect)
+    func overlayViewDidChangeWindowSnapState()
     func overlayViewRemoteSelectionDidFinish(_ rect: NSRect)
     func overlayViewDidRequestAddCapture()
     func overlayViewDidChangeWindowSnapState()
@@ -3525,11 +3526,20 @@ class OverlayView: NSView {
         // Canvas point currently under cursor (before zoom change)
         let canvasUnderCursor = viewToCanvas(cursorView)
         zoomLevel = max(zoomMin, min(zoomMax, level))
-        // After zoom change, pin that canvas point to the cursor's view position.
-        // because applyZoomTransform runs after the editor translate.
-        zoomAnchorCanvas = canvasUnderCursor
-        zoomAnchorView = cursorView
-        clampZoomAnchor()
+
+        // When zooming back to 1×, reset anchors to avoid floating-point drift
+        // that causes visual misalignment between background and annotations.
+        if abs(zoomLevel - 1.0) < 0.005 {
+            zoomLevel = 1.0
+            zoomAnchorCanvas = .zero
+            zoomAnchorView = .zero
+        } else {
+            // After zoom change, pin that canvas point to the cursor's view position.
+            // because applyZoomTransform runs after the editor translate.
+            zoomAnchorCanvas = canvasUnderCursor
+            zoomAnchorView = cursorView
+            clampZoomAnchor()
+        }
         showZoomLabel()
         needsDisplay = true
     }
@@ -7183,6 +7193,8 @@ class OverlayView: NSView {
                 // Notify all other overlays to redraw (they will check if mouse is on their screen)
                 overlayDelegate?.overlayViewDidChangeWindowSnapState()
                 needsDisplay = true
+                // Notify other overlays to redraw (for multi-monitor setups)
+                overlayDelegate?.overlayViewDidChangeWindowSnapState()
             }
         case 3:  // F — full screen capture (only in idle state with snap on)
             if state == .idle && windowSnapEnabled {
@@ -7572,44 +7584,53 @@ class OverlayView: NSView {
 
     // MARK: - Annotation layer cache
 
-    /// Render all committed annotations into a transparent image (canvas-space, no zoom).
+    /// Render all committed annotations into a transparent bitmap (canvas-space, no zoom).
     /// Reused across frames until annotations change, avoiding per-frame iteration.
     private func annotationLayerImage() -> NSImage {
         if let cached = cachedAnnotationLayer { return cached }
-        let size = bounds.size
-        let image = NSImage(size: size, flipped: false) { [annotations] _ in
-            guard let context = NSGraphicsContext.current else { return true }
-            // Censor annotations render first so other annotations appear on top
-            for annotation in annotations where annotation.tool == .pixelate {
-                annotation.draw(in: context)
-            }
-            for annotation in annotations where annotation.tool != .pixelate {
-                annotation.draw(in: context)
-            }
-            return true
-        }
-        // Force rasterization so subsequent draws are a fast blit
-        _ = image.cgImage(forProposedRect: nil, context: nil, hints: nil)
+        let image = renderAnnotationBitmap(annotations: annotations)
         cachedAnnotationLayer = image
         return image
     }
 
     /// Build annotation layer excluding specific annotations (used during drag/resize).
     private func buildAnnotationLayer(excluding: Set<ObjectIdentifier>) -> NSImage {
-        let size = bounds.size
         let filtered = annotations.filter { !excluding.contains(ObjectIdentifier($0)) }
-        let image = NSImage(size: size, flipped: false) { _ in
-            guard let context = NSGraphicsContext.current else { return true }
-            for annotation in filtered where annotation.tool == .pixelate {
-                annotation.draw(in: context)
-            }
-            for annotation in filtered where annotation.tool != .pixelate {
-                annotation.draw(in: context)
-            }
-            return true
+        return renderAnnotationBitmap(annotations: filtered)
+    }
+
+    /// Render annotations into a fixed bitmap at the current backing scale.
+    /// Uses CGBitmapContext with the window's color space so colors match exactly.
+    /// Returns an NSImage backed by a CGImage so AppKit never re-invokes a
+    /// drawing handler when the image is drawn into a zoomed context.
+    private func renderAnnotationBitmap(annotations: [Annotation]) -> NSImage {
+        let size = bounds.size
+        let scale = window?.backingScaleFactor ?? 2.0
+        let pxW = Int(ceil(size.width * scale))
+        let pxH = Int(ceil(size.height * scale))
+        let colorSpace = window?.screen?.colorSpace?.cgColorSpace ?? CGColorSpaceCreateDeviceRGB()
+        guard let cgCtx = CGContext(
+            data: nil, width: pxW, height: pxH,
+            bitsPerComponent: 8, bytesPerRow: 0,
+            space: colorSpace,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else { return NSImage(size: size) }
+        // Scale so drawing in points maps to pixels
+        cgCtx.scaleBy(x: scale, y: scale)
+
+        let nsCtx = NSGraphicsContext(cgContext: cgCtx, flipped: false)
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = nsCtx
+        for annotation in annotations where annotation.tool == .pixelate {
+            annotation.draw(in: nsCtx)
         }
-        _ = image.cgImage(forProposedRect: nil, context: nil, hints: nil)
-        return image
+        for annotation in annotations where annotation.tool != .pixelate {
+            annotation.draw(in: nsCtx)
+        }
+        NSGraphicsContext.restoreGraphicsState()
+
+        guard let cgImage = cgCtx.makeImage() else { return NSImage(size: size) }
+        return NSImage(cgImage: cgImage, size: size)
     }
 
     // MARK: - Output
