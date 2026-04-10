@@ -7358,8 +7358,8 @@ class OverlayView: NSView {
         needsDisplay = true
     }
 
-    func getAspectRatioHintState(completion: (CGFloat, Bool) -> Void) {
-        completion(aspectRatioHintOpacity, isCancellingAspectRatioLock)
+    func getAspectRatioHintState(completion: (CGFloat, Bool, AspectRatioLock) -> Void) {
+        completion(aspectRatioHintOpacity, isCancellingAspectRatioLock, aspectRatioLock)
     }
 
     private func showAspectRatioHint() {
@@ -7373,9 +7373,10 @@ class OverlayView: NSView {
         needsDisplay = true
     }
 
-    func syncAspectRatioHint(opacity: CGFloat, isCancelling: Bool) {
+    func syncAspectRatioHint(opacity: CGFloat, isCancelling: Bool, lock: AspectRatioLock) {
         aspectRatioHintOpacity = opacity
         isCancellingAspectRatioLock = isCancelling
+        aspectRatioLock = lock
         // Reset fade timer when syncing
         if opacity > 0.01 {
             aspectRatioHintFadeTimer?.invalidate()

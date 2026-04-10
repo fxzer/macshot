@@ -126,8 +126,8 @@ class OverlayWindowController {
     }
 
     func syncAspectRatioHintFrom(_ source: OverlayWindowController) {
-        source.overlayView?.getAspectRatioHintState { opacity, isCancelling in
-            overlayView?.syncAspectRatioHint(opacity: opacity, isCancelling: isCancelling)
+        source.overlayView?.getAspectRatioHintState { opacity, isCancelling, lock in
+            overlayView?.syncAspectRatioHint(opacity: opacity, isCancelling: isCancelling, lock: lock)
         }
     }
 
