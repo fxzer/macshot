@@ -197,6 +197,9 @@ class OverlayView: NSView {
     private var isResizingSelection: Bool = false
     private var resizeHandle: ResizeHandle = .none
     private var dragOffset: NSPoint = .zero
+    // Selection dragging state (Snipaste-style: drag selection area by clicking inside)
+    private var selectionDragStart: NSPoint = .zero
+    private var selectionDragOffset: NSPoint = .zero
     private var lastDragPoint: NSPoint?  // for shift constraint on flagsChanged
     private var spaceRepositioning: Bool = false  // Space held during drag to reposition
     private var spaceRepositionLast: NSPoint = .zero  // last mouse position when space reposition started
@@ -1244,6 +1247,13 @@ class OverlayView: NSView {
                     NSCursor.openHand.set()
                     return
                 }
+            }
+
+            // Inside selection area but not on any annotation — show drag cursor (Snipaste-style)
+            // This allows dragging the entire selection without clicking the move button
+            if selectionRect.contains(point) {
+                NSCursor.closedHand.set()
+                return
             }
         }
 
@@ -4868,6 +4878,23 @@ class OverlayView: NSView {
                 return
             }
 
+            // Snipaste-style: drag selection area when clicking inside selection but not on any annotation
+            // This allows moving the selection without clicking the move button
+            if pointIsInSelection(point) && currentTool != .crop {
+                let canvasPoint = viewToCanvas(point)
+                // Check if clicking on any movable annotation
+                let clickedOnAnnotation = annotations.reversed().contains(where: { $0.isMovable && $0.hitTest(point: canvasPoint) })
+                if !clickedOnAnnotation && currentTool == .select {
+                    // Inside selection but not on any annotation — start dragging selection
+                    isDraggingSelection = true
+                    selectionDragStart = point
+                    selectionDragOffset = NSPoint(x: point.x - selectionRect.origin.x, y: point.y - selectionRect.origin.y)
+                    NSCursor.closedHand.set()
+                    needsDisplay = true
+                    return
+                }
+            }
+
             // Start annotation (convert to canvas space for zoom).
             // Require the click to be inside the selection rectangle.
             if currentTool != .crop && pointIsInSelection(point) {
@@ -5055,6 +5082,13 @@ class OverlayView: NSView {
             needsDisplay = true
 
         case .selected:
+            // Selection dragging (Snipaste-style: drag selection area)
+            if isDraggingSelection {
+                selectionRect.origin = NSPoint(x: point.x - selectionDragOffset.x, y: point.y - selectionDragOffset.y)
+                needsDisplay = true
+                return
+            }
+
             // Convert to canvas space for annotation interactions (accounts for zoom)
             let canvasPoint = viewToCanvas(point)
             if isRotatingAnnotation, let annotation = selectedAnnotation {
@@ -6383,7 +6417,12 @@ class OverlayView: NSView {
         case .tool(let tool):
             commitTextFieldIfNeeded()
             showBeautifyInOptionsRow = false  // switch back to tool options
-            currentTool = tool
+            // If clicking the same tool that's already active, switch back to select tool
+            if currentTool == tool {
+                currentTool = .select
+            } else {
+                currentTool = tool
+            }
             // Auto-select first emoji when switching to stamp tool with nothing selected
             if tool == .stamp && currentStampImage == nil {
                 currentStampImage = StampEmojis.renderEmoji(StampEmojis.common[0])
