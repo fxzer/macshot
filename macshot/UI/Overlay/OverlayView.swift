@@ -2133,7 +2133,11 @@ class OverlayView: NSView {
             maxWidth = max(maxWidth, lineWidth)
         }
 
-        let totalHeight = lines.reduce(0) { $0 + $1.height + ($1 == lines.last ? 0 : lineSpacing) }
+        let totalHeight: CGFloat = lines.enumerated().reduce(0) { result, item in
+            let (index, line) = item
+            let isLast = index == lines.count - 1
+            return result + line.height + (isLast ? 0 : lineSpacing)
+        }
         let bgPadding: CGFloat = 12
         let bgWidth = maxWidth + bgPadding * 2
         let bgHeight = totalHeight + bgPadding * 2
@@ -8343,8 +8347,9 @@ extension OverlayView: AnnotationCanvas {
     }
 
     func autoSelectNewAnnotation(_ annotation: Annotation) {
-        // Switch to select tool and select the newly created annotation
-        currentTool = .select
+        // Select the newly created annotation so user can immediately adjust
+        // its properties via scroll wheel (size/stroke width) without clicking first.
+        // Keep the current tool active for continuous drawing.
         selectedAnnotation = annotation
         cachedCompositedImage = nil
     }
