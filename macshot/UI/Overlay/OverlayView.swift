@@ -215,8 +215,8 @@ class OverlayView: NSView {
         didSet {
             cachedCompositedImage = nil
             cachedEffectsScreenshot = nil
-            // Update move button enabled state when annotations change
-            if showToolbars { rebuildToolbarLayout() }
+            // Update move button enabled state when annotations change (defer heavy NSView work)
+            if showToolbars { scheduleDeferredToolbarRebuild() }
         }
     }
     var undoStack: [UndoEntry] = []
@@ -361,7 +361,9 @@ class OverlayView: NSView {
     var showToolbars: Bool = false {
         didSet {
             if showToolbars && !oldValue {
-                rebuildToolbarLayout()
+                // Defer toolbar creation to the next main-queue turn so mouseUp / first paint
+                // stays responsive when the user finishes a fast marquee selection.
+                scheduleDeferredToolbarRebuild()
             } else if !showToolbars && oldValue {
                 bottomStripView?.isHidden = true
                 rightStripView?.isHidden = true
@@ -854,6 +856,10 @@ class OverlayView: NSView {
         windowSnapCooldown = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
             self?.windowSnapCooldown = false
+        }
+
+        if showToolbars {
+            scheduleDeferredToolbarRebuild()
         }
 
         NotificationCenter.default.addObserver(
@@ -4303,6 +4309,21 @@ class OverlayView: NSView {
 
         repositionToolbars()
 
+    }
+
+    /// Coalesced async toolbar rebuild — avoids blocking event handling (e.g. mouseUp after marquee).
+    private var pendingToolbarRebuild = false
+
+    private func scheduleDeferredToolbarRebuild() {
+        guard showToolbars else { return }
+        guard !pendingToolbarRebuild else { return }
+        pendingToolbarRebuild = true
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.pendingToolbarRebuild = false
+            guard self.showToolbars, self.window != nil else { return }
+            self.rebuildToolbarLayout()
+        }
     }
 
     /// Reposition toolbar strips based on current selection/bounds. Cheap — safe to call from draw().

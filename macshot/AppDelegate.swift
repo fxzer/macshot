@@ -68,6 +68,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             setMenuBarIconVisible(false)
         }
         registerHotkey()
+        // Warm SF Symbol toolbar bitmaps on the next main-queue pass so the first overlay
+        // doesn't pay rasterization cost during the hotkey→drag path.
+        DispatchQueue.main.async {
+            ToolbarButtonView.preloadCommonIcons()
+        }
         // Pre-warm CoreAudio so the first capture sound doesn't stall ~1s.
         if let sound = Self.captureSound {
             sound.volume = 0
@@ -172,7 +177,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         if let button = statusItem.button {
             if let img = NSImage(named: "StatusBarIcon") {
                 img.isTemplate = true
-                img.size = NSSize(width: 22, height: 22)
+                img.size = NSSize(width: 18, height: 18)
                 button.image = img
             } else {
                 button.title = "macshot"

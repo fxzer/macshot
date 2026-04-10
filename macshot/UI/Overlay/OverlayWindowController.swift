@@ -94,12 +94,9 @@ class OverlayWindowController {
 
     func showOverlay() {
         guard let window = overlayWindow else { return }
-        // Force the view to render into its backing store before showing the window.
-        // This ensures the screenshot is fully drawn when the window appears,
-        // preventing a flash of the deactivating app underneath.
-        if let view = overlayView {
-            view.displayIfNeeded()
-        }
+        // Show immediately; do not call displayIfNeeded() here — it blocks the main thread
+        // until the full frame is rendered and makes the hotkey→drag path feel sluggish.
+        overlayView?.needsDisplay = true
         window.makeKeyAndOrderFront(nil)
         if let view = overlayView {
             window.makeFirstResponder(view)

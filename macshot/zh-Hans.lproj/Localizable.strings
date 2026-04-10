@@ -443,8 +443,8 @@
 "Cam shape:" = "摄像头形状:";
 
 /* New Strings */
-"Settings..." = "设置...";
-"macshot Settings" = "macshot 设置";
+"Settings..." = "偏好设置...";
+"macshot Settings" = "macshot 偏好设置";
 "Also open in Editor" = "同时在编辑器中打开";
 "Hide controls" = "隐藏控制";
 "Hide recording controls" = "隐藏录制控制";
@@ -483,8 +483,8 @@
 "Apple (on-device)" = "Apple（设备端）";
 "Apple translation is faster and works offline. Google Translate supports more languages." = "Apple 翻译更快且支持离线使用。Google Translate 支持更多语言。";
 "Download language packs in System Settings…" = "在系统设置中下载语言包…";
-"Configure S3 in Settings" = "在设置中配置 S3";
-"Sign in to Google Drive in Settings" = "在设置中登录 Google Drive";
+"Configure S3 in Settings" = "在偏好设置中配置 S3";
+"Sign in to Google Drive in Settings" = "在偏好设置中登录 Google Drive";
 "Position:" = "位置:";
 "Size:" = "大小:";
 "Shape:" = "形状:";

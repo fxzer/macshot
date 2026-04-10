@@ -22,6 +22,63 @@ class ToolbarButtonView: NSView {
     /// Shared cross-instance cache: avoids re-rasterizing SF Symbols when toolbar is rebuilt.
     /// Key: "symbolName|isOn|colorHex"
     private static var iconCache: [String: NSImage] = [:]
+    private static var hasPreloaded = false
+
+    /// Warm the icon cache after launch (must run on the main thread — AppKit image drawing is not thread-safe).
+    /// DispatchQueue.main.async from applicationDidFinishLaunching keeps startup responsive.
+    static func preloadCommonIcons() {
+        guard !hasPreloaded else { return }
+        hasPreloaded = true
+
+        let defaultColor = ToolbarLayout.iconColor
+        let onColor = ToolbarLayout.iconColor
+
+        let bottomSymbols = [
+            "scribble", "line.diagonal", "arrow.up.right", "rectangle", "oval",
+            "highlighter", "paintbrush.pointed.fill", "textformat", "1.circle.fill",
+            "_custom.checkerboard", "magnifyingglass", "face.smiling", "eyedropper", "ruler",
+            "arrow.uturn.backward", "arrow.uturn.forward",
+            "circle.righthalf.filled.inverse", "slider.horizontal.3", "sparkles",
+            "person.crop.circle.dashed",
+        ]
+
+        let rightSymbols = [
+            "xmark", "arrow.up.and.down.and.arrow.left.and.right", "arrow.up.forward.app",
+            "doc.on.doc", "square.and.arrow.down.fill", "square.and.arrow.up",
+            "icloud.and.arrow.up", "pin.fill", "doc.text.viewfinder", "translate",
+            "scroll", "video.fill", "record.circle", "cursorarrow.click.2", "keyboard",
+            "speaker.wave.2", "speaker.slash", "mic.fill", "mic.slash", "web.camera", "camera",
+            "gearshape",
+        ]
+
+        let allSymbols = Array(Set(bottomSymbols + rightSymbols))
+
+        for symbol in allSymbols {
+            for isOn in [false, true] {
+                let color = isOn ? onColor : defaultColor
+                let key = cacheKey(name: symbol, isOn: isOn, color: color)
+                if iconCache[key] == nil, let img = renderSymbol(named: symbol, color: color) {
+                    iconCache[key] = img
+                }
+            }
+        }
+    }
+
+    /// Render a single SF Symbol with the given color.
+    private static func renderSymbol(named name: String, color: NSColor) -> NSImage? {
+        if name == "_custom.checkerboard" {
+            return checkerboardIcon(color: color)
+        }
+        let cfg = NSImage.SymbolConfiguration(pointSize: 14, weight: .medium)
+        guard let symbol = NSImage(systemSymbolName: name, accessibilityDescription: nil)?
+                .withSymbolConfiguration(cfg) else { return nil }
+        return NSImage(size: symbol.size, flipped: false) { r in
+            symbol.draw(in: r, from: .zero, operation: .sourceOver, fraction: 1.0)
+            color.setFill()
+            r.fill(using: .sourceAtop)
+            return true
+        }
+    }
 
     private static func cacheKey(name: String, isOn: Bool, color: NSColor) -> String {
         let rgb = color.usingColorSpace(.sRGB) ?? color
