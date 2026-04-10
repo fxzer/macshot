@@ -17,15 +17,91 @@ class ScreenCaptureManager {
     /// short enough that display changes are picked up.
     private static let cacheTTL: TimeInterval = 2.0
 
+    /// Coalesces concurrent `shareableContent()` callers (e.g. `prewarm()` Task + capture Task)
+    /// so two overlapping requests only trigger one `SCShareableContent` enumeration.
+    private static let shareableFetchLock = NSLock()
+    private static var inFlightShareableFetch: Task<SCShareableContent, Error>?
+
     /// Fetch shareable content, using a short-lived cache to avoid redundant enumeration.
     private static func shareableContent() async throws -> SCShareableContent {
+        shareableFetchLock.lock()
         if let cached = cachedContent, Date().timeIntervalSince(cachedContentTime) < cacheTTL {
+            shareableFetchLock.unlock()
             return cached
         }
-        let content = try await SCShareableContent.excludingDesktopWindows(true, onScreenWindowsOnly: true)
-        cachedContent = content
-        cachedContentTime = Date()
-        return content
+        if let existing = inFlightShareableFetch {
+            shareableFetchLock.unlock()
+            return try await existing.value
+        }
+        let task = Task<SCShareableContent, Error> {
+            defer {
+                shareableFetchLock.lock()
+                inFlightShareableFetch = nil
+                shareableFetchLock.unlock()
+            }
+            let content = try await SCShareableContent.excludingDesktopWindows(true, onScreenWindowsOnly: true)
+            shareableFetchLock.lock()
+            cachedContent = content
+            cachedContentTime = Date()
+            shareableFetchLock.unlock()
+            return content
+        }
+        inFlightShareableFetch = task
+        shareableFetchLock.unlock()
+        return try await task.value
+    }
+
+    /// Returns shareable content plus `SCWindow` values for exclusion. Uses the cached
+    /// enumeration when every excluded window ID is present; otherwise refreshes once so
+    /// windows created after the cache (e.g. floating thumbnails) are visible to ScreenCaptureKit.
+    private static func shareableContentForCapture(excludingWindowNumbers: [CGWindowID]) async throws -> (SCShareableContent, [SCWindow]) {
+        if excludingWindowNumbers.isEmpty {
+            #if DEBUG
+            NSLog("[macshot] shareableContentForCapture: no exclusions, using cached content")
+            #endif
+            let content = try await shareableContent()
+            return (content, [])
+        }
+
+        let uniqueIDs = Array(Set(excludingWindowNumbers))
+
+        func resolve(_ content: SCShareableContent) -> [SCWindow] {
+            uniqueIDs.compactMap { wid in
+                content.windows.first(where: { CGWindowID($0.windowID) == wid })
+            }
+        }
+
+        var content = try await shareableContent()
+        var resolved = resolve(content)
+        var didRefresh = false
+
+        if resolved.count != uniqueIDs.count {
+            // Cache is missing one or more windows to exclude — enumerate again and refresh cache.
+            #if DEBUG
+            let missingIDs = uniqueIDs.filter { id in !resolved.contains(where: { CGWindowID($0.windowID) == id }) }
+            NSLog("[macshot] shareableContentForCapture: cache missing \(missingIDs.count) windows, refreshing: \(missingIDs)")
+            #endif
+            let fresh = try await SCShareableContent.excludingDesktopWindows(true, onScreenWindowsOnly: true)
+            shareableFetchLock.lock()
+            cachedContent = fresh
+            cachedContentTime = Date()
+            shareableFetchLock.unlock()
+            content = fresh
+            resolved = resolve(content)
+            didRefresh = true
+        } else {
+            #if DEBUG
+            NSLog("[macshot] shareableContentForCapture: cache HIT for all \(uniqueIDs.count) excluded windows")
+            #endif
+        }
+
+        // Use the already-resolved windows instead of re-filtering (SCContentFilter doesn't care about order)
+        #if DEBUG
+        if didRefresh {
+            NSLog("[macshot] shareableContentForCapture: after refresh, resolved \(resolved.count)/\(uniqueIDs.count) windows")
+        }
+        #endif
+        return (content, resolved)
     }
 
     /// Pre-warm the shareable content cache so the next capture is instant.
@@ -39,22 +115,9 @@ class ScreenCaptureManager {
     static func captureAllScreens(excludingWindowNumbers: [CGWindowID] = [], completion: @escaping ([ScreenCapture]) -> Void) {
         Task {
             do {
-                // When excluding windows, fetch fresh content so newly-created
-                // windows (e.g. thumbnails spawned after the cache was built) are
-                // present in the window list and can actually be excluded.
-                let content: SCShareableContent
-                if !excludingWindowNumbers.isEmpty {
-                    content = try await SCShareableContent.excludingDesktopWindows(true, onScreenWindowsOnly: true)
-                } else {
-                    content = try await shareableContent()
-                }
+                let (content, excludedSCWindows) = try await shareableContentForCapture(excludingWindowNumbers: excludingWindowNumbers)
                 let displays = content.displays
                 let screens = NSScreen.screens
-
-                // Resolve window numbers to SCWindow objects for exclusion
-                let excludedSCWindows: [SCWindow] = excludingWindowNumbers.compactMap { wid in
-                    content.windows.first(where: { CGWindowID($0.windowID) == wid })
-                }
 
                 // Build display-screen pairs
                 var pairs: [(SCDisplay, NSScreen)] = []
