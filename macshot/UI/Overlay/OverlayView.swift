@@ -183,6 +183,10 @@ class OverlayView: NSView {
     var zoomMin: CGFloat { 1.0 }
     private let zoomMax: CGFloat = 8.0
 
+    // Debounce timer for scroll wheel property adjustments (prevents memory explosion)
+    private var scrollPropertyAdjustTimer: Timer?
+    private var pendingPropertyChange: (annotation: Annotation, snapshot: Annotation, newValue: CGFloat, key: String)?
+
     // Selection
     private(set) var selectionRect: NSRect = .zero
     /// Selection rect from another overlay (in this view's local coords), drawn during cross-screen drag.
@@ -5982,18 +5986,28 @@ class OverlayView: NSView {
             let delta = event.deltaY
             let step: CGFloat = 0.5  // adjustment step size
 
+            // Invalidate any pending property change (debounce)
+            scrollPropertyAdjustTimer?.invalidate()
+            scrollPropertyAdjustTimer = nil
+
             if ann.tool == .text {
                 // Adjust font size for text annotations
                 let oldSize = ann.fontSize
                 let newSize = max(8, oldSize - delta * step)
                 if newSize != oldSize {
-                    let snapshot = ann.clone()
+                    // Apply visual change immediately (no undo yet)
                     ann.fontSize = newSize
-                    pushPropertyChangeUndo(annotation: ann, snapshot: snapshot)
                     needsDisplay = true
                     // Update tool options row if showing this annotation
                     if selectedAnnotation === ann {
                         toolOptionsRowView?.rebuild(forAnnotation: ann)
+                    }
+                    // Debounce: schedule undo push after scrolling stops
+                    scrollPropertyAdjustTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: false) { [weak self] _ in
+                        guard let self = self else { return }
+                        let snapshot = ann.clone()
+                        self.pushPropertyChangeUndo(annotation: ann, snapshot: snapshot)
+                        self.scrollPropertyAdjustTimer = nil
                     }
                 }
             } else if ann.tool == .number {
@@ -6002,19 +6016,20 @@ class OverlayView: NSView {
                 let newSize = max(8, oldSize - delta * step)
                 if newSize != oldSize {
                     currentNumberSize = newSize
-                    UserDefaults.standard.set(newSize, forKey: "numberStrokeWidth")
-                    // Re-create the number annotation with new size
-                    if let index = annotations.firstIndex(where: { $0 === ann }) {
-                        let snapshot = ann.clone()
-                        let newAnn = ann.clone()
-                        newAnn.strokeWidth = currentNumberSize
-                        annotations[index] = newAnn
-                        selectedAnnotation = newAnn
-                        undoStack.append(.added(newAnn))
-                        undoStack.append(.deleted(ann, index))
-                        redoStack.removeAll()
-                    }
+                    // Apply visual change immediately
+                    ann.strokeWidth = currentNumberSize
                     needsDisplay = true
+                    // Debounce: save after scrolling stops
+                    scrollPropertyAdjustTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: false) { [weak self] _ in
+                        guard let self = self else { return }
+                        UserDefaults.standard.set(newSize, forKey: "numberStrokeWidth")
+                        // Only push to undo stack on final commit
+                        if let index = self.annotations.firstIndex(where: { $0 === ann }) {
+                            let snapshot = ann.clone()
+                            self.undoStack.append(.propertyChange(annotation: ann, snapshot: snapshot))
+                        }
+                        self.scrollPropertyAdjustTimer = nil
+                    }
                 }
             } else if ann.tool == .marker {
                 // Adjust marker size
@@ -6022,19 +6037,20 @@ class OverlayView: NSView {
                 let newSize = max(2, oldSize - delta * step)
                 if newSize != oldSize {
                     currentMarkerSize = newSize
-                    UserDefaults.standard.set(newSize, forKey: "markerStrokeWidth")
-                    // Update the marker annotation
-                    if let index = annotations.firstIndex(where: { $0 === ann }) {
-                        let snapshot = ann.clone()
-                        let newAnn = ann.clone()
-                        newAnn.strokeWidth = currentMarkerSize * 6
-                        annotations[index] = newAnn
-                        selectedAnnotation = newAnn
-                        undoStack.append(.added(newAnn))
-                        undoStack.append(.deleted(ann, index))
-                        redoStack.removeAll()
-                    }
+                    // Apply visual change immediately (no object creation)
+                    ann.strokeWidth = currentMarkerSize * 6
                     needsDisplay = true
+                    // Debounce: save after scrolling stops
+                    scrollPropertyAdjustTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: false) { [weak self] _ in
+                        guard let self = self else { return }
+                        UserDefaults.standard.set(newSize, forKey: "markerStrokeWidth")
+                        // Only push to undo stack on final commit
+                        if let index = self.annotations.firstIndex(where: { $0 === ann }) {
+                            let snapshot = ann.clone()
+                            self.undoStack.append(.propertyChange(annotation: ann, snapshot: snapshot))
+                        }
+                        self.scrollPropertyAdjustTimer = nil
+                    }
                 }
             } else if ann.tool == .loupe {
                 // Adjust loupe size
@@ -6042,31 +6058,38 @@ class OverlayView: NSView {
                 let newSize = max(50, oldSize - delta * step * 10)
                 if newSize != oldSize {
                     currentLoupeSize = newSize
-                    UserDefaults.standard.set(newSize, forKey: "loupeSize")
-                    // Update the loupe annotation
-                    if let index = annotations.firstIndex(where: { $0 === ann }) {
-                        let snapshot = ann.clone()
-                        let newAnn = ann.clone()
-                        annotations[index] = newAnn
-                        selectedAnnotation = newAnn
-                        undoStack.append(.added(newAnn))
-                        undoStack.append(.deleted(ann, index))
-                        redoStack.removeAll()
-                    }
+                    // Apply visual change immediately
                     needsDisplay = true
+                    // Debounce: save after scrolling stops
+                    scrollPropertyAdjustTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: false) { [weak self] _ in
+                        guard let self = self else { return }
+                        UserDefaults.standard.set(newSize, forKey: "loupeSize")
+                        // Only push to undo stack on final commit
+                        if let index = self.annotations.firstIndex(where: { $0 === ann }) {
+                            let snapshot = ann.clone()
+                            self.undoStack.append(.propertyChange(annotation: ann, snapshot: snapshot))
+                        }
+                        self.scrollPropertyAdjustTimer = nil
+                    }
                 }
             } else {
                 // Adjust stroke width for other tools
                 let oldWidth = ann.strokeWidth
                 let newWidth = max(1, oldWidth - delta * step)
                 if newWidth != oldWidth {
-                    let snapshot = ann.clone()
+                    // Apply visual change immediately (no undo yet)
                     ann.strokeWidth = newWidth
-                    pushPropertyChangeUndo(annotation: ann, snapshot: snapshot)
                     needsDisplay = true
                     // Update tool options row if showing this annotation
                     if selectedAnnotation === ann {
                         toolOptionsRowView?.rebuild(forAnnotation: ann)
+                    }
+                    // Debounce: schedule undo push after scrolling stops
+                    scrollPropertyAdjustTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: false) { [weak self] _ in
+                        guard let self = self else { return }
+                        let snapshot = ann.clone()
+                        self.pushPropertyChangeUndo(annotation: ann, snapshot: snapshot)
+                        self.scrollPropertyAdjustTimer = nil
                     }
                 }
             }
