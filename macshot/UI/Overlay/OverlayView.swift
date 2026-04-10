@@ -2021,8 +2021,8 @@ class OverlayView: NSView {
         let keyBorderColor = NSColor.white.withAlphaComponent(0.25)
 
         // Key box dimensions - match text height
-        let keyPadding: CGFloat = 4
-        let keyCornerRadius: CGFloat = 3
+        let keyPadding: CGFloat = 6
+        let keyCornerRadius: CGFloat = 4
         let keySpacing: CGFloat = 3
 
         // Helper to draw a key box

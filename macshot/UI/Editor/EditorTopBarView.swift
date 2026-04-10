@@ -161,14 +161,24 @@ class EditorTopBarView: NSView {
     @objc private func zoomInAction() {
         guard let sv = overlayView?.enclosingScrollView, let doc = sv.documentView else { return }
         let newMag = min(sv.maxMagnification, sv.magnification * 1.25)
-        sv.setMagnification(newMag, centeredAt: NSPoint(x: doc.bounds.midX, y: doc.bounds.midY))
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.2
+            context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            context.allowsImplicitAnimation = true
+            sv.animator().setMagnification(newMag, centeredAt: NSPoint(x: doc.bounds.midX, y: doc.bounds.midY))
+        }
         updateZoom(newMag)
     }
 
     @objc private func zoomOutAction() {
         guard let sv = overlayView?.enclosingScrollView, let doc = sv.documentView else { return }
         let newMag = max(sv.minMagnification, sv.magnification / 1.25)
-        sv.setMagnification(newMag, centeredAt: NSPoint(x: doc.bounds.midX, y: doc.bounds.midY))
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.2
+            context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            context.allowsImplicitAnimation = true
+            sv.animator().setMagnification(newMag, centeredAt: NSPoint(x: doc.bounds.midX, y: doc.bounds.midY))
+        }
         updateZoom(newMag)
     }
 
@@ -180,14 +190,24 @@ class EditorTopBarView: NSView {
         let clipSize = sv.contentView.bounds.size
         let fitMag = min(clipSize.width / docUnscaledW, clipSize.height / docUnscaledH)
         let clamped = max(sv.minMagnification, min(sv.maxMagnification, fitMag))
-        sv.magnification = clamped
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.25
+            context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            context.allowsImplicitAnimation = true
+            sv.animator().magnification = clamped
+        }
         updateZoom(clamped)
     }
 
     @objc private func zoomPresetAction(_ sender: NSMenuItem) {
         let mag = CGFloat(sender.tag) / 100.0
         guard let sv = overlayView?.enclosingScrollView else { return }
-        sv.magnification = mag
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.25
+            context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            context.allowsImplicitAnimation = true
+            sv.animator().magnification = mag
+        }
         updateZoom(mag)
     }
 

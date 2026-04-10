@@ -83,6 +83,11 @@ final class HistoryOverlayController: NSObject, QLPreviewPanelDataSource, QLPrev
         }, completionHandler: {
             win.makeKeyAndOrderFront(nil)
             win.makeFirstResponder(view)
+            // Initialize selection to first card
+            if !view.filteredIndices.isEmpty {
+                view.selectedIndex = 0
+                view.needsDisplay = true
+            }
         })
 
         view.loadEntries()
@@ -328,7 +333,8 @@ private final class HistoryPanelView: NSView, NSDraggingSource {
     weak var controller: HistoryOverlayController?
 
     private var entries: [HistoryEntry] = []
-    private var filteredIndices: [Int] = []
+    private var _filteredIndices: [Int] = []
+    var filteredIndices: [Int] { _filteredIndices }
     private var previews: [String: NSImage] = [:]
     private var cardRects: [NSRect] = []
     private var hoveredIndex: Int = -1
@@ -344,6 +350,36 @@ private final class HistoryPanelView: NSView, NSDraggingSource {
     private var mouseDownCardIndex: Int = -1 // filtered index
     private var isDragging = false
     private static let dragThreshold: CGFloat = 4
+
+    // Selected card index for keyboard navigation (filtered index)
+    var selectedIndex: Int = 0
+
+    // Count of filtered entries for keyboard navigation
+    var filteredCount: Int { _filteredIndices.count }
+
+    // Get global index from filtered index
+    func filteredIndex(at index: Int) -> Int {
+        guard index >= 0, index < _filteredIndices.count else { return -1 }
+        return _filteredIndices[index]
+    }
+
+    // Scroll selected card into view
+    func scrollToCard(at index: Int) {
+        guard index >= 0, index < _filteredIndices.count else { return }
+        let cardWidth = Self.cardWidth + Self.cardGap
+        let viewportWidth = bounds.width - Self.sidePadding * 2
+        let maxScroll = max(contentWidth - bounds.width, 0)
+
+        let targetX = CGFloat(index) * cardWidth + Self.sidePadding - scrollOffset
+        let cardVisibleWidth = Self.cardWidth
+
+        if targetX < 0 {
+            scrollOffset = max(0, scrollOffset + targetX - 8)
+        } else if targetX + cardVisibleWidth > viewportWidth {
+            scrollOffset = min(maxScroll, scrollOffset + (targetX + cardVisibleWidth - viewportWidth) + 8)
+        }
+        needsDisplay = true
+    }
 
     // Layout constants
     private static let cardWidth: CGFloat = 200
@@ -394,7 +430,7 @@ private final class HistoryPanelView: NSView, NSDraggingSource {
     }
 
     private func applyFilter() {
-        filteredIndices = entries.enumerated().compactMap { (i, entry) in
+        _filteredIndices = entries.enumerated().compactMap { (i, entry) in
             activeFilter.matches(entry) ? i : nil
         }
         scrollOffset = 0
@@ -403,7 +439,7 @@ private final class HistoryPanelView: NSView, NSDraggingSource {
     }
 
     private func layoutCards() {
-        let count = filteredIndices.count
+        let count = _filteredIndices.count
         contentWidth = CGFloat(count) * Self.cardWidth
             + CGFloat(max(count - 1, 0)) * Self.cardGap + Self.sidePadding * 2
         cardRects = (0..<count).map { i in
@@ -433,7 +469,7 @@ private final class HistoryPanelView: NSView, NSDraggingSource {
 
         guard let context = NSGraphicsContext.current else { return }
 
-        if filteredIndices.isEmpty {
+        if _filteredIndices.isEmpty {
             drawEmptyState()
             return
         }
@@ -444,7 +480,7 @@ private final class HistoryPanelView: NSView, NSDraggingSource {
         context.saveGraphicsState()
         NSBezierPath(rect: cardClip).setClip()
 
-        for (fi, globalIndex) in filteredIndices.enumerated() {
+        for (fi, globalIndex) in _filteredIndices.enumerated() {
             guard fi < cardRects.count else { continue }
             var rect = cardRects[fi]
             rect.origin.x -= scrollOffset
@@ -545,15 +581,26 @@ private final class HistoryPanelView: NSView, NSDraggingSource {
     }
 
     private func drawCard(entry: HistoryEntry, rect: NSRect, isHovered: Bool) {
+        let isSelected = (_filteredIndices.firstIndex(of: entries.firstIndex(where: { $0.id == entry.id }) ?? -1) == selectedIndex)
+
         // Card background
-        let bgColor = isHovered
-            ? NSColor.white.withAlphaComponent(0.12)
-            : NSColor.white.withAlphaComponent(0.05)
+        let bgColor = isSelected
+            ? NSColor.white.withAlphaComponent(0.18)
+            : (isHovered ? NSColor.white.withAlphaComponent(0.12) : NSColor.white.withAlphaComponent(0.05))
         bgColor.setFill()
         NSBezierPath(roundedRect: rect, xRadius: 10, yRadius: 10).fill()
 
-        // Hover border
-        if isHovered {
+        // Hover/Selection border
+        if isSelected {
+            ToolbarLayout.accentColor.setStroke()
+            let border = NSBezierPath(roundedRect: rect.insetBy(dx: 1.5, dy: 1.5), xRadius: 8, yRadius: 8)
+            border.lineWidth = 2.5
+            border.stroke()
+
+            // Inner glow effect
+            ToolbarLayout.accentColor.withAlphaComponent(0.15).setFill()
+            border.fill()
+        } else if isHovered {
             ToolbarLayout.accentColor.withAlphaComponent(0.7).setStroke()
             let border = NSBezierPath(roundedRect: rect.insetBy(dx: 1, dy: 1), xRadius: 9, yRadius: 9)
             border.lineWidth = 1.5
@@ -723,8 +770,8 @@ private final class HistoryPanelView: NSView, NSDraggingSource {
     }
 
     private func beginDragSession(filterIndex: Int, event: NSEvent) {
-        guard filterIndex >= 0, filterIndex < filteredIndices.count else { return }
-        let globalIndex = filteredIndices[filterIndex]
+        guard filterIndex >= 0, filterIndex < _filteredIndices.count else { return }
+        let globalIndex = _filteredIndices[filterIndex]
         let entry = entries[globalIndex]
         let fileURL = ScreenshotHistory.shared.fileURL(for: entry) as NSURL
 
@@ -802,10 +849,10 @@ private final class HistoryPanelView: NSView, NSDraggingSource {
     override func mouseUp(with event: NSEvent) {
         defer { mouseDownCardIndex = -1 }
         guard !isDragging, mouseDownCardIndex >= 0,
-              mouseDownCardIndex < filteredIndices.count else { return }
+              mouseDownCardIndex < _filteredIndices.count else { return }
 
         // Click — copy to clipboard
-        let globalIndex = filteredIndices[mouseDownCardIndex]
+        let globalIndex = _filteredIndices[mouseDownCardIndex]
         controller?.copyAndDismiss(index: globalIndex)
     }
 
@@ -818,8 +865,8 @@ private final class HistoryPanelView: NSView, NSDraggingSource {
             return rect.contains(point)
         }) ?? -1
 
-        guard clickedCard >= 0, clickedCard < filteredIndices.count else { return }
-        let globalIndex = filteredIndices[clickedCard]
+        guard clickedCard >= 0, clickedCard < _filteredIndices.count else { return }
+        let globalIndex = _filteredIndices[clickedCard]
         controller?.showContextMenu(for: globalIndex, at: point, in: self)
     }
 
@@ -828,6 +875,27 @@ private final class HistoryPanelView: NSView, NSDraggingSource {
     override func keyDown(with event: NSEvent) {
         if event.keyCode == 53 { // ESC
             controller?.dismiss()
+            return
+        }
+
+        switch event.keyCode {
+        case 123: // Left arrow
+            if selectedIndex > 0 {
+                selectedIndex -= 1
+                scrollToCard(at: selectedIndex)
+            }
+        case 124: // Right arrow
+            if selectedIndex < filteredCount - 1 {
+                selectedIndex += 1
+                scrollToCard(at: selectedIndex)
+            }
+        case 36: // Return/Enter - copy selected to clipboard
+            if selectedIndex >= 0, selectedIndex < filteredCount {
+                let globalIndex = filteredIndex(at: selectedIndex)
+                controller?.copyAndDismiss(index: globalIndex)
+            }
+        default:
+            super.keyDown(with: event)
         }
     }
 }

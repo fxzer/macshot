@@ -151,10 +151,10 @@
 "Click a window  ·  Drag for custom area  ·  F for full screen" = "点按窗口  ·  拖拽自定义区域  ·  F 全屏";
 "Drag to select  ·  Click for full screen" = "拖拽选择  ·  点按全屏捕获";
 "Release to annotate and edit" = "松开以标注和编辑";
-"Window snap: " = "窗口吸附: ";
+"Window snap:" = "窗口吸附：";
 "ON" = "开";
 "OFF" = "关";
-"  (Tab to toggle)" = "  (Tab 切换)";
+"Tab to toggle" = "Tab 切换";
 "Right-click to copy" = "右键点按拷贝";
 "Copied %@" = "已拷贝 %@";
 "Set color %@" = "设置颜色 %@";
@@ -164,6 +164,11 @@
 "Aspect ratio lock cleared" = "已取消比例锁定";
 "Aspect ratio locked: " = "已锁定比例：";
 " (press the same number again to clear, R to invert)" = "（再次按相同数字取消，R 键反转）";
+"Ratio:" = "比例：";
+"Fullscreen" = "全屏";
+"Invert" = "反转";
+"Click window" = "点按窗口";
+"Drag to select" = "拖拽选择";
 
 /* Overlay - Popovers */
 "Format:" = "格式:";
