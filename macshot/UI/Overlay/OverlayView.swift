@@ -378,9 +378,13 @@ class OverlayView: NSView {
     private var rightStripView: ToolbarStripView?
     private var toolOptionsRowView: ToolOptionsRowView?
 
-    // Size label
-    private var sizeLabelRect: NSRect = .zero
-    private var sizeInputField: NSTextField?
+    // Size labels (split into width and height for independent editing)
+    private var widthLabelRect: NSRect = .zero
+    private var heightLabelRect: NSRect = .zero
+    private var widthInputField: NSTextField?
+    private var heightInputField: NSTextField?
+    private var sizeLabelRect: NSRect = .zero  // Kept for compatibility with zoom label positioning
+    private var sizeInputField: NSTextField?  // Kept for backward compatibility
 
     // Zoom label
     private var zoomLabelRect: NSRect = .zero
@@ -1323,7 +1327,8 @@ class OverlayView: NSView {
             }
         }
         if updateCursorForChrome(at: point) { return true }
-        if sizeLabelRect.contains(point) && sizeInputField == nil { return true }
+        if (widthLabelRect.contains(point) || heightLabelRect.contains(point))
+            && widthInputField == nil && heightInputField == nil { return true }
         if zoomLabelRect.contains(point) && zoomLabelOpacity > 0 && zoomInputField == nil {
             return true
         }
@@ -2222,42 +2227,70 @@ class OverlayView: NSView {
     ]
 
     private func drawSizeLabel() {
-        guard sizeInputField == nil else { return }  // don't draw while editing
+        guard widthInputField == nil && heightInputField == nil else { return }  // don't draw while editing
 
         // Get pixel dimensions (account for Retina)
         let scale = window?.backingScaleFactor ?? 2.0
         let pixelW = Int(selectionRect.width * scale)
         let pixelH = Int(selectionRect.height * scale)
-        let text = "\(pixelW) \u{00D7} \(pixelH)"
 
         let attrs = Self.sizeLabelAttrs
-        let textSize = (text as NSString).size(withAttributes: attrs)
         let padding: CGFloat = 6
-        let labelW = textSize.width + padding * 2
-        let labelH = textSize.height + padding
+        let gap: CGFloat = 8  // space between width and height labels
 
-        let labelX = selectionRect.midX - labelW / 2
+        // Calculate individual label sizes
+        let widthText = "\(pixelW)"
+        let heightText = "\(pixelH)"
+        let widthTextSize = (widthText as NSString).size(withAttributes: attrs)
+        let heightTextSize = (heightText as NSString).size(withAttributes: attrs)
+        let timesText = "\u{00D7}"
+        let timesTextSize = (timesText as NSString).size(withAttributes: attrs)
 
-        // Default: above selection. If toolbar is above (bottomBarRect is above selection), go below toolbar area.
-        // If no room above, go below.
+        let widthLabelW = widthTextSize.width + padding * 2
+        let heightLabelW = heightTextSize.width + padding * 2
+        let labelH = widthTextSize.height + padding
+
+        // Total width including the × symbol
+        let totalW = widthLabelW + gap + timesTextSize.width + gap + heightLabelW
+
+        // Position centered above/below selection
+        let baseX = selectionRect.midX - totalW / 2
+
         let above = selectionRect.maxY + 4
         let below = selectionRect.minY - labelH - 4
-        let labelY: CGFloat
+        let baseY: CGFloat
         if above + labelH < bounds.maxY - 2 {
-            labelY = above
+            baseY = above
         } else if below >= bounds.minY + 2 {
-            labelY = below
+            baseY = below
         } else {
-            labelY = above  // fallback
+            baseY = above  // fallback
         }
 
-        let rect = NSRect(x: labelX, y: labelY, width: labelW, height: labelH)
-        sizeLabelRect = rect
-
+        // Draw width label
+        let widthRect = NSRect(x: baseX, y: baseY, width: widthLabelW, height: labelH)
+        widthLabelRect = widthRect
         ToolbarLayout.bgColor.setFill()
-        NSBezierPath(roundedRect: rect, xRadius: 4, yRadius: 4).fill()
-        (text as NSString).draw(
-            at: NSPoint(x: rect.minX + padding, y: rect.minY + padding / 2), withAttributes: attrs)
+        NSBezierPath(roundedRect: widthRect, xRadius: 4, yRadius: 4).fill()
+        (widthText as NSString).draw(
+            at: NSPoint(x: widthRect.minX + padding, y: widthRect.minY + padding / 2), withAttributes: attrs)
+
+        // Draw × symbol
+        let timesX = baseX + widthLabelW + gap
+        (timesText as NSString).draw(
+            at: NSPoint(x: timesX, y: baseY + padding / 2), withAttributes: attrs)
+
+        // Draw height label
+        let heightX = timesX + timesTextSize.width + gap
+        let heightRect = NSRect(x: heightX, y: baseY, width: heightLabelW, height: labelH)
+        heightLabelRect = heightRect
+        ToolbarLayout.bgColor.setFill()
+        NSBezierPath(roundedRect: heightRect, xRadius: 4, yRadius: 4).fill()
+        (heightText as NSString).draw(
+            at: NSPoint(x: heightRect.minX + padding, y: heightRect.minY + padding / 2), withAttributes: attrs)
+
+        // Update sizeLabelRect to encompass both labels (for zoom label positioning)
+        sizeLabelRect = NSRect(x: baseX, y: baseY, width: totalW, height: labelH)
     }
 
     private func drawZoomLabel() {
@@ -2296,18 +2329,24 @@ class OverlayView: NSView {
     }
 
     private func showSizeInput() {
+        // This method is kept for backward compatibility but delegates to width input
+        showWidthInput()
+    }
+
+    private func showWidthInput() {
+        guard widthInputField == nil && heightInputField == nil else { return }
+
         let scale = window?.backingScaleFactor ?? 2.0
         let pixelW = Int(selectionRect.width * scale)
-        let pixelH = Int(selectionRect.height * scale)
 
-        let fieldWidth: CGFloat = 120
+        let fieldWidth: CGFloat = 80
         let fieldHeight: CGFloat = 22
-        let fieldX = sizeLabelRect.midX - fieldWidth / 2
-        let fieldY = sizeLabelRect.minY + (sizeLabelRect.height - fieldHeight) / 2
+        let fieldX = widthLabelRect.minX + (widthLabelRect.width - fieldWidth) / 2
+        let fieldY = widthLabelRect.minY + (widthLabelRect.height - fieldHeight) / 2
 
         let field = NSTextField(
             frame: NSRect(x: fieldX, y: fieldY, width: fieldWidth, height: fieldHeight))
-        field.stringValue = "\(pixelW) \u{00D7} \(pixelH)"
+        field.stringValue = "\(pixelW)"
         field.font = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium)
         field.alignment = .center
         field.isBezeled = true
@@ -2316,77 +2355,133 @@ class OverlayView: NSView {
         field.textColor = .white
         field.focusRingType = .none
         field.delegate = self
-        field.tag = 888
+        field.tag = 901  // Width field tag
 
         addSubview(field)
-        sizeInputField = field
+        widthInputField = field
+        window?.makeFirstResponder(field)
+        field.selectText(nil)
+        needsDisplay = true
+    }
+
+    private func showHeightInput() {
+        guard widthInputField == nil && heightInputField == nil else { return }
+
+        let scale = window?.backingScaleFactor ?? 2.0
+        let pixelH = Int(selectionRect.height * scale)
+
+        let fieldWidth: CGFloat = 80
+        let fieldHeight: CGFloat = 22
+        let fieldX = heightLabelRect.minX + (heightLabelRect.width - fieldWidth) / 2
+        let fieldY = heightLabelRect.minY + (heightLabelRect.height - fieldHeight) / 2
+
+        let field = NSTextField(
+            frame: NSRect(x: fieldX, y: fieldY, width: fieldWidth, height: fieldHeight))
+        field.stringValue = "\(pixelH)"
+        field.font = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium)
+        field.alignment = .center
+        field.isBezeled = true
+        field.bezelStyle = .roundedBezel
+        field.backgroundColor = NSColor(white: 0.15, alpha: 0.95)
+        field.textColor = .white
+        field.focusRingType = .none
+        field.delegate = self
+        field.tag = 902  // Height field tag
+
+        addSubview(field)
+        heightInputField = field
         window?.makeFirstResponder(field)
         field.selectText(nil)
         needsDisplay = true
     }
 
     private func commitSizeInputIfNeeded() {
-        guard let field = sizeInputField else { return }
+        // Commit width input
+        if let field = widthInputField {
+            commitWidthInput(field)
+        }
+        // Commit height input
+        if let field = heightInputField {
+            commitHeightInput(field)
+        }
+        // Legacy support for old single field
+        if let field = sizeInputField {
+            field.removeFromSuperview()
+            sizeInputField = nil
+            needsDisplay = true
+        }
+    }
+
+    private func commitWidthInput(_ field: NSTextField) {
         let input = field.stringValue.trimmingCharacters(in: .whitespaces)
-
-        // Parse "W × H", "WxH", "W*H", "W H", or just a single number
-        let separators = CharacterSet(charactersIn: "\u{00D7}xX*").union(.whitespaces)
-        let parts = input.components(separatedBy: separators).filter { !$0.isEmpty }
-
-        let scale = window?.backingScaleFactor ?? 2.0
-        var newW: CGFloat?
-        var newH: CGFloat?
-
-        if parts.count == 2, let w = Int(parts[0]), let h = Int(parts[1]), w > 0, h > 0 {
-            // Both dimensions provided
-            newW = CGFloat(w) / scale
-            newH = CGFloat(h) / scale
-        } else if parts.count == 1, let value = Int(parts[0]), value > 0 {
-            // Only one dimension provided - use aspect ratio lock if available
-            let pixelValue = CGFloat(value) / scale
-            if aspectRatioLock != .none {
-                let ratio = aspectRatioLock.ratio
-                // Determine if user entered width or height based on current selection
-                if selectionRect.width >= selectionRect.height {
-                    // Landscape: assume entered value is width
-                    newW = pixelValue
-                    newH = pixelValue / ratio
-                } else {
-                    // Portrait: assume entered value is height
-                    newH = pixelValue
-                    newW = pixelValue * ratio
-                }
-            } else if selectionRect.width > 0, selectionRect.height > 0 {
-                // No aspect ratio lock - can't determine which dimension was entered
-                // Fall back to maintaining current aspect ratio
-                let currentRatio = selectionRect.width / selectionRect.height
-                if selectionRect.width >= selectionRect.height {
-                    newW = pixelValue
-                    newH = pixelValue / currentRatio
-                } else {
-                    newH = pixelValue
-                    newW = pixelValue * currentRatio
-                }
-            } else {
-                newW = pixelValue
-                newH = pixelValue
-            }
+        guard let value = Int(input), value > 0 else {
+            field.removeFromSuperview()
+            widthInputField = nil
+            window?.makeFirstResponder(self)
+            needsDisplay = true
+            return
         }
 
-        if let w = newW, let h = newH {
-            // Resize from center of current selection
-            let centerX = selectionRect.midX
-            let centerY = selectionRect.midY
-            selectionRect = NSRect(
-                x: centerX - w / 2,
-                y: centerY - h / 2,
-                width: w,
-                height: h
-            )
+        let scale = window?.backingScaleFactor ?? 2.0
+        let newW = CGFloat(value) / scale
+        var newH = selectionRect.height
+
+        // If aspect ratio is locked, calculate height
+        if aspectRatioLock != .none {
+            let ratio = aspectRatioLock.ratio
+            newH = newW / ratio
+        }
+
+        // Apply new size (keep center stable)
+        let centerX = selectionRect.midX
+        let centerY = selectionRect.midY
+        selectionRect = NSRect(x: centerX - newW / 2, y: centerY - newH / 2, width: newW, height: newH)
+
+        // Update height input if it exists
+        if let heightField = heightInputField {
+            let pixelH = Int(newH * scale)
+            heightField.stringValue = "\(pixelH)"
         }
 
         field.removeFromSuperview()
-        sizeInputField = nil
+        widthInputField = nil
+        window?.makeFirstResponder(self)
+        needsDisplay = true
+    }
+
+    private func commitHeightInput(_ field: NSTextField) {
+        let input = field.stringValue.trimmingCharacters(in: .whitespaces)
+        guard let value = Int(input), value > 0 else {
+            field.removeFromSuperview()
+            heightInputField = nil
+            window?.makeFirstResponder(self)
+            needsDisplay = true
+            return
+        }
+
+        let scale = window?.backingScaleFactor ?? 2.0
+        let newH = CGFloat(value) / scale
+        var newW = selectionRect.width
+
+        // If aspect ratio is locked, calculate width
+        if aspectRatioLock != .none {
+            let ratio = aspectRatioLock.ratio
+            newW = newH * ratio
+        }
+
+        // Apply new size (keep center stable)
+        let centerX = selectionRect.midX
+        let centerY = selectionRect.midY
+        selectionRect = NSRect(x: centerX - newW / 2, y: centerY - newH / 2, width: newW, height: newH)
+
+        // Update width input if it exists
+        if let widthField = widthInputField {
+            let pixelW = Int(newW * scale)
+            widthField.stringValue = "\(pixelW)"
+        }
+
+        field.removeFromSuperview()
+        heightInputField = nil
         window?.makeFirstResponder(self)
         needsDisplay = true
     }
@@ -4933,12 +5028,23 @@ class OverlayView: NSView {
                 return
             }
 
-            // Check size label click
-            if sizeLabelRect.contains(point) && sizeInputField == nil {
-                showSizeInput()
+            // Check size label clicks (split into width and height)
+            if widthLabelRect.contains(point) && widthInputField == nil && heightInputField == nil {
+                showWidthInput()
                 return
             }
+            if heightLabelRect.contains(point) && widthInputField == nil && heightInputField == nil {
+                showHeightInput()
+                return
+            }
+            // Legacy support for old sizeInputField
             if let field = sizeInputField, field.frame.contains(point) {
+                return  // let the text field handle it
+            }
+            if let field = widthInputField, field.frame.contains(point) {
+                return  // let the text field handle it
+            }
+            if let field = heightInputField, field.frame.contains(point) {
                 return  // let the text field handle it
             }
 
