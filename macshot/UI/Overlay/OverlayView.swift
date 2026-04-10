@@ -2004,74 +2004,176 @@ class OverlayView: NSView {
         // Only draw helper text on the monitor where the mouse is located
         guard isMouseOnCurrentScreen() else { return }
 
-        let line1 =
-            windowSnapEnabled
-            ? L("Click a window  ·  Drag for custom area  ·  F for full screen")
-            : L("Drag to select  ·  Click for full screen")
-        let line2 = L(
-            "Lock aspect ratio: 1=1:1  2=2:3  3=3:4  4=4:5  5=5:7  6=9:16  (R to invert  0 to cancel)"
-        )
-        let snapOn = windowSnapEnabled
-        let line3prefix = L("Window snap: ")
-        let line3state = snapOn ? L("ON") : L("OFF")
-        let line3suffix = L("  (Tab to toggle)")
+        // Design improvements:
+        // - Position in bottom-left corner
+        // - Keys in rounded boxes with borders
+        // - Clean, organized layout
 
+        let snapOn = windowSnapEnabled
+        let snapText = snapOn ? L("ON") : L("OFF")
         let snapColor = snapOn ? NSColor.systemGreen : NSColor.systemOrange
 
-        let attrs1: [NSAttributedString.Key: Any] = [.font: Self.helperFont, .foregroundColor: NSColor.white]
-        let attrs2prefix: [NSAttributedString.Key: Any] = [
-            .font: Self.helperSmallFont, .foregroundColor: Self.helperDimColor,
-        ]
-        let attrs2state: [NSAttributedString.Key: Any] = [
-            .font: Self.helperSmallBoldFont, .foregroundColor: snapColor,
-        ]
-        let attrs2suffix: [NSAttributedString.Key: Any] = [
-            .font: Self.helperSmallFont, .foregroundColor: Self.helperDimColor,
-        ]
+        // Fonts
+        let baseFont = Self.helperSmallFont
+        let keyFont = NSFont.systemFont(ofSize: 11, weight: .semibold)
+        let labelColor = NSColor.white.withAlphaComponent(0.75)
+        let keyBgColor = NSColor.white.withAlphaComponent(0.15)
+        let keyBorderColor = NSColor.white.withAlphaComponent(0.3)
 
-        let size1 = (line1 as NSString).size(withAttributes: attrs1)
-        let size2 = (line2 as NSString).size(withAttributes: attrs2prefix)
-        let size3pre = (line3prefix as NSString).size(withAttributes: attrs2prefix)
-        let size3state = (line3state as NSString).size(withAttributes: attrs2state)
-        let size3suf = (line3suffix as NSString).size(withAttributes: attrs2suffix)
-        let size3total = CGSize(
-            width: size3pre.width + size3state.width + size3suf.width,
-            height: max(size3pre.height, size3state.height, size3suf.height))
+        // Key box dimensions
+        let keyPadding: CGFloat = 6
+        let keyCornerRadius: CGFloat = 4
+        let keySpacing: CGFloat = 4
 
-        let lineSpacing: CGFloat = 6
-        let padding: CGFloat = 14
-        let totalTextHeight = size1.height + lineSpacing + size2.height + lineSpacing + size3total.height
-        let bgWidth = max(size1.width, size2.width, size3total.width) + padding * 2
-        let bgHeight = totalTextHeight + padding * 2
+        // Helper to draw a key box
+        func drawKey(_ text: String, at origin: NSPoint) -> NSRect {
+            let attrs: [NSAttributedString.Key: Any] = [.font: keyFont, .foregroundColor: NSColor.white]
+            let size = (text as NSString).size(withAttributes: attrs)
+            let rect = NSRect(
+                x: origin.x,
+                y: origin.y,
+                width: size.width + keyPadding * 2,
+                height: size.height + keyPadding * 1.5
+            )
 
-        let bgX = bounds.midX - bgWidth / 2
-        let bgY = bounds.midY - bgHeight / 2
+            // Draw key background
+            keyBgColor.setFill()
+            NSBezierPath(roundedRect: rect, xRadius: keyCornerRadius, yRadius: keyCornerRadius).fill()
+
+            // Draw key border
+            keyBorderColor.setStroke()
+            let border = NSBezierPath(roundedRect: rect.insetBy(dx: 0.5, dy: 0.5), xRadius: keyCornerRadius, yRadius: keyCornerRadius)
+            border.lineWidth = 1
+            border.stroke()
+
+            // Draw key text
+            let textPoint = NSPoint(
+                x: rect.midX - size.width / 2,
+                y: rect.midY - size.height / 2
+            )
+            (text as NSString).draw(at: textPoint, withAttributes: attrs)
+
+            return rect
+        }
+
+        // Helper to draw label text
+        func drawLabel(_ text: String, at origin: NSPoint) -> NSRect {
+            let attrs: [NSAttributedString.Key: Any] = [.font: baseFont, .foregroundColor: labelColor]
+            let size = (text as NSString).size(withAttributes: attrs)
+            (text as NSString).draw(at: origin, withAttributes: attrs)
+            return NSRect(origin: origin, size: size)
+        }
+
+        // Layout parameters
+        let margin: CGFloat = 20
+        let lineSpacing: CGFloat = 10
+
+        // Calculate content
+        var lines: [(elements: [(type: String, text: String, width: CGFloat)], height: CGFloat)] = []
+
+        // Line 1: Drag to select / Window snap + Tab key
+        var line1Elements: [(type: String, text: String, width: CGFloat)] = []
+        let modeText = windowSnapEnabled ? L("Click window") : L("Drag to select")
+        let modeAttrs: [NSAttributedString.Key: Any] = [.font: baseFont, .foregroundColor: labelColor]
+        let modeSize = (modeText as NSString).size(withAttributes: modeAttrs)
+        line1Elements.append(("label", modeText, modeSize.width))
+
+        let snapLabelSize = (L("Window snap:") as NSString).size(withAttributes: modeAttrs)
+        line1Elements.append(("label", " " + L("Window snap:"), snapLabelSize.width))
+
+        let snapStateSize = (snapText as NSString).size(withAttributes: modeAttrs)
+        line1Elements.append(("state", snapText, snapStateSize.width))
+
+        let tabKeySize = ("Tab" as NSString).size(withAttributes: [.font: keyFont, .foregroundColor: NSColor.white])
+        line1Elements.append(("label", " " + L("toggle"), (L("toggle") as NSString).size(withAttributes: modeAttrs).width))
+        line1Elements.append(("key", "Tab", tabKeySize.width))
+
+        lines.append((line1Elements, 18))
+
+        // Line 2: Aspect ratio keys
+        var line2Elements: [(type: String, text: String, width: CGFloat)] = []
+        let ratioLabel = L("Aspect ratio:")
+        let ratioLabelSize = (ratioLabel as NSString).size(withAttributes: modeAttrs)
+        line2Elements.append(("label", ratioLabel, ratioLabelSize.width))
+
+        let keys = ["0", "1", "2", "3", "4", "5", "6"]
+        let ratios = [L("Free"), "1:1", "2:3", "3:4", "4:5", "5:7", "9:16"]
+        for (i, key) in keys.enumerated() {
+            line2Elements.append(("key", key, (key as NSString).size(withAttributes: [.font: keyFont]).width))
+            line2Elements.append(("label", ratios[i], (ratios[i] as NSString).size(withAttributes: modeAttrs).width))
+        }
+        line2Elements.append(("key", "R", ("R" as NSString).size(withAttributes: [.font: keyFont]).width))
+        line2Elements.append(("label", L("invert"), (L("invert") as NSString).size(withAttributes: modeAttrs).width))
+
+        lines.append((line2Elements, 18))
+
+        // Line 3: F for fullscreen
+        var line3Elements: [(type: String, text: String, width: CGFloat)] = []
+        line3Elements.append(("key", "F", ("F" as NSString).size(withAttributes: [.font: keyFont]).width))
+        line3Elements.append(("label", L("Fullscreen"), (L("Fullscreen") as NSString).size(withAttributes: modeAttrs).width))
+
+        lines.append((line3Elements, 18))
+
+        // Calculate total size
+        var maxWidth: CGFloat = 0
+        for line in lines {
+            var lineWidth: CGFloat = 0
+            for (i, elem) in line.elements.enumerated() {
+                if elem.type == "key" {
+                    lineWidth += elem.width + keyPadding * 2 + keySpacing
+                } else if elem.type == "state" {
+                    lineWidth += elem.width + keySpacing
+                } else {
+                    lineWidth += elem.width
+                }
+                if i < line.elements.count - 1 {
+                    lineWidth += keySpacing
+                }
+            }
+            maxWidth = max(maxWidth, lineWidth)
+        }
+
+        let totalHeight = lines.reduce(0) { $0 + $1.height + ($1 == lines.last ? 0 : lineSpacing) }
+        let bgPadding: CGFloat = 12
+        let bgWidth = maxWidth + bgPadding * 2
+        let bgHeight = totalHeight + bgPadding * 2
+
+        // Position in bottom-left
+        let bgX = margin
+        let bgY = margin
         let bgRect = NSRect(x: bgX, y: bgY, width: bgWidth, height: bgHeight)
 
-        NSColor.black.withAlphaComponent(0.65).setFill()
+        // Draw background
+        NSColor.black.withAlphaComponent(0.6).setFill()
         NSBezierPath(roundedRect: bgRect, xRadius: 8, yRadius: 8).fill()
 
-        let textY1 = bgY + padding + size3total.height + lineSpacing + size2.height + lineSpacing
-        let textY2 = bgY + padding + size3total.height + lineSpacing
-        let textY3 = bgY + padding
+        // Draw content
+        var currentY = bgY + bgHeight - bgPadding - 16
 
-        (line1 as NSString).draw(
-            at: NSPoint(x: bounds.midX - size1.width / 2, y: textY1), withAttributes: attrs1)
+        for line in lines {
+            var currentX = bgX + bgPadding
 
-        // Draw aspect ratio lock hint (line 2)
-        (line2 as NSString).draw(
-            at: NSPoint(x: bounds.midX - size2.width / 2, y: textY2), withAttributes: attrs2prefix)
+            for (i, elem) in line.elements.enumerated() {
+                switch elem.type {
+                case "key":
+                    let keyRect = drawKey(elem.text, at: NSPoint(x: currentX, y: currentY))
+                    currentX += keyRect.width + keySpacing
+                case "state":
+                    let stateAttrs: [NSAttributedString.Key: Any] = [
+                        .font: NSFont.systemFont(ofSize: 11, weight: .semibold),
+                        .foregroundColor: snapColor
+                    ]
+                    let stateSize = (elem.text as NSString).size(withAttributes: stateAttrs)
+                    (elem.text as NSString).draw(at: NSPoint(x: currentX, y: currentY + 2), withAttributes: stateAttrs)
+                    currentX += stateSize.width + keySpacing
+                default:
+                    let labelRect = drawLabel(elem.text, at: NSPoint(x: currentX, y: currentY + 2))
+                    currentX += labelRect.width + (i < line.elements.count - 1 ? keySpacing : 0)
+                }
+            }
 
-        // Draw snap line as three segments with different colors
-        let line3startX = bounds.midX - size3total.width / 2
-        let line3Y = textY3 + (size3total.height - size3pre.height) / 2
-        (line3prefix as NSString).draw(
-            at: NSPoint(x: line3startX, y: line3Y), withAttributes: attrs2prefix)
-        (line3state as NSString).draw(
-            at: NSPoint(x: line3startX + size3pre.width, y: line3Y), withAttributes: attrs2state)
-        (line3suffix as NSString).draw(
-            at: NSPoint(x: line3startX + size3pre.width + size3state.width, y: line3Y),
-            withAttributes: attrs2suffix)
+            currentY -= line.height + lineSpacing
+        }
     }
 
     private static let helperTextAttrs: [NSAttributedString.Key: Any] = [
