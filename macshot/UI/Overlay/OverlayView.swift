@@ -2009,36 +2009,32 @@ class OverlayView: NSView {
         // Only draw helper text on the monitor where the mouse is located
         guard isMouseOnCurrentScreen() else { return }
 
-        // Design improvements:
-        // - Position in bottom-left corner
-        // - Keys in rounded boxes with borders
-        // - Clean, organized layout
-
         let snapOn = windowSnapEnabled
         let snapText = snapOn ? L("ON") : L("OFF")
         let snapColor = snapOn ? NSColor.systemGreen : NSColor.systemOrange
 
         // Fonts
         let baseFont = Self.helperSmallFont
-        let keyFont = NSFont.systemFont(ofSize: 11, weight: .semibold)
+        let keyFont = NSFont.systemFont(ofSize: 12, weight: .semibold)
         let labelColor = NSColor.white.withAlphaComponent(0.75)
-        let keyBgColor = NSColor.white.withAlphaComponent(0.15)
-        let keyBorderColor = NSColor.white.withAlphaComponent(0.3)
+        let keyBgColor = NSColor.white.withAlphaComponent(0.12)
+        let keyBorderColor = NSColor.white.withAlphaComponent(0.25)
 
-        // Key box dimensions
-        let keyPadding: CGFloat = 6
-        let keyCornerRadius: CGFloat = 4
-        let keySpacing: CGFloat = 4
+        // Key box dimensions - match text height
+        let keyPadding: CGFloat = 4
+        let keyCornerRadius: CGFloat = 3
+        let keySpacing: CGFloat = 3
 
         // Helper to draw a key box
         func drawKey(_ text: String, at origin: NSPoint) -> NSRect {
             let attrs: [NSAttributedString.Key: Any] = [.font: keyFont, .foregroundColor: NSColor.white]
             let size = (text as NSString).size(withAttributes: attrs)
+            // Match text height exactly
             let rect = NSRect(
                 x: origin.x,
                 y: origin.y,
                 width: size.width + keyPadding * 2,
-                height: size.height + keyPadding * 1.5
+                height: size.height
             )
 
             // Draw key background
@@ -2048,13 +2044,13 @@ class OverlayView: NSView {
             // Draw key border
             keyBorderColor.setStroke()
             let border = NSBezierPath(roundedRect: rect.insetBy(dx: 0.5, dy: 0.5), xRadius: keyCornerRadius, yRadius: keyCornerRadius)
-            border.lineWidth = 1
+            border.lineWidth = 0.5
             border.stroke()
 
             // Draw key text
             let textPoint = NSPoint(
                 x: rect.midX - size.width / 2,
-                y: rect.midY - size.height / 2
+                y: rect.minY + 1  // Slight adjustment for vertical centering
             )
             (text as NSString).draw(at: textPoint, withAttributes: attrs)
 
@@ -2071,53 +2067,52 @@ class OverlayView: NSView {
 
         // Layout parameters
         let margin: CGFloat = 20
-        let lineSpacing: CGFloat = 10
+        let lineSpacing: CGFloat = 8
 
         // Calculate content
         var lines: [(elements: [(type: String, text: String, width: CGFloat)], height: CGFloat)] = []
 
-        // Line 1: Drag to select / Window snap + Tab key
+        // Line 1: 拖拽/点击窗口 + 窗口吸附 + Tab
         var line1Elements: [(type: String, text: String, width: CGFloat)] = []
         let modeText = windowSnapEnabled ? L("Click window") : L("Drag to select")
-        let modeAttrs: [NSAttributedString.Key: Any] = [.font: baseFont, .foregroundColor: labelColor]
-        let modeSize = (modeText as NSString).size(withAttributes: modeAttrs)
+        let modeSize = (modeText as NSString).size(withAttributes: [.font: baseFont, .foregroundColor: labelColor])
         line1Elements.append(("label", modeText, modeSize.width))
 
-        let snapLabelSize = (L("Window snap:") as NSString).size(withAttributes: modeAttrs)
-        line1Elements.append(("label", " " + L("Window snap:"), snapLabelSize.width))
+        line1Elements.append(("label", "  " + L("Window snap:"), (L("Window snap:") as NSString).size(withAttributes: [.font: baseFont, .foregroundColor: labelColor]).width))
+        line1Elements.append(("state", snapText, (snapText as NSString).size(withAttributes: [.font: keyFont, .foregroundColor: snapColor]).width))
+        line1Elements.append(("label", " (" + L("Tab to toggle") + ")", (L("Tab to toggle") as NSString).size(withAttributes: [.font: baseFont, .foregroundColor: labelColor]).width))
 
-        let snapStateSize = (snapText as NSString).size(withAttributes: modeAttrs)
-        line1Elements.append(("state", snapText, snapStateSize.width))
+        lines.append((line1Elements, 14))
 
-        let tabKeySize = ("Tab" as NSString).size(withAttributes: [.font: keyFont, .foregroundColor: NSColor.white])
-        line1Elements.append(("label", " " + L("toggle"), (L("toggle") as NSString).size(withAttributes: modeAttrs).width))
-        line1Elements.append(("key", "Tab", tabKeySize.width))
-
-        lines.append((line1Elements, 18))
-
-        // Line 2: Aspect ratio keys
+        // Line 2: 比例锁定第一部分 0-3
         var line2Elements: [(type: String, text: String, width: CGFloat)] = []
-        let ratioLabel = L("Aspect ratio:")
-        let ratioLabelSize = (ratioLabel as NSString).size(withAttributes: modeAttrs)
-        line2Elements.append(("label", ratioLabel, ratioLabelSize.width))
-
-        let keys = ["0", "1", "2", "3", "4", "5", "6"]
-        let ratios = [L("Free"), "1:1", "2:3", "3:4", "4:5", "5:7", "9:16"]
-        for (i, key) in keys.enumerated() {
+        line2Elements.append(("label", L("Ratio:"), (L("Ratio:") as NSString).size(withAttributes: [.font: baseFont, .foregroundColor: labelColor]).width))
+        let keys1 = ["0", "1", "2", "3"]
+        let ratios1 = [L("Free"), "1:1", "2:3", "3:4"]
+        for (i, key) in keys1.enumerated() {
             line2Elements.append(("key", key, (key as NSString).size(withAttributes: [.font: keyFont]).width))
-            line2Elements.append(("label", ratios[i], (ratios[i] as NSString).size(withAttributes: modeAttrs).width))
+            line2Elements.append(("label", ratios1[i], (ratios1[i] as NSString).size(withAttributes: [.font: baseFont, .foregroundColor: labelColor]).width))
         }
-        line2Elements.append(("key", "R", ("R" as NSString).size(withAttributes: [.font: keyFont]).width))
-        line2Elements.append(("label", L("invert"), (L("invert") as NSString).size(withAttributes: modeAttrs).width))
 
-        lines.append((line2Elements, 18))
+        lines.append((line2Elements, 14))
 
-        // Line 3: F for fullscreen
+        // Line 3: 比例锁定第二部分 4-6 + R
         var line3Elements: [(type: String, text: String, width: CGFloat)] = []
-        line3Elements.append(("key", "F", ("F" as NSString).size(withAttributes: [.font: keyFont]).width))
-        line3Elements.append(("label", L("Fullscreen"), (L("Fullscreen") as NSString).size(withAttributes: modeAttrs).width))
+        let keys2 = ["4", "5", "6", "R"]
+        let ratios2 = ["4:5", "5:7", "9:16", L("Invert")]
+        for (i, key) in keys2.enumerated() {
+            line3Elements.append(("key", key, (key as NSString).size(withAttributes: [.font: keyFont]).width))
+            line3Elements.append(("label", ratios2[i], (ratios2[i] as NSString).size(withAttributes: [.font: baseFont, .foregroundColor: labelColor]).width))
+        }
 
-        lines.append((line3Elements, 18))
+        lines.append((line3Elements, 14))
+
+        // Line 4: F 全屏
+        var line4Elements: [(type: String, text: String, width: CGFloat)] = []
+        line4Elements.append(("key", "F", ("F" as NSString).size(withAttributes: [.font: keyFont]).width))
+        line4Elements.append(("label", L("Fullscreen"), (L("Fullscreen") as NSString).size(withAttributes: [.font: baseFont, .foregroundColor: labelColor]).width))
+
+        lines.append((line4Elements, 14))
 
         // Calculate total size
         var maxWidth: CGFloat = 0
@@ -2143,7 +2138,7 @@ class OverlayView: NSView {
             let isLast = index == lines.count - 1
             return result + line.height + (isLast ? 0 : lineSpacing)
         }
-        let bgPadding: CGFloat = 12
+        let bgPadding: CGFloat = 10
         let bgWidth = maxWidth + bgPadding * 2
         let bgHeight = totalHeight + bgPadding * 2
 
@@ -2154,10 +2149,10 @@ class OverlayView: NSView {
 
         // Draw background
         NSColor.black.withAlphaComponent(0.6).setFill()
-        NSBezierPath(roundedRect: bgRect, xRadius: 8, yRadius: 8).fill()
+        NSBezierPath(roundedRect: bgRect, xRadius: 6, yRadius: 6).fill()
 
         // Draw content
-        var currentY = bgY + bgHeight - bgPadding - 16
+        var currentY = bgY + bgHeight - bgPadding - 13
 
         for line in lines {
             var currentX = bgX + bgPadding
@@ -2169,14 +2164,14 @@ class OverlayView: NSView {
                     currentX += keyRect.width + keySpacing
                 case "state":
                     let stateAttrs: [NSAttributedString.Key: Any] = [
-                        .font: NSFont.systemFont(ofSize: 11, weight: .semibold),
+                        .font: keyFont,
                         .foregroundColor: snapColor
                     ]
                     let stateSize = (elem.text as NSString).size(withAttributes: stateAttrs)
-                    (elem.text as NSString).draw(at: NSPoint(x: currentX, y: currentY + 2), withAttributes: stateAttrs)
+                    (elem.text as NSString).draw(at: NSPoint(x: currentX, y: currentY), withAttributes: stateAttrs)
                     currentX += stateSize.width + keySpacing
                 default:
-                    let labelRect = drawLabel(elem.text, at: NSPoint(x: currentX, y: currentY + 2))
+                    let labelRect = drawLabel(elem.text, at: NSPoint(x: currentX, y: currentY))
                     currentX += labelRect.width + (i < line.elements.count - 1 ? keySpacing : 0)
                 }
             }
