@@ -125,6 +125,12 @@ class OverlayWindowController {
         overlayView?.needsDisplay = true
     }
 
+    func syncAspectRatioHintFrom(_ source: OverlayWindowController) {
+        source.overlayView?.getAspectRatioHintState { opacity, isCancelling in
+            overlayView?.syncAspectRatioHint(opacity: opacity, isCancelling: isCancelling)
+        }
+    }
+
     func setRemoteSelection(_ rect: NSRect, fullRect: NSRect = .zero) {
         overlayView?.remoteSelectionRect = rect
         overlayView?.remoteSelectionFullRect = fullRect.width >= 1 ? fullRect : rect

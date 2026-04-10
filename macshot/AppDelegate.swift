@@ -1747,11 +1747,10 @@ extension AppDelegate: OverlayWindowControllerDelegate {
     }
 
     func overlayDidChangeAspectRatioLock(_ controller: OverlayWindowController) {
-        // Notify all other overlays to redraw (for multi-monitor setups)
-        // When aspect ratio lock changes via number keys, all overlays need to update
-        // but only the overlay with the mouse cursor will show the hint
+        // Sync aspect ratio hint state to all overlays (for multi-monitor setups)
+        // All overlays should have the same hint opacity, but only the one with mouse cursor will show it
         for other in overlayControllers where other !== controller {
-            other.triggerRedraw()
+            other.syncAspectRatioHintFrom(controller)
         }
     }
 

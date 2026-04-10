@@ -1935,11 +1935,14 @@ class OverlayView: NSView {
         if aspectRatioHintOpacity > 0.01 && isMouseOnCurrentScreen() {
             let hintText: String
             if isCancellingAspectRatioLock {
-                hintText = L("已取消比例锁定")
+                hintText = L("Aspect ratio lock cleared")
             } else if aspectRatioLock == .none {
-                hintText = L("数字键锁定比例: 1=1:1  2=2:3  3=3:4  4=4:5  5=5:7  6=9:16  (R键反转  0取消)")
+                hintText = L(
+                    "Lock aspect ratio: 1=1:1  2=2:3  3=3:4  4=4:5  5=5:7  6=9:16  (R to invert  0 to cancel)"
+                )
             } else {
-                hintText = L("已锁定比例：") + aspectRatioLock.displayName + L("（再次按数字键取消，R键反转）")
+                hintText = L("Aspect ratio locked: ") + aspectRatioLock.displayName
+                    + L(" (press the same number again to clear, R to invert)")
             }
 
             let attrs: [NSAttributedString.Key: Any] = [
@@ -1989,7 +1992,9 @@ class OverlayView: NSView {
             windowSnapEnabled
             ? L("Click a window  ·  Drag for custom area  ·  F for full screen")
             : L("Drag to select  ·  Click for full screen")
-        let line2 = L("数字键锁定比例: 1=1:1  2=2:3  3=3:4  4=4:5  5=5:7  6=9:16  (R键反转  0取消)")
+        let line2 = L(
+            "Lock aspect ratio: 1=1:1  2=2:3  3=3:4  4=4:5  5=5:7  6=9:16  (R to invert  0 to cancel)"
+        )
         let snapOn = windowSnapEnabled
         let line3prefix = L("Window snap: ")
         let line3state = snapOn ? L("ON") : L("OFF")
@@ -2229,7 +2234,7 @@ class OverlayView: NSView {
                     newH = pixelValue
                     newW = pixelValue * ratio
                 }
-            } else {
+            } else if selectionRect.width > 0, selectionRect.height > 0 {
                 // No aspect ratio lock - can't determine which dimension was entered
                 // Fall back to maintaining current aspect ratio
                 let currentRatio = selectionRect.width / selectionRect.height
@@ -2240,6 +2245,9 @@ class OverlayView: NSView {
                     newH = pixelValue
                     newW = pixelValue * currentRatio
                 }
+            } else {
+                newW = pixelValue
+                newH = pixelValue
             }
         }
 
@@ -4879,21 +4887,14 @@ class OverlayView: NSView {
 
         // Remote selection resize (cross-screen)
         if isResizingRemoteSelection {
-            let anchor = remoteResizeAnchor
             let fullRect = remoteSelectionFullRect
-            var newRect = NSRect(
-                x: min(anchor.x, point.x), y: min(anchor.y, point.y),
-                width: abs(point.x - anchor.x), height: abs(point.y - anchor.y))
-            // For edge handles, preserve the dimension that shouldn't change
-            switch remoteResizeHandle {
-            case .top, .bottom:
-                newRect.origin.x = fullRect.origin.x
-                newRect.size.width = fullRect.width
-            case .left, .right:
-                newRect.origin.y = fullRect.origin.y
-                newRect.size.height = fullRect.height
-            default: break
-            }
+            let newRect = resizedSelectionRect(
+                from: fullRect,
+                handle: remoteResizeHandle,
+                to: point,
+                minSize: 10,
+                aspectRatio: activeAspectRatio
+            )
             // Update full rect and clip for local display
             remoteSelectionFullRect = newRect
             let screenBounds = NSRect(origin: .zero, size: bounds.size)
@@ -5694,122 +5695,118 @@ class OverlayView: NSView {
 
     // MARK: - Selection Resizing
 
-    private func resizeSelection(to point: NSPoint) {
-        let minSize: CGFloat = 10
-        let r = selectionRect
+    private var activeAspectRatio: CGFloat? {
+        guard aspectRatioLock != .none else { return nil }
+        return aspectRatioLock.ratio
+    }
 
-        // 如果启用了宽高比锁定，使用特殊逻辑
-        // 根据 resizeHandle 分别处理每个句柄，避免抖动
-        if aspectRatioLock != .none {
-            let targetRatio = aspectRatioLock.ratio
+    private func resizedSelectionRect(
+        from rect: NSRect,
+        handle: ResizeHandle,
+        to point: NSPoint,
+        minSize: CGFloat,
+        aspectRatio: CGFloat?
+    ) -> NSRect {
+        let r = rect
 
-            switch resizeHandle {
+        if let targetRatio = aspectRatio, targetRatio > 0 {
+            switch handle {
             case .bottomRight:
-                // 右下角：以宽度为基准
                 let newWidth = max(minSize, point.x - r.minX)
                 let newHeight = newWidth / targetRatio
                 let newOriginY = r.maxY - newHeight
-                selectionRect = NSRect(x: r.minX, y: newOriginY, width: newWidth, height: newHeight)
-                return
+                return NSRect(x: r.minX, y: newOriginY, width: newWidth, height: newHeight)
 
             case .bottomLeft:
-                // 左下角：以宽度为基准
                 let newWidth = max(minSize, r.maxX - point.x)
                 let newOriginX = r.maxX - newWidth
                 let newHeight = newWidth / targetRatio
                 let newOriginY = r.maxY - newHeight
-                selectionRect = NSRect(x: newOriginX, y: newOriginY, width: newWidth, height: newHeight)
-                return
+                return NSRect(x: newOriginX, y: newOriginY, width: newWidth, height: newHeight)
 
             case .topRight:
-                // 右上角：以宽度为基准
                 let newWidth = max(minSize, point.x - r.minX)
                 let newHeight = newWidth / targetRatio
-                selectionRect = NSRect(x: r.minX, y: r.minY, width: newWidth, height: newHeight)
-                return
+                return NSRect(x: r.minX, y: r.minY, width: newWidth, height: newHeight)
 
             case .topLeft:
-                // 左上角：以宽度为基准
                 let newWidth = max(minSize, r.maxX - point.x)
                 let newOriginX = r.maxX - newWidth
-                selectionRect = NSRect(x: newOriginX, y: r.minY, width: newWidth, height: newWidth / targetRatio)
-                return
+                return NSRect(x: newOriginX, y: r.minY, width: newWidth, height: newWidth / targetRatio)
 
             case .right:
-                // 右边：以宽度为基准，调整高度
                 let newWidth = max(minSize, point.x - r.minX)
                 let newHeight = newWidth / targetRatio
                 let newOriginY = r.maxY - newHeight
-                selectionRect = NSRect(x: r.minX, y: newOriginY, width: newWidth, height: newHeight)
-                return
+                return NSRect(x: r.minX, y: newOriginY, width: newWidth, height: newHeight)
 
             case .left:
-                // 左边：以宽度为基准，调整高度
                 let newWidth = max(minSize, r.maxX - point.x)
                 let newOriginX = r.maxX - newWidth
                 let newHeight = newWidth / targetRatio
                 let newOriginY = r.maxY - newHeight
-                selectionRect = NSRect(x: newOriginX, y: newOriginY, width: newWidth, height: newHeight)
-                return
+                return NSRect(x: newOriginX, y: newOriginY, width: newWidth, height: newHeight)
 
             case .bottom:
-                // 下边：以高度为基准，调整宽度
                 let newHeight = max(minSize, r.maxY - point.y)
                 let newWidth = newHeight * targetRatio
                 let newOriginY = r.maxY - newHeight
-                selectionRect = NSRect(x: r.minX, y: newOriginY, width: newWidth, height: newHeight)
-                return
+                return NSRect(x: r.minX, y: newOriginY, width: newWidth, height: newHeight)
 
             case .top:
-                // 上边：以高度为基准，调整宽度
                 let newHeight = max(minSize, point.y - r.minY)
                 let newWidth = newHeight * targetRatio
-                selectionRect = NSRect(x: r.minX, y: r.minY, width: newWidth, height: newHeight)
-                return
+                return NSRect(x: r.minX, y: r.minY, width: newWidth, height: newHeight)
 
             default:
-                break
+                return r
             }
         }
 
-        // 没有启用宽高比锁定时，使用原有逻辑
-        var newRect = r
-
-        switch resizeHandle {
+        switch handle {
         case .topLeft:
             let newX = min(point.x, r.maxX - minSize)
             let newMaxY = max(point.y, r.minY + minSize)
-            newRect = NSRect(x: newX, y: r.minY, width: r.maxX - newX, height: newMaxY - r.minY)
+            return NSRect(x: newX, y: r.minY, width: r.maxX - newX, height: newMaxY - r.minY)
         case .topRight:
             let newMaxX = max(point.x, r.minX + minSize)
             let newMaxY = max(point.y, r.minY + minSize)
-            newRect = NSRect(
+            return NSRect(
                 x: r.minX, y: r.minY, width: newMaxX - r.minX, height: newMaxY - r.minY)
         case .bottomLeft:
             let newX = min(point.x, r.maxX - minSize)
             let newY = min(point.y, r.maxY - minSize)
-            newRect = NSRect(x: newX, y: newY, width: r.maxX - newX, height: r.maxY - newY)
+            return NSRect(x: newX, y: newY, width: r.maxX - newX, height: r.maxY - newY)
         case .bottomRight:
             let newMaxX = max(point.x, r.minX + minSize)
             let newY = min(point.y, r.maxY - minSize)
-            newRect = NSRect(x: r.minX, y: newY, width: newMaxX - r.minX, height: r.maxY - newY)
+            return NSRect(x: r.minX, y: newY, width: newMaxX - r.minX, height: r.maxY - newY)
         case .top:
             let newMaxY = max(point.y, r.minY + minSize)
-            newRect = NSRect(x: r.minX, y: r.minY, width: r.width, height: newMaxY - r.minY)
+            return NSRect(x: r.minX, y: r.minY, width: r.width, height: newMaxY - r.minY)
         case .bottom:
             let newY = min(point.y, r.maxY - minSize)
-            newRect = NSRect(x: r.minX, y: newY, width: r.width, height: r.maxY - newY)
+            return NSRect(x: r.minX, y: newY, width: r.width, height: r.maxY - newY)
         case .left:
             let newX = min(point.x, r.maxX - minSize)
-            newRect = NSRect(x: newX, y: r.minY, width: r.maxX - newX, height: r.height)
+            return NSRect(x: newX, y: r.minY, width: r.maxX - newX, height: r.height)
         case .right:
             let newMaxX = max(point.x, r.minX + minSize)
-            newRect = NSRect(x: r.minX, y: r.minY, width: newMaxX - r.minX, height: r.height)
+            return NSRect(x: r.minX, y: r.minY, width: newMaxX - r.minX, height: r.height)
         default:
-            break
+            return r
         }
+    }
 
-        selectionRect = newRect
+    private func resizeSelection(to point: NSPoint) {
+        let minSize: CGFloat = 10
+        selectionRect = resizedSelectionRect(
+            from: selectionRect,
+            handle: resizeHandle,
+            to: point,
+            minSize: minSize,
+            aspectRatio: activeAspectRatio
+        )
     }
 
     // MARK: - Toolbar Actions
@@ -7199,6 +7196,22 @@ class OverlayView: NSView {
             cachedCompositedImage = nil
             needsDisplay = true
         default:
+            // Auto-measure: hold "1" = vertical preview, hold "2" = horizontal preview
+            if state == .selected && currentTool == .measure && textEditView == nil
+                && !event.modifierFlags.contains(.command)
+            {
+                if let char = event.charactersIgnoringModifiers {
+                    if char == "1" || char == "2" {
+                        autoMeasureVertical = (char == "1")
+                        if !autoMeasureKeyHeld {
+                            autoMeasureKeyHeld = true
+                            updateAutoMeasurePreview()
+                        }
+                        return
+                    }
+                }
+            }
+
             // 宽高比锁定：1=1:1, 2=2:3, 3=3:4, 4=4:5, 5=5:7, 6=9:16
             if state == .idle || state == .selecting || state == .selected {
                 if let char = event.charactersIgnoringModifiers, !event.modifierFlags.contains(.command) {
@@ -7239,22 +7252,6 @@ class OverlayView: NSView {
                         return
                     default:
                         break
-                    }
-                }
-            }
-
-            // Auto-measure: hold "1" = vertical preview, hold "2" = horizontal preview
-            if state == .selected && currentTool == .measure && textEditView == nil
-                && !event.modifierFlags.contains(.command)
-            {
-                if let char = event.charactersIgnoringModifiers {
-                    if char == "1" || char == "2" {
-                        autoMeasureVertical = (char == "1")
-                        if !autoMeasureKeyHeld {
-                            autoMeasureKeyHeld = true
-                            updateAutoMeasurePreview()
-                        }
-                        return
                     }
                 }
             }
@@ -7361,14 +7358,31 @@ class OverlayView: NSView {
         needsDisplay = true
     }
 
+    func getAspectRatioHintState(completion: (CGFloat, Bool) -> Void) {
+        completion(aspectRatioHintOpacity, isCancellingAspectRatioLock)
+    }
+
     private func showAspectRatioHint() {
         aspectRatioHintOpacity = 1.0
         aspectRatioHintFadeTimer?.invalidate()
         aspectRatioHintFadeTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: false) { [weak self] _ in
             self?.fadeOutAspectRatioHint()
         }
-        // Notify all other overlays to redraw (they will check if mouse is on their screen)
+        // Notify all other overlays to sync their hint state
         overlayDelegate?.overlayViewDidChangeAspectRatioLock()
+        needsDisplay = true
+    }
+
+    func syncAspectRatioHint(opacity: CGFloat, isCancelling: Bool) {
+        aspectRatioHintOpacity = opacity
+        isCancellingAspectRatioLock = isCancelling
+        // Reset fade timer when syncing
+        if opacity > 0.01 {
+            aspectRatioHintFadeTimer?.invalidate()
+            aspectRatioHintFadeTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: false) { [weak self] _ in
+                self?.fadeOutAspectRatioHint()
+            }
+        }
         needsDisplay = true
     }
 
@@ -8089,4 +8103,3 @@ private class TooltipBackgroundView: NSView {
         (text as NSString).draw(at: NSPoint(x: pad, y: pad / 2), withAttributes: attrs)
     }
 }
-

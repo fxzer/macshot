@@ -170,6 +170,10 @@
 "ON" = "ON";
 "OFF" = "OFF";
 "  (Tab to toggle)" = "  (Tab to toggle)";
+"Lock aspect ratio: 1=1:1  2=2:3  3=3:4  4=4:5  5=5:7  6=9:16  (R to invert  0 to cancel)" = "Lock aspect ratio: 1=1:1  2=2:3  3=3:4  4=4:5  5=5:7  6=9:16  (R to invert  0 to cancel)";
+"Aspect ratio lock cleared" = "Aspect ratio lock cleared";
+"Aspect ratio locked: " = "Aspect ratio locked: ";
+" (press the same number again to clear, R to invert)" = " (press the same number again to clear, R to invert)";
 "Right-click to copy" = "Right-click to copy";
 "Copied %@" = "Copied %@";
 "Set color %@" = "Set color %@";

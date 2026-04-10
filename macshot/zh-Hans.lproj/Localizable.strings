@@ -160,6 +160,10 @@
 "Set color %@" = "设置颜色 %@";
 "Draw something first to use the move tool." = "请先绘制标注，然后才能使用移动工具。";
 "Drag to reposition" = "拖拽以重新定位";
+"Lock aspect ratio: 1=1:1  2=2:3  3=3:4  4=4:5  5=5:7  6=9:16  (R to invert  0 to cancel)" = "数字键锁定比例：1=1:1  2=2:3  3=3:4  4=4:5  5=5:7  6=9:16  （R 键反转，0 取消）";
+"Aspect ratio lock cleared" = "已取消比例锁定";
+"Aspect ratio locked: " = "已锁定比例：";
+" (press the same number again to clear, R to invert)" = "（再次按相同数字取消，R 键反转）";
 
 /* Overlay - Popovers */
 "Format:" = "格式:";
