@@ -54,6 +54,11 @@ protocol AnnotationCanvas: AnyObject {
     // Display
     func setNeedsDisplay()
 
+    // Selection
+    /// Auto-select the newly created annotation and switch to select tool.
+    /// This allows immediate adjustment via scroll wheel (size/stroke width).
+    func autoSelectNewAnnotation(_ annotation: Annotation)
+
     // Snap guides (for tools that use alignment snapping)
     var snapGuideX: CGFloat? { get set }
     var snapGuideY: CGFloat? { get set }
@@ -103,6 +108,10 @@ extension AnnotationToolHandler {
         canvas.snapGuideX = nil
         canvas.snapGuideY = nil
         canvas.setNeedsDisplay()
+
+        // Auto-select the newly created annotation so user can immediately adjust
+        // its properties via scroll wheel (size/stroke width) without clicking first.
+        canvas.autoSelectNewAnnotation(annotation)
     }
 }
 

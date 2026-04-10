@@ -2906,11 +2906,11 @@ class OverlayView: NSView {
         annotations.append(ann)
         undoStack.append(.added(ann))
         redoStack.removeAll()
+        cachedCompositedImage = nil
 
-        // Auto-select so user can move/resize immediately
+        // Auto-select so user can adjust immediately (matches commitAnnotation behavior)
         currentTool = .select
         selectedAnnotation = ann
-        cachedCompositedImage = nil
 
         // Expand the canvas to fit the new annotation
         expandCanvasToFitAnnotations()
@@ -8199,6 +8199,13 @@ extension OverlayView: AnnotationCanvas {
 
     func setNeedsDisplay() {
         needsDisplay = true
+    }
+
+    func autoSelectNewAnnotation(_ annotation: Annotation) {
+        // Switch to select tool and select the newly created annotation
+        currentTool = .select
+        selectedAnnotation = annotation
+        cachedCompositedImage = nil
     }
 }
 
