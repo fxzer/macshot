@@ -2329,80 +2329,88 @@ class OverlayView: NSView {
     }
 
     private func showSizeInput() {
-        // This method is kept for backward compatibility but delegates to width input
-        showWidthInput()
+        // Show both width and height input fields together
+        guard widthInputField == nil && heightInputField == nil else { return }
+        showBothSizeInputs()
     }
 
-    private func showWidthInput() {
-        guard widthInputField == nil && heightInputField == nil else { return }
-
+    private func showBothSizeInputs() {
         let scale = window?.backingScaleFactor ?? 2.0
         let pixelW = Int(selectionRect.width * scale)
-
-        let fieldWidth: CGFloat = 80
-        let fieldHeight: CGFloat = 22
-        let fieldX = widthLabelRect.minX + (widthLabelRect.width - fieldWidth) / 2
-        let fieldY = widthLabelRect.minY + (widthLabelRect.height - fieldHeight) / 2
-
-        let field = NSTextField(
-            frame: NSRect(x: fieldX, y: fieldY, width: fieldWidth, height: fieldHeight))
-        field.stringValue = "\(pixelW)"
-        field.font = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium)
-        field.alignment = .center
-        field.isBezeled = true
-        field.bezelStyle = .roundedBezel
-        field.backgroundColor = NSColor(white: 0.15, alpha: 0.95)
-        field.textColor = .white
-        field.focusRingType = .none
-        field.delegate = self
-        field.tag = 901  // Width field tag
-
-        addSubview(field)
-        widthInputField = field
-        window?.makeFirstResponder(field)
-        field.selectText(nil)
-        needsDisplay = true
-    }
-
-    private func showHeightInput() {
-        guard widthInputField == nil && heightInputField == nil else { return }
-
-        let scale = window?.backingScaleFactor ?? 2.0
         let pixelH = Int(selectionRect.height * scale)
 
         let fieldWidth: CGFloat = 80
         let fieldHeight: CGFloat = 22
-        let fieldX = heightLabelRect.minX + (heightLabelRect.width - fieldWidth) / 2
-        let fieldY = heightLabelRect.minY + (heightLabelRect.height - fieldHeight) / 2
 
-        let field = NSTextField(
-            frame: NSRect(x: fieldX, y: fieldY, width: fieldWidth, height: fieldHeight))
-        field.stringValue = "\(pixelH)"
-        field.font = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium)
-        field.alignment = .center
-        field.isBezeled = true
-        field.bezelStyle = .roundedBezel
-        field.backgroundColor = NSColor(white: 0.15, alpha: 0.95)
-        field.textColor = .white
-        field.focusRingType = .none
-        field.delegate = self
-        field.tag = 902  // Height field tag
+        // Create width input field
+        let widthFieldX = widthLabelRect.minX + (widthLabelRect.width - fieldWidth) / 2
+        let widthFieldY = widthLabelRect.minY + (widthLabelRect.height - fieldHeight) / 2
 
-        addSubview(field)
-        heightInputField = field
-        window?.makeFirstResponder(field)
-        field.selectText(nil)
+        let widthField = NSTextField(
+            frame: NSRect(x: widthFieldX, y: widthFieldY, width: fieldWidth, height: fieldHeight))
+        widthField.stringValue = "\(pixelW)"
+        widthField.font = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium)
+        widthField.alignment = .center
+        widthField.isBezeled = true
+        widthField.bezelStyle = .roundedBezel
+        widthField.backgroundColor = NSColor(white: 0.15, alpha: 0.95)
+        widthField.textColor = .white
+        widthField.focusRingType = .none
+        widthField.delegate = self
+        widthField.tag = 901  // Width field tag
+
+        // Create height input field
+        let heightFieldX = heightLabelRect.minX + (heightLabelRect.width - fieldWidth) / 2
+        let heightFieldY = heightLabelRect.minY + (heightLabelRect.height - fieldHeight) / 2
+
+        let heightField = NSTextField(
+            frame: NSRect(x: heightFieldX, y: heightFieldY, width: fieldWidth, height: fieldHeight))
+        heightField.stringValue = "\(pixelH)"
+        heightField.font = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium)
+        heightField.alignment = .center
+        heightField.isBezeled = true
+        heightField.bezelStyle = .roundedBezel
+        heightField.backgroundColor = NSColor(white: 0.15, alpha: 0.95)
+        heightField.textColor = .white
+        heightField.focusRingType = .none
+        heightField.delegate = self
+        heightField.tag = 902  // Height field tag
+
+        // Add both fields
+        addSubview(widthField)
+        addSubview(heightField)
+        widthInputField = widthField
+        heightInputField = heightField
+
+        // Focus on width field first
+        window?.makeFirstResponder(widthField)
+        widthField.selectText(nil)
         needsDisplay = true
     }
 
+    private func showWidthInput() {
+        // When clicking width, show both inputs for better UX
+        showBothSizeInputs()
+    }
+
+    private func showHeightInput() {
+        // When clicking height, show both inputs for better UX
+        showBothSizeInputs()
+    }
+
     private func commitSizeInputIfNeeded() {
-        // Commit width input
-        if let field = widthInputField {
-            commitWidthInput(field)
-        }
-        // Commit height input
-        if let field = heightInputField {
-            commitHeightInput(field)
+        // Commit both inputs and close them
+        if let widthField = widthInputField, let heightField = heightInputField {
+            // Apply the current values from both fields
+            applySizeInputs(widthField: widthField, heightField: heightField)
+
+            // Remove both fields
+            widthField.removeFromSuperview()
+            heightField.removeFromSuperview()
+            widthInputField = nil
+            heightInputField = nil
+            window?.makeFirstResponder(self)
+            needsDisplay = true
         }
         // Legacy support for old single field
         if let field = sizeInputField {
@@ -2412,15 +2420,43 @@ class OverlayView: NSView {
         }
     }
 
-    private func commitWidthInput(_ field: NSTextField) {
-        let input = field.stringValue.trimmingCharacters(in: .whitespaces)
-        guard let value = Int(input), value > 0 else {
-            field.removeFromSuperview()
-            widthInputField = nil
-            window?.makeFirstResponder(self)
-            needsDisplay = true
-            return
+    private func applySizeInputs(widthField: NSTextField, heightField: NSTextField) {
+        let scale = window?.backingScaleFactor ?? 2.0
+
+        let widthInput = widthField.stringValue.trimmingCharacters(in: .whitespaces)
+        let heightInput = heightField.stringValue.trimmingCharacters(in: .whitespaces)
+
+        var newW = selectionRect.width
+        var newH = selectionRect.height
+
+        // Parse width
+        if let w = Int(widthInput), w > 0 {
+            newW = CGFloat(w) / scale
+            // If aspect ratio is locked, recalculate height
+            if aspectRatioLock != .none {
+                let ratio = aspectRatioLock.ratio
+                newH = newW / ratio
+            }
         }
+
+        // Parse height (only if width wasn't provided or aspect ratio not locked)
+        if let h = Int(heightInput), h > 0 {
+            if aspectRatioLock == .none {
+                newH = CGFloat(h) / scale
+            }
+            // If aspect ratio is locked, width already calculated from height above
+        }
+
+        // Apply new size (keep center stable)
+        let centerX = selectionRect.midX
+        let centerY = selectionRect.midY
+        selectionRect = NSRect(x: centerX - newW / 2, y: centerY - newH / 2, width: newW, height: newH)
+    }
+
+    // Real-time update when editing width
+    private func updateWidthFromInput(_ field: NSTextField) {
+        let input = field.stringValue.trimmingCharacters(in: .whitespaces)
+        guard let value = Int(input), value > 0 else { return }
 
         let scale = window?.backingScaleFactor ?? 2.0
         let newW = CGFloat(value) / scale
@@ -2437,27 +2473,19 @@ class OverlayView: NSView {
         let centerY = selectionRect.midY
         selectionRect = NSRect(x: centerX - newW / 2, y: centerY - newH / 2, width: newW, height: newH)
 
-        // Update height input if it exists
+        // Update height input field
         if let heightField = heightInputField {
             let pixelH = Int(newH * scale)
             heightField.stringValue = "\(pixelH)"
         }
 
-        field.removeFromSuperview()
-        widthInputField = nil
-        window?.makeFirstResponder(self)
         needsDisplay = true
     }
 
-    private func commitHeightInput(_ field: NSTextField) {
+    // Real-time update when editing height
+    private func updateHeightFromInput(_ field: NSTextField) {
         let input = field.stringValue.trimmingCharacters(in: .whitespaces)
-        guard let value = Int(input), value > 0 else {
-            field.removeFromSuperview()
-            heightInputField = nil
-            window?.makeFirstResponder(self)
-            needsDisplay = true
-            return
-        }
+        guard let value = Int(input), value > 0 else { return }
 
         let scale = window?.backingScaleFactor ?? 2.0
         let newH = CGFloat(value) / scale
@@ -2474,15 +2502,12 @@ class OverlayView: NSView {
         let centerY = selectionRect.midY
         selectionRect = NSRect(x: centerX - newW / 2, y: centerY - newH / 2, width: newW, height: newH)
 
-        // Update width input if it exists
+        // Update width input field
         if let widthField = widthInputField {
             let pixelW = Int(newW * scale)
             widthField.stringValue = "\(pixelW)"
         }
 
-        field.removeFromSuperview()
-        heightInputField = nil
-        window?.makeFirstResponder(self)
         needsDisplay = true
     }
 
@@ -8375,6 +8400,7 @@ extension OverlayView: NSTextFieldDelegate {
         -> Bool
     {
         if control.tag == 888 {
+            // Legacy single size input field
             if commandSelector == #selector(NSResponder.insertNewline(_:)) {
                 commitSizeInputIfNeeded()
                 return true
@@ -8388,6 +8414,7 @@ extension OverlayView: NSTextFieldDelegate {
             }
         }
         if control.tag == 889 {
+            // Zoom input field
             if commandSelector == #selector(NSResponder.insertNewline(_:)) {
                 commitZoomInputIfNeeded()
                 return true
@@ -8400,7 +8427,48 @@ extension OverlayView: NSTextFieldDelegate {
                 return true
             }
         }
+        if control.tag == 901 || control.tag == 902 {
+            // Width (901) or Height (902) input field
+            if commandSelector == #selector(NSResponder.insertNewline(_:)) {
+                commitSizeInputIfNeeded()
+                return true
+            }
+            if commandSelector == #selector(NSResponder.cancelOperation(_:)) {
+                // Cancel: close both input fields
+                widthInputField?.removeFromSuperview()
+                heightInputField?.removeFromSuperview()
+                widthInputField = nil
+                heightInputField = nil
+                window?.makeFirstResponder(self)
+                needsDisplay = true
+                return true
+            }
+            // Tab key: switch between width and height fields
+            if commandSelector == #selector(NSResponder.insertTab(_:)) {
+                if control.tag == 901, let heightField = heightInputField {
+                    window?.makeFirstResponder(heightField)
+                    heightField.selectText(nil)
+                    return true
+                } else if control.tag == 902, let widthField = widthInputField {
+                    window?.makeFirstResponder(widthField)
+                    widthField.selectText(nil)
+                    return true
+                }
+            }
+        }
         return false
+    }
+
+    func controlTextDidChange(_ obj: Notification) {
+        guard let control = obj.object as? NSTextField else { return }
+
+        if control.tag == 901, let field = widthInputField {
+            // Width field changed - update height in real-time
+            updateWidthFromInput(field)
+        } else if control.tag == 902, let field = heightInputField {
+            // Height field changed - update width in real-time
+            updateHeightFromInput(field)
+        }
     }
 }
 
