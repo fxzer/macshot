@@ -101,6 +101,49 @@ class OverlayView: NSView {
 
     private(set) var state: State = .idle
 
+    // Aspect Ratio Lock
+    enum AspectRatioLock {
+        case none
+        case oneToOne        // 1:1
+        case threeToFour     // 3:4 (竖屏，宽:高 = 3:4)
+        case fourToThree     // 4:3 (横屏，宽:高 = 4:3)
+        case sixToNine       // 6:9 (竖屏，宽:高 = 6:9)
+        case nineToSix       // 9:6 (横屏，宽:高 = 9:6)
+
+        var ratio: CGFloat {
+            switch self {
+            case .none: return 0
+            case .oneToOne: return 1.0
+            case .threeToFour: return 3.0 / 4.0
+            case .fourToThree: return 4.0 / 3.0
+            case .sixToNine: return 6.0 / 9.0
+            case .nineToSix: return 9.0 / 6.0
+            }
+        }
+
+        var displayName: String {
+            switch self {
+            case .none: return L("Free")
+            case .oneToOne: return "1:1"
+            case .threeToFour: return "3:4"
+            case .fourToThree: return "4:3"
+            case .sixToNine: return "6:9"
+            case .nineToSix: return "9:6"
+            }
+        }
+
+        /// 返回反转后的比例（3:4 <-> 4:3, 6:9 <-> 9:6）
+        var inverted: AspectRatioLock {
+            switch self {
+            case .none, .oneToOne: return self
+            case .threeToFour: return .fourToThree
+            case .fourToThree: return .threeToFour
+            case .sixToNine: return .nineToSix
+            case .nineToSix: return .sixToNine
+            }
+        }
+    }
+
     // Zoom
     var zoomLevel: CGFloat = 1.0
     // The canvas point that stays pinned to zoomAnchorView on screen.
@@ -130,6 +173,12 @@ class OverlayView: NSView {
     private var lastDragPoint: NSPoint?  // for shift constraint on flagsChanged
     private var spaceRepositioning: Bool = false  // Space held during drag to reposition
     private var spaceRepositionLast: NSPoint = .zero  // last mouse position when space reposition started
+
+    // Aspect Ratio Lock
+    private(set) var aspectRatioLock: AspectRatioLock = .none
+    private var aspectRatioHintOpacity: CGFloat = 0.0
+    private var aspectRatioHintFadeTimer: Timer?
+    private var isCancellingAspectRatioLock: Bool = false  // 跟踪是否正在取消锁定
 
     // Annotations
     var annotations: [Annotation] = [] {
@@ -1844,6 +1893,40 @@ class OverlayView: NSView {
                 withAttributes: attrs)
         }
 
+        // Aspect ratio lock hint
+        if aspectRatioHintOpacity > 0.01 {
+            let hintText: String
+            if isCancellingAspectRatioLock {
+                hintText = L("已取消比例锁定")
+            } else if aspectRatioLock == .none {
+                hintText = L("数字键锁定比例: 1=1:1  3=3:4  6=6:9  (R键反转  0取消)")
+            } else {
+                hintText = L("已锁定比例：") + aspectRatioLock.displayName + L("（再次按数字键取消，R键反转）")
+            }
+
+            let attrs: [NSAttributedString.Key: Any] = [
+                .font: NSFont.systemFont(ofSize: 16, weight: .medium),
+                .foregroundColor: NSColor.white.withAlphaComponent(aspectRatioHintOpacity)
+            ]
+
+            let size = hintText.size(withAttributes: attrs)
+            let hintX = (bounds.width - size.width) / 2
+            let hintY = bounds.height / 2 - 100  // 屏幕中央上方
+
+            // Draw background for better readability
+            let bgPadding: CGFloat = 12
+            let bgRect = NSRect(
+                x: hintX - bgPadding,
+                y: hintY - bgPadding / 2,
+                width: size.width + bgPadding * 2,
+                height: size.height + bgPadding
+            )
+            NSColor.black.withAlphaComponent(aspectRatioHintOpacity * 0.7).setFill()
+            NSBezierPath(roundedRect: bgRect, xRadius: 8, yRadius: 8).fill()
+
+            hintText.draw(at: NSPoint(x: hintX, y: hintY), withAttributes: attrs)
+        }
+
         // Barcode / QR badge
         if state == .selected {
             barcodeDetector.draw(
@@ -1865,6 +1948,7 @@ class OverlayView: NSView {
             windowSnapEnabled
             ? L("Click a window  ·  Drag for custom area  ·  F for full screen")
             : L("Drag to select  ·  Click for full screen")
+        let line2 = L("数字键锁定比例: 1=1:1  3=3:4  6=6:9  (R键反转  0取消)")
         let snapOn = windowSnapEnabled
         let line3prefix = L("Window snap: ")
         let line3state = snapOn ? L("ON") : L("OFF")
@@ -1884,17 +1968,18 @@ class OverlayView: NSView {
         ]
 
         let size1 = (line1 as NSString).size(withAttributes: attrs1)
-        let size2pre = (line3prefix as NSString).size(withAttributes: attrs2prefix)
-        let size2state = (line3state as NSString).size(withAttributes: attrs2state)
-        let size2suf = (line3suffix as NSString).size(withAttributes: attrs2suffix)
-        let size2total = CGSize(
-            width: size2pre.width + size2state.width + size2suf.width,
-            height: max(size2pre.height, size2state.height, size2suf.height))
+        let size2 = (line2 as NSString).size(withAttributes: attrs2prefix)
+        let size3pre = (line3prefix as NSString).size(withAttributes: attrs2prefix)
+        let size3state = (line3state as NSString).size(withAttributes: attrs2state)
+        let size3suf = (line3suffix as NSString).size(withAttributes: attrs2suffix)
+        let size3total = CGSize(
+            width: size3pre.width + size3state.width + size3suf.width,
+            height: max(size3pre.height, size3state.height, size3suf.height))
 
         let lineSpacing: CGFloat = 6
         let padding: CGFloat = 14
-        let totalTextHeight = size1.height + lineSpacing + size2total.height
-        let bgWidth = max(size1.width, size2total.width) + padding * 2
+        let totalTextHeight = size1.height + lineSpacing + size2.height + lineSpacing + size3total.height
+        let bgWidth = max(size1.width, size2.width, size3total.width) + padding * 2
         let bgHeight = totalTextHeight + padding * 2
 
         let bgX = bounds.midX - bgWidth / 2
@@ -1904,21 +1989,26 @@ class OverlayView: NSView {
         NSColor.black.withAlphaComponent(0.65).setFill()
         NSBezierPath(roundedRect: bgRect, xRadius: 8, yRadius: 8).fill()
 
-        let textY1 = bgY + padding + size2total.height + lineSpacing
-        let textY2 = bgY + padding
+        let textY1 = bgY + padding + size3total.height + lineSpacing + size2.height + lineSpacing
+        let textY2 = bgY + padding + size3total.height + lineSpacing
+        let textY3 = bgY + padding
 
         (line1 as NSString).draw(
             at: NSPoint(x: bounds.midX - size1.width / 2, y: textY1), withAttributes: attrs1)
 
+        // Draw aspect ratio lock hint (line 2)
+        (line2 as NSString).draw(
+            at: NSPoint(x: bounds.midX - size2.width / 2, y: textY2), withAttributes: attrs2prefix)
+
         // Draw snap line as three segments with different colors
-        let line2startX = bounds.midX - size2total.width / 2
-        let line2Y = textY2 + (size2total.height - size2pre.height) / 2
+        let line3startX = bounds.midX - size3total.width / 2
+        let line3Y = textY3 + (size3total.height - size3pre.height) / 2
         (line3prefix as NSString).draw(
-            at: NSPoint(x: line2startX, y: line2Y), withAttributes: attrs2prefix)
+            at: NSPoint(x: line3startX, y: line3Y), withAttributes: attrs2prefix)
         (line3state as NSString).draw(
-            at: NSPoint(x: line2startX + size2pre.width, y: line2Y), withAttributes: attrs2state)
+            at: NSPoint(x: line3startX + size3pre.width, y: line3Y), withAttributes: attrs2state)
         (line3suffix as NSString).draw(
-            at: NSPoint(x: line2startX + size2pre.width + size2state.width, y: line2Y),
+            at: NSPoint(x: line3startX + size3pre.width + size3state.width, y: line3Y),
             withAttributes: attrs2suffix)
     }
 
@@ -4821,8 +4911,38 @@ class OverlayView: NSView {
             let rawW = abs(point.x - selectionStart.x)
             let rawH = abs(point.y - selectionStart.y)
             let shiftHeld = event.modifierFlags.contains(.shift)
-            let w = max(1, shiftHeld ? min(rawW, rawH) : rawW)
-            let h = max(1, shiftHeld ? min(rawW, rawH) : rawH)
+
+            var w: CGFloat
+            var h: CGFloat
+
+            if aspectRatioLock != .none {
+                // 宽高比锁定模式
+                let targetRatio = aspectRatioLock.ratio
+                if rawH > 0 {
+                    let proposedW = rawH * targetRatio
+                    if proposedW <= rawW {
+                        // 以高度为基准
+                        w = max(1, proposedW)
+                        h = max(1, rawH)
+                    } else {
+                        // 以宽度为基准
+                        w = max(1, rawW)
+                        h = max(1, rawW / targetRatio)
+                    }
+                } else {
+                    w = max(1, rawW)
+                    h = max(1, rawW / targetRatio)
+                }
+            } else if shiftHeld {
+                // 现有的 Shift 键正方形约束
+                w = max(1, min(rawW, rawH))
+                h = max(1, min(rawW, rawH))
+            } else {
+                // 自由选择
+                w = max(1, rawW)
+                h = max(1, rawH)
+            }
+
             let x = selectionStart.x < point.x ? selectionStart.x : selectionStart.x - w
             let y = selectionStart.y < point.y ? selectionStart.y : selectionStart.y - h
             selectionRect = NSRect(x: x, y: y, width: w, height: h)
@@ -5163,6 +5283,7 @@ class OverlayView: NSView {
             if selectionRect.width > 5 || selectionRect.height > 5 {
                 // Real drag — use drawn rect as-is
                 state = .selected
+                // 保持 aspectRatioLock 状态，不重置
                 if !autoOCRMode && !autoQuickSaveMode && !autoScrollCaptureMode && !autoConfirmMode { showToolbars = true }
                 overlayDelegate?.overlayViewDidFinishSelection(selectionRect)
             } else if windowSnapEnabled, let snapRect = hoveredWindowRect, !snapRect.isEmpty {
@@ -5182,12 +5303,14 @@ class OverlayView: NSView {
                     }
                 }
                 state = .selected
+                // 保持 aspectRatioLock 状态，不重置
                 if !autoOCRMode && !autoQuickSaveMode && !autoScrollCaptureMode && !autoConfirmMode { showToolbars = true }
                 overlayDelegate?.overlayViewDidFinishSelection(selectionRect)
             } else {
                 // Click (no drag), snap off — expand to full screen
                 selectionRect = bounds
                 state = .selected
+                aspectRatioLock = .none  // 全屏时重置锁定
                 if !autoOCRMode && !autoQuickSaveMode && !autoScrollCaptureMode && !autoConfirmMode { showToolbars = true }
                 overlayDelegate?.overlayViewDidFinishSelection(selectionRect)
             }
@@ -5500,6 +5623,82 @@ class OverlayView: NSView {
     private func resizeSelection(to point: NSPoint) {
         let minSize: CGFloat = 10
         let r = selectionRect
+
+        // 如果启用了宽高比锁定，使用特殊逻辑
+        // 根据 resizeHandle 分别处理每个句柄，避免抖动
+        if aspectRatioLock != .none {
+            let targetRatio = aspectRatioLock.ratio
+
+            switch resizeHandle {
+            case .bottomRight:
+                // 右下角：以宽度为基准
+                let newWidth = max(minSize, point.x - r.minX)
+                let newHeight = newWidth / targetRatio
+                let newOriginY = r.maxY - newHeight
+                selectionRect = NSRect(x: r.minX, y: newOriginY, width: newWidth, height: newHeight)
+                return
+
+            case .bottomLeft:
+                // 左下角：以宽度为基准
+                let newWidth = max(minSize, r.maxX - point.x)
+                let newOriginX = r.maxX - newWidth
+                let newHeight = newWidth / targetRatio
+                let newOriginY = r.maxY - newHeight
+                selectionRect = NSRect(x: newOriginX, y: newOriginY, width: newWidth, height: newHeight)
+                return
+
+            case .topRight:
+                // 右上角：以宽度为基准
+                let newWidth = max(minSize, point.x - r.minX)
+                let newHeight = newWidth / targetRatio
+                selectionRect = NSRect(x: r.minX, y: r.minY, width: newWidth, height: newHeight)
+                return
+
+            case .topLeft:
+                // 左上角：以宽度为基准
+                let newWidth = max(minSize, r.maxX - point.x)
+                let newOriginX = r.maxX - newWidth
+                selectionRect = NSRect(x: newOriginX, y: r.minY, width: newWidth, height: newWidth / targetRatio)
+                return
+
+            case .right:
+                // 右边：以宽度为基准，调整高度
+                let newWidth = max(minSize, point.x - r.minX)
+                let newHeight = newWidth / targetRatio
+                let newOriginY = r.maxY - newHeight
+                selectionRect = NSRect(x: r.minX, y: newOriginY, width: newWidth, height: newHeight)
+                return
+
+            case .left:
+                // 左边：以宽度为基准，调整高度
+                let newWidth = max(minSize, r.maxX - point.x)
+                let newOriginX = r.maxX - newWidth
+                let newHeight = newWidth / targetRatio
+                let newOriginY = r.maxY - newHeight
+                selectionRect = NSRect(x: newOriginX, y: newOriginY, width: newWidth, height: newHeight)
+                return
+
+            case .bottom:
+                // 下边：以高度为基准，调整宽度
+                let newHeight = max(minSize, r.maxY - point.y)
+                let newWidth = newHeight * targetRatio
+                let newOriginY = r.maxY - newHeight
+                selectionRect = NSRect(x: r.minX, y: newOriginY, width: newWidth, height: newHeight)
+                return
+
+            case .top:
+                // 上边：以高度为基准，调整宽度
+                let newHeight = max(minSize, point.y - r.minY)
+                let newWidth = newHeight * targetRatio
+                selectionRect = NSRect(x: r.minX, y: r.minY, width: newWidth, height: newHeight)
+                return
+
+            default:
+                break
+            }
+        }
+
+        // 没有启用宽高比锁定时，使用原有逻辑
         var newRect = r
 
         switch resizeHandle {
@@ -6895,6 +7094,7 @@ class OverlayView: NSView {
             if state == .idle && windowSnapEnabled {
                 selectionRect = bounds
                 state = .selected
+                aspectRatioLock = .none  // 全屏时重置锁定
                 hoveredWindowRect = nil
                 if autoQuickSaveMode {
                     autoQuickSaveMode = false
@@ -6923,6 +7123,41 @@ class OverlayView: NSView {
             cachedCompositedImage = nil
             needsDisplay = true
         default:
+            // 宽高比锁定：1=1:1, 3=3:4, 6=6:9
+            if state == .idle || state == .selecting || state == .selected {
+                if let char = event.charactersIgnoringModifiers, !event.modifierFlags.contains(.command) {
+
+                    switch char {
+                    case "1":
+                        toggleAspectRatioLock(.oneToOne)
+                        return
+                    case "3":
+                        toggleAspectRatioLock(.threeToFour)
+                        return
+                    case "6":
+                        toggleAspectRatioLock(.sixToNine)
+                        return
+                    case "0":  // 0 键取消锁定
+                        if aspectRatioLock != .none {
+                            aspectRatioLock = .none
+                            isCancellingAspectRatioLock = true
+                            showAspectRatioHint()
+                            needsDisplay = true
+                        }
+                        return
+                    case "r", "R":  // R 键反转当前比例
+                        if aspectRatioLock != .none && aspectRatioLock != .oneToOne {
+                            aspectRatioLock = aspectRatioLock.inverted
+                            showAspectRatioHint()
+                            needsDisplay = true
+                        }
+                        return
+                    default:
+                        break
+                    }
+                }
+            }
+
             // Auto-measure: hold "1" = vertical preview, hold "2" = horizontal preview
             if state == .selected && currentTool == .measure && textEditView == nil
                 && !event.modifierFlags.contains(.command)
@@ -7024,6 +7259,36 @@ class OverlayView: NSView {
             }
         }
         super.keyUp(with: event)
+    }
+
+    // MARK: - Aspect Ratio Lock Helpers
+
+    private func toggleAspectRatioLock(_ lock: AspectRatioLock) {
+        if aspectRatioLock == lock {
+            // 再次按下同一键，取消锁定
+            aspectRatioLock = .none
+            isCancellingAspectRatioLock = true
+        } else {
+            aspectRatioLock = lock
+            isCancellingAspectRatioLock = false
+        }
+        showAspectRatioHint()
+        needsDisplay = true
+    }
+
+    private func showAspectRatioHint() {
+        aspectRatioHintOpacity = 1.0
+        aspectRatioHintFadeTimer?.invalidate()
+        aspectRatioHintFadeTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: false) { [weak self] _ in
+            self?.fadeOutAspectRatioHint()
+        }
+        needsDisplay = true
+    }
+
+    private func fadeOutAspectRatioHint() {
+        aspectRatioHintOpacity = 0.0
+        isCancellingAspectRatioLock = false  // 重置取消标志
+        needsDisplay = true
     }
 
     // MARK: - Annotation Copy/Paste
@@ -7390,6 +7655,7 @@ class OverlayView: NSView {
         selectionRect = rect
         selectionStart = rect.origin
         state = .selected
+        // 保持 aspectRatioLock 状态，不重置
         showToolbars = true
         needsDisplay = true
     }
@@ -7398,6 +7664,7 @@ class OverlayView: NSView {
         selectionRect = bounds
         selectionStart = bounds.origin
         state = .selected
+        aspectRatioLock = .none  // 全屏时重置锁定
         showToolbars = true
         scheduleBarcodeDetection()
         overlayDelegate?.overlayViewDidFinishSelection(selectionRect)
