@@ -1737,6 +1737,32 @@ extension AppDelegate: OverlayWindowControllerDelegate {
         return stitchCrossScreenCapture(primary: controller, others: others)
     }
 
+    func overlayDidChangeWindowSnapState(_ controller: OverlayWindowController) {
+        // Notify all other overlays to redraw (for multi-monitor setups)
+        // When window snap state changes via Tab key, all overlays need to update
+        // their helper text to show the new ON/OFF state
+        for other in overlayControllers where other !== controller {
+            other.triggerRedraw()
+        }
+    }
+
+    func overlayDidChangeAspectRatioLock(_ controller: OverlayWindowController) {
+        // Notify all other overlays to redraw (for multi-monitor setups)
+        // When aspect ratio lock changes via number keys, all overlays need to update
+        // but only the overlay with the mouse cursor will show the hint
+        for other in overlayControllers where other !== controller {
+            other.triggerRedraw()
+        }
+    }
+
+    func overlayDidChangeMouseLocation(_ controller: OverlayWindowController) {
+        // Notify all overlays to redraw when mouse moves between screens
+        // This ensures hints (window snap state, aspect ratio lock) only show on the monitor with the mouse
+        for other in overlayControllers where other !== controller {
+            other.triggerRedraw()
+        }
+    }
+
     private func handleScrollCaptureCompleted(finalImage: NSImage?) {
         scrollCapturePreviewPanel?.close()
         scrollCapturePreviewPanel = nil

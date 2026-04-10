@@ -498,6 +498,9 @@ extension DetachedEditorWindowController: OverlayViewDelegate {
     func overlayViewDidRequestToggleAutoScroll() {}
     func overlayViewDidRequestAccessibilityPermission() {}
     func overlayViewDidRequestInputMonitoringPermission() {}
+    func overlayViewDidChangeWindowSnapState() {}  // Not applicable in editor mode
+    func overlayViewDidChangeAspectRatioLock() {}  // Not applicable in editor mode
+    func overlayViewDidChangeMouseLocation() {}  // Not applicable in editor mode
 
     func overlayViewDidRequestAddCapture() {
         guard let editorWindow = window else { return }
@@ -666,5 +669,26 @@ private class AddCaptureOverlayHandler: NSObject, OverlayWindowControllerDelegat
         }
         guard let cgImage = cgCtx.makeImage() else { return nil }
         return NSImage(cgImage: cgImage, size: globalRect.size)
+    }
+
+    func overlayDidChangeWindowSnapState(_ controller: OverlayWindowController) {
+        // Notify all other overlays to redraw (for multi-monitor setups during "Add Capture" in editor)
+        for other in overlayControllers where other !== controller {
+            other.triggerRedraw()
+        }
+    }
+
+    func overlayDidChangeAspectRatioLock(_ controller: OverlayWindowController) {
+        // Notify all other overlays to redraw (for multi-monitor setups during "Add Capture" in editor)
+        for other in overlayControllers where other !== controller {
+            other.triggerRedraw()
+        }
+    }
+
+    func overlayDidChangeMouseLocation(_ controller: OverlayWindowController) {
+        // Notify all other overlays to redraw (for multi-monitor setups during "Add Capture" in editor)
+        for other in overlayControllers where other !== controller {
+            other.triggerRedraw()
+        }
     }
 }

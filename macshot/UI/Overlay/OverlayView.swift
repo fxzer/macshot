@@ -30,6 +30,9 @@ protocol OverlayViewDelegate: AnyObject {
     func overlayViewRemoteSelectionDidChange(_ rect: NSRect)
     func overlayViewRemoteSelectionDidFinish(_ rect: NSRect)
     func overlayViewDidRequestAddCapture()
+    func overlayViewDidChangeWindowSnapState()
+    func overlayViewDidChangeAspectRatioLock()
+    func overlayViewDidChangeMouseLocation()
 }
 
 /// An entry in the undo/redo history.
@@ -105,19 +108,31 @@ class OverlayView: NSView {
     enum AspectRatioLock {
         case none
         case oneToOne        // 1:1
+        case twoToThree      // 2:3 (竖屏，宽:高 = 2:3)
+        case threeToTwo      // 3:2 (横屏，宽:高 = 3:2)
         case threeToFour     // 3:4 (竖屏，宽:高 = 3:4)
         case fourToThree     // 4:3 (横屏，宽:高 = 4:3)
-        case sixToNine       // 6:9 (竖屏，宽:高 = 6:9)
-        case nineToSix       // 9:6 (横屏，宽:高 = 9:6)
+        case fourToFive      // 4:5 (竖屏，宽:高 = 4:5)
+        case fiveToFour      // 5:4 (横屏，宽:高 = 5:4)
+        case fiveToSeven     // 5:7 (竖屏，宽:高 = 5:7)
+        case sevenToFive     // 7:5 (横屏，宽:高 = 7:5)
+        case nineToSixteen   // 9:16 (竖屏，宽:高 = 9:16)
+        case sixteenToNine   // 16:9 (横屏，宽:高 = 16:9)
 
         var ratio: CGFloat {
             switch self {
             case .none: return 0
             case .oneToOne: return 1.0
+            case .twoToThree: return 2.0 / 3.0
+            case .threeToTwo: return 3.0 / 2.0
             case .threeToFour: return 3.0 / 4.0
             case .fourToThree: return 4.0 / 3.0
-            case .sixToNine: return 6.0 / 9.0
-            case .nineToSix: return 9.0 / 6.0
+            case .fourToFive: return 4.0 / 5.0
+            case .fiveToFour: return 5.0 / 4.0
+            case .fiveToSeven: return 5.0 / 7.0
+            case .sevenToFive: return 7.0 / 5.0
+            case .nineToSixteen: return 9.0 / 16.0
+            case .sixteenToNine: return 16.0 / 9.0
             }
         }
 
@@ -125,21 +140,33 @@ class OverlayView: NSView {
             switch self {
             case .none: return L("Free")
             case .oneToOne: return "1:1"
+            case .twoToThree: return "2:3"
+            case .threeToTwo: return "3:2"
             case .threeToFour: return "3:4"
             case .fourToThree: return "4:3"
-            case .sixToNine: return "6:9"
-            case .nineToSix: return "9:6"
+            case .fourToFive: return "4:5"
+            case .fiveToFour: return "5:4"
+            case .fiveToSeven: return "5:7"
+            case .sevenToFive: return "7:5"
+            case .nineToSixteen: return "9:16"
+            case .sixteenToNine: return "16:9"
             }
         }
 
-        /// 返回反转后的比例（3:4 <-> 4:3, 6:9 <-> 9:6）
+        /// 返回反转后的比例（2:3 <-> 3:2, 3:4 <-> 4:3, 4:5 <-> 5:4, 5:7 <-> 7:5, 9:16 <-> 16:9）
         var inverted: AspectRatioLock {
             switch self {
             case .none, .oneToOne: return self
+            case .twoToThree: return .threeToTwo
+            case .threeToTwo: return .twoToThree
             case .threeToFour: return .fourToThree
             case .fourToThree: return .threeToFour
-            case .sixToNine: return .nineToSix
-            case .nineToSix: return .sixToNine
+            case .fourToFive: return .fiveToFour
+            case .fiveToFour: return .fourToFive
+            case .fiveToSeven: return .sevenToFive
+            case .sevenToFive: return .fiveToSeven
+            case .nineToSixteen: return .sixteenToNine
+            case .sixteenToNine: return .nineToSixteen
             }
         }
     }
@@ -179,6 +206,9 @@ class OverlayView: NSView {
     private var aspectRatioHintOpacity: CGFloat = 0.0
     private var aspectRatioHintFadeTimer: Timer?
     private var isCancellingAspectRatioLock: Bool = false  // 跟踪是否正在取消锁定
+
+    // Mouse tracking for cross-monitor hint display
+    private var isMouseOnThisScreen: Bool = false  // Track if mouse is currently on this screen
 
     // Annotations
     var annotations: [Annotation] = [] {
@@ -856,6 +886,14 @@ class OverlayView: NSView {
 
     override func mouseMoved(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
+
+        // Track mouse entering/leaving this screen for cross-monitor hint display
+        let mouseCurrentlyOnScreen = isMouseOnCurrentScreen()
+        if mouseCurrentlyOnScreen != isMouseOnThisScreen {
+            // Mouse entered or left this screen - notify all overlays to redraw
+            isMouseOnThisScreen = mouseCurrentlyOnScreen
+            overlayDelegate?.overlayViewDidChangeMouseLocation()
+        }
 
         // Sticky color wheel: track hover with mouse movement
         if colorWheel.isVisible && colorWheel.isSticky {
@@ -1893,13 +1931,13 @@ class OverlayView: NSView {
                 withAttributes: attrs)
         }
 
-        // Aspect ratio lock hint
-        if aspectRatioHintOpacity > 0.01 {
+        // Aspect ratio lock hint (only show on the monitor where the mouse is located)
+        if aspectRatioHintOpacity > 0.01 && isMouseOnCurrentScreen() {
             let hintText: String
             if isCancellingAspectRatioLock {
                 hintText = L("已取消比例锁定")
             } else if aspectRatioLock == .none {
-                hintText = L("数字键锁定比例: 1=1:1  3=3:4  6=6:9  (R键反转  0取消)")
+                hintText = L("数字键锁定比例: 1=1:1  2=2:3  3=3:4  4=4:5  5=5:7  6=9:16  (R键反转  0取消)")
             } else {
                 hintText = L("已锁定比例：") + aspectRatioLock.displayName + L("（再次按数字键取消，R键反转）")
             }
@@ -1944,11 +1982,14 @@ class OverlayView: NSView {
     private static let helperDimColor = NSColor.white.withAlphaComponent(0.7)
 
     private func drawIdleHelperText() {
+        // Only draw helper text on the monitor where the mouse is located
+        guard isMouseOnCurrentScreen() else { return }
+
         let line1 =
             windowSnapEnabled
             ? L("Click a window  ·  Drag for custom area  ·  F for full screen")
             : L("Drag to select  ·  Click for full screen")
-        let line2 = L("数字键锁定比例: 1=1:1  3=3:4  6=6:9  (R键反转  0取消)")
+        let line2 = L("数字键锁定比例: 1=1:1  2=2:3  3=3:4  4=4:5  5=5:7  6=9:16  (R键反转  0取消)")
         let snapOn = windowSnapEnabled
         let line3prefix = L("Window snap: ")
         let line3state = snapOn ? L("ON") : L("OFF")
@@ -7088,6 +7129,8 @@ class OverlayView: NSView {
                 // Toggle window snapping in idle state
                 windowSnapEnabled = !windowSnapEnabled
                 hoveredWindowRect = nil
+                // Notify all other overlays to redraw (they will check if mouse is on their screen)
+                overlayDelegate?.overlayViewDidChangeWindowSnapState()
                 needsDisplay = true
             }
         case 3:  // F — full screen capture (only in idle state with snap on)
@@ -7123,7 +7166,7 @@ class OverlayView: NSView {
             cachedCompositedImage = nil
             needsDisplay = true
         default:
-            // 宽高比锁定：1=1:1, 3=3:4, 6=6:9
+            // 宽高比锁定：1=1:1, 2=2:3, 3=3:4, 4=4:5, 5=5:7, 6=9:16
             if state == .idle || state == .selecting || state == .selected {
                 if let char = event.charactersIgnoringModifiers, !event.modifierFlags.contains(.command) {
 
@@ -7131,11 +7174,20 @@ class OverlayView: NSView {
                     case "1":
                         toggleAspectRatioLock(.oneToOne)
                         return
+                    case "2":
+                        toggleAspectRatioLock(.twoToThree)
+                        return
                     case "3":
                         toggleAspectRatioLock(.threeToFour)
                         return
+                    case "4":
+                        toggleAspectRatioLock(.fourToFive)
+                        return
+                    case "5":
+                        toggleAspectRatioLock(.fiveToSeven)
+                        return
                     case "6":
-                        toggleAspectRatioLock(.sixToNine)
+                        toggleAspectRatioLock(.nineToSixteen)
                         return
                     case "0":  // 0 键取消锁定
                         if aspectRatioLock != .none {
@@ -7282,6 +7334,8 @@ class OverlayView: NSView {
         aspectRatioHintFadeTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: false) { [weak self] _ in
             self?.fadeOutAspectRatioHint()
         }
+        // Notify all other overlays to redraw (they will check if mouse is on their screen)
+        overlayDelegate?.overlayViewDidChangeAspectRatioLock()
         needsDisplay = true
     }
 
@@ -7289,6 +7343,14 @@ class OverlayView: NSView {
         aspectRatioHintOpacity = 0.0
         isCancellingAspectRatioLock = false  // 重置取消标志
         needsDisplay = true
+    }
+
+    /// Check if the mouse pointer is currently on this overlay's screen
+    private func isMouseOnCurrentScreen() -> Bool {
+        guard let window = self.window else { return false }
+        let mouseLocation = NSEvent.mouseLocation
+        let screenFrame = window.screen?.frame ?? .zero
+        return screenFrame.contains(mouseLocation)
     }
 
     // MARK: - Annotation Copy/Paste

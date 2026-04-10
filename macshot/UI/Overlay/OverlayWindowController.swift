@@ -30,6 +30,9 @@ protocol OverlayWindowControllerDelegate: AnyObject {
     func overlayDidRemoteResizeSelection(_ controller: OverlayWindowController, globalRect: NSRect)
     func overlayDidFinishRemoteResize(_ controller: OverlayWindowController, globalRect: NSRect)
     func overlayCrossScreenImage(_ controller: OverlayWindowController) -> NSImage?
+    func overlayDidChangeWindowSnapState(_ controller: OverlayWindowController)
+    func overlayDidChangeAspectRatioLock(_ controller: OverlayWindowController)
+    func overlayDidChangeMouseLocation(_ controller: OverlayWindowController)
 }
 
 /// Manages one fullscreen overlay per screen.
@@ -116,6 +119,10 @@ class OverlayWindowController {
 
     func clearSelection() {
         overlayView?.clearSelection()
+    }
+
+    func triggerRedraw() {
+        overlayView?.needsDisplay = true
     }
 
     func setRemoteSelection(_ rect: NSRect, fullRect: NSRect = .zero) {
@@ -527,6 +534,18 @@ extension OverlayWindowController: OverlayViewDelegate {
 
     func overlayViewDidBeginSelection() {
         overlayDelegate?.overlayDidBeginSelection(self)
+    }
+
+    func overlayViewDidChangeWindowSnapState() {
+        overlayDelegate?.overlayDidChangeWindowSnapState(self)
+    }
+
+    func overlayViewDidChangeAspectRatioLock() {
+        overlayDelegate?.overlayDidChangeAspectRatioLock(self)
+    }
+
+    func overlayViewDidChangeMouseLocation() {
+        overlayDelegate?.overlayDidChangeMouseLocation(self)
     }
 
     func overlayViewDidRequestAddCapture() {}  // editor-only
