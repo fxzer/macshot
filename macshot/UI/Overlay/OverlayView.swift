@@ -401,17 +401,19 @@ class OverlayView: NSView {
     private var rightStripView: ToolbarStripView?
     private var toolOptionsRowView: ToolOptionsRowView?
 
-    // Size labels (split into width and height for independent editing)
+    // Size labels (display-only)
     private var widthLabelRect: NSRect = .zero
     private var heightLabelRect: NSRect = .zero
-    private var widthInputField: NSTextField?
-    private var heightInputField: NSTextField?
-    private var sizeLabelRect: NSRect = .zero  // Kept for compatibility with zoom label positioning
-    private var sizeInputField: NSTextField?  // Kept for backward compatibility
+    private var sizeLabelRect: NSRect = .zero
 
     // Zoom label
     private var zoomLabelRect: NSRect = .zero
     private var zoomInputField: NSTextField?
+
+    /// True when the zoom inline field is being edited.
+    private var isEditingInlineField: Bool {
+        zoomInputField != nil
+    }
 
     // Beautify
     var beautifyEnabled: Bool = UserDefaults.standard.bool(forKey: "beautifyEnabled")
@@ -568,8 +570,6 @@ class OverlayView: NSView {
     private var loupeCursorPoint: NSPoint = .zero
     var drawingCursorPoint: NSPoint = .zero
     private var smartMarkerLineHeight: CGFloat?  // detected text line height at cursor (smart marker)
-    private var colorSamplerPoint: NSPoint = .zero  // canvas space, for color picker tool
-    private var colorSamplerBitmap: NSBitmapImageRep?  // cached bitmap for fast pixel sampling
     // Auto-measure preview (live while holding 1 or 2 key)
     private var autoMeasurePreview: Annotation?  // temporary, drawn but not in annotations[]
     private var autoMeasureVertical: Bool = true  // true = "1" key, false = "2" key
@@ -1086,21 +1086,6 @@ class OverlayView: NSView {
             invalidateCursorPreview(oldCanvas: oldPt, newCanvas: oldPt, radius: r)
         }
 
-        // Track cursor for color sampler tool (canvas space)
-        if state == .selected && currentTool == .colorSampler && !isRecording {
-            let canvasPoint = viewToCanvas(point)
-            if canvasPoint != colorSamplerPoint {
-                let oldPt = colorSamplerPoint
-                colorSamplerPoint = canvasPoint
-                invalidateCursorPreview(oldCanvas: oldPt, newCanvas: canvasPoint, radius: 200)
-            }
-        } else if colorSamplerPoint != .zero {
-            let oldPt = colorSamplerPoint
-            colorSamplerPoint = .zero
-            colorSamplerBitmap = nil
-            invalidateCursorPreview(oldCanvas: oldPt, newCanvas: oldPt, radius: 200)
-        }
-
         // Toolbar hover handled by ToolbarButtonView (real NSView subviews)
 
         // Update color sampler magnifier position and content
@@ -1207,6 +1192,18 @@ class OverlayView: NSView {
         if textEditView != nil {
             NSCursor.arrow.set()
             return
+        }
+
+        // Zoom inline field: IBeam over the field, arrow nearby
+        if isEditingInlineField {
+            if let field = zoomInputField, field.frame.contains(point) {
+                NSCursor.iBeam.set()
+                return
+            }
+            if zoomLabelRect.contains(point) && zoomLabelOpacity > 0 {
+                NSCursor.arrow.set()
+                return
+            }
         }
         if state == .idle || state == .selecting {
             // Recording mode: arrow cursor (no selection interaction)
@@ -1392,11 +1389,11 @@ class OverlayView: NSView {
             }
         }
         if updateCursorForChrome(at: point) { return true }
-        if (widthLabelRect.contains(point) || heightLabelRect.contains(point))
-            && widthInputField == nil && heightInputField == nil { return true }
-        if zoomLabelRect.contains(point) && zoomLabelOpacity > 0 && zoomInputField == nil {
-            return true
-        }
+        // Size labels are display-only chrome
+        if widthLabelRect.contains(point) || heightLabelRect.contains(point) { return true }
+        if zoomLabelRect.contains(point) && zoomLabelOpacity > 0 { return true }
+        // Zoom inline field frame is also chrome
+        if let field = zoomInputField, field.frame.contains(point) { return true }
         return false
     }
 
@@ -1672,9 +1669,6 @@ class OverlayView: NSView {
             {
                 drawLoupePreview(at: loupeCursorPoint)
             }
-            if currentTool == .colorSampler && colorSamplerPoint != .zero {
-                drawColorSamplerPreview(at: colorSamplerPoint)
-            }
 
             // Draw selection highlight for selected annotations
             // Suppressed during recording so annotations are purely visual overlays.
@@ -1751,14 +1745,6 @@ class OverlayView: NSView {
                     context.restoreGraphicsState()
                 }
 
-                // Re-draw color sampler preview on top of beautify
-                if currentTool == .colorSampler && colorSamplerPoint != .zero {
-                    context.saveGraphicsState()
-                    applyCanvasTransform(to: context)
-                    drawColorSamplerPreview(at: colorSamplerPoint)
-                    context.restoreGraphicsState()
-                }
-
                 // Re-draw snap guides on top of beautify
                 if snapGuideX != nil || snapGuideY != nil {
                     context.saveGraphicsState()
@@ -1816,12 +1802,6 @@ class OverlayView: NSView {
                     context.saveGraphicsState()
                     applyCanvasTransform(to: context)
                     drawLoupePreview(at: loupeCursorPoint)
-                    context.restoreGraphicsState()
-                }
-                if currentTool == .colorSampler && colorSamplerPoint != .zero {
-                    context.saveGraphicsState()
-                    applyCanvasTransform(to: context)
-                    drawColorSamplerPreview(at: colorSamplerPoint)
                     context.restoreGraphicsState()
                 }
                 if (currentTool == .pencil || currentTool == .marker) && drawingCursorPoint != .zero && currentAnnotation == nil && !isDraggingAnnotation && !isResizingAnnotation && !isRotatingAnnotation {
@@ -2308,8 +2288,6 @@ class OverlayView: NSView {
     ]
 
     private func drawSizeLabel() {
-        guard widthInputField == nil && heightInputField == nil else { return }  // don't draw while editing
-
         // Get pixel dimensions (account for Retina)
         let scale = window?.backingScaleFactor ?? 2.0
         let pixelW = Int(selectionRect.width * scale)
@@ -2348,34 +2326,31 @@ class OverlayView: NSView {
             baseY = above  // fallback
         }
 
-        // Draw width label
         let widthRect = NSRect(x: baseX, y: baseY, width: widthLabelW, height: labelH)
         widthLabelRect = widthRect
         ToolbarLayout.bgColor.setFill()
         NSBezierPath(roundedRect: widthRect, xRadius: 4, yRadius: 4).fill()
-        (widthText as NSString).draw(
-            at: NSPoint(x: widthRect.minX + padding, y: widthRect.minY + padding / 2), withAttributes: attrs)
 
-        // Draw × symbol
         let timesX = baseX + widthLabelW + gap
         (timesText as NSString).draw(
             at: NSPoint(x: timesX, y: baseY + padding / 2), withAttributes: attrs)
 
-        // Draw height label
         let heightX = timesX + timesTextSize.width + gap
         let heightRect = NSRect(x: heightX, y: baseY, width: heightLabelW, height: labelH)
         heightLabelRect = heightRect
         ToolbarLayout.bgColor.setFill()
         NSBezierPath(roundedRect: heightRect, xRadius: 4, yRadius: 4).fill()
+
+        (widthText as NSString).draw(
+            at: NSPoint(x: widthRect.minX + padding, y: widthRect.minY + padding / 2), withAttributes: attrs)
         (heightText as NSString).draw(
             at: NSPoint(x: heightRect.minX + padding, y: heightRect.minY + padding / 2), withAttributes: attrs)
 
-        // Update sizeLabelRect to encompass both labels (for zoom label positioning)
         sizeLabelRect = NSRect(x: baseX, y: baseY, width: totalW, height: labelH)
     }
 
     private func drawZoomLabel() {
-        guard sizeLabelRect != .zero, zoomInputField == nil else { return }
+        guard sizeLabelRect != .zero else { return }
         let zoom = zoomLevel
         let text: String
         if abs(zoom - 1.0) < 0.005 {
@@ -2405,192 +2380,14 @@ class OverlayView: NSView {
         let bgColor = ToolbarLayout.bgColor.withAlphaComponent(alpha * 0.85)
         bgColor.setFill()
         NSBezierPath(roundedRect: rect, xRadius: 4, yRadius: 4).fill()
-        (text as NSString).draw(
-            at: NSPoint(x: labelX + padding, y: labelY + padding / 2), withAttributes: attrs)
-    }
-
-    private func showSizeInput() {
-        // Show both width and height input fields together
-        guard widthInputField == nil && heightInputField == nil else { return }
-        showBothSizeInputs()
-    }
-
-    private func showBothSizeInputs() {
-        let scale = window?.backingScaleFactor ?? 2.0
-        let pixelW = Int(selectionRect.width * scale)
-        let pixelH = Int(selectionRect.height * scale)
-
-        // Match `drawSizeLabel()` pill geometry exactly — fixed 80×22 caused visible jump.
-        let widthFrame = widthLabelRect
-        let heightFrame = heightLabelRect
-
-        let widthField = NSTextField(frame: widthFrame)
-        widthField.stringValue = "\(pixelW)"
-        widthField.font = Self.sizeLabelFont
-        widthField.alignment = .center
-        widthField.isBezeled = false
-        (widthField.cell as? NSTextFieldCell)?.drawsBackground = false
-        widthField.wantsLayer = true
-        widthField.layer?.backgroundColor = ToolbarLayout.bgColor.cgColor
-        widthField.layer?.cornerRadius = 4
-        widthField.layer?.borderWidth = 0
-        widthField.layer?.borderColor = nil
-        widthField.textColor = .white
-        widthField.focusRingType = .none
-        widthField.delegate = self
-        widthField.tag = 901  // Width field tag
-
-        let heightField = NSTextField(frame: heightFrame)
-        heightField.stringValue = "\(pixelH)"
-        heightField.font = Self.sizeLabelFont
-        heightField.alignment = .center
-        heightField.isBezeled = false
-        (heightField.cell as? NSTextFieldCell)?.drawsBackground = false
-        heightField.wantsLayer = true
-        heightField.layer?.backgroundColor = ToolbarLayout.bgColor.cgColor
-        heightField.layer?.cornerRadius = 4
-        heightField.layer?.borderWidth = 0
-        heightField.layer?.borderColor = nil
-        heightField.textColor = .white
-        heightField.focusRingType = .none
-        heightField.delegate = self
-        heightField.tag = 902  // Height field tag
-
-        // Add both fields
-        addSubview(widthField)
-        addSubview(heightField)
-        widthInputField = widthField
-        heightInputField = heightField
-
-        // Focus on width field first
-        window?.makeFirstResponder(widthField)
-        widthField.selectText(nil)
-        applyInlineNumericFieldFocusChrome(focused: widthField)
-        needsDisplay = true
-    }
-
-    private func showWidthInput() {
-        // When clicking width, show both inputs for better UX
-        showBothSizeInputs()
-    }
-
-    private func showHeightInput() {
-        // When clicking height, show both inputs for better UX
-        showBothSizeInputs()
-    }
-
-    private func commitSizeInputIfNeeded() {
-        // Commit both inputs and close them
-        if let widthField = widthInputField, let heightField = heightInputField {
-            // Apply the current values from both fields
-            applySizeInputs(widthField: widthField, heightField: heightField)
-
-            // Remove both fields
-            widthField.removeFromSuperview()
-            heightField.removeFromSuperview()
-            widthInputField = nil
-            heightInputField = nil
-            window?.makeFirstResponder(self)
-            needsDisplay = true
+        if zoomInputField == nil {
+            (text as NSString).draw(
+                at: NSPoint(x: labelX + padding, y: labelY + padding / 2), withAttributes: attrs)
         }
-        // Legacy support for old single field
-        if let field = sizeInputField {
-            field.removeFromSuperview()
-            sizeInputField = nil
-            needsDisplay = true
-        }
+        zoomInputField?.frame = rect
     }
 
-    private func applySizeInputs(widthField: NSTextField, heightField: NSTextField) {
-        let scale = window?.backingScaleFactor ?? 2.0
 
-        let widthInput = widthField.stringValue.trimmingCharacters(in: .whitespaces)
-        let heightInput = heightField.stringValue.trimmingCharacters(in: .whitespaces)
-
-        var newW = selectionRect.width
-        var newH = selectionRect.height
-
-        // Parse width
-        if let w = Int(widthInput), w > 0 {
-            newW = CGFloat(w) / scale
-            // If aspect ratio is locked, recalculate height
-            if aspectRatioLock != .none {
-                let ratio = aspectRatioLock.ratio
-                newH = newW / ratio
-            }
-        }
-
-        // Parse height (only if width wasn't provided or aspect ratio not locked)
-        if let h = Int(heightInput), h > 0 {
-            if aspectRatioLock == .none {
-                newH = CGFloat(h) / scale
-            }
-            // If aspect ratio is locked, width already calculated from height above
-        }
-
-        // Apply new size (keep center stable)
-        let centerX = selectionRect.midX
-        let centerY = selectionRect.midY
-        selectionRect = NSRect(x: centerX - newW / 2, y: centerY - newH / 2, width: newW, height: newH)
-    }
-
-    // Real-time update when editing width
-    private func updateWidthFromInput(_ field: NSTextField) {
-        let input = field.stringValue.trimmingCharacters(in: .whitespaces)
-        guard let value = Int(input), value > 0 else { return }
-
-        let scale = window?.backingScaleFactor ?? 2.0
-        let newW = CGFloat(value) / scale
-        var newH = selectionRect.height
-
-        // If aspect ratio is locked, calculate height
-        if aspectRatioLock != .none {
-            let ratio = aspectRatioLock.ratio
-            newH = newW / ratio
-        }
-
-        // Apply new size (keep center stable)
-        let centerX = selectionRect.midX
-        let centerY = selectionRect.midY
-        selectionRect = NSRect(x: centerX - newW / 2, y: centerY - newH / 2, width: newW, height: newH)
-
-        // Update height input field
-        if let heightField = heightInputField {
-            let pixelH = Int(newH * scale)
-            heightField.stringValue = "\(pixelH)"
-        }
-
-        needsDisplay = true
-    }
-
-    // Real-time update when editing height
-    private func updateHeightFromInput(_ field: NSTextField) {
-        let input = field.stringValue.trimmingCharacters(in: .whitespaces)
-        guard let value = Int(input), value > 0 else { return }
-
-        let scale = window?.backingScaleFactor ?? 2.0
-        let newH = CGFloat(value) / scale
-        var newW = selectionRect.width
-
-        // If aspect ratio is locked, calculate width
-        if aspectRatioLock != .none {
-            let ratio = aspectRatioLock.ratio
-            newW = newH * ratio
-        }
-
-        // Apply new size (keep center stable)
-        let centerX = selectionRect.midX
-        let centerY = selectionRect.midY
-        selectionRect = NSRect(x: centerX - newW / 2, y: centerY - newH / 2, width: newW, height: newH)
-
-        // Update width input field
-        if let widthField = widthInputField {
-            let pixelW = Int(newW * scale)
-            widthField.stringValue = "\(pixelW)"
-        }
-
-        needsDisplay = true
-    }
 
     private func showZoomInput() {
         guard zoomLabelRect != .zero else { return }
@@ -2606,13 +2403,14 @@ class OverlayView: NSView {
         }
 
         let field = NSTextField(frame: zoomLabelRect)
+        field.cell = OverlayInlineNumericTextFieldCell(textCell: "")
         field.stringValue = currentText
         field.font = Self.sizeLabelFont
         field.alignment = .center
         field.isBezeled = false
         (field.cell as? NSTextFieldCell)?.drawsBackground = false
         field.wantsLayer = true
-        field.layer?.backgroundColor = ToolbarLayout.bgColor.cgColor
+        field.layer?.backgroundColor = NSColor.clear.cgColor
         field.layer?.cornerRadius = 4
         field.layer?.borderWidth = 0
         field.layer?.borderColor = nil
@@ -2623,13 +2421,17 @@ class OverlayView: NSView {
 
         addSubview(field)
         zoomInputField = field
-        window?.makeFirstResponder(field)
-        field.selectText(nil)
-        applyInlineNumericFieldFocusChrome(focused: field)
         // Keep zoom label visible while editing
         zoomLabelOpacity = 1.0
         zoomFadeTimer?.invalidate()
         needsDisplay = true
+        // Defer focus: makeFirstResponder during mouseDown can be undone by AppKit.
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self, let f = self.zoomInputField else { return }
+            self.window?.makeFirstResponder(f)
+            f.selectText(nil)
+            self.applyInlineNumericFieldFocusChrome(focused: f)
+        }
     }
 
     private func commitZoomInputIfNeeded() {
@@ -2988,68 +2790,6 @@ class OverlayView: NSView {
             }
             self.needsDisplay = true
         }
-    }
-
-    // MARK: - Color Sampler Preview
-
-    /// Sample the pixel color at `canvasPoint` from the screenshot and draw a live preview.
-    private func drawColorSamplerPreview(at canvasPoint: NSPoint) {
-        guard let screenshot = screenshotImage else { return }
-        guard let result = sampleColor(from: screenshot, at: canvasPoint) else { return }
-        let sampledColor = result.color
-        let hexStr = result.hex
-
-        guard let context = NSGraphicsContext.current else { return }
-        context.saveGraphicsState()
-
-        let font = NSFont.monospacedSystemFont(ofSize: 12, weight: .medium)
-        let copyFont = NSFont.systemFont(ofSize: 10, weight: .regular)
-        let hexAttrs: [NSAttributedString.Key: Any] = [
-            .font: font, .foregroundColor: NSColor.white,
-        ]
-        let copyAttrs: [NSAttributedString.Key: Any] = [
-            .font: copyFont, .foregroundColor: NSColor.white.withAlphaComponent(0.5),
-        ]
-
-        let hexSize = (hexStr as NSString).size(withAttributes: hexAttrs)
-        let copyText = L("Right-click to copy")
-        let copySize = (copyText as NSString).size(withAttributes: copyAttrs)
-
-        let swatchSize: CGFloat = 16
-        let padding: CGFloat = 8
-        let gap: CGFloat = 6
-        let labelW = padding + swatchSize + gap + max(hexSize.width, copySize.width) + padding
-        let labelH = padding + hexSize.height + 2 + copySize.height + padding
-
-        let labelX = canvasPoint.x + 16
-        let labelY = canvasPoint.y - labelH - 8
-        let labelRect = NSRect(x: labelX, y: labelY, width: labelW, height: labelH)
-
-        // Background pill
-        NSColor.black.withAlphaComponent(0.85).setFill()
-        NSBezierPath(roundedRect: labelRect, xRadius: 6, yRadius: 6).fill()
-
-        // Color swatch
-        let swatchRect = NSRect(
-            x: labelRect.minX + padding,
-            y: labelRect.midY - swatchSize / 2,
-            width: swatchSize, height: swatchSize)
-        sampledColor.setFill()
-        NSBezierPath(roundedRect: swatchRect, xRadius: 3, yRadius: 3).fill()
-        NSColor.white.withAlphaComponent(0.4).setStroke()
-        let swatchBorder = NSBezierPath(roundedRect: swatchRect, xRadius: 3, yRadius: 3)
-        swatchBorder.lineWidth = 0.5
-        swatchBorder.stroke()
-
-        // Hex text + copy hint
-        let textX = swatchRect.maxX + gap
-        (hexStr as NSString).draw(
-            at: NSPoint(x: textX, y: labelRect.maxY - padding - hexSize.height),
-            withAttributes: hexAttrs)
-        (copyText as NSString).draw(
-            at: NSPoint(x: textX, y: labelRect.minY + padding), withAttributes: copyAttrs)
-
-        context.restoreGraphicsState()
     }
 
     /// Sample a pixel color from the screenshot at the given canvas-space point.
@@ -5035,7 +4775,7 @@ class OverlayView: NSView {
             {
                 NSPasteboard.general.clearContents()
                 NSPasteboard.general.setString(result.hex, forType: .string)
-                showOverlayError(String(format: L("Copied %@"), result.hex))
+                showOverlayHint(String(format: L("Copied %@"), result.hex))
                 needsDisplay = true
             }
             return
@@ -5139,8 +4879,12 @@ class OverlayView: NSView {
         if !isTextFormattingClick {
             commitTextFieldIfNeeded()
         }
-        commitSizeInputIfNeeded()
-        commitZoomInputIfNeeded()
+        // Don't commit zoom field if the click is inside it
+        if let zf = zoomInputField, zf.frame.contains(point) {
+            // let the text field handle it
+        } else {
+            commitZoomInputIfNeeded()
+        }
 
         switch state {
         case .idle:
@@ -5181,25 +4925,7 @@ class OverlayView: NSView {
                 return
             }
 
-            // Check size label clicks (split into width and height)
-            if widthLabelRect.contains(point) && widthInputField == nil && heightInputField == nil {
-                showWidthInput()
-                return
-            }
-            if heightLabelRect.contains(point) && widthInputField == nil && heightInputField == nil {
-                showHeightInput()
-                return
-            }
-            // Legacy support for old sizeInputField
-            if let field = sizeInputField, field.frame.contains(point) {
-                return  // let the text field handle it
-            }
-            if let field = widthInputField, field.frame.contains(point) {
-                return  // let the text field handle it
-            }
-            if let field = heightInputField, field.frame.contains(point) {
-                return  // let the text field handle it
-            }
+
 
             // Check zoom label click
             if zoomLabelRect.contains(point) && zoomInputField == nil && zoomLabelOpacity > 0 {
@@ -5793,6 +5519,10 @@ class OverlayView: NSView {
 
                 // Hide color sampler magnifier when entering selected state
                 hideColorSamplerMagnifier()
+                // Re-show magnifier if color sampler is the active tool
+                if currentTool == .colorSampler {
+                    showColorSamplerMagnifier()
+                }
 
                 // 保持 aspectRatioLock 状态，不重置
                 if !autoOCRMode && !autoQuickSaveMode && !autoScrollCaptureMode && !autoConfirmMode { showToolbars = true }
@@ -5817,6 +5547,10 @@ class OverlayView: NSView {
 
                 // Hide color sampler magnifier when entering selected state
                 hideColorSamplerMagnifier()
+                // Re-show magnifier if color sampler is the active tool
+                if currentTool == .colorSampler {
+                    showColorSamplerMagnifier()
+                }
 
                 // 保持 aspectRatioLock 状态，不重置
                 if !autoOCRMode && !autoQuickSaveMode && !autoScrollCaptureMode && !autoConfirmMode { showToolbars = true }
@@ -5828,6 +5562,10 @@ class OverlayView: NSView {
 
                 // Hide color sampler magnifier when entering selected state
                 hideColorSamplerMagnifier()
+                // Re-show magnifier if color sampler is the active tool
+                if currentTool == .colorSampler {
+                    showColorSamplerMagnifier()
+                }
 
                 aspectRatioLock = .none  // 全屏时重置锁定
                 if !autoOCRMode && !autoQuickSaveMode && !autoScrollCaptureMode && !autoConfirmMode { showToolbars = true }
@@ -5966,7 +5704,7 @@ class OverlayView: NSView {
             {
                 NSPasteboard.general.clearContents()
                 NSPasteboard.general.setString(result.hex, forType: .string)
-                showOverlayError(String(format: L("Copied %@"), result.hex))
+                showOverlayHint(String(format: L("Copied %@"), result.hex))
                 needsDisplay = true
             }
             return
@@ -6827,6 +6565,12 @@ class OverlayView: NSView {
                 currentStampImage = StampEmojis.renderEmoji(StampEmojis.common[0])
                 currentStampEmoji = StampEmojis.common[0]
             }
+            // Show/hide color sampler magnifier based on tool selection
+            if currentTool == .colorSampler && state == .selected {
+                showColorSamplerMagnifier()
+            } else if currentTool != .colorSampler {
+                hideColorSamplerMagnifier()
+            }
             needsDisplay = true
         case .loupe:
             currentTool = .loupe
@@ -7602,6 +7346,12 @@ class OverlayView: NSView {
     }
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        // When an inline numeric field (width/height/zoom) is being edited,
+        // let its field editor handle Cmd+C/V/X/A/Z natively — don't intercept.
+        if isEditingInlineField && event.modifierFlags.contains(.command) {
+            return super.performKeyEquivalent(with: event)
+        }
+
         // Forward Cmd shortcuts to the text view when editing — the main menu
         // intercepts these before keyDown reaches the overlay window.
         if event.modifierFlags.contains(.command), let char = event.charactersIgnoringModifiers {
@@ -7680,6 +7430,31 @@ class OverlayView: NSView {
     }
 
     override func keyDown(with event: NSEvent) {
+        // ── Inline numeric fields (width / height / zoom) ──────────────────
+        // When an inline field is visible, ALL key events must go to its
+        // field editor.  If the field editor somehow lost first-responder
+        // status (common when makeFirstResponder is called during mouseDown),
+        // we re-establish it here and forward the event.
+        if isEditingInlineField {
+            // Find the field that is (or should be) active
+            let fields = [zoomInputField].compactMap { $0 }
+            let activeField = fields.first(where: { $0.currentEditor() != nil }) ?? fields.first
+
+            if let field = activeField {
+                // Ensure the field editor is first responder
+                if !(window?.firstResponder is NSTextView) {
+                    window?.makeFirstResponder(field)
+                }
+                // Forward the event — the field editor will handle character
+                // insertion, and for Return / Escape / Tab it calls
+                // control(_:textView:doCommandBy:) on the delegate (self).
+                if let editor = field.currentEditor() as? NSTextView {
+                    editor.keyDown(with: event)
+                }
+            }
+            return
+        }
+
         // In recording mode, only allow Escape (to exit recording mode)
         if isRecording {
             if event.keyCode == 53 { // Escape
@@ -7748,6 +7523,10 @@ class OverlayView: NSView {
 
                 // Hide color sampler magnifier when entering selected state
                 hideColorSamplerMagnifier()
+                // Re-show magnifier if color sampler is the active tool
+                if currentTool == .colorSampler {
+                    showColorSamplerMagnifier()
+                }
 
                 aspectRatioLock = .none  // 全屏时重置锁定
                 hoveredWindowRect = nil
@@ -7762,11 +7541,11 @@ class OverlayView: NSView {
                 }
             }
         case 36:  // Return/Enter — quick capture (respects quickCaptureMode setting)
-            if textEditView == nil, state == .selected {
+            if textEditView == nil, !isEditingInlineField, state == .selected {
                 overlayDelegate?.overlayViewDidRequestQuickSave()
             }
         case 51:  // Backspace/Delete — remove selected annotation(s)
-            guard textEditView == nil, state == .selected, !selectedAnnotations.isEmpty else { break }
+            guard textEditView == nil, !isEditingInlineField, state == .selected, !selectedAnnotations.isEmpty else { break }
             for ann in selectedAnnotations {
                 if let idx = annotations.firstIndex(where: { $0 === ann }) {
                     annotations.remove(at: idx)
@@ -7784,7 +7563,7 @@ class OverlayView: NSView {
             }
             // Auto-measure: hold "1" = vertical preview, hold "2" = horizontal preview
             if state == .selected && currentTool == .measure && textEditView == nil
-                && !event.modifierFlags.contains(.command)
+                && !isEditingInlineField && !event.modifierFlags.contains(.command)
             {
                 if let char = event.charactersIgnoringModifiers {
                     if char == "1" || char == "2" {
@@ -7799,7 +7578,7 @@ class OverlayView: NSView {
             }
 
             // 宽高比锁定：1=1:1, 2=2:3, 3=3:4, 4=4:5, 5=5:7, 6=9:16
-            if state == .idle || state == .selecting || state == .selected {
+            if (state == .idle || state == .selecting || state == .selected) && !isEditingInlineField {
                 if let char = event.charactersIgnoringModifiers, !event.modifierFlags.contains(.command) {
 
                     switch char {
@@ -7841,8 +7620,9 @@ class OverlayView: NSView {
                     }
                 }
             }
-            // Single-key tool shortcuts (only when selected, not editing text, no modifiers)
-            if state == .selected && textEditView == nil && !event.modifierFlags.contains(.command)
+            // Single-key tool shortcuts (only when selected, not editing text/inline fields, no modifiers)
+            if state == .selected && textEditView == nil && !isEditingInlineField
+                && !event.modifierFlags.contains(.command)
                 && !event.modifierFlags.contains(.option) && !event.modifierFlags.contains(.control)
             {
                 if let char = event.charactersIgnoringModifiers?.lowercased(),
@@ -8363,6 +8143,10 @@ class OverlayView: NSView {
 
         // Hide color sampler magnifier when entering selected state
         hideColorSamplerMagnifier()
+        // Re-show magnifier if color sampler is the active tool
+        if currentTool == .colorSampler {
+            showColorSamplerMagnifier()
+        }
 
         // 保持 aspectRatioLock 状态，不重置
         showToolbars = true
@@ -8376,6 +8160,10 @@ class OverlayView: NSView {
 
         // Hide color sampler magnifier when entering selected state
         hideColorSamplerMagnifier()
+        // Re-show magnifier if color sampler is the active tool
+        if currentTool == .colorSampler {
+            showColorSamplerMagnifier()
+        }
 
         aspectRatioLock = .none  // 全屏时重置锁定
         showToolbars = true
@@ -8559,12 +8347,9 @@ class OverlayView: NSView {
         currentRectCornerRadius = CGFloat(
             UserDefaults.standard.object(forKey: "currentRectCornerRadius") as? Double ?? 0)
         textEditor.dismiss()
-        sizeInputField?.removeFromSuperview()
-        sizeInputField = nil
+
         isResizingAnnotation = false
         loupeCursorPoint = .zero
-        colorSamplerPoint = .zero
-        colorSamplerBitmap = nil
         overlayErrorTimer?.invalidate()
         overlayErrorTimer = nil
         overlayErrorMessage = nil
@@ -8581,20 +8366,7 @@ extension OverlayView: NSTextFieldDelegate {
     func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector)
         -> Bool
     {
-        if control.tag == 888 {
-            // Legacy single size input field
-            if commandSelector == #selector(NSResponder.insertNewline(_:)) {
-                commitSizeInputIfNeeded()
-                return true
-            }
-            if commandSelector == #selector(NSResponder.cancelOperation(_:)) {
-                sizeInputField?.removeFromSuperview()
-                sizeInputField = nil
-                window?.makeFirstResponder(self)
-                needsDisplay = true
-                return true
-            }
-        }
+
         if control.tag == 889 {
             // Zoom input field
             if commandSelector == #selector(NSResponder.insertNewline(_:)) {
@@ -8609,35 +8381,7 @@ extension OverlayView: NSTextFieldDelegate {
                 return true
             }
         }
-        if control.tag == 901 || control.tag == 902 {
-            // Width (901) or Height (902) input field
-            if commandSelector == #selector(NSResponder.insertNewline(_:)) {
-                commitSizeInputIfNeeded()
-                return true
-            }
-            if commandSelector == #selector(NSResponder.cancelOperation(_:)) {
-                // Cancel: close both input fields
-                widthInputField?.removeFromSuperview()
-                heightInputField?.removeFromSuperview()
-                widthInputField = nil
-                heightInputField = nil
-                window?.makeFirstResponder(self)
-                needsDisplay = true
-                return true
-            }
-            // Tab key: switch between width and height fields
-            if commandSelector == #selector(NSResponder.insertTab(_:)) {
-                if control.tag == 901, let heightField = heightInputField {
-                    window?.makeFirstResponder(heightField)
-                    heightField.selectText(nil)
-                    return true
-                } else if control.tag == 902, let widthField = widthInputField {
-                    window?.makeFirstResponder(widthField)
-                    widthField.selectText(nil)
-                    return true
-                }
-            }
-        }
+
         return false
     }
 
@@ -8648,47 +8392,27 @@ extension OverlayView: NSTextFieldDelegate {
 
     func controlTextDidEndEditing(_ obj: Notification) {
         guard let field = obj.object as? NSTextField,
-              [888, 889, 901, 902].contains(field.tag)
+              field.tag == 889
         else { return }
-        // `didEnd` can run before the next field's `didBegin` (e.g. Tab between width/height); re-sync on next turn.
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
-            let fr = self.window?.firstResponder as? NSTextField
-            if let tf = fr, [888, 889, 901, 902].contains(tf.tag) {
-                self.applyInlineNumericFieldFocusChrome(focused: tf)
-            } else {
-                self.applyInlineNumericFieldFocusChrome(focused: nil)
-            }
+            self.applyInlineNumericFieldFocusChrome(focused: nil)
         }
     }
 
     /// Overlay size / zoom inline fields: no border when idle (matches `drawSizeLabel` / `drawZoomLabel`); only the first responder shows a border.
     private func applyInlineNumericFieldFocusChrome(focused: NSTextField?) {
-        let tagged: [NSTextField?] = [
-            widthInputField, heightInputField, zoomInputField, sizeInputField,
-        ]
-        for field in tagged.compactMap({ $0 }) {
-            guard [888, 889, 901, 902].contains(field.tag) else { continue }
-            if focused === field {
-                field.layer?.borderColor = NSColor.white.cgColor
-                field.layer?.borderWidth = 2
-            } else {
-                field.layer?.borderWidth = 0
-                field.layer?.borderColor = nil
-            }
+        guard let field = zoomInputField else { return }
+        if focused === field {
+            field.layer?.borderColor = NSColor.white.cgColor
+            field.layer?.borderWidth = 2
+        } else {
+            field.layer?.borderWidth = 0
+            field.layer?.borderColor = nil
         }
     }
 
     func controlTextDidChange(_ obj: Notification) {
-        guard let control = obj.object as? NSTextField else { return }
-
-        if control.tag == 901, let field = widthInputField {
-            // Width field changed - update height in real-time
-            updateWidthFromInput(field)
-        } else if control.tag == 902, let field = heightInputField {
-            // Height field changed - update width in real-time
-            updateHeightFromInput(field)
-        }
     }
 }
 

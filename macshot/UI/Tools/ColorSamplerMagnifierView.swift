@@ -79,6 +79,9 @@ final class ColorSamplerMagnifierView: NSView {
     var onColorCopied: ((String, ColorFormat) -> Void)?
     var onExitRequested: (() -> Void)?
 
+    /// Whether to exit after copying color. true for selecting state, false for annotation state.
+    var exitAfterCopy: Bool = true
+
     // MARK: - Initialization
 
     init() {
@@ -165,7 +168,11 @@ final class ColorSamplerMagnifierView: NSView {
         pasteboard.setString(colorString, forType: .string)
 
         onColorCopied?(colorString, currentFormat)
-        onExitRequested?()
+
+        // Only exit if exitAfterCopy is true (selecting state)
+        if exitAfterCopy {
+            onExitRequested?()
+        }
     }
 
     // MARK: - Drawing
@@ -200,7 +207,12 @@ final class ColorSamplerMagnifierView: NSView {
             hints: [.interpolation: NSNumber(value: NSImageInterpolation.none.rawValue)]
         )
 
-        // 3. Draw crosshair
+        // 3. Draw white border around magnifier
+        context.setStrokeColor(NSColor.white.cgColor)
+        context.setLineWidth(0.5)
+        context.stroke(magnifierRect)
+
+        // 4. Draw crosshair
         drawCrosshair(in: context, rect: magnifierRect)
 
         // 4. Draw HUD background
@@ -244,7 +256,7 @@ final class ColorSamplerMagnifierView: NSView {
 
     private func drawHUDBackground(in rect: NSRect) {
         // No rounded corners - match the magnifier's sharp edges
-        NSColor.black.withAlphaComponent(0.85).setFill()
+        NSColor.black.withAlphaComponent(0.7).setFill()
         rect.fill()
     }
 

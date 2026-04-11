@@ -37,6 +37,12 @@ extension OverlayView {
         guard magnifierView == nil else { return }
 
         let magnifier = ColorSamplerMagnifierView()
+
+        // Set exitAfterCopy based on state:
+        // - selecting/idle: exit after copy (user is selecting region)
+        // - selected: stay in tool after copy (user is annotating)
+        magnifier.exitAfterCopy = (state == .selecting || state == .idle)
+
         // Don't block mouse events — allow selection dragging
         magnifier.onColorCopied = { [weak self] colorString, format in
             self?.showColorCopiedToast(colorString, format: format)
