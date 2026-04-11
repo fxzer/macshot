@@ -83,6 +83,7 @@ class OverlayWindowController {
         let view = OverlayView()
         let nsImage = NSImage(cgImage: capture.image, size: screen.frame.size)
         view.screenshotImage = nsImage
+        view.setOriginalCGImage(capture.image)  // Store original CGImage for accurate color sampling
         view.frame = NSRect(origin: .zero, size: screen.frame.size)
         view.autoresizingMask = [.width, .height]
         view.overlayDelegate = self
@@ -847,6 +848,34 @@ extension OverlayWindowController: OverlayViewDelegate {
 class OverlayWindow: NSWindow {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { true }
+
+    /// Tags on `OverlayView` inline numeric `NSTextField`s (size / zoom). Their field editor must match `ToolbarLayout.bgColor`, not the default light `NSTextView` chrome.
+    private static let overlayInlineNumericFieldTags: Set<Int> = [888, 889, 901, 902]
+
+    override func fieldEditor(_ createFlag: Bool, for obj: Any?) -> NSText? {
+        let editor = super.fieldEditor(createFlag, for: obj)
+        guard let textView = editor as? NSTextView,
+              let field = obj as? NSTextField,
+              Self.overlayInlineNumericFieldTags.contains(field.tag)
+        else { return editor }
+
+        let font =
+            field.font
+            ?? NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium)
+        textView.drawsBackground = true
+        textView.backgroundColor = ToolbarLayout.bgColor
+        textView.textColor = .white
+        textView.insertionPointColor = .white
+        textView.typingAttributes = [
+            .font: font,
+            .foregroundColor: NSColor.white,
+        ]
+        textView.selectedTextAttributes = [
+            .backgroundColor: NSColor.white.withAlphaComponent(0.35),
+            .foregroundColor: NSColor.white,
+        ]
+        return editor
+    }
 }
 
 /// Retained delegate for NSSharingServicePicker — dismisses overlay only when user picks a service.

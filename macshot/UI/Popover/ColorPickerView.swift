@@ -415,7 +415,7 @@ class ColorPickerView: NSView {
     // MARK: - Helpers
 
     private func syncHSBFromColor(_ color: NSColor) {
-        guard let hsb = color.usingColorSpace(.deviceRGB) else { return }
+        guard let hsb = color.usingColorSpace(.sRGB) else { return }
         var h: CGFloat = 0, s: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
         hsb.getHue(&h, saturation: &s, brightness: &b, alpha: &a)
         hue = h
@@ -425,7 +425,7 @@ class ColorPickerView: NSView {
     }
 
     private func colorsMatch(_ a: NSColor, _ b: NSColor) -> Bool {
-        guard let ac = a.usingColorSpace(.deviceRGB), let bc = b.usingColorSpace(.deviceRGB) else { return a == b }
+        guard let ac = a.usingColorSpace(.sRGB), let bc = b.usingColorSpace(.sRGB) else { return a == b }
         let t: CGFloat = 0.01
         return abs(ac.redComponent - bc.redComponent) < t
             && abs(ac.greenComponent - bc.greenComponent) < t
@@ -433,7 +433,7 @@ class ColorPickerView: NSView {
     }
 
     private func colorToHex(_ color: NSColor) -> String {
-        guard let rgb = color.usingColorSpace(.deviceRGB) else { return "000000" }
+        guard let rgb = color.usingColorSpace(.sRGB) else { return "000000" }
         return String(format: "%02X%02X%02X",
                       Int(round(rgb.redComponent * 255)),
                       Int(round(rgb.greenComponent * 255)),

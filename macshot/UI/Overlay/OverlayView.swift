@@ -96,8 +96,22 @@ class OverlayView: NSView {
             // Ensure UI updates happen on main thread
             DispatchQueue.main.async {
                 self.needsDisplay = true
+                // Show color sampler magnifier when screenshot is set (in idle state)
+                if self.state == .idle && self.screenshotImage != nil {
+                    self.showColorSamplerMagnifier()
+                }
             }
         }
+    }
+
+    /// Store the original CGImage for accurate color sampling.
+    /// Using NSImage.cgImage(forProposedRect:) can return CGImages in different pixel formats
+    /// (e.g., 16-bit float on Retina), which causes color sampling inaccuracies.
+    private var originalCGImage: CGImage?
+
+    /// Set the original CGImage for accurate color sampling.
+    func setOriginalCGImage(_ cgImage: CGImage) {
+        self.originalCGImage = cgImage
     }
 
     // State
@@ -1085,6 +1099,9 @@ class OverlayView: NSView {
         }
 
         // Toolbar hover handled by ToolbarButtonView (real NSView subviews)
+
+        // Update color sampler magnifier position and content
+        updateMagnifierIfNeeded()
     }
 
     // Custom cursors
@@ -2379,44 +2396,37 @@ class OverlayView: NSView {
         let pixelW = Int(selectionRect.width * scale)
         let pixelH = Int(selectionRect.height * scale)
 
-        let fieldWidth: CGFloat = 80
-        let fieldHeight: CGFloat = 22
+        // Match `drawSizeLabel()` pill geometry exactly — fixed 80×22 caused visible jump.
+        let widthFrame = widthLabelRect
+        let heightFrame = heightLabelRect
 
-        // Create width input field
-        let widthFieldX = widthLabelRect.minX + (widthLabelRect.width - fieldWidth) / 2
-        let widthFieldY = widthLabelRect.minY + (widthLabelRect.height - fieldHeight) / 2
-
-        let widthField = NSTextField(
-            frame: NSRect(x: widthFieldX, y: widthFieldY, width: fieldWidth, height: fieldHeight))
+        let widthField = NSTextField(frame: widthFrame)
         widthField.stringValue = "\(pixelW)"
-        widthField.font = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium)
+        widthField.font = Self.sizeLabelFont
         widthField.alignment = .center
         widthField.isBezeled = false
+        (widthField.cell as? NSTextFieldCell)?.drawsBackground = false
         widthField.wantsLayer = true
         widthField.layer?.backgroundColor = ToolbarLayout.bgColor.cgColor
         widthField.layer?.cornerRadius = 4
-        widthField.layer?.borderWidth = 1
-        widthField.layer?.borderColor = NSColor.white.withAlphaComponent(0.3).cgColor
+        widthField.layer?.borderWidth = 0
+        widthField.layer?.borderColor = nil
         widthField.textColor = .white
         widthField.focusRingType = .none
         widthField.delegate = self
         widthField.tag = 901  // Width field tag
 
-        // Create height input field
-        let heightFieldX = heightLabelRect.minX + (heightLabelRect.width - fieldWidth) / 2
-        let heightFieldY = heightLabelRect.minY + (heightLabelRect.height - fieldHeight) / 2
-
-        let heightField = NSTextField(
-            frame: NSRect(x: heightFieldX, y: heightFieldY, width: fieldWidth, height: fieldHeight))
+        let heightField = NSTextField(frame: heightFrame)
         heightField.stringValue = "\(pixelH)"
-        heightField.font = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium)
+        heightField.font = Self.sizeLabelFont
         heightField.alignment = .center
         heightField.isBezeled = false
+        (heightField.cell as? NSTextFieldCell)?.drawsBackground = false
         heightField.wantsLayer = true
         heightField.layer?.backgroundColor = ToolbarLayout.bgColor.cgColor
         heightField.layer?.cornerRadius = 4
-        heightField.layer?.borderWidth = 1
-        heightField.layer?.borderColor = NSColor.white.withAlphaComponent(0.3).cgColor
+        heightField.layer?.borderWidth = 0
+        heightField.layer?.borderColor = nil
         heightField.textColor = .white
         heightField.focusRingType = .none
         heightField.delegate = self
@@ -2431,6 +2441,7 @@ class OverlayView: NSView {
         // Focus on width field first
         window?.makeFirstResponder(widthField)
         widthField.selectText(nil)
+        applyInlineNumericFieldFocusChrome(focused: widthField)
         needsDisplay = true
     }
 
@@ -2570,22 +2581,17 @@ class OverlayView: NSView {
                 ? String(format: "%.0f", rounded) : String(format: "%.1f", rounded)
         }
 
-        let fieldWidth: CGFloat = 70
-        let fieldHeight: CGFloat = 22
-        let fieldX = zoomLabelRect.midX - fieldWidth / 2
-        let fieldY = zoomLabelRect.minY + (zoomLabelRect.height - fieldHeight) / 2
-
-        let field = NSTextField(
-            frame: NSRect(x: fieldX, y: fieldY, width: fieldWidth, height: fieldHeight))
+        let field = NSTextField(frame: zoomLabelRect)
         field.stringValue = currentText
-        field.font = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium)
+        field.font = Self.sizeLabelFont
         field.alignment = .center
         field.isBezeled = false
+        (field.cell as? NSTextFieldCell)?.drawsBackground = false
         field.wantsLayer = true
         field.layer?.backgroundColor = ToolbarLayout.bgColor.cgColor
         field.layer?.cornerRadius = 4
-        field.layer?.borderWidth = 1
-        field.layer?.borderColor = NSColor.white.withAlphaComponent(0.3).cgColor
+        field.layer?.borderWidth = 0
+        field.layer?.borderColor = nil
         field.textColor = .white
         field.focusRingType = .none
         field.delegate = self
@@ -2595,6 +2601,7 @@ class OverlayView: NSView {
         zoomInputField = field
         window?.makeFirstResponder(field)
         field.selectText(nil)
+        applyInlineNumericFieldFocusChrome(focused: field)
         // Keep zoom label visible while editing
         zoomLabelOpacity = 1.0
         zoomFadeTimer?.invalidate()
@@ -2629,7 +2636,7 @@ class OverlayView: NSView {
     }
     /// Compare two colors by RGB components (ignoring minor floating point differences)    /// Convert NSColor to hex string like "FF3B30"
     private func colorToHexString(_ color: NSColor) -> String {
-        guard let rgb = color.usingColorSpace(.deviceRGB) else { return "000000" }
+        guard let rgb = color.usingColorSpace(.sRGB) else { return "000000" }
         let r = Int(round(rgb.redComponent * 255))
         let g = Int(round(rgb.greenComponent * 255))
         let b = Int(round(rgb.blueComponent * 255))
@@ -3026,9 +3033,18 @@ class OverlayView: NSView {
     private func sampleColor(from image: NSImage, at canvasPoint: NSPoint) -> (
         color: NSColor, hex: String
     )? {
-        guard let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
-            return nil
+        // Use original CGImage if available for accurate color sampling
+        // Falls back to NSImage's cgImage(forProposedRect:) if not set
+        let cgImage: CGImage
+        if let original = originalCGImage {
+            cgImage = original
+        } else {
+            guard let img = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
+                return nil
+            }
+            cgImage = img
         }
+
         let imgSize = image.size
         let drawRect = captureDrawRect
 
@@ -3043,14 +3059,15 @@ class OverlayView: NSView {
         let cgY = Int(CGFloat(cgImage.height) - 1 - py * scaleY)  // flip Y for CGImage (top-left origin)
         guard cgX >= 0, cgX < cgImage.width, cgY >= 0, cgY < cgImage.height else { return nil }
 
-        // Render the single pixel into a known-format 1×1 sRGB bitmap to get correct raw values.
-        let srgb = CGColorSpace(name: CGColorSpace.sRGB)!
+        // Use sRGB color space for consistent color sampling across different display types
+        // This avoids color space conversion issues on Display P3 monitors
+        let srgbColorSpace = CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB()
         guard
             let ctx = CGContext(
                 data: nil, width: 1, height: 1,
                 bitsPerComponent: 8, bytesPerRow: 4,
-                space: srgb,
-                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+                space: srgbColorSpace,
+                bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue)
         else { return nil }
         ctx.draw(
             cgImage,
@@ -3059,17 +3076,22 @@ class OverlayView: NSView {
                 width: CGFloat(cgImage.width), height: CGFloat(cgImage.height)))
         guard let data = ctx.data else { return nil }
         let ptr = data.assumingMemoryBound(to: UInt8.self)
-        let a = CGFloat(ptr[3]) / 255
-        guard a > 0 else { return nil }
-        // Undo premultiplication
-        let r = UInt8(min(255, CGFloat(ptr[0]) / a))
-        let g = UInt8(min(255, CGFloat(ptr[1]) / a))
-        let b = UInt8(min(255, CGFloat(ptr[2]) / a))
+
+        // Read RGB directly (no premultiplication with noneSkipLast)
+        let r = ptr[0]
+        let g = ptr[1]
+        let b = ptr[2]
 
         let hex = String(format: "#%02X%02X%02X", r, g, b)
         let color = NSColor(
             srgbRed: CGFloat(r) / 255, green: CGFloat(g) / 255, blue: CGFloat(b) / 255, alpha: 1)
         return (color, hex)
+    }
+
+    /// Public method to sample color at a canvas point (for color sampler magnifier).
+    func getSampledColor(at canvasPoint: NSPoint) -> (color: NSColor, hex: String)? {
+        guard let screenshot = screenshotImage else { return nil }
+        return sampleColor(from: screenshot, at: canvasPoint)
     }
 
     // MARK: - Editor Image Transforms
@@ -3103,6 +3125,7 @@ class OverlayView: NSView {
         guard let flipped = ctx.makeImage() else { return }
 
         screenshotImage = NSImage(cgImage: flipped, size: original.size)
+        originalCGImage = flipped  // Update original CGImage for accurate color sampling
 
         // Mirror annotation X coordinates around the image center
         let imgW = original.size.width
@@ -3151,6 +3174,7 @@ class OverlayView: NSView {
         guard let flipped = ctx.makeImage() else { return }
 
         screenshotImage = NSImage(cgImage: flipped, size: original.size)
+        originalCGImage = flipped  // Update original CGImage for accurate color sampling
 
         // Mirror annotation Y coordinates around the image center
         for ann in annotations {
@@ -3274,7 +3298,9 @@ class OverlayView: NSView {
         let offsets = annotations.map { ($0, shiftDx, shiftDy) }
         undoStack.append(.imageTransform(previousImage: prevImage, annotationOffsets: offsets))
 
-        screenshotImage = NSImage(cgImage: newCG, size: NSSize(width: newPtW, height: newPtH))
+        let newNSImage = NSImage(cgImage: newCG, size: NSSize(width: newPtW, height: newPtH))
+        screenshotImage = newNSImage
+        originalCGImage = newCG  // Update original CGImage for accurate color sampling
         cachedOpaqueRect = nil  // invalidate — image content changed
 
         // Shift all annotations so they align with the new origin
@@ -3361,6 +3387,7 @@ class OverlayView: NSView {
         guard let inverted = ciCtx.createCGImage(output, from: output.extent) else { return }
 
         screenshotImage = NSImage(cgImage: inverted, size: original.size)
+        originalCGImage = inverted  // Update original CGImage for accurate color sampling
         cachedCompositedImage = nil
         needsDisplay = true
     }
@@ -3883,6 +3910,7 @@ class OverlayView: NSView {
             width: CGFloat(croppedCG.width) / pixScale,
             height: CGFloat(croppedCG.height) / pixScale)
         screenshotImage = NSImage(cgImage: croppedCG, size: croppedPointSize)
+        originalCGImage = croppedCG  // Update original CGImage for accurate color sampling
 
         // Update selectionRect to match new image size
         selectionRect = NSRect(origin: .zero, size: croppedPointSize)
@@ -5085,6 +5113,10 @@ class OverlayView: NSView {
             selectionRect = NSRect(origin: point, size: .zero)
             state = .selecting
             overlayDelegate?.overlayViewDidBeginSelection()
+
+            // Show color sampler magnifier when entering selection state
+            showColorSamplerMagnifier()
+
             needsDisplay = true
 
         case .selected:
@@ -5366,6 +5398,9 @@ class OverlayView: NSView {
             selectionRect = NSRect(x: x, y: y, width: w, height: h)
             overlayDelegate?.overlayViewSelectionDidChange(selectionRect)
             needsDisplay = true
+
+            // Update color sampler magnifier during selection drag
+            updateMagnifierIfNeeded()
 
         case .selected:
             // Selection dragging (Snipaste-style: drag selection area)
@@ -5708,6 +5743,10 @@ class OverlayView: NSView {
             if selectionRect.width > 5 || selectionRect.height > 5 {
                 // Real drag — use drawn rect as-is
                 state = .selected
+
+                // Hide color sampler magnifier when entering selected state
+                hideColorSamplerMagnifier()
+
                 // 保持 aspectRatioLock 状态，不重置
                 if !autoOCRMode && !autoQuickSaveMode && !autoScrollCaptureMode && !autoConfirmMode { showToolbars = true }
                 overlayDelegate?.overlayViewDidFinishSelection(selectionRect)
@@ -5728,6 +5767,10 @@ class OverlayView: NSView {
                     }
                 }
                 state = .selected
+
+                // Hide color sampler magnifier when entering selected state
+                hideColorSamplerMagnifier()
+
                 // 保持 aspectRatioLock 状态，不重置
                 if !autoOCRMode && !autoQuickSaveMode && !autoScrollCaptureMode && !autoConfirmMode { showToolbars = true }
                 overlayDelegate?.overlayViewDidFinishSelection(selectionRect)
@@ -5735,6 +5778,10 @@ class OverlayView: NSView {
                 // Click (no drag), snap off — expand to full screen
                 selectionRect = bounds
                 state = .selected
+
+                // Hide color sampler magnifier when entering selected state
+                hideColorSamplerMagnifier()
+
                 aspectRatioLock = .none  // 全屏时重置锁定
                 if !autoOCRMode && !autoQuickSaveMode && !autoScrollCaptureMode && !autoConfirmMode { showToolbars = true }
                 overlayDelegate?.overlayViewDidFinishSelection(selectionRect)
@@ -7493,6 +7540,9 @@ class OverlayView: NSView {
             updateAnnotation(at: lastPoint, shiftHeld: shiftHeld)
             needsDisplay = true
         }
+
+        // Handle Shift key for color sampler format toggle
+        overlayViewFlagsChanged(with: event)
     }
 
     /// Called by the Character Palette when the user selects an emoji.
@@ -7647,6 +7697,10 @@ class OverlayView: NSView {
             if state == .idle && windowSnapEnabled {
                 selectionRect = bounds
                 state = .selected
+
+                // Hide color sampler magnifier when entering selected state
+                hideColorSamplerMagnifier()
+
                 aspectRatioLock = .none  // 全屏时重置锁定
                 hoveredWindowRect = nil
                 if autoQuickSaveMode {
@@ -7676,6 +7730,10 @@ class OverlayView: NSView {
             cachedCompositedImage = nil
             needsDisplay = true
         default:
+            // Handle color sampler keys (C for copy, arrow keys/WASD for pixel movement)
+            if overlayViewKeyDown(with: event) {
+                return
+            }
             // Auto-measure: hold "1" = vertical preview, hold "2" = horizontal preview
             if state == .selected && currentTool == .measure && textEditView == nil
                 && !event.modifierFlags.contains(.command)
@@ -8254,6 +8312,10 @@ class OverlayView: NSView {
         selectionRect = rect
         selectionStart = rect.origin
         state = .selected
+
+        // Hide color sampler magnifier when entering selected state
+        hideColorSamplerMagnifier()
+
         // 保持 aspectRatioLock 状态，不重置
         showToolbars = true
         needsDisplay = true
@@ -8263,6 +8325,10 @@ class OverlayView: NSView {
         selectionRect = bounds
         selectionStart = bounds.origin
         state = .selected
+
+        // Hide color sampler magnifier when entering selected state
+        hideColorSamplerMagnifier()
+
         aspectRatioLock = .none  // 全屏时重置锁定
         showToolbars = true
         scheduleBarcodeDetection()
@@ -8529,16 +8595,40 @@ extension OverlayView: NSTextFieldDelegate {
 
     func controlTextDidBeginEditing(_ obj: Notification) {
         guard let field = obj.object as? NSTextField else { return }
-        // Highlight border when focused
-        field.layer?.borderColor = NSColor.white.cgColor
-        field.layer?.borderWidth = 2
+        applyInlineNumericFieldFocusChrome(focused: field)
     }
 
     func controlTextDidEndEditing(_ obj: Notification) {
-        guard let field = obj.object as? NSTextField else { return }
-        // Dim border when not focused
-        field.layer?.borderColor = NSColor.white.withAlphaComponent(0.3).cgColor
-        field.layer?.borderWidth = 1
+        guard let field = obj.object as? NSTextField,
+              [888, 889, 901, 902].contains(field.tag)
+        else { return }
+        // `didEnd` can run before the next field's `didBegin` (e.g. Tab between width/height); re-sync on next turn.
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            let fr = self.window?.firstResponder as? NSTextField
+            if let tf = fr, [888, 889, 901, 902].contains(tf.tag) {
+                self.applyInlineNumericFieldFocusChrome(focused: tf)
+            } else {
+                self.applyInlineNumericFieldFocusChrome(focused: nil)
+            }
+        }
+    }
+
+    /// Overlay size / zoom inline fields: no border when idle (matches `drawSizeLabel` / `drawZoomLabel`); only the first responder shows a border.
+    private func applyInlineNumericFieldFocusChrome(focused: NSTextField?) {
+        let tagged: [NSTextField?] = [
+            widthInputField, heightInputField, zoomInputField, sizeInputField,
+        ]
+        for field in tagged.compactMap({ $0 }) {
+            guard [888, 889, 901, 902].contains(field.tag) else { continue }
+            if focused === field {
+                field.layer?.borderColor = NSColor.white.cgColor
+                field.layer?.borderWidth = 2
+            } else {
+                field.layer?.borderWidth = 0
+                field.layer?.borderColor = nil
+            }
+        }
     }
 
     func controlTextDidChange(_ obj: Notification) {

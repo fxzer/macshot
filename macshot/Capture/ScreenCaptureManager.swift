@@ -143,6 +143,11 @@ class ScreenCaptureManager {
                                 config.height = display.height * scale
                                 config.showsCursor = UserDefaults.standard.bool(forKey: "captureCursor")
                                 config.captureResolution = .best
+                                // Force sRGB output so pixel values match standard hex color codes.
+                                // Without this, SCKit uses the display's native ICC profile
+                                // (e.g. "Mi Monitor", "Redmi Monitor"), producing different
+                                // color values for the same on-screen color on different displays.
+                                config.colorSpaceName = CGColorSpace.sRGB
 
                                 guard let image = try? await SCScreenshotManager.captureImage(
                                     contentFilter: filter, configuration: config
@@ -189,15 +194,18 @@ class ScreenCaptureManager {
         }
     }
 
-    /// Convert a CGImage (potentially ARGB16F or other GPU format) into an 8-bit BGRA bitmap.
-    /// This forces the pixel format conversion on the current (background) thread so it
-    /// doesn't stall the main thread when the image is first drawn.
+    /// Convert a CGImage (potentially ARGB16F or other GPU format) into an 8-bit BGRA bitmap
+    /// in the **sRGB** color space. Using sRGB ensures that pixel values correspond directly
+    /// to standard hex color codes (#RRGGBB) and that color sampling is accurate regardless
+    /// of the display's native color space (e.g. Display P3).
+    /// CoreGraphics will automatically convert sRGB images to the display profile when drawing.
     private static func copyTo8BitBGRA(_ src: CGImage) -> CGImage? {
         let w = src.width
         let h = src.height
-        // Use the source image's color space (typically display P3 on modern Macs) so
-        // CoreGraphics doesn't need a color space conversion when drawing to screen.
-        let cs = src.colorSpace ?? CGColorSpaceCreateDeviceRGB()
+        // Force sRGB so pixel values match standard hex/RGB color codes.
+        // On Display P3 monitors, the source image is in P3 — keeping P3 means
+        // pixel R/G/B values don't match what users expect from sRGB hex codes.
+        let cs = CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB()
         let bitmapInfo = CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
         guard let ctx = CGContext(
             data: nil,
@@ -242,6 +250,8 @@ class ScreenCaptureManager {
             config.height = Int(scWindow.frame.height) * scale
             config.showsCursor = false
             config.captureResolution = .best
+            // Force sRGB output — see captureAllScreens for rationale.
+            config.colorSpaceName = CGColorSpace.sRGB
 
             guard let image = try? await SCScreenshotManager.captureImage(
                 contentFilter: filter, configuration: config
