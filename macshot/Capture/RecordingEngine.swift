@@ -39,10 +39,11 @@ final class RecordingEngine: NSObject {
     private var startTime: CMTime = .invalid
     private var sessionStarted: Bool = false
     private var frameCount: Int64 = 0
-    /// Audio samples that arrived before the first video frame (session not yet started).
-    /// Flushed once the session starts so no audio is lost at the beginning.
-    private var pendingAudioSamples: [CMSampleBuffer] = []
-    private var pendingMicSamples: [CMSampleBuffer] = []
+
+    /// Actor-protected buffers for audio samples that arrive before the first video frame.
+    /// This prevents data races since audio callbacks can execute concurrently.
+    private let pendingAudioBuffer = PendingSampleBuffer()
+    private let pendingMicBuffer = PendingSampleBuffer()
 
     // MARK: - Mic capture
 
@@ -261,7 +262,7 @@ final class RecordingEngine: NSObject {
     private func handleAudioSample(_ sampleBuffer: CMSampleBuffer) {
         guard state == .recording, let audioInput = audioInput else { return }
         if !sessionStarted {
-            pendingAudioSamples.append(sampleBuffer)
+            Task { await pendingAudioBuffer.append(sampleBuffer) }
             return
         }
         guard audioInput.isReadyForMoreMediaData else { return }
@@ -273,7 +274,7 @@ final class RecordingEngine: NSObject {
     private func handleMicSample(_ sampleBuffer: CMSampleBuffer) {
         guard state == .recording, let micInput = micAudioInput else { return }
         if !sessionStarted {
-            pendingMicSamples.append(sampleBuffer)
+            Task { await pendingMicBuffer.append(sampleBuffer) }
             return
         }
         guard micInput.isReadyForMoreMediaData else { return }
@@ -423,20 +424,10 @@ final class RecordingEngine: NSObject {
             writer.startSession(atSourceTime: presentationTime)
             sessionStarted = true
             // Flush audio samples that arrived before the first video frame
-            for sample in pendingAudioSamples {
-                if let ai = audioInput, ai.isReadyForMoreMediaData,
-                   let adjusted = sample.adjustingTime(by: totalPausedDuration) {
-                    ai.append(adjusted)
-                }
+            Task {
+                await pendingAudioBuffer.flush(to: audioInput, pauseDuration: totalPausedDuration)
+                await pendingMicBuffer.flush(to: micAudioInput, pauseDuration: totalPausedDuration)
             }
-            pendingAudioSamples.removeAll()
-            for sample in pendingMicSamples {
-                if let mi = micAudioInput, mi.isReadyForMoreMediaData,
-                   let adjusted = sample.adjustingTime(by: totalPausedDuration) {
-                    mi.append(adjusted)
-                }
-            }
-            pendingMicSamples.removeAll()
         }
 
         adaptor.append(buffer, withPresentationTime: presentationTime)
@@ -461,7 +452,9 @@ final class RecordingEngine: NSObject {
         // Save to temp directory — always writable in sandbox.
         // The video editor handles final export to the user's chosen location.
         let dir = FileManager.default.temporaryDirectory
-        let name = "Recording \(OverlayWindowController.formattedTimestamp()).mp4"
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd HH.mm.ss"
+        let name = "Recording \(formatter.string(from: Date())).mp4"
         return dir.appendingPathComponent(name)
     }
 
@@ -540,5 +533,41 @@ private extension CMSampleBuffer {
         var adjusted: CMSampleBuffer?
         CMSampleBufferCreateCopyWithNewTiming(allocator: nil, sampleBuffer: self, sampleTimingEntryCount: 1, sampleTimingArray: &timing, sampleBufferOut: &adjusted)
         return adjusted
+    }
+}
+
+// MARK: - Pending Sample Buffer Actor
+
+/// Actor protecting pending audio sample buffers from concurrent access.
+/// Audio samples can arrive before the first video frame and must be buffered
+/// until the session starts. Since audio callbacks execute concurrently,
+/// we need actor isolation to prevent data races.
+private actor PendingSampleBuffer {
+    private var samples: [CMSampleBuffer] = []
+
+    func append(_ sample: CMSampleBuffer) {
+        samples.append(sample)
+    }
+
+    /// Flush all pending samples by applying them to the given audio input.
+    /// Returns true if any samples were flushed.
+    func flush(to audioInput: AVAssetWriterInput?, pauseDuration: TimeInterval) -> Bool {
+        guard let input = audioInput, input.isReadyForMoreMediaData else {
+            return false
+        }
+
+        var flushed = false
+        for sample in samples {
+            if let adjusted = sample.adjustingTime(by: pauseDuration) {
+                input.append(adjusted)
+                flushed = true
+            }
+        }
+        samples.removeAll()
+        return flushed
+    }
+
+    func removeAll() {
+        samples.removeAll()
     }
 }

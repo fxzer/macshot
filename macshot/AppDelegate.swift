@@ -143,6 +143,17 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
 
     func applicationWillTerminate(_ aNotification: Notification) {
         HotkeyManager.shared.unregister()
+        // Remove all notification observers
+        DistributedNotificationCenter.default().removeObserver(self)
+        NSWorkspace.shared.notificationCenter.removeObserver(self)
+        NotificationCenter.default.removeObserver(self)
+    }
+
+    deinit {
+        // Ensure observers are removed even if terminate isn't called
+        DistributedNotificationCenter.default().removeObserver(self)
+        NSWorkspace.shared.notificationCenter.removeObserver(self)
+        NotificationCenter.default.removeObserver(self)
     }
 
     func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool {

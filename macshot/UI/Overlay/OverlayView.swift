@@ -92,7 +92,12 @@ class OverlayView: NSView {
     weak var chromeParentView: NSView?
 
     var screenshotImage: NSImage? {
-        didSet { needsDisplay = true }
+        didSet {
+            // Ensure UI updates happen on main thread
+            DispatchQueue.main.async {
+                self.needsDisplay = true
+            }
+        }
     }
 
     // State
@@ -886,6 +891,42 @@ class OverlayView: NSView {
             toolOptionsRowView?.rebuild(for: tool)
         }
         needsDisplay = true
+    }
+
+    deinit {
+        // Clean up all timers to prevent memory leaks
+        zoomFadeTimer?.invalidate()
+        zoomFadeTimer = nil
+
+        scrollPropertyAdjustTimer?.invalidate()
+        scrollPropertyAdjustTimer = nil
+
+        aspectRatioHintFadeTimer?.invalidate()
+        aspectRatioHintFadeTimer = nil
+
+        longPressTimer?.invalidate()
+        longPressTimer = nil
+
+        hoveredAnnotationClearTimer?.invalidate()
+        hoveredAnnotationClearTimer = nil
+
+        beautifyToolbarAnimTimer?.invalidate()
+        beautifyToolbarAnimTimer = nil
+
+        overlayErrorTimer?.invalidate()
+        overlayErrorTimer = nil
+
+        micLevelTimer?.invalidate()
+        micLevelTimer = nil
+
+        editorZoomRedrawTimer?.invalidate()
+        editorZoomRedrawTimer = nil
+
+        editorZoomAnimTimer?.invalidate()
+        editorZoomAnimTimer = nil
+
+        // Remove notification observer
+        NotificationCenter.default.removeObserver(self)
     }
 
     /// Invalidate only the rect around a cursor preview (old + new position) instead of the whole view.
@@ -2350,9 +2391,12 @@ class OverlayView: NSView {
         widthField.stringValue = "\(pixelW)"
         widthField.font = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium)
         widthField.alignment = .center
-        widthField.isBezeled = true
-        widthField.bezelStyle = .roundedBezel
-        widthField.backgroundColor = NSColor(white: 0.15, alpha: 0.95)
+        widthField.isBezeled = false
+        widthField.wantsLayer = true
+        widthField.layer?.backgroundColor = ToolbarLayout.bgColor.cgColor
+        widthField.layer?.cornerRadius = 4
+        widthField.layer?.borderWidth = 1
+        widthField.layer?.borderColor = NSColor.white.withAlphaComponent(0.3).cgColor
         widthField.textColor = .white
         widthField.focusRingType = .none
         widthField.delegate = self
@@ -2367,9 +2411,12 @@ class OverlayView: NSView {
         heightField.stringValue = "\(pixelH)"
         heightField.font = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium)
         heightField.alignment = .center
-        heightField.isBezeled = true
-        heightField.bezelStyle = .roundedBezel
-        heightField.backgroundColor = NSColor(white: 0.15, alpha: 0.95)
+        heightField.isBezeled = false
+        heightField.wantsLayer = true
+        heightField.layer?.backgroundColor = ToolbarLayout.bgColor.cgColor
+        heightField.layer?.cornerRadius = 4
+        heightField.layer?.borderWidth = 1
+        heightField.layer?.borderColor = NSColor.white.withAlphaComponent(0.3).cgColor
         heightField.textColor = .white
         heightField.focusRingType = .none
         heightField.delegate = self
@@ -2533,9 +2580,12 @@ class OverlayView: NSView {
         field.stringValue = currentText
         field.font = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium)
         field.alignment = .center
-        field.isBezeled = true
-        field.bezelStyle = .roundedBezel
-        field.backgroundColor = NSColor(white: 0.15, alpha: 0.95)
+        field.isBezeled = false
+        field.wantsLayer = true
+        field.layer?.backgroundColor = ToolbarLayout.bgColor.cgColor
+        field.layer?.cornerRadius = 4
+        field.layer?.borderWidth = 1
+        field.layer?.borderColor = NSColor.white.withAlphaComponent(0.3).cgColor
         field.textColor = .white
         field.focusRingType = .none
         field.delegate = self
@@ -8475,6 +8525,20 @@ extension OverlayView: NSTextFieldDelegate {
             }
         }
         return false
+    }
+
+    func controlTextDidBeginEditing(_ obj: Notification) {
+        guard let field = obj.object as? NSTextField else { return }
+        // Highlight border when focused
+        field.layer?.borderColor = NSColor.white.cgColor
+        field.layer?.borderWidth = 2
+    }
+
+    func controlTextDidEndEditing(_ obj: Notification) {
+        guard let field = obj.object as? NSTextField else { return }
+        // Dim border when not focused
+        field.layer?.borderColor = NSColor.white.withAlphaComponent(0.3).cgColor
+        field.layer?.borderWidth = 1
     }
 
     func controlTextDidChange(_ obj: Notification) {

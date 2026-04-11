@@ -141,23 +141,31 @@ class ToolbarLayout {
             UserDefaults.standard.set(allKnownToolRawValues, forKey: "knownToolRawValues")
         }
 
+        // 工具按钮按分组排列：画笔 | 形状 | 标注 | 效果
         let tools: [(AnnotationTool, String, String)] = [
+            // 画笔组 (4个)
             (.pencil, "scribble", L("Pencil (Draw)")),
             (.line, "line.diagonal", L("Line")),
             (.arrow, "arrow.up.right", L("Arrow")),
-            (.rectangle, "rectangle", L("Rectangle")),
-            (.ellipse, "oval", L("Ellipse")),
             (.marker, {
                 if #available(macOS 14.0, *) { return "highlighter" }
                 return "paintbrush.pointed.fill"
             }(), L("Marker")),
-            (.text, "textformat", L("Text")),
-            (.number, "1.circle.fill", L("Number")),
+
+            // 形状组 (4个)
+            (.rectangle, "rectangle", L("Rectangle")),
+            (.ellipse, "oval", L("Ellipse")),
             (.pixelate, "_custom.checkerboard", L("Censor (Pixelate / Blur / Solid)")),
             (.loupe, "magnifyingglass", L("Magnify (Loupe)")),
+
+            // 标注组 (4个)
+            (.text, "_custom.letterA", L("Text")),
+            (.number, "1.circle.fill", L("Number")),
             (.stamp, "face.smiling", L("Stamp / Emoji")),
-            (.colorSampler, "eyedropper", L("Color Picker")),
             (.measure, "ruler", L("Measure (px)")),
+
+            // 颜色取样器放在最后
+            (.colorSampler, "eyedropper", L("Color Picker")),
         ]
 
         for (tool, symbol, tip) in tools {

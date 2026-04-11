@@ -32,7 +32,7 @@ rm -rf ~/Desktop/macshot-backup-* 2>/dev/null || true
 
 # 清除系统权限（屏幕录制、辅助功能等）
 echo "   🔑 清除系统权限（屏幕录制、辅助功能等）..."
-if echo "$SUDO_PASSWORD" | sudo -S tccutil reset All com.sw33tlie.macshot.macshot 2>/dev/null; then
+if tccutil reset All com.sw33tlie.macshot.macshot 2>/dev/null; then
     echo "   ✅ 系统权限已清除"
 else
     echo "   ⚠️  权限清除失败（可能需要手动在系统设置中移除）"

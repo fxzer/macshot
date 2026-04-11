@@ -67,21 +67,20 @@
 "Line" = "线条";
 "Rectangle" = "矩形";
 "Ellipse" = "椭圆";
-"Pencil" = "铅笔";
-"Pencil (Draw)" = "铅笔（绘制）";
-"Marker" = "记号笔";
+"Pencil" = "画笔";
+"Pencil (Draw)" = "画笔";
+"Marker" = "荧光笔";
 "Text" = "文字";
 "Number" = "编号";
 "Number / Counter" = "编号 / 计数器";
-"Stamp / Emoji" = "图章 / 表情";
-"Censor" = "遮挡";
-"Censor (Pixelate / Blur / Solid)" = "遮挡（像素化 / 模糊 / 纯色）";
+"Stamp / Emoji" = "表情";
+"Censor" = "马赛克";
+"Censor (Pixelate / Blur / Solid)" = "马赛克";
 "Measure" = "测量";
 "Measure (px)" = "测量 (px)";
 "Magnify (Loupe)" = "放大镜";
-"Color Sampler" = "取色器";
-"Color Picker" = "颜色选取器";
-"Select & Edit" = "选择与编辑";
+"Color Picker" = "取色";
+"Select & Edit" = "选择";
 "Color" = "颜色";
 
 /* Toolbar - Actions */
@@ -100,11 +99,11 @@
 "Undo" = "撤销";
 "Redo" = "重做";
 "Close" = "关闭";
-"Remove Background" = "移除背景";
-"Beautify" = "美化";
-"Adjust" = "调整";
-"Adjust (Image Effects)" = "调整（图像效果）";
-"Invert Colors" = "反转颜色";
+"Remove Background" = "抠图";
+"Beautify" = "风格化";
+"Adjust" = "调色";
+"Adjust (Image Effects)" = "调色（图像效果）";
+"Invert Colors" = "反色";
 "Record" = "录制";
 "Record screen" = "录制屏幕";
 "Translate" = "翻译";

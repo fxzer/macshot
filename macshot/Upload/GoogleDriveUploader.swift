@@ -39,6 +39,13 @@ final class GoogleDriveUploader: NSObject, ASWebAuthenticationPresentationContex
         loadRefreshToken() != nil
     }
 
+    // MARK: - Helpers
+
+    /// Safely create a URL from a string, returning nil on failure.
+    private func url(from string: String) -> URL? {
+        URL(string: string)
+    }
+
     var userEmail: String? {
         UserDefaults.standard.string(forKey: "gdriveUserEmail")
     }
@@ -142,7 +149,11 @@ final class GoogleDriveUploader: NSObject, ASWebAuthenticationPresentationContex
     // MARK: - OAuth Token Exchange
 
     private func exchangeCodeWithRedirect(_ code: String, codeVerifier: String, redirectURI: String, completion: @escaping (Bool) -> Void) {
-        var request = URLRequest(url: URL(string: tokenURL)!)
+        guard let tokenURL = url(from: tokenURL) else {
+            completion(false)
+            return
+        }
+        var request = URLRequest(url: tokenURL)
         request.httpMethod = "POST"
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
 
@@ -152,8 +163,12 @@ final class GoogleDriveUploader: NSObject, ASWebAuthenticationPresentationContex
             "redirect_uri": redirectURI,
             "grant_type": "authorization_code",
             "code_verifier": codeVerifier,
-        ].map { "\($0.key)=\($0.value.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!)" }
-         .joined(separator: "&")
+        ].compactMap { key, value in
+            if let encoded = value.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) {
+                return "\(key)=\(encoded)"
+            }
+            return nil
+        }.joined(separator: "&")
 
         request.httpBody = body.data(using: .utf8)
 
@@ -191,8 +206,12 @@ final class GoogleDriveUploader: NSObject, ASWebAuthenticationPresentationContex
             completion(false)
             return
         }
+        guard let tokenURL = url(from: tokenURL) else {
+            completion(false)
+            return
+        }
 
-        var request = URLRequest(url: URL(string: tokenURL)!)
+        var request = URLRequest(url: tokenURL)
         request.httpMethod = "POST"
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
 
@@ -200,8 +219,12 @@ final class GoogleDriveUploader: NSObject, ASWebAuthenticationPresentationContex
             "refresh_token": refreshToken,
             "client_id": clientID,
             "grant_type": "refresh_token",
-        ].map { "\($0.key)=\($0.value.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!)" }
-         .joined(separator: "&")
+        ].compactMap { key, value in
+            if let encoded = value.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) {
+                return "\(key)=\(encoded)"
+            }
+            return nil
+        }.joined(separator: "&")
 
         request.httpBody = body.data(using: .utf8)
 
@@ -241,7 +264,11 @@ final class GoogleDriveUploader: NSObject, ASWebAuthenticationPresentationContex
     func fetchUserEmail(accessToken: String? = nil, completion: (() -> Void)? = nil) {
         let token = accessToken ?? loadAccessToken()
         guard let token = token else { completion?(); return }
-        var request = URLRequest(url: URL(string: "https://www.googleapis.com/oauth2/v2/userinfo")!)
+        guard let userInfoURL = URL(string: "https://www.googleapis.com/oauth2/v2/userinfo") else {
+            completion?()
+            return
+        }
+        var request = URLRequest(url: userInfoURL)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         URLSession.shared.dataTask(with: request) { data, _, _ in
             if let data = data,
@@ -313,7 +340,11 @@ final class GoogleDriveUploader: NSObject, ASWebAuthenticationPresentationContex
     }
 
     private func createMacShotFolder(token: String, completion: @escaping (Result<String, Error>) -> Void) {
-        var request = URLRequest(url: URL(string: filesURL)!)
+        guard let filesURL = url(from: filesURL) else {
+            completion(.failure(Self.error("Invalid files URL")))
+            return
+        }
+        var request = URLRequest(url: filesURL)
         request.httpMethod = "POST"
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -366,7 +397,11 @@ final class GoogleDriveUploader: NSObject, ASWebAuthenticationPresentationContex
         }
 
         let boundary = UUID().uuidString
-        var request = URLRequest(url: URL(string: uploadURL)!)
+        guard let uploadURL = URL(string: uploadURL) else {
+            completion(.failure(Self.error("Invalid upload URL")))
+            return
+        }
+        var request = URLRequest(url: uploadURL)
         request.httpMethod = "POST"
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue("multipart/related; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
@@ -375,20 +410,35 @@ final class GoogleDriveUploader: NSObject, ASWebAuthenticationPresentationContex
             "name": filename,
             "parents": [folderID],
         ]
-        let metadataData = try! JSONSerialization.data(withJSONObject: metadata)
+        guard let metadataData = try? JSONSerialization.data(withJSONObject: metadata) else {
+            completion(.failure(Self.error("Failed to serialize metadata")))
+            return
+        }
 
         var body = Data()
-        body.append("--\(boundary)\r\n".data(using: .utf8)!)
-        body.append("Content-Type: application/json; charset=UTF-8\r\n\r\n".data(using: .utf8)!)
+        // Helper to safely append string data
+        func appendString(_ string: String) {
+            if let data = string.data(using: .utf8) {
+                body.append(data)
+            }
+        }
+
+        appendString("--\(boundary)\r\n")
+        appendString("Content-Type: application/json; charset=UTF-8\r\n\r\n")
         body.append(metadataData)
-        body.append("\r\n--\(boundary)\r\n".data(using: .utf8)!)
-        body.append("Content-Type: \(mimeType)\r\n\r\n".data(using: .utf8)!)
+        appendString("\r\n--\(boundary)\r\n")
+        appendString("Content-Type: \(mimeType)\r\n\r\n")
         body.append(fileData)
-        body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
+        appendString("\r\n--\(boundary)--\r\n")
 
         // Write body to temp file for uploadTask (enables progress tracking)
         let tmpFile = FileManager.default.temporaryDirectory.appendingPathComponent("macshot_upload_\(UUID().uuidString).tmp")
-        try? body.write(to: tmpFile)
+        do {
+            try body.write(to: tmpFile)
+        } catch {
+            completion(.failure(error))
+            return
+        }
 
         let maxRetries = 3
         let task = uploadSession.uploadTask(with: request, fromFile: tmpFile) { [weak self] data, response, error in

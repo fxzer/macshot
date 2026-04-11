@@ -35,7 +35,7 @@ class ToolbarButtonView: NSView {
 
         let bottomSymbols = [
             "scribble", "line.diagonal", "arrow.up.right", "rectangle", "oval",
-            "highlighter", "paintbrush.pointed.fill", "textformat", "1.circle.fill",
+            "highlighter", "paintbrush.pointed.fill", "_custom.letterA", "1.circle.fill",
             "_custom.checkerboard", "magnifyingglass", "face.smiling", "eyedropper", "ruler",
             "arrow.uturn.backward", "arrow.uturn.forward",
             "circle.righthalf.filled.inverse", "slider.horizontal.3", "sparkles",
@@ -68,6 +68,9 @@ class ToolbarButtonView: NSView {
     private static func renderSymbol(named name: String, color: NSColor) -> NSImage? {
         if name == "_custom.checkerboard" {
             return checkerboardIcon(color: color)
+        }
+        if name == "_custom.letterA" {
+            return letterAIcon(color: color)
         }
         let cfg = NSImage.SymbolConfiguration(pointSize: 14, weight: .medium)
         guard let symbol = NSImage(systemSymbolName: name, accessibilityDescription: nil)?
@@ -134,12 +137,12 @@ class ToolbarButtonView: NSView {
 
         // Color swatch
         if let swatch = swatchColor {
-            let inset: CGFloat = 6
+            let inset: CGFloat = 8
             let r = bounds.insetBy(dx: inset, dy: inset)
             swatch.setFill()
-            NSBezierPath(roundedRect: r, xRadius: 4, yRadius: 4).fill()
+            NSBezierPath(roundedRect: r, xRadius: 3, yRadius: 3).fill()
             ToolbarLayout.iconColor.withAlphaComponent(0.4).setStroke()
-            let border = NSBezierPath(roundedRect: r, xRadius: 4, yRadius: 4)
+            let border = NSBezierPath(roundedRect: r, xRadius: 3, yRadius: 3)
             border.lineWidth = 0.5
             border.stroke()
             return
@@ -158,6 +161,8 @@ class ToolbarButtonView: NSView {
                 let img: NSImage?
                 if name == "_custom.checkerboard" {
                     img = Self.checkerboardIcon(color: color)
+                } else if name == "_custom.letterA" {
+                    img = Self.letterAIcon(color: color)
                 } else {
                     let cfg = NSImage.SymbolConfiguration(pointSize: 14, weight: .medium)
                     if let symbol = NSImage(systemSymbolName: name, accessibilityDescription: nil)?
@@ -283,6 +288,25 @@ class ToolbarButtonView: NSView {
                     cellRect.fill()
                 }
             }
+            return true
+        }
+        return img
+    }
+
+    /// Generate a letter "T" icon matching the style of SF Symbols, tinted with the given color.
+    private static func letterAIcon(color: NSColor) -> NSImage {
+        let size: CGFloat = 16
+        let img = NSImage(size: NSSize(width: size, height: size), flipped: false) { _ in
+            // 使用系统字体绘制 "T"
+            let attrs: [NSAttributedString.Key: Any] = [
+                .font: NSFont.systemFont(ofSize: 14, weight: .medium),
+                .foregroundColor: color
+            ]
+            let str = "T" as NSString
+            let strSize = str.size(withAttributes: attrs)
+            let x = (size - strSize.width) / 2
+            let y = (size - strSize.height) / 2
+            str.draw(at: NSPoint(x: x, y: y), withAttributes: attrs)
             return true
         }
         return img
