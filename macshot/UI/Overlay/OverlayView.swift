@@ -2312,18 +2312,56 @@ class OverlayView: NSView {
         // Total width including the × symbol
         let totalW = widthLabelW + gap + timesTextSize.width + gap + heightLabelW
 
-        // Position centered above/below selection
-        let baseX = selectionRect.midX - totalW / 2
+        let screenMargin: CGFloat = 4
+        let outsideGap: CGFloat = 4
+        let insideGap: CGFloat = 4
 
-        let above = selectionRect.maxY + 4
-        let below = selectionRect.minY - labelH - 4
+        // Vertical: prefer outside above, then outside below, then inside selection (Snipaste-style).
+        let outsideAboveY = selectionRect.maxY + outsideGap
+        let fitsAboveOutside = outsideAboveY + labelH <= bounds.maxY - screenMargin
+        let outsideBelowY = selectionRect.minY - outsideGap - labelH
+        let fitsBelowOutside = outsideBelowY >= bounds.minY + screenMargin
+
+        let insideTopY = selectionRect.maxY - insideGap - labelH
+        let fitsInsideTop = insideTopY >= selectionRect.minY + screenMargin
+        let insideBottomY = selectionRect.minY + insideGap
+        let fitsInsideBottom = insideBottomY + labelH <= selectionRect.maxY - screenMargin
+
         let baseY: CGFloat
-        if above + labelH < bounds.maxY - 2 {
-            baseY = above
-        } else if below >= bounds.minY + 2 {
-            baseY = below
+        let labelInsideSelection: Bool
+        if fitsAboveOutside {
+            baseY = outsideAboveY
+            labelInsideSelection = false
+        } else if fitsBelowOutside {
+            baseY = outsideBelowY
+            labelInsideSelection = false
+        } else if fitsInsideTop {
+            baseY = insideTopY
+            labelInsideSelection = true
+        } else if fitsInsideBottom {
+            baseY = insideBottomY
+            labelInsideSelection = true
         } else {
-            baseY = above  // fallback
+            // Very flat selection: center vertically in selection (best effort).
+            baseY = selectionRect.midY - labelH / 2
+            labelInsideSelection = true
+        }
+
+        // Horizontal: keep strip on-screen; when drawn inside selection, keep within selection width too.
+        var baseX = selectionRect.midX - totalW / 2
+        if labelInsideSelection {
+            let innerMinX = selectionRect.minX + screenMargin
+            let innerMaxX = selectionRect.maxX - screenMargin - totalW
+            if innerMaxX >= innerMinX {
+                baseX = min(max(baseX, innerMinX), innerMaxX)
+            } else {
+                baseX = selectionRect.midX - totalW / 2
+            }
+        }
+        let outerMinX = bounds.minX + screenMargin
+        let outerMaxX = bounds.maxX - screenMargin - totalW
+        if outerMaxX >= outerMinX {
+            baseX = min(max(baseX, outerMinX), outerMaxX)
         }
 
         let widthRect = NSRect(x: baseX, y: baseY, width: widthLabelW, height: labelH)
@@ -2371,8 +2409,17 @@ class OverlayView: NSView {
         let labelW = textSize.width + padding * 2
         let labelH = sizeLabelRect.height
         let gap: CGFloat = 6
-        let labelX = sizeLabelRect.maxX + gap
+        let edge: CGFloat = 4
         let labelY = sizeLabelRect.minY
+
+        var labelX = sizeLabelRect.maxX + gap
+        if labelX + labelW > bounds.maxX - edge {
+            let leftX = sizeLabelRect.minX - gap - labelW
+            if leftX >= bounds.minX + edge {
+                labelX = leftX
+            }
+        }
+        labelX = min(max(labelX, bounds.minX + edge), bounds.maxX - edge - labelW)
 
         let rect = NSRect(x: labelX, y: labelY, width: labelW, height: labelH)
         zoomLabelRect = rect
