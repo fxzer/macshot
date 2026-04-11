@@ -1604,7 +1604,7 @@ extension AppDelegate: OverlayWindowControllerDelegate {
             self?.handleScrollCaptureCompleted(finalImage: finalImage)
         }
 
-        Task { await scc.startSession() }
+        Task { [weak scc] in await scc?.startSession() }
     }
 
     func overlayDidRequestStopScrollCapture(_ controller: OverlayWindowController) {

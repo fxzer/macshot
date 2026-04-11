@@ -344,12 +344,12 @@ final class TranslationBridge: ObservableObject {
         let texts = pendingTexts
         let completion = pendingCompletion
         let activeID = translationID
-        Task {
+        Task { [weak self] in
             do {
                 var results = Array(repeating: "", count: texts.count)
                 for (i, text) in texts.enumerated() {
                     // Bail if a new translation was started while we're iterating
-                    let stillActive = await MainActor.run { self.translationID == activeID }
+                    let stillActive = await MainActor.run { self?.translationID == activeID }
                     guard stillActive else { return }
                     let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
                     guard !trimmed.isEmpty else {
@@ -360,12 +360,14 @@ final class TranslationBridge: ObservableObject {
                     results[i] = response.targetText
                 }
                 await MainActor.run {
+                    guard let self = self else { return }
                     guard self.translationID == activeID else { return }
                     self.cleanup()
                     completion?(.success(results))
                 }
             } catch {
                 await MainActor.run {
+                    guard let self = self else { return }
                     guard self.translationID == activeID else { return }
                     self.cleanup()
                     let desc = error.localizedDescription

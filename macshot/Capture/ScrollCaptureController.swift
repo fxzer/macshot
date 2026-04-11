@@ -369,6 +369,7 @@ final class ScrollCaptureController {
 
         autoScrollTask = Task { [weak self] in
             try? await Task.sleep(nanoseconds: 300_000_000)
+            guard !Task.isCancelled else { return }
             guard let self = self, self.isActive, self.autoScrollActive else { return }
             await self.autoScrollLoop(linesPerTick: linesPerTick, burstCount: burstCount)
         }

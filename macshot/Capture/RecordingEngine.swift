@@ -91,7 +91,8 @@ final class RecordingEngine: NSObject {
         let defaultFPS = UserDefaults.standard.integer(forKey: "recordingFPS") > 0
             ? UserDefaults.standard.integer(forKey: "recordingFPS") : 30
         self.fps = fpsOverride ?? defaultFPS
-        Task {
+        Task { [weak self] in
+            guard let self = self else { return }
             // Resolve mic permission before starting capture so the prompt
             // doesn't block the UI while frames are already being recorded.
             if UserDefaults.standard.bool(forKey: "recordMicAudio") {
@@ -138,7 +139,7 @@ final class RecordingEngine: NSObject {
         state = .stopping
         progressTimer?.invalidate()
         progressTimer = nil
-        Task { await self.finalizeCapture() }
+        Task { [weak self] in await self?.finalizeCapture() }
     }
 
     // MARK: - Setup
@@ -424,9 +425,10 @@ final class RecordingEngine: NSObject {
             writer.startSession(atSourceTime: presentationTime)
             sessionStarted = true
             // Flush audio samples that arrived before the first video frame
-            Task {
-                await pendingAudioBuffer.flush(to: audioInput, pauseDuration: totalPausedDuration)
-                await pendingMicBuffer.flush(to: micAudioInput, pauseDuration: totalPausedDuration)
+            Task { [weak self] in
+                guard let self = self else { return }
+                await self.pendingAudioBuffer.flush(to: self.audioInput, pauseDuration: self.totalPausedDuration)
+                await self.pendingMicBuffer.flush(to: self.micAudioInput, pauseDuration: self.totalPausedDuration)
             }
         }
 

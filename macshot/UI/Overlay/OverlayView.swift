@@ -205,6 +205,9 @@ class OverlayView: NSView {
     // Debounce timer for scroll wheel property adjustments (prevents memory explosion)
     private var scrollPropertyAdjustTimer: Timer?
     private var pendingPropertyChange: (annotation: Annotation, snapshot: Annotation, newValue: CGFloat, key: String)?
+    /// True while the user is adjusting annotation properties via scroll wheel.
+    /// Enables the split-layer fast path (draw cached static layer + only the selected annotation live).
+    private var isScrollAdjustingProperty: Bool = false
 
     // Selection
     private(set) var selectionRect: NSRect = .zero
@@ -620,7 +623,7 @@ class OverlayView: NSView {
     }
 
     var cachedCompositedImage: NSImage? = nil {  // invalidated when annotations change
-        didSet { if !isDraggingAnnotation && !isResizingAnnotation && !isRotatingAnnotation { cachedAnnotationLayer = nil } }
+        didSet { if !isDraggingAnnotation && !isResizingAnnotation && !isRotatingAnnotation && !isScrollAdjustingProperty { cachedAnnotationLayer = nil } }
     }
     /// Cached transparent image of committed annotations only (no screenshot).
     /// Drawn with applyCanvasTransform so zoom works correctly. Invalidated alongside cachedCompositedImage.
@@ -1616,9 +1619,9 @@ class OverlayView: NSView {
                 // Fast path: when not actively drawing, use a cached transparent image
                 // of all committed annotations instead of iterating them each frame.
                 if !isActivelyDrawing && !annotations.isEmpty && !isEditorMode {
-                    if (isDraggingAnnotation || isResizingAnnotation || isRotatingAnnotation),
+                    if (isDraggingAnnotation || isResizingAnnotation || isRotatingAnnotation || isScrollAdjustingProperty),
                        let staticLayer = cachedAnnotationLayerExcludingSelected {
-                        // During drag/resize: draw cached static annotations + selected ones live
+                        // During drag/resize/scroll-adjust: draw cached static annotations + selected ones live
                         context.saveGraphicsState()
                         applyCanvasTransform(to: context)
                         staticLayer.draw(in: bounds, from: .zero, operation: .sourceOver, fraction: 1.0)
@@ -5619,7 +5622,8 @@ class OverlayView: NSView {
                 snappedWindowID = hoveredWindowID
                 // Capture the window independently for beautify (transparent corners)
                 if let wid = hoveredWindowID, let screen = window?.screen {
-                    Task {
+                    Task { [weak self] in
+                        guard let self = self else { return }
                         if let cgImage = await ScreenCaptureManager.captureWindow(windowID: wid, screen: screen) {
                             self.snappedWindowImage = NSImage(cgImage: cgImage,
                                 size: NSSize(width: CGFloat(cgImage.width) / screen.backingScaleFactor,
@@ -5963,24 +5967,26 @@ class OverlayView: NSView {
             scrollPropertyAdjustTimer?.invalidate()
             scrollPropertyAdjustTimer = nil
 
+            // Build the split-layer cache on the first scroll tick so subsequent
+            // ticks only re-draw the single selected annotation (not all of them).
+            if !isScrollAdjustingProperty {
+                isScrollAdjustingProperty = true
+                cachedAnnotationLayerExcludingSelected = buildAnnotationLayer(
+                    excluding: Set(selectedAnnotations.map { ObjectIdentifier($0) }))
+            }
+
             if ann.tool == .text {
                 // Adjust font size for text annotations
                 let oldSize = ann.fontSize
                 let newSize = min(200, max(8, oldSize + delta * step))
                 if newSize != oldSize {
-                    // Apply visual change immediately (no undo yet)
                     ann.fontSize = newSize
-                    cachedAnnotationLayer = nil
-                    cachedCompositedImage = nil
                     needsDisplay = true
-                    // Lightweight slider/label sync (no full rebuild)
                     toolOptionsRowView?.updateFontSizeDisplay(value: newSize)
-                    // Debounce: schedule undo push after scrolling stops
-                    scrollPropertyAdjustTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: false) { [weak self] _ in
+                    scheduleScrollPropertyCommit { [weak self] in
                         guard let self = self else { return }
                         let snapshot = ann.clone()
                         self.pushPropertyChangeUndo(annotation: ann, snapshot: snapshot)
-                        self.scrollPropertyAdjustTimer = nil
                     }
                 }
             } else if ann.tool == .number {
@@ -5989,23 +5995,16 @@ class OverlayView: NSView {
                 let newSize = min(30, max(8, oldSize + delta * step))
                 if newSize != oldSize {
                     currentNumberSize = newSize
-                    // Apply visual change immediately
                     ann.strokeWidth = currentNumberSize
-                    cachedAnnotationLayer = nil
-                    cachedCompositedImage = nil
                     needsDisplay = true
-                    // Lightweight slider sync
                     toolOptionsRowView?.updateStrokeSlider(value: newSize)
-                    // Debounce: save after scrolling stops
-                    scrollPropertyAdjustTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: false) { [weak self] _ in
+                    scheduleScrollPropertyCommit { [weak self] in
                         guard let self = self else { return }
                         UserDefaults.standard.set(newSize, forKey: "numberStrokeWidth")
-                        // Only push to undo stack on final commit
-                        if let index = self.annotations.firstIndex(where: { $0 === ann }) {
+                        if self.annotations.contains(where: { $0 === ann }) {
                             let snapshot = ann.clone()
                             self.undoStack.append(.propertyChange(annotation: ann, snapshot: snapshot))
                         }
-                        self.scrollPropertyAdjustTimer = nil
                     }
                 }
             } else if ann.tool == .marker {
@@ -6015,21 +6014,15 @@ class OverlayView: NSView {
                 if newSize != oldSize {
                     currentMarkerSize = newSize
                     ann.strokeWidth = currentMarkerSize
-                    cachedAnnotationLayer = nil
-                    cachedCompositedImage = nil
                     needsDisplay = true
-                    // Lightweight slider sync
                     toolOptionsRowView?.updateStrokeSlider(value: newSize)
-                    // Debounce: save after scrolling stops
-                    scrollPropertyAdjustTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: false) { [weak self] _ in
+                    scheduleScrollPropertyCommit { [weak self] in
                         guard let self = self else { return }
                         UserDefaults.standard.set(newSize, forKey: "markerStrokeWidth")
-                        // Only push to undo stack on final commit
-                        if let index = self.annotations.firstIndex(where: { $0 === ann }) {
+                        if self.annotations.contains(where: { $0 === ann }) {
                             let snapshot = ann.clone()
                             self.undoStack.append(.propertyChange(annotation: ann, snapshot: snapshot))
                         }
-                        self.scrollPropertyAdjustTimer = nil
                     }
                 }
             } else if ann.tool == .loupe {
@@ -6038,22 +6031,15 @@ class OverlayView: NSView {
                 let newSize = min(320, max(50, oldSize + delta * step * 10))
                 if newSize != oldSize {
                     currentLoupeSize = newSize
-                    // Apply visual change immediately
-                    cachedAnnotationLayer = nil
-                    cachedCompositedImage = nil
                     needsDisplay = true
-                    // Lightweight slider sync
                     toolOptionsRowView?.updateStrokeSlider(value: newSize)
-                    // Debounce: save after scrolling stops
-                    scrollPropertyAdjustTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: false) { [weak self] _ in
+                    scheduleScrollPropertyCommit { [weak self] in
                         guard let self = self else { return }
                         UserDefaults.standard.set(newSize, forKey: "loupeSize")
-                        // Only push to undo stack on final commit
-                        if let index = self.annotations.firstIndex(where: { $0 === ann }) {
+                        if self.annotations.contains(where: { $0 === ann }) {
                             let snapshot = ann.clone()
                             self.undoStack.append(.propertyChange(annotation: ann, snapshot: snapshot))
                         }
-                        self.scrollPropertyAdjustTimer = nil
                     }
                 }
             } else {
@@ -6061,22 +6047,15 @@ class OverlayView: NSView {
                 let oldWidth = ann.strokeWidth
                 let newWidth = min(30, max(1, oldWidth + delta * step))
                 if newWidth != oldWidth {
-                    // Apply visual change immediately (no undo yet)
                     ann.strokeWidth = newWidth
-                    // Also sync global default so newly drawn annotations use the adjusted value
                     currentStrokeWidth = newWidth
-                    cachedAnnotationLayer = nil
-                    cachedCompositedImage = nil
                     needsDisplay = true
-                    // Lightweight slider/label sync (no full rebuild)
                     toolOptionsRowView?.updateStrokeSlider(value: newWidth)
-                    // Debounce: schedule undo push + UserDefaults save after scrolling stops
-                    scrollPropertyAdjustTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: false) { [weak self] _ in
+                    scheduleScrollPropertyCommit { [weak self] in
                         guard let self = self else { return }
                         UserDefaults.standard.set(Double(newWidth), forKey: "currentStrokeWidth")
                         let snapshot = ann.clone()
                         self.pushPropertyChangeUndo(annotation: ann, snapshot: snapshot)
-                        self.scrollPropertyAdjustTimer = nil
                     }
                 }
             }
@@ -6870,6 +6849,21 @@ class OverlayView: NSView {
         undoStack.append(.propertyChange(annotation: annotation, snapshot: snapshot))
         redoStack.removeAll()
         cachedCompositedImage = nil
+    }
+
+    /// Debounce helper for scroll-wheel property adjustments.
+    /// Runs `commit` once scrolling stops, then rebuilds all annotation caches.
+    private func scheduleScrollPropertyCommit(_ commit: @escaping () -> Void) {
+        scrollPropertyAdjustTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: false) { [weak self] _ in
+            guard let self = self else { return }
+            commit()
+            self.isScrollAdjustingProperty = false
+            self.cachedAnnotationLayerExcludingSelected = nil
+            self.cachedAnnotationLayer = nil
+            self.cachedCompositedImage = nil
+            self.scrollPropertyAdjustTimer = nil
+            self.needsDisplay = true
+        }
     }
 
     private func applyColorToSelectedAnnotation() {
