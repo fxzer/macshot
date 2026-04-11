@@ -56,6 +56,8 @@ struct ToolbarButton {
     var tintColor: NSColor = ToolbarLayout.iconColor
     var bgColor: NSColor? = nil  // for color swatches
     var hasContextMenu: Bool = false  // draw small corner triangle to indicate right-click options
+    /// When true, a separator is drawn before this button in the vertical right toolbar (ignored on bottom bar).
+    var sectionBreakBefore: Bool = false
 }
 
 class ToolbarLayout {
@@ -269,6 +271,7 @@ class ToolbarLayout {
                 action: .mouseHighlight, sfSymbol: "cursorarrow.click.2", label: nil,
                 tooltip: L("Highlight Mouse Clicks"))
             mouseBtn.isSelected = mouseHighlightOn
+            mouseBtn.sectionBreakBefore = true
             buttons.append(mouseBtn)
 
             let keystrokesOn = UserDefaults.standard.bool(forKey: "recordKeystroke")
@@ -309,10 +312,11 @@ class ToolbarLayout {
             buttons.append(webcamBtn)
 
             // Recording settings gear
-            buttons.append(
-                ToolbarButton(
-                    action: .recordSettings, sfSymbol: "gearshape", label: nil,
-                    tooltip: L("Recording Settings")))
+            var settingsBtn = ToolbarButton(
+                action: .recordSettings, sfSymbol: "gearshape", label: nil,
+                tooltip: L("Recording Settings"))
+            settingsBtn.sectionBreakBefore = true
+            buttons.append(settingsBtn)
 
             // Allow moving the selection before starting
             buttons.append(
@@ -350,10 +354,31 @@ class ToolbarLayout {
             return enabledActions == nil || enabledActions!.contains(tag)
         }
 
-        // Cancel, move-selection, editor — not shown in editor window
+        // First pin / OCR / translate in this strip starts the "content actions" group (divider before it).
+        var placedContentSection = false
+        func markFirstContentSection(_ btn: inout ToolbarButton) {
+            if !placedContentSection {
+                btn.sectionBreakBefore = true
+                placedContentSection = true
+            }
+        }
+        var placedAdvancedSection = false
+        func markFirstAdvancedSection(_ btn: inout ToolbarButton) {
+            if !placedAdvancedSection {
+                btn.sectionBreakBefore = true
+                placedAdvancedSection = true
+            }
+        }
+
+        // Cancel, pin (overlay: pin directly under cancel), move-selection, editor — not shown in editor window
         if !isEditorMode {
             buttons.append(
                 ToolbarButton(action: .cancel, sfSymbol: "xmark", label: nil, tooltip: L("Cancel")))
+            // Pin under close (second slot); section break for "content" group applies to OCR/translate only
+            if actionEnabled(1002) {
+                buttons.append(
+                    ToolbarButton(action: .pin, sfSymbol: "pin.fill", label: nil, tooltip: L("Pin")))
+            }
             buttons.append(
                 ToolbarButton(
                     action: .moveSelection, sfSymbol: "arrow.up.and.down.and.arrow.left.and.right",
@@ -363,9 +388,12 @@ class ToolbarLayout {
                     action: .detach, sfSymbol: "arrow.up.forward.app", label: nil,
                     tooltip: L("Open in Editor Window")))
         }
-        // Copy and save are always present
-        buttons.append(
-            ToolbarButton(action: .copy, sfSymbol: "doc.on.doc", label: nil, tooltip: L("Copy")))
+        // Copy and save are always present — section after session chrome (overlay only)
+        var copyBtn = ToolbarButton(action: .copy, sfSymbol: "doc.on.doc", label: nil, tooltip: L("Copy"))
+        if !isEditorMode {
+            copyBtn.sectionBreakBefore = true
+        }
+        buttons.append(copyBtn)
         var saveBtn = ToolbarButton(
             action: .save, sfSymbol: "square.and.arrow.down.fill", label: nil,
             tooltip:
@@ -389,17 +417,19 @@ class ToolbarLayout {
             buttons.append(uploadBtn)
         }
 
-        // Pin (tag 1002)
-        if actionEnabled(1002) {
-            buttons.append(
-                ToolbarButton(action: .pin, sfSymbol: "pin.fill", label: nil, tooltip: L("Pin")))
+        // Pin (tag 1002) — overlay: already after cancel; editor: here after upload
+        if isEditorMode && actionEnabled(1002) {
+            var pinBtn = ToolbarButton(action: .pin, sfSymbol: "pin.fill", label: nil, tooltip: L("Pin"))
+            markFirstContentSection(&pinBtn)
+            buttons.append(pinBtn)
         }
 
         // OCR (tag 1003)
         if actionEnabled(1003) {
-            buttons.append(
-                ToolbarButton(
-                    action: .ocr, sfSymbol: "doc.text.viewfinder", label: nil, tooltip: L("OCR Text")))
+            var ocrBtn = ToolbarButton(
+                action: .ocr, sfSymbol: "doc.text.viewfinder", label: nil, tooltip: L("OCR Text"))
+            markFirstContentSection(&ocrBtn)
+            buttons.append(ocrBtn)
         }
 
         // Translate (tag 1008)
@@ -408,15 +438,17 @@ class ToolbarLayout {
                 action: .translate, sfSymbol: "translate", label: nil, tooltip: L("Translate"))
             translateBtn.isSelected = translateEnabled
             translateBtn.hasContextMenu = true
+            markFirstContentSection(&translateBtn)
             buttons.append(translateBtn)
         }
 
         // Scroll Capture (tag 1010) — hidden when recording or in editor mode
         if !isRecording && !isEditorMode && actionEnabled(1010) {
-            buttons.append(
-                ToolbarButton(
-                    action: .scrollCapture, sfSymbol: "scroll", label: nil,
-                    tooltip: L("Scroll Capture")))
+            var scrollBtn = ToolbarButton(
+                action: .scrollCapture, sfSymbol: "scroll", label: nil,
+                tooltip: L("Scroll Capture"))
+            markFirstAdvancedSection(&scrollBtn)
+            buttons.append(scrollBtn)
         }
 
         // Record (tag 1009) — hidden in editor mode. Right-click for options.
@@ -424,6 +456,9 @@ class ToolbarLayout {
             var recordBtn = ToolbarButton(
                 action: .record, sfSymbol: "video.fill", label: nil, tooltip: L("Record"))
             recordBtn.tintColor = ToolbarLayout.iconColor
+            if !placedAdvancedSection {
+                markFirstAdvancedSection(&recordBtn)
+            }
             buttons.append(recordBtn)
         }
 

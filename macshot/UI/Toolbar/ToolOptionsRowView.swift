@@ -55,6 +55,28 @@ class ToolOptionsRowView: NSView {
 
     required init?(coder: NSCoder) { fatalError() }
 
+    /// Lightweight update: sync stroke slider position and value label without rebuilding entire row.
+    /// Call this from scroll-wheel adjustments for smooth, jank-free feedback.
+    func updateStrokeSlider(value: CGFloat) {
+        for sub in subviews {
+            if let slider = sub as? NSSlider, slider.action == #selector(strokeSliderChanged(_:)) {
+                slider.doubleValue = Double(value)
+                break
+            }
+        }
+        if let label = viewWithTag(997) as? NSTextField {
+            label.stringValue = currentTool == .loupe ? "\(Int(value))" : "\(Int(value))px"
+        }
+    }
+
+    /// Lightweight update: sync font size label in the text tool options row.
+    func updateFontSizeDisplay(value: CGFloat) {
+        // Text tool font size label has tag 998
+        if let label = viewWithTag(998) as? NSTextField {
+            label.stringValue = "\(Int(value))"
+        }
+    }
+
     /// Rebuild the options row for a selected annotation's tool, reading values from the annotation.
     func rebuild(forAnnotation ann: Annotation) {
         editingAnnotation = ann
@@ -291,8 +313,10 @@ class ToolOptionsRowView: NSView {
 
         let currentVal = editingAnnotation?.strokeWidth ?? ov.activeStrokeWidthForTool(tool)
         let sliderW: CGFloat = 100
+        let sliderMin: Double = tool == .loupe ? 40 : (tool == .marker ? 6 : 1)
+        let sliderMax: Double = tool == .loupe ? 320 : (tool == .marker ? 100 : 30)
         let slider = NSSlider(value: Double(currentVal),
-                              minValue: tool == .loupe ? 40 : 1, maxValue: tool == .loupe ? 320 : 30,
+                              minValue: sliderMin, maxValue: sliderMax,
                               target: self, action: #selector(strokeSliderChanged(_:)))
         slider.frame = NSRect(x: curX, y: (rowHeight - 20) / 2, width: sliderW, height: 20)
         slider.isContinuous = true
@@ -302,7 +326,7 @@ class ToolOptionsRowView: NSView {
 
         let val = Int(currentVal)
         let valStr = tool == .loupe ? "\(val)" : "\(val)px"
-        let labelW: CGFloat = tool == .loupe ? 32 : 28
+        let labelW: CGFloat = tool == .loupe ? 32 : (tool == .marker ? 38 : 28)
         let label = NSTextField(labelWithString: valStr)
         label.font = NSFont.monospacedDigitSystemFont(ofSize: 10, weight: .medium)
         label.textColor = ToolbarLayout.iconColor.withAlphaComponent(0.6)
@@ -1230,6 +1254,8 @@ class ToolOptionsRowView: NSView {
             ensureSnapshot()
             ann.strokeWidth = val
             ov.cachedCompositedImage = nil
+            // Also update global setting so new annotations use the updated value
+            if let tool = currentTool { ov.setActiveStrokeWidth(val, for: tool) }
         } else {
             if let tool = currentTool { ov.setActiveStrokeWidth(val, for: tool) }
         }
@@ -1246,6 +1272,9 @@ class ToolOptionsRowView: NSView {
                 ensureSnapshot()
                 ann.lineStyle = style
                 ov.cachedCompositedImage = nil
+                // Also update global setting so new annotations use the updated value
+                ov.currentLineStyle = style
+                UserDefaults.standard.set(style.rawValue, forKey: "currentLineStyle")
             } else {
                 ov.currentLineStyle = style
                 UserDefaults.standard.set(style.rawValue, forKey: "currentLineStyle")
@@ -1261,6 +1290,9 @@ class ToolOptionsRowView: NSView {
                 ensureSnapshot()
                 ann.arrowStyle = style
                 ov.cachedCompositedImage = nil
+                // Also update global setting so new annotations use the updated value
+                ov.currentArrowStyle = style
+                UserDefaults.standard.set(style.rawValue, forKey: "currentArrowStyle")
             } else {
                 ov.currentArrowStyle = style
                 UserDefaults.standard.set(style.rawValue, forKey: "currentArrowStyle")
@@ -1276,6 +1308,9 @@ class ToolOptionsRowView: NSView {
                 ensureSnapshot()
                 ann.rectFillStyle = style
                 ov.cachedCompositedImage = nil
+                // Also update global setting so new annotations use the updated value
+                ov.currentRectFillStyle = style
+                UserDefaults.standard.set(style.rawValue, forKey: "currentRectFillStyle")
             } else {
                 ov.currentRectFillStyle = style
                 UserDefaults.standard.set(style.rawValue, forKey: "currentRectFillStyle")
@@ -1291,6 +1326,9 @@ class ToolOptionsRowView: NSView {
             ensureSnapshot()
             ann.rectCornerRadius = val
             ov.cachedCompositedImage = nil
+            // Also update global setting so new annotations use the updated value
+            ov.currentRectCornerRadius = val
+            UserDefaults.standard.set(sender.doubleValue, forKey: "currentRectCornerRadius")
         } else {
             ov.currentRectCornerRadius = val
             UserDefaults.standard.set(sender.doubleValue, forKey: "currentRectCornerRadius")

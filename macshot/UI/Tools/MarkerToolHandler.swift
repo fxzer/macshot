@@ -49,7 +49,7 @@ final class MarkerToolHandler: AnnotationToolHandler {
         if canvas.smartMarkerEnabled {
             // Use detected text line height if available so the stroke matches during drag
             if let lineH = textLineHeight(at: point, canvas: canvas) {
-                strokeWidth = (lineH + 4) / 6  // drawFreeform multiplies strokeWidth by 6
+                strokeWidth = lineH + 4
             }
         }
         let annotation = Annotation(
@@ -231,7 +231,7 @@ final class MarkerToolHandler: AnnotationToolHandler {
             let lineMidY = lineMinY + lineH * 0.55
 
             // Size the marker stroke to cover the text line height (with small padding)
-            let smartStrokeWidth = (lineH + 4) / 6  // drawFreeform multiplies strokeWidth by 6
+            let smartStrokeWidth = lineH + 4
 
             // Keep the user's horizontal range, only snap Y and stroke height
             annotation.startPoint = NSPoint(x: strokeMinX, y: lineMidY)

@@ -271,13 +271,24 @@ class OverlayView: NSView {
     }()
     /// Last tool the user explicitly picked — shared across overlay instances within one app session.
     private static var lastUsedTool: AnnotationTool = .arrow
+    /// Whether the user explicitly switched to .select (closed the tool)
+    private static var userClosedTool: Bool = false
     var currentTool: AnnotationTool = {
         let remember = UserDefaults.standard.object(forKey: "rememberLastTool") as? Bool ?? true
+        // If user explicitly closed a tool, start with .select
+        if OverlayView.userClosedTool {
+            return .select
+        }
         return remember ? OverlayView.lastUsedTool : .arrow
     }() {
         didSet {
-            // Persist drawing tool choices; skip transient/mode tools
-            if currentTool != .select && currentTool != .loupe {
+            // Track if user explicitly closed a tool (switched to .select)
+            if currentTool == .select && oldValue != .select {
+                OverlayView.userClosedTool = true
+            } else if currentTool != .select && currentTool != .loupe {
+                // User selected a tool, clear the "closed tool" flag
+                OverlayView.userClosedTool = false
+                // Persist drawing tool choices; skip transient/mode tools
                 OverlayView.lastUsedTool = currentTool
             }
         }
@@ -289,13 +300,36 @@ class OverlayView: NSView {
         let saved = UserDefaults.standard.object(forKey: "currentStrokeWidth") as? Double
         return saved != nil ? CGFloat(saved!) : 3.0
     }()
+    var currentPencilStrokeWidth: CGFloat = {
+        let saved = UserDefaults.standard.object(forKey: "pencilStrokeWidth") as? Double
+        return saved != nil ? CGFloat(saved!) : 3.0
+    }()
+    var currentLineStrokeWidth: CGFloat = {
+        let saved = UserDefaults.standard.object(forKey: "lineStrokeWidth") as? Double
+        return saved != nil ? CGFloat(saved!) : 3.0
+    }()
+    var currentArrowStrokeWidth: CGFloat = {
+        let saved = UserDefaults.standard.object(forKey: "arrowStrokeWidth") as? Double
+        return saved != nil ? CGFloat(saved!) : 3.0
+    }()
     var currentNumberSize: CGFloat = {
         let saved = UserDefaults.standard.object(forKey: "numberStrokeWidth") as? Double
         return saved != nil ? CGFloat(saved!) : 3.0
     }()
     var currentMarkerSize: CGFloat = {
         let saved = UserDefaults.standard.object(forKey: "markerStrokeWidth") as? Double
-        return saved != nil ? CGFloat(saved!) : 3.0
+        if let saved = saved {
+            // Migrate old base values (pre-v2: stored 1-30, actual was * 6)
+            if !UserDefaults.standard.bool(forKey: "markerStrokeWidthV2") {
+                let migrated = saved * 6
+                UserDefaults.standard.set(migrated, forKey: "markerStrokeWidth")
+                UserDefaults.standard.set(true, forKey: "markerStrokeWidthV2")
+                return CGFloat(migrated)
+            }
+            return CGFloat(saved)
+        }
+        UserDefaults.standard.set(true, forKey: "markerStrokeWidthV2")
+        return 18.0
     }()
     var numberCounter: Int = 0
     var numberStartAt: Int = {
@@ -3503,10 +3537,10 @@ class OverlayView: NSView {
         if currentTool == .marker {
             if smartMarkerEnabled {
                 // Smart marker pill: height is the dominant dimension
-                let h = smartMarkerLineHeight ?? (currentMarkerSize * 6)
+                let h = smartMarkerLineHeight ?? currentMarkerSize
                 return h / 2
             }
-            return (currentMarkerSize * 6) / 2
+            return currentMarkerSize / 2
         } else {
             return max(currentStrokeWidth / 2, 2)
         }
@@ -3515,7 +3549,7 @@ class OverlayView: NSView {
     private func drawDrawingCursorPreview(at center: NSPoint) {
         if currentTool == .marker && smartMarkerEnabled {
             // Smart marker: vertical pill that scales to text line height
-            let h = smartMarkerLineHeight ?? (currentMarkerSize * 6)
+            let h = smartMarkerLineHeight ?? currentMarkerSize
             let w: CGFloat = min(h * 0.55, 14)
             let pillRect = NSRect(x: center.x - w / 2, y: center.y - h / 2, width: w, height: h)
             let pill = NSBezierPath(roundedRect: pillRect, xRadius: w / 2, yRadius: w / 2)
@@ -3932,7 +3966,7 @@ class OverlayView: NSView {
             }
             // Expand by the actual painted stroke radius so the box matches the visible stroke
             let strokeRadius =
-                (annotation.tool == .marker ? annotation.strokeWidth * 6 : annotation.strokeWidth)
+                annotation.strokeWidth
                 / 2
             baseRect = NSRect(
                 x: minX - strokeRadius, y: minY - strokeRadius,
@@ -4102,7 +4136,7 @@ class OverlayView: NSView {
         let outlineWidth: CGFloat = 3
         // Generous padding — accounts for stroke width, line caps, Chaikin smoothing overshoot,
         // arrowheads, and the dilation radius. Bitmap is cached so size doesn't matter per-frame.
-        let effectiveStroke = annotation.tool == .marker ? annotation.strokeWidth * 6 : annotation.strokeWidth
+        let effectiveStroke = annotation.strokeWidth
         let padding = effectiveStroke + outlineWidth + 20
 
         // Compute actual bounding box — for pencil/marker, use the points array
@@ -4996,6 +5030,8 @@ class OverlayView: NSView {
                     snappedWindowID = nil
                     snappedWindowImage = nil
                     resizeHandle = handle
+                    // Snipaste-style: hide toolbars while resizing so the size label stays readable.
+                    showToolbars = false
                     return
                 }
             }
@@ -5028,6 +5064,8 @@ class OverlayView: NSView {
                     selectionDragStart = point
                     selectionDragOffset = NSPoint(x: point.x - selectionRect.origin.x, y: point.y - selectionRect.origin.y)
                     NSCursor.closedHand.set()
+                    // Snipaste-style: hide toolbars while moving the selection box.
+                    showToolbars = false
                     needsDisplay = true
                     return
                 }
@@ -5692,11 +5730,17 @@ class OverlayView: NSView {
             } else if isDraggingSelection {
                 isDraggingSelection = false
                 scheduleBarcodeDetection()
+                if !autoOCRMode && !autoQuickSaveMode && !autoScrollCaptureMode && !autoConfirmMode {
+                    showToolbars = true
+                }
                 needsDisplay = true
             } else if isResizingSelection {
                 isResizingSelection = false
                 resizeHandle = .none
                 scheduleBarcodeDetection()
+                if !autoOCRMode && !autoQuickSaveMode && !autoScrollCaptureMode && !autoConfirmMode {
+                    showToolbars = true
+                }
                 if let win = window {
                     updateCursorForPoint(convert(win.mouseLocationOutsideOfEventStream, from: nil))
                 }
@@ -5922,15 +5966,15 @@ class OverlayView: NSView {
             if ann.tool == .text {
                 // Adjust font size for text annotations
                 let oldSize = ann.fontSize
-                let newSize = max(8, oldSize - delta * step)
+                let newSize = min(200, max(8, oldSize + delta * step))
                 if newSize != oldSize {
                     // Apply visual change immediately (no undo yet)
                     ann.fontSize = newSize
+                    cachedAnnotationLayer = nil
+                    cachedCompositedImage = nil
                     needsDisplay = true
-                    // Update tool options row if showing this annotation
-                    if selectedAnnotation === ann {
-                        toolOptionsRowView?.rebuild(forAnnotation: ann)
-                    }
+                    // Lightweight slider/label sync (no full rebuild)
+                    toolOptionsRowView?.updateFontSizeDisplay(value: newSize)
                     // Debounce: schedule undo push after scrolling stops
                     scrollPropertyAdjustTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: false) { [weak self] _ in
                         guard let self = self else { return }
@@ -5942,12 +5986,16 @@ class OverlayView: NSView {
             } else if ann.tool == .number {
                 // Adjust number size
                 let oldSize = currentNumberSize
-                let newSize = max(8, oldSize - delta * step)
+                let newSize = min(30, max(8, oldSize + delta * step))
                 if newSize != oldSize {
                     currentNumberSize = newSize
                     // Apply visual change immediately
                     ann.strokeWidth = currentNumberSize
+                    cachedAnnotationLayer = nil
+                    cachedCompositedImage = nil
                     needsDisplay = true
+                    // Lightweight slider sync
+                    toolOptionsRowView?.updateStrokeSlider(value: newSize)
                     // Debounce: save after scrolling stops
                     scrollPropertyAdjustTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: false) { [weak self] _ in
                         guard let self = self else { return }
@@ -5963,12 +6011,15 @@ class OverlayView: NSView {
             } else if ann.tool == .marker {
                 // Adjust marker size
                 let oldSize = currentMarkerSize
-                let newSize = max(2, oldSize - delta * step)
+                let newSize = min(100, max(6, oldSize + delta * step))
                 if newSize != oldSize {
                     currentMarkerSize = newSize
-                    // Apply visual change immediately (no object creation)
-                    ann.strokeWidth = currentMarkerSize * 6
+                    ann.strokeWidth = currentMarkerSize
+                    cachedAnnotationLayer = nil
+                    cachedCompositedImage = nil
                     needsDisplay = true
+                    // Lightweight slider sync
+                    toolOptionsRowView?.updateStrokeSlider(value: newSize)
                     // Debounce: save after scrolling stops
                     scrollPropertyAdjustTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: false) { [weak self] _ in
                         guard let self = self else { return }
@@ -5984,11 +6035,15 @@ class OverlayView: NSView {
             } else if ann.tool == .loupe {
                 // Adjust loupe size
                 let oldSize = currentLoupeSize
-                let newSize = max(50, oldSize - delta * step * 10)
+                let newSize = min(320, max(50, oldSize + delta * step * 10))
                 if newSize != oldSize {
                     currentLoupeSize = newSize
                     // Apply visual change immediately
+                    cachedAnnotationLayer = nil
+                    cachedCompositedImage = nil
                     needsDisplay = true
+                    // Lightweight slider sync
+                    toolOptionsRowView?.updateStrokeSlider(value: newSize)
                     // Debounce: save after scrolling stops
                     scrollPropertyAdjustTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: false) { [weak self] _ in
                         guard let self = self else { return }
@@ -6002,20 +6057,23 @@ class OverlayView: NSView {
                     }
                 }
             } else {
-                // Adjust stroke width for other tools
+                // Adjust stroke width for other tools (arrow, line, pencil, rect, ellipse)
                 let oldWidth = ann.strokeWidth
-                let newWidth = max(1, oldWidth - delta * step)
+                let newWidth = min(30, max(1, oldWidth + delta * step))
                 if newWidth != oldWidth {
                     // Apply visual change immediately (no undo yet)
                     ann.strokeWidth = newWidth
+                    // Also sync global default so newly drawn annotations use the adjusted value
+                    currentStrokeWidth = newWidth
+                    cachedAnnotationLayer = nil
+                    cachedCompositedImage = nil
                     needsDisplay = true
-                    // Update tool options row if showing this annotation
-                    if selectedAnnotation === ann {
-                        toolOptionsRowView?.rebuild(forAnnotation: ann)
-                    }
-                    // Debounce: schedule undo push after scrolling stops
+                    // Lightweight slider/label sync (no full rebuild)
+                    toolOptionsRowView?.updateStrokeSlider(value: newWidth)
+                    // Debounce: schedule undo push + UserDefaults save after scrolling stops
                     scrollPropertyAdjustTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: false) { [weak self] _ in
                         guard let self = self else { return }
+                        UserDefaults.standard.set(Double(newWidth), forKey: "currentStrokeWidth")
                         let snapshot = ann.clone()
                         self.pushPropertyChangeUndo(annotation: ann, snapshot: snapshot)
                         self.scrollPropertyAdjustTimer = nil
@@ -6607,6 +6665,11 @@ class OverlayView: NSView {
             } else {
                 currentTool = tool
             }
+            // Clear selection when switching tools (so tool options apply to the tool, not selected annotations)
+            if !selectedAnnotations.isEmpty {
+                selectedAnnotations = []
+                cachedCompositedImage = nil
+            }
             // Auto-select first emoji when switching to stamp tool with nothing selected
             if tool == .stamp && currentStampImage == nil {
                 currentStampImage = StampEmojis.renderEmoji(StampEmojis.common[0])
@@ -6618,6 +6681,8 @@ class OverlayView: NSView {
             } else if currentTool != .colorSampler {
                 hideColorSamplerMagnifier()
             }
+            // Update tool options row to reflect the new tool
+            toolOptionsRowView?.rebuild(for: currentTool)
             needsDisplay = true
         case .loupe:
             currentTool = .loupe
@@ -7604,7 +7669,11 @@ class OverlayView: NSView {
             cachedCompositedImage = nil
             needsDisplay = true
         default:
-            // Handle color sampler keys (C for copy, arrow keys/WASD for pixel movement)
+            // Handle arrow keys for pixel-perfect movement
+            if handleArrowKeys(with: event) {
+                return
+            }
+            // Handle color sampler keys (C for copy, WASD for pixel movement)
             if overlayViewKeyDown(with: event) {
                 return
             }
@@ -7754,6 +7823,79 @@ class OverlayView: NSView {
             }
         }
         super.keyUp(with: event)
+    }
+
+    // MARK: - Arrow Key Movement
+
+    /// Handle arrow keys for pixel-perfect movement of different elements.
+    /// Returns true if the event was handled, false otherwise.
+    func handleArrowKeys(with event: NSEvent) -> Bool {
+        let dx: CGFloat
+        let dy: CGFloat
+
+        switch event.keyCode {
+        case 123:  // Left Arrow
+            dx = -1; dy = 0
+        case 124:  // Right Arrow
+            dx = 1; dy = 0
+        case 125:  // Down Arrow
+            dx = 0; dy = -1
+        case 126:  // Up Arrow
+            dx = 0; dy = 1
+        default:
+            return false
+        }
+
+        // Priority 1: Selecting state or color sampler tool - move mouse for precise selection/sampling
+        // When selecting, allow arrow keys for precise mouse positioning before/during selection
+        if state == .selecting || currentTool == .colorSampler {
+            moveMouseBy(dx: dx, dy: dy)
+            return true
+        }
+
+        // Priority 2: Selected annotations - move them
+        if !selectedAnnotations.isEmpty {
+            moveSelectedAnnotations(dx: dx, dy: dy)
+            return true
+        }
+
+        // Priority 3: Selection rect can be dragged - move it
+        if state == .selected && canDragSelection() {
+            moveSelectionRect(dx: dx, dy: dy)
+            return true
+        }
+
+        return false
+    }
+
+    /// Move selected annotations by the specified delta.
+    private func moveSelectedAnnotations(dx: CGFloat, dy: CGFloat) {
+        for annotation in selectedAnnotations {
+            annotation.move(dx: dx, dy: dy)
+        }
+        cachedCompositedImage = nil
+        needsDisplay = true
+    }
+
+    /// Move the selection rect by the specified delta.
+    private func moveSelectionRect(dx: CGFloat, dy: CGFloat) {
+        selectionRect.origin.x += dx
+        selectionRect.origin.y += dy
+        needsDisplay = true
+    }
+
+    /// Check if the selection rect can be dragged.
+    private func canDragSelection() -> Bool {
+        // Selection can be dragged if:
+        // - It's not in recording mode
+        // - It's not during scroll capture
+        // - There's no active annotation drag
+        // - The selection rect is valid
+        return !isRecording
+            && !isScrollCapturing
+            && !isDraggingAnnotation
+            && !selectionRect.isEmpty
+            && currentTool != .crop
     }
 
     // MARK: - Aspect Ratio Lock Helpers
@@ -8232,6 +8374,9 @@ class OverlayView: NSView {
 
     func activeStrokeWidthForTool(_ tool: AnnotationTool) -> CGFloat {
         switch tool {
+        case .pencil: return currentPencilStrokeWidth
+        case .line: return currentLineStrokeWidth
+        case .arrow: return currentArrowStrokeWidth
         case .number: return currentNumberSize
         case .marker: return currentMarkerSize
         case .loupe: return currentLoupeSize
@@ -8241,6 +8386,15 @@ class OverlayView: NSView {
 
     func setActiveStrokeWidth(_ value: CGFloat, for tool: AnnotationTool) {
         switch tool {
+        case .pencil:
+            currentPencilStrokeWidth = value
+            UserDefaults.standard.set(Double(value), forKey: "pencilStrokeWidth")
+        case .line:
+            currentLineStrokeWidth = value
+            UserDefaults.standard.set(Double(value), forKey: "lineStrokeWidth")
+        case .arrow:
+            currentArrowStrokeWidth = value
+            UserDefaults.standard.set(Double(value), forKey: "arrowStrokeWidth")
         case .number:
             currentNumberSize = value
             UserDefaults.standard.set(Double(value), forKey: "numberStrokeWidth")

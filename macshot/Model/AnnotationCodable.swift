@@ -14,6 +14,9 @@ struct CodableAnnotation: Codable {
     let colorRGBA: [CGFloat]  // [r, g, b, a]
     let strokeWidth: CGFloat
 
+    // Version: nil/missing = v1 (marker strokeWidth needs * 6), 2 = current (actual pixels)
+    var codableVersion: Int?
+
     // Text
     var text: String?
     var attributedTextRTF: Data?  // RTF encoding of NSAttributedString
@@ -74,6 +77,7 @@ extension Annotation {
             colorRGBA: Self.encodeColor(color),
             strokeWidth: strokeWidth
         )
+        c.codableVersion = 2
 
         // Text
         c.text = text
@@ -138,12 +142,17 @@ extension Annotation {
 
     static func fromCodable(_ c: CodableAnnotation) -> Annotation? {
         guard let tool = AnnotationTool(rawValue: c.tool) else { return nil }
+        var strokeWidth = c.strokeWidth
+        // Migrate v1 marker annotations: strokeWidth was a base value (actual = base * 6)
+        if tool == .marker && (c.codableVersion ?? 1) < 2 {
+            strokeWidth *= 6
+        }
         let ann = Annotation(
             tool: tool,
             startPoint: NSPoint(x: c.startX, y: c.startY),
             endPoint: NSPoint(x: c.endX, y: c.endY),
             color: decodeColor(c.colorRGBA),
-            strokeWidth: c.strokeWidth
+            strokeWidth: strokeWidth
         )
 
         // Text

@@ -144,26 +144,18 @@ extension OverlayView {
         wasShiftPressed = shiftIsNowPressed
     }
 
-    /// Handle keyDown event for C key (copy and exit).
+    /// Handle keyDown event for C key (copy and exit) and WASD for mouse movement.
     func overlayViewKeyDown(with event: NSEvent) -> Bool {
         if event.keyCode == 8 {  // C key
             copyColorAndExit()
             return true
         }
 
-        // Arrow keys or WASD for pixel-perfect mouse movement
+        // WASD for pixel-perfect mouse movement (arrow keys are handled by handleArrowKeys)
         let dx: CGFloat
         let dy: CGFloat
 
         switch event.keyCode {
-        case 123:  // Left Arrow
-            dx = -1; dy = 0
-        case 124:  // Right Arrow
-            dx = 1; dy = 0
-        case 125:  // Down Arrow
-            dx = 0; dy = -1
-        case 126:  // Up Arrow
-            dx = 0; dy = 1
         case 0:    // A
             dx = -1; dy = 0
         case 2:    // D
@@ -180,7 +172,7 @@ extension OverlayView {
         return true
     }
 
-    private func moveMouseBy(dx: CGFloat, dy: CGFloat) {
+    func moveMouseBy(dx: CGFloat, dy: CGFloat) {
         let currentPos = NSEvent.mouseLocation
         let newPos = NSPoint(x: currentPos.x + dx, y: currentPos.y + dy)
 

@@ -9,6 +9,8 @@ class ToolbarStripView: NSView {
     let orientation: Orientation
     private(set) var buttonViews: [ToolbarButtonView] = []
     private var separatorViews: [ToolbarSeparatorView] = []  // Separator views
+    /// Parallel to `buttonViews`: draw a horizontal separator before this button (vertical strip only).
+    private var sectionBreakBeforeForButtonIndex: [Bool] = []
     /// Set to true in editor mode so gap clicks pass through to the image beneath.
     var passesThrough = false
 
@@ -35,15 +37,18 @@ class ToolbarStripView: NSView {
         for sep in separatorViews { sep.removeFromSuperview() }
         buttonViews.removeAll()
         separatorViews.removeAll()
+        sectionBreakBeforeForButtonIndex = buttons.map(\.sectionBreakBefore)
 
-        // 定义分隔线位置（在工具按钮索引之后插入分隔线）
-        // 画笔组(3): 画笔 线条 箭头 荧光笔
-        // 形状组(7): 矩形 椭圆 马赛克 放大镜
-        // 标注组(11): 文字 编号 表情 测量
-        // 功能组(15): 取色 颜色 撤销 重做
-        let separatorIndices: Set<Int> = [3, 7, 11, 15]
+        // 底栏横向：在指定按钮索引之后插入竖线分隔（与 bottomButtons 分组一致）
+        let horizontalSeparatorAfterIndices: Set<Int> = [3, 7, 11, 15]
 
         for (index, data) in buttons.enumerated() {
+            if orientation == .vertical, data.sectionBreakBefore, index > 0 {
+                let separator = ToolbarSeparatorView(kind: .horizontalRule)
+                addSubview(separator)
+                separatorViews.append(separator)
+            }
+
             let bv = ToolbarButtonView(action: data.action, sfSymbol: data.sfSymbol, tooltip: data.tooltip)
             bv.isOn = data.isSelected
             bv.tintColor = data.tintColor
@@ -55,9 +60,11 @@ class ToolbarStripView: NSView {
             addSubview(bv)
             buttonViews.append(bv)
 
-            // 在指定位置后添加分隔线
-            if separatorIndices.contains(index) && index < buttons.count - 1 {
-                let separator = ToolbarSeparatorView()
+            if orientation == .horizontal,
+                horizontalSeparatorAfterIndices.contains(index),
+                index < buttons.count - 1
+            {
+                let separator = ToolbarSeparatorView(kind: .verticalBar)
                 addSubview(separator)
                 separatorViews.append(separator)
             }
@@ -111,13 +118,35 @@ class ToolbarStripView: NSView {
             frame.size = NSSize(width: maxWidth + padding, height: btnSize + padding * 2)
 
         case .vertical:
-            // 计算所需的总高度
-            let totalHeight = CGFloat(buttonViews.count) * (btnSize + spacing) - spacing + padding * 2
+            var sepRun = 0
+            var extraForSeparators: CGFloat = 0
+            for i in 1..<buttonViews.count {
+                guard i < sectionBreakBeforeForButtonIndex.count,
+                    sectionBreakBeforeForButtonIndex[i]
+                else { continue }
+                let sep = separatorViews[sepRun]
+                sepRun += 1
+                extraForSeparators += separatorSpacing + sep.intrinsicContentSize.height + separatorSpacing
+            }
+
+            let buttonsHeight =
+                CGFloat(buttonViews.count) * (btnSize + spacing) - spacing + padding * 2
+            let totalHeight = buttonsHeight + extraForSeparators
             frame.size = NSSize(width: btnSize + padding * 2, height: totalHeight)
 
-            // 从顶部向下排列按钮
             var y: CGFloat = totalHeight - padding
-            for btn in buttonViews {
+            sepRun = 0
+            for i in buttonViews.indices {
+                if i > 0, i < sectionBreakBeforeForButtonIndex.count, sectionBreakBeforeForButtonIndex[i] {
+                    y -= separatorSpacing
+                    let sep = separatorViews[sepRun]
+                    sepRun += 1
+                    let sz = sep.intrinsicContentSize
+                    let sx = padding + (btnSize - sz.width) / 2
+                    sep.frame = NSRect(x: sx, y: y - sz.height, width: sz.width, height: sz.height)
+                    y -= sz.height + separatorSpacing
+                }
+                let btn = buttonViews[i]
                 btn.frame = NSRect(x: padding, y: y - btnSize, width: btnSize, height: btnSize)
                 y -= btnSize + spacing
             }
@@ -150,14 +179,21 @@ class ToolbarStripView: NSView {
 
 // MARK: - Toolbar Separator
 
-/// Gray vertical separator line for toolbar button groups.
+/// Separator between toolbar button groups: vertical bar in horizontal strips, horizontal rule in vertical strips.
 class ToolbarSeparatorView: NSView {
 
-    override init(frame frameRect: NSRect) {
-        super.init(frame: frameRect)
-        self.wantsLayer = true
-        // 使用更明显的颜色，在暗色背景上可见
-        self.layer?.backgroundColor = NSColor(calibratedWhite: 0.3, alpha: 0.3).cgColor
+    enum Kind {
+        case verticalBar
+        case horizontalRule
+    }
+
+    let kind: Kind
+
+    init(kind: Kind = .verticalBar) {
+        self.kind = kind
+        super.init(frame: .zero)
+        wantsLayer = true
+        layer?.backgroundColor = NSColor(calibratedWhite: 0.3, alpha: 0.3).cgColor
     }
 
     required init?(coder: NSCoder) {
@@ -165,6 +201,12 @@ class ToolbarSeparatorView: NSView {
     }
 
     override var intrinsicContentSize: NSSize {
-        return NSSize(width: 1, height: 24)
+        switch kind {
+        case .verticalBar:
+            return NSSize(width: 1, height: 24)
+        case .horizontalRule:
+            let w = max(8, ToolbarButtonView.size - 8)
+            return NSSize(width: w, height: 1)
+        }
     }
 }

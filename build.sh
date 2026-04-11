@@ -17,7 +17,7 @@ for arg in "$@"; do
         --clean) DO_CLEAN=1 ;;
         -h|--help)
             echo "用法: $(basename "$0") [--clean]"
-            echo "  默认: 增量构建（快）"
+            echo "  默认: 增量构建（快）；若缺少 Sparkle.xcframework 会自动清理 SPM 工件并重解析"
             echo "  --clean: clean build（等价于全量重编，慢，怀疑缓存坏了再用）"
             exit 0
             ;;
@@ -62,6 +62,22 @@ else
 fi
 
 # 4. 构建
+# Sparkle 为 SPM binaryTarget：若 artifacts 目录残缺（常见报错：找不到 Sparkle.xcframework），
+# 仅 resolve 往往不会重下；需删掉损坏的 sparkle 产物并去掉 workspace-state，再 resolve。
+SPARKLE_XCFW="$DERIVED_DATA/SourcePackages/artifacts/sparkle/Sparkle/Sparkle.xcframework"
+if [ -d "$DERIVED_DATA/SourcePackages" ] && [ ! -d "$SPARKLE_XCFW" ]; then
+    echo "📍 步骤 3b/5: Swift Package（Sparkle）产物缺失或损坏，正在清理并重解析..."
+    rm -rf "$DERIVED_DATA/SourcePackages/artifacts/sparkle"
+    rm -rf "$DERIVED_DATA/SourcePackages/artifacts/extract/sparkle"
+    rm -f "$DERIVED_DATA/SourcePackages/workspace-state.json"
+    xcodebuild \
+        -project "$ROOT_DIR/macshot.xcodeproj" \
+        -scheme macshot \
+        -derivedDataPath "$DERIVED_DATA" \
+        -resolvePackageDependencies
+    echo "   ✅ 依赖已重新解析"
+fi
+
 if [ "$DO_CLEAN" -eq 1 ]; then
     echo "📍 步骤 4/5: 构建新版本（全量：clean build，较慢）..."
     BUILD_ACTIONS=(clean build)
@@ -88,5 +104,5 @@ open /Applications/macshot-dev.app
 echo "   ✅ 已安装并启动"
 
 echo ""
-echo "✅ 全部完成！"
+echo "✅ 全部完成！构建时间: $(date +%H:%M)"
 echo "祝测试愉快！🎊"

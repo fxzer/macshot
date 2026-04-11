@@ -333,7 +333,7 @@ class Annotation {
         switch tool {
         case .pencil, .marker:
             guard let points = points else { return false }
-            let strokeRadius = (tool == .marker ? strokeWidth * 6 : strokeWidth) / 2
+            let strokeRadius = strokeWidth / 2
             let effectiveThreshold = max(threshold, strokeRadius)
             for p in points {
                 if hypot(p.x - point.x, p.y - point.y) < effectiveThreshold { return true }
@@ -464,7 +464,7 @@ class Annotation {
             let path = NSBezierPath()
             path.move(to: points[0])
             for i in 1..<points.count { path.line(to: points[i]) }
-            let effectiveWidth = tool == .marker ? strokeWidth * 6 : strokeWidth
+            let effectiveWidth = strokeWidth
             path.lineWidth = effectiveWidth + 6
             path.lineCapStyle = .round
             path.lineJoinStyle = .round
@@ -607,7 +607,7 @@ class Annotation {
         case .ellipse:
             drawEllipse()
         case .marker:
-            drawFreeform(alpha: 0.35, width: strokeWidth * 6)
+            drawFreeform(alpha: 0.35, width: strokeWidth)
         case .text:
             drawText()
         case .number:
