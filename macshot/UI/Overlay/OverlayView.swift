@@ -930,6 +930,9 @@ class OverlayView: NSView {
         overlayErrorTimer?.invalidate()
         overlayErrorTimer = nil
 
+        overlayHintFadeTimer?.invalidate()
+        overlayHintFadeTimer = nil
+
         micLevelTimer?.invalidate()
         micLevelTimer = nil
 
@@ -2011,6 +2014,27 @@ class OverlayView: NSView {
             NSBezierPath(roundedRect: msgRect, xRadius: 8, yRadius: 8).fill()
             str.draw(
                 at: NSPoint(x: msgRect.minX + padding, y: msgRect.minY + padding / 2),
+                withAttributes: attrs)
+        }
+
+        // Overlay hint message (black semi-transparent background, like aspect ratio hint)
+        if overlayHintOpacity > 0.01, let hintMsg = overlayHintMessage {
+            let attrs: [NSAttributedString.Key: Any] = [
+                .font: NSFont.systemFont(ofSize: 13, weight: .medium),
+                .foregroundColor: NSColor.white.withAlphaComponent(overlayHintOpacity),
+            ]
+            let str = hintMsg as NSString
+            let strSize = str.size(withAttributes: attrs)
+            let padding: CGFloat = 12
+            let hintW = strSize.width + padding * 2
+            let hintH = strSize.height + padding
+            let hintX = bounds.midX - hintW / 2
+            let hintY = bounds.maxY - hintH - 40
+            let hintRect = NSRect(x: hintX, y: hintY, width: hintW, height: hintH)
+            NSColor.black.withAlphaComponent(overlayHintOpacity * 0.7).setFill()
+            NSBezierPath(roundedRect: hintRect, xRadius: 8, yRadius: 8).fill()
+            str.draw(
+                at: NSPoint(x: hintRect.minX + padding, y: hintRect.minY + padding / 2),
                 withAttributes: attrs)
         }
 
@@ -4521,6 +4545,29 @@ class OverlayView: NSView {
             self?.overlayErrorMessage = nil
             self?.needsDisplay = true
         }
+    }
+
+    // MARK: - Overlay Hint
+
+    private var overlayHintMessage: String? = nil
+    private var overlayHintOpacity: CGFloat = 0.0
+    private var overlayHintFadeTimer: Timer? = nil
+
+    func showOverlayHint(_ message: String) {
+        overlayHintFadeTimer?.invalidate()
+        overlayHintMessage = message
+        overlayHintOpacity = 1.0
+        needsDisplay = true
+        overlayHintFadeTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: false) {
+            [weak self] _ in
+            self?.fadeOutOverlayHint()
+        }
+    }
+
+    private func fadeOutOverlayHint() {
+        overlayHintOpacity = 0.0
+        overlayHintMessage = nil
+        needsDisplay = true
     }
 
 
@@ -7140,7 +7187,8 @@ class OverlayView: NSView {
                     let nextSlot = selectedColorSlot + 1
                     if nextSlot < customColors.count { selectedColorSlot = nextSlot }
                 }
-                showOverlayError(String(format: L("Set color %@"), result.hex))
+                showOverlayHint(String(format: L("Set color %@"), result.hex))
+                rebuildToolbarLayout()
                 needsDisplay = true
             }
             return
