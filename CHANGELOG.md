@@ -1,5 +1,53 @@
 # Changelog
 
+## [4.0.4-beta.2] - 2026-04-11
+
+### Added
+- **Customizable toolbar background color** — new "Background color" setting in Preferences > Appearance. All toolbar text, icons, borders, and system controls adapt to stay readable on any background.
+- **Adaptive toolbar appearance** — toolbar and popovers automatically switch between light and dark AppKit appearance based on background brightness.
+
+### Fixed
+- **Global hotkeys stop working after closing editor** — `NSApp.hide(nil)` could suspend the Carbon event loop; replaced with cooperative focus transfer.
+- **Window snap highlight not showing on overlay appear** — snap query now runs immediately at the mouse position instead of waiting for mouse movement. (PR #100, thanks @TimFang4162)
+
+### Changed
+- **Lasso selection moved to Ctrl+drag** — frees Shift for line/shape constraining without timing conflicts.
+- **Stamp quick bar trimmed** — removed less common emojis (edit, lock, lightning, pin) from the quick bar; still accessible via the emoji picker.
+- **Translations** — added "Background color:" and "Play sound on capture" across all 40 locales.
+
+## [4.0.4-beta.1] - 2026-04-10
+
+### Added
+- **Export dimensions dropdown** — scale down recordings before saving (Original, 75%, 50%, 33%, 25%). Applied at export time; recordings always capture at full resolution.
+- **Estimated export file size** — shows estimated output size in the video editor when trim, scale, or format change would affect the result.
+
+### Fixed
+- **Cursor flicker after finishing a stroke** — the annotation cache is now incrementally updated on commit instead of rebuilt from scratch, eliminating the frame gap.
+- **Video editor bottom bar overlap** — left-side info gracefully hides when the window is narrow instead of overlapping action buttons.
+- **Timeline thumbnail seams** — sub-pixel gaps between thumbnail tiles eliminated with floor/ceil rounding.
+
+### Changed
+- **Video editor minimum width** increased to 820px to ensure all controls fit.
+- **~785 lines of dead code removed** — identified by Periphery static analysis across 5 cleanup batches.
+
+## [4.0.3] - 2026-04-10
+
+### Added
+- **Text formatting on selected annotations** — font size, bold, italic, underline, strikethrough, font family, alignment, background, and outline controls now work on selected text annotations without entering edit mode.
+
+### Fixed
+- **Pen pressure sensitivity** — light touch now gives 30%–100% of stroke width (was 0%–100%), power curve reduces drastic variation, pressure smoothing no longer over-averages, and cursor preview dot no longer flickers with pressure changes.
+- **Drawing color resets to red** — color and opacity now persist across captures and app launches.
+- **Text shifts left and reflows on commit** — NSTextView's default `lineFragmentPadding` was making editing width narrower than the snapshot, causing position shift and word reflow.
+- **Multi-line text clipped after commit** — scrollView frame wasn't resized to fit content before snapshotting.
+- **Toolbar color swatch not updating** — color changes from any source (eyedropper, picker, color wheel) now immediately update the toolbar preview.
+- **Toolbar doesn't reflect selected text formatting** — selecting a text annotation now loads its actual font size, bold, italic, etc. into the toolbar controls.
+- **Annotation resize lag** — expensive CIFilter outline glow was regenerating every frame during resize. Now draws a simple stroke rect during resize.
+- **Upload history layout** — rows now stretch to full width in Settings.
+- **Annotation control button styles** — edit (pencil) and rotation buttons now match the delete button style: dark fill, accent border, bold white icon.
+- **Recording HUD disappears when closing old video editor** — app no longer hides while recording is active.
+- **Rotation handle icon off-center** — switched to symmetric symbol with sub-pixel alignment correction.
+
 ## [4.0.2] - 2026-04-10
 
 ### Added

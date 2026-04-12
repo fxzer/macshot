@@ -52,14 +52,6 @@ class TextEditingController {
     /// The annotation being re-edited (removed from canvas, restored on cancel).
     var editingAnnotation: Annotation?
 
-    // MARK: - Font list
-
-    static let fontFamilies: [String] = {
-        var families = ["System"]
-        families.append(contentsOf: NSFontManager.shared.availableFontFamilies.sorted())
-        return families
-    }()
-
     // MARK: - Font construction
 
     func currentFont() -> NSFont {
@@ -282,6 +274,7 @@ class TextEditingController {
         tv.isVerticallyResizable = true
         tv.isHorizontallyResizable = false
         tv.textContainerInset = NSSize(width: 4, height: 4)
+        tv.textContainer?.lineFragmentPadding = 0
         tv.textContainer?.containerSize = NSSize(width: viewFrame.width - 8, height: CGFloat.greatestFiniteMagnitude)
         tv.textContainer?.widthTracksTextView = true
 
@@ -336,6 +329,8 @@ class TextEditingController {
         guard let tv = textView, let sv = scrollView else { return }
         let text = tv.string
         if !text.isEmpty {
+            // Ensure scrollView frame matches actual text height before snapshotting
+            resizeToFit()
             let attrStr = NSAttributedString(attributedString: tv.textStorage!)
             let imgSize = sv.frame.size
             let inset = tv.textContainerInset

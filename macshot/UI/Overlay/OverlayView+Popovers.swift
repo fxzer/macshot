@@ -497,10 +497,6 @@ extension OverlayView {
         }
     }
 
-    func performAutoRedactPII() {
-        performAutoRedact()
-    }
-
     func performRedactFaces() {
         guard state == .selected, let screenshot = screenshotImage else { return }
         let tool: AnnotationTool = currentTool == .pixelate ? .pixelate : .rectangle

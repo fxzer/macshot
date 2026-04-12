@@ -296,7 +296,20 @@ class OverlayView: NSView {
             }
         }
     }
-    var currentColor: NSColor = .systemRed
+    var currentColor: NSColor = {
+        if let data = UserDefaults.standard.data(forKey: "lastUsedColor"),
+           let color = try? NSKeyedUnarchiver.unarchivedObject(ofClass: NSColor.self, from: data) {
+            return color
+        }
+        return .systemRed
+    }() {
+        didSet {
+            if let data = try? NSKeyedArchiver.archivedData(withRootObject: currentColor, requiringSecureCoding: true) {
+                UserDefaults.standard.set(data, forKey: "lastUsedColor")
+            }
+            updateToolbarColorSwatch()
+        }
+    }
     /// currentColor with opacity applied — used for all tools except marker, loupe, measure, pixelate, blur
     private var annotationColor: NSColor { currentColor.withAlphaComponent(currentColorOpacity) }
     var currentStrokeWidth: CGFloat = {
@@ -352,6 +365,10 @@ class OverlayView: NSView {
                 toolOptionsRowView?.clearEditingAnnotation()
 
                 if selectedAnnotations.count == 1, let ann = newSingle {
+                    // Load text annotation properties into textEditor so toolbar shows correct state
+                    if ann.tool == .text {
+                        textEditor.restoreState(from: ann)
+                    }
                     toolOptionsRowView?.rebuild(forAnnotation: ann)
                     repositionToolbars()
                 } else if selectedAnnotations.isEmpty {
@@ -392,7 +409,7 @@ class OverlayView: NSView {
     /// When shift+clicking an already-selected annotation, defer the deselect
     /// to mouseUp so the user can still drag the full multi-selection.
     private weak var shiftClickPendingDeselect: Annotation?
-    /// Lasso selection: Shift+drag on empty space draws a marquee rectangle.
+    /// Lasso selection: Ctrl+drag on empty space draws a marquee rectangle.
     private var isLassoSelecting: Bool = false
     private var lassoStart: NSPoint = .zero
     private var lassoRect: NSRect = .zero
@@ -597,8 +614,7 @@ class OverlayView: NSView {
     var currentPressure: CGFloat = 1.0
     var smartMarkerEnabled: Bool =
         UserDefaults.standard.object(forKey: "smartMarkerEnabled") as? Bool ?? false
-    private var roundedRectEnabled: Bool =
-        UserDefaults.standard.object(forKey: "roundedRectEnabled") as? Bool ?? false
+
 
     var currentLoupeSize: CGFloat = {
         let saved = UserDefaults.standard.object(forKey: "loupeSize") as? Double
@@ -861,8 +877,6 @@ class OverlayView: NSView {
         }
     }
 
-    var isAnnotating: Bool = false
-
     // Window snapping
     var windowSnapEnabled: Bool {
         get { UserDefaults.standard.object(forKey: "windowSnapEnabled") as? Bool ?? true }
@@ -879,13 +893,49 @@ class OverlayView: NSView {
     var snappedWindowImage: NSImage? = nil
     private var windowSnapQueryInFlight: Bool = false
 
+    /// Perform a window snap query at the given screen point (AppKit screen coordinates).
+    private func queryWindowSnap(at screenPoint: NSPoint) {
+        guard !windowSnapQueryInFlight,
+            state == .idle && windowSnapEnabled,
+            !(remoteSelectionRect.width >= 1 && remoteSelectionRect.height >= 1),
+            let viewWindow = window
+        else { return }
+        let overlayWindowNumber = viewWindow.windowNumber
+        let windowOrigin = viewWindow.frame.origin
+        let viewBounds = bounds
+        let screenH = NSScreen.screens.first?.frame.height ?? NSScreen.main?.frame.height ?? 0
+        windowSnapQueryInFlight = true
+        DispatchQueue.global(qos: .userInteractive).async { [weak self] in
+            let result = Self.windowRectOnBackground(
+                screenPoint: screenPoint,
+                overlayWindowNumber: overlayWindowNumber,
+                windowOrigin: windowOrigin,
+                viewBounds: viewBounds,
+                screenH: screenH
+            )
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                self.windowSnapQueryInFlight = false
+                let newRect = result?.rect
+                if newRect != self.hoveredWindowRect {
+                    self.hoveredWindowRect = newRect
+                    self.hoveredWindowID = result?.windowID
+                    self.needsDisplay = true
+                }
+            }
+        }
+    }
+
     // Mic level monitor (volume meter shown when mic is enabled before recording)
     private var micLevelEngine: AVAudioEngine?
     private var micLevelTimer: Timer?
 
     private var customColors: [NSColor?] = Array(repeating: nil, count: 7)
     private var selectedColorSlot: Int = 0  // which custom slot is selected for saving colors
-    private static var lastUsedOpacity: CGFloat = 1.0
+    private static var lastUsedOpacity: CGFloat = {
+        let saved = UserDefaults.standard.object(forKey: "lastUsedColorOpacity") as? Double
+        return saved != nil ? CGFloat(saved!) : 1.0
+    }()
     private var currentColorOpacity: CGFloat = OverlayView.lastUsedOpacity
 
     // Radial color wheel (right-click in drawing mode)
@@ -919,10 +969,17 @@ class OverlayView: NSView {
             owner: self, userInfo: nil)
         addTrackingArea(area)
 
-        // Let the overlay render before starting expensive window snap queries
+        // Brief cooldown so the window server finishes compositing the overlay
+        // before we query CGWindowListCopyWindowInfo.
         windowSnapCooldown = true
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
-            self?.windowSnapCooldown = false
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) { [weak self] in
+            guard let self = self else { return }
+            self.windowSnapCooldown = false
+            // Perform an initial snap query at the current mouse position so the
+            // highlight appears immediately without requiring the user to move the mouse.
+            if self.state == .idle && self.windowSnapEnabled && !self.windowSnapQueryInFlight {
+                self.queryWindowSnap(at: NSEvent.mouseLocation)
+            }
         }
 
         if showToolbars {
@@ -937,6 +994,7 @@ class OverlayView: NSView {
     @objc private func handleToolbarColorsChanged() {
         // Rebuild toolbars and options row with new colors
         toolOptionsRowView?.layer?.backgroundColor = ToolbarLayout.bgColor.cgColor
+        toolOptionsRowView?.appearance = ToolbarLayout.appearance
         rebuildToolbarLayout()
         if let tool = toolOptionsRowView?.currentTool {
             toolOptionsRowView?.rebuild(for: tool)
@@ -1054,33 +1112,9 @@ class OverlayView: NSView {
             guard
                 let screenPoint = window.map({
                     NSPoint(x: $0.frame.origin.x + point.x, y: $0.frame.origin.y + point.y)
-                }),
-                let viewWindow = window
+                })
             else { return }
-            let overlayWindowNumber = viewWindow.windowNumber
-            let windowOrigin = viewWindow.frame.origin
-            let viewBounds = bounds
-            let screenH = NSScreen.screens.first?.frame.height ?? NSScreen.main?.frame.height ?? 0
-            windowSnapQueryInFlight = true
-            DispatchQueue.global(qos: .userInteractive).async { [weak self] in
-                let result = Self.windowRectOnBackground(
-                    screenPoint: screenPoint,
-                    overlayWindowNumber: overlayWindowNumber,
-                    windowOrigin: windowOrigin,
-                    viewBounds: viewBounds,
-                    screenH: screenH
-                )
-                DispatchQueue.main.async {
-                    guard let self = self else { return }
-                    self.windowSnapQueryInFlight = false
-                    let newRect = result?.rect
-                    if newRect != self.hoveredWindowRect {
-                        self.hoveredWindowRect = newRect
-                        self.hoveredWindowID = result?.windowID
-                        self.needsDisplay = true
-                    }
-                }
-            }
+            queryWindowSnap(at: screenPoint)
         }
 
         // Track cursor for loupe live preview (use canvas space for zoom correctness)
@@ -1135,53 +1169,6 @@ class OverlayView: NSView {
         let img = NSImage(size: NSSize(width: 1, height: 1))
         return NSCursor(image: img, hotSpot: .zero)
     }()
-
-    /// Render an SF Symbol as a cursor image: white icon with dark shadow for visibility on any background.
-    private static func cursorFromSymbol(
-        _ name: String, pointSize: CGFloat, hotSpot: NSPoint, canvasSize: CGFloat = 22
-    ) -> NSCursor {
-        let size = canvasSize
-        let image = NSImage(size: NSSize(width: size, height: size), flipped: false) { _ in
-            if let sym = NSImage(systemSymbolName: name, accessibilityDescription: nil) {
-                let cfg = NSImage.SymbolConfiguration(pointSize: pointSize, weight: .semibold)
-                let colored = sym.withSymbolConfiguration(cfg) ?? sym
-                let iconRect = NSRect(x: 1, y: 1, width: size - 2, height: size - 2)
-
-                // Tint to white by drawing into a separate image
-                let tinted = NSImage(size: colored.size, flipped: false) { rect in
-                    NSColor.white.setFill()
-                    rect.fill()
-                    colored.draw(in: rect, from: .zero, operation: .destinationIn, fraction: 1.0)
-                    return true
-                }
-
-                // Dark outline/shadow for contrast on light backgrounds
-                let dark = NSImage(size: colored.size, flipped: false) { rect in
-                    NSColor(white: 0, alpha: 0.6).setFill()
-                    rect.fill()
-                    colored.draw(in: rect, from: .zero, operation: .destinationIn, fraction: 1.0)
-                    return true
-                }
-
-                // Draw dark shadow offset in multiple directions
-                for dx: CGFloat in [-1, 0, 1] {
-                    for dy: CGFloat in [-1, 0, 1] {
-                        if dx == 0 && dy == 0 { continue }
-                        dark.draw(
-                            in: iconRect.offsetBy(dx: dx, dy: dy), from: .zero,
-                            operation: .sourceOver, fraction: 1.0)
-                    }
-                }
-                // Draw white icon on top
-                tinted.draw(in: iconRect, from: .zero, operation: .sourceOver, fraction: 1.0)
-            }
-            return true
-        }
-        return NSCursor(image: image, hotSpot: hotSpot)
-    }
-
-    private static let moveCursor: NSCursor = cursorFromSymbol(
-        "arrow.up.and.down.and.arrow.left.and.right", pointSize: 13, hotSpot: NSPoint(x: 11, y: 11))
 
     // Diagonal resize cursors (macOS doesn't provide these publicly)
     private static let nwseCursor: NSCursor = {
@@ -2319,10 +2306,9 @@ class OverlayView: NSView {
     }
 
     private static let sizeLabelFont = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium)
-    private static let sizeLabelAttrs: [NSAttributedString.Key: Any] = [
-        .font: sizeLabelFont,
-        .foregroundColor: NSColor.white,
-    ]
+    private var sizeLabelAttrs: [NSAttributedString.Key: Any] {
+        [.font: Self.sizeLabelFont, .foregroundColor: ToolbarLayout.iconColor]
+    }
 
     private func drawSizeLabel() {
         // Get pixel dimensions (account for Retina)
@@ -2330,7 +2316,7 @@ class OverlayView: NSView {
         let pixelW = Int(selectionRect.width * scale)
         let pixelH = Int(selectionRect.height * scale)
 
-        let attrs = Self.sizeLabelAttrs
+        let attrs = sizeLabelAttrs
         let padding: CGFloat = 6
         let gap: CGFloat = 8  // space between width and height labels
 
@@ -2439,7 +2425,7 @@ class OverlayView: NSView {
         let alpha = zoomLabelOpacity
         let attrs: [NSAttributedString.Key: Any] = [
             .font: Self.sizeLabelFont,
-            .foregroundColor: NSColor.white.withAlphaComponent(alpha),
+            .foregroundColor: ToolbarLayout.iconColor.withAlphaComponent(alpha),
         ]
         let textSize = (text as NSString).size(withAttributes: attrs)
         let padding: CGFloat = 6
@@ -2563,20 +2549,7 @@ class OverlayView: NSView {
         UserDefaults.standard.set(hexArray, forKey: "customColors")
     }
     /// The expanded rect including beautify padding (for live preview).
-    /// Returns selectionRect if beautify is off.
-    var beautifyPreviewRect: NSRect {
-        guard beautifyEnabled else { return selectionRect }
-        let config = beautifyConfig
-        let pad = config.padding
-        let shadowBleed = config.shadowRadius + min(config.shadowRadius * 0.4, 10)
-        let titleBarH: CGFloat = (config.mode == .window && !config.isWindowSnap) ? 28 : 0
-        return NSRect(
-            x: selectionRect.minX - pad - shadowBleed,
-            y: selectionRect.minY - pad - shadowBleed,
-            width: selectionRect.width + pad * 2 + shadowBleed * 2,
-            height: selectionRect.height + titleBarH + pad * 2 + shadowBleed * 2
-        )
-    }
+
 
     private func drawBeautifyPreview(context: NSGraphicsContext) {
         let config = beautifyConfig
@@ -3573,10 +3546,9 @@ class OverlayView: NSView {
             path.lineWidth = 1.0
             path.stroke()
         } else {
-            // Pencil: solid dot at stroke width (scaled by pressure when enabled)
-            var radius = drawingCursorRadius
-            if pencilPressureEnabled { radius *= currentPressure }
-            radius = max(radius, 0.5)
+            // Pencil: solid dot at stroke width (fixed size — don't scale by pressure
+            // to avoid distracting size ripple while moving the cursor)
+            let radius = max(drawingCursorRadius, 0.5)
             let circleRect = NSRect(
                 x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2)
             let path = NSBezierPath(ovalIn: circleRect)
@@ -4044,15 +4016,15 @@ class OverlayView: NSView {
             NSGraphicsContext.current?.cgContext.restoreGState()
         }
 
-        // Rotation handle (above top-center)
+        // Rotation handle (above top-center) — matches delete/edit button style
         annotationRotateHandleRect = .zero
         if annotation.supportsRotation {
             let center = NSPoint(x: padded.midX, y: padded.midY)
-            let handleDist: CGFloat = padded.height / 2 + 24
+            let hs: CGFloat = 22
+            let handleDist: CGFloat = padded.height / 2 + 20
             // Rotate the handle position by the annotation's current rotation
             let handleX = center.x - handleDist * sin(annotation.rotation)
             let handleY = center.y + handleDist * cos(annotation.rotation)
-            let hs: CGFloat = 14
             let rotRect = NSRect(x: handleX - hs / 2, y: handleY - hs / 2, width: hs, height: hs)
             annotationRotateHandleRect = rotRect
 
@@ -4067,20 +4039,19 @@ class OverlayView: NSView {
             connPath.line(to: NSPoint(x: handleX, y: handleY))
             connPath.stroke()
 
-            // Draw rotate icon circle
-            NSColor(white: 0.2, alpha: 0.9).setFill()
+            // Dark fill (same as delete/edit)
+            NSColor(white: 0.12, alpha: 0.94).setFill()
             NSBezierPath(ovalIn: rotRect).fill()
-            NSColor.white.withAlphaComponent(0.8).setStroke()
-            NSBezierPath(ovalIn: rotRect.insetBy(dx: 0.5, dy: 0.5)).stroke()
+            // Accent border
+            ToolbarLayout.accentColor.withAlphaComponent(0.9).setStroke()
+            let rotBorder = NSBezierPath(ovalIn: rotRect.insetBy(dx: 0.75, dy: 0.75))
+            rotBorder.lineWidth = 1.5
+            rotBorder.stroke()
 
-            // Draw rotate arrow icon — draw into a fixed square centered in the circle
-            let iconSize: CGFloat = 10
-            let iconRect = NSRect(
-                x: rotRect.midX - iconSize / 2, y: rotRect.midY - iconSize / 2,
-                width: iconSize, height: iconSize)
-            let cfg = NSImage.SymbolConfiguration(pointSize: iconSize, weight: .bold)
+            // White rotate icon
+            let cfg = NSImage.SymbolConfiguration(pointSize: 9, weight: .bold)
             if let img = NSImage(
-                systemSymbolName: "arrow.trianglehead.2.clockwise.rotate.90",
+                systemSymbolName: "arrow.triangle.2.circlepath",
                 accessibilityDescription: nil)?.withSymbolConfiguration(cfg)
             {
                 let tinted = NSImage(size: img.size, flipped: false) { rect in
@@ -4089,9 +4060,9 @@ class OverlayView: NSView {
                     rect.fill(using: .sourceAtop)
                     return true
                 }
-                tinted.draw(
-                    in: iconRect, from: .zero, operation: .sourceOver, fraction: 1.0,
-                    respectFlipped: true, hints: nil)
+                tinted.draw(in: NSRect(
+                    x: rotRect.midX - img.size.width / 2 + 0.5, y: rotRect.midY - img.size.height / 2,
+                    width: img.size.width, height: img.size.height))
             }
         }
 
@@ -4102,15 +4073,22 @@ class OverlayView: NSView {
         annotationDeleteButtonRect = deleteRect
         drawDeleteCircle(in: deleteRect)
 
-        // Edit button (pencil) for text annotations
+        // Edit button (pencil) for text annotations — matches delete button style
         if annotation.tool == .text {
             let editRect = NSRect(
                 x: padded.maxX + 4, y: padded.maxY - btnSize * 2 - 4, width: btnSize,
                 height: btnSize)
             annotationEditButtonRect = editRect
-            NSColor(white: 0.3, alpha: 0.9).setFill()
+            // Dark fill (same as delete)
+            NSColor(white: 0.12, alpha: 0.94).setFill()
             NSBezierPath(ovalIn: editRect).fill()
-            let symbolConfig = NSImage.SymbolConfiguration(pointSize: 10, weight: .medium)
+            // Accent border
+            ToolbarLayout.accentColor.withAlphaComponent(0.9).setStroke()
+            let editBorder = NSBezierPath(ovalIn: editRect.insetBy(dx: 0.75, dy: 0.75))
+            editBorder.lineWidth = 1.5
+            editBorder.stroke()
+            // White pencil icon
+            let symbolConfig = NSImage.SymbolConfiguration(pointSize: 9, weight: .bold)
             if let img = NSImage(systemSymbolName: "pencil", accessibilityDescription: nil)?
                 .withSymbolConfiguration(symbolConfig)
             {
@@ -4136,6 +4114,16 @@ class OverlayView: NSView {
     /// Draw a generic outline glow around any annotation by rendering it offscreen,
     /// dilating the alpha mask, then compositing the outline back. Cached on the annotation.
     private func drawAnnotationOutlineGlow(_ annotation: Annotation) {
+        // Skip expensive glow during resize — bounding box changes every frame,
+        // invalidating the CIFilter cache. A simple stroke rect is drawn instead.
+        if isResizingAnnotation && isSelected(annotation) {
+            let rect = annotation.boundingRect.insetBy(dx: -2, dy: -2)
+            ToolbarLayout.accentColor.withAlphaComponent(0.5).setStroke()
+            let path = NSBezierPath(roundedRect: rect, xRadius: 2, yRadius: 2)
+            path.lineWidth = 2
+            path.stroke()
+            return
+        }
         let outlineWidth: CGFloat = 3
         // Generous padding — accounts for stroke width, line caps, Chaikin smoothing overshoot,
         // arrowheads, and the dilation radius. Bitmap is cached so size doesn't matter per-frame.
@@ -6231,7 +6219,7 @@ class OverlayView: NSView {
 
         let attrs: [NSAttributedString.Key: Any] = [
             .font: NSFont.systemFont(ofSize: 11, weight: .medium),
-            .foregroundColor: NSColor.white,
+            .foregroundColor: ToolbarLayout.iconColor,
         ]
         let str = tooltip as NSString
         let textSize = str.size(withAttributes: attrs)
@@ -6633,6 +6621,22 @@ class OverlayView: NSView {
         updateWebcamSetupPreview()
     }
 
+    /// Update the color swatch on the main toolbar's color button without a full rebuild.
+    private func updateToolbarColorSwatch() {
+        if let idx = bottomButtons.firstIndex(where: { if case .color = $0.action { return true } else { return false } }) {
+            bottomButtons[idx].bgColor = currentColor
+            bottomStripView?.updateState(from: bottomButtons)
+            // Schedule button redraw on next run loop iteration so it happens after
+            // the overlay's own draw pass (which can paint over button subviews).
+            if idx < (bottomStripView?.buttonViews.count ?? 0) {
+                let buttonView = bottomStripView?.buttonViews[idx]
+                DispatchQueue.main.async {
+                    buttonView?.needsDisplay = true
+                }
+            }
+        }
+    }
+
     func handleToolbarAction(_ action: ToolbarButtonAction, mousePoint: NSPoint = .zero) {
         switch action {
         case .tool(let tool):
@@ -6875,6 +6879,41 @@ class OverlayView: NSView {
         needsDisplay = true
     }
 
+    /// Apply current text formatting from textEditor to selected text annotations (when not actively editing).
+    func applyTextFormattingToSelectedAnnotations() {
+        guard textEditor.textView == nil else { return }  // skip if actively editing
+        var changed = false
+        for ann in selectedAnnotations where ann.tool == .text {
+            ann.fontSize = textEditor.fontSize
+            ann.isBold = textEditor.bold
+            ann.isItalic = textEditor.italic
+            ann.isUnderline = textEditor.underline
+            ann.isStrikethrough = textEditor.strikethrough
+            ann.fontFamilyName = textEditor.fontFamily == "System" ? nil : textEditor.fontFamily
+            ann.textAlignment = textEditor.alignment
+            ann.reRenderTextImage()
+            changed = true
+        }
+        if changed {
+            cachedCompositedImage = nil
+            needsDisplay = true
+        }
+    }
+
+    /// Apply text background/outline toggle to selected text annotations.
+    func applyTextBgOutlineToSelectedAnnotations() {
+        guard textEditor.textView == nil else { return }
+        var changed = false
+        for ann in selectedAnnotations where ann.tool == .text {
+            ann.textBgColor = textEditor.bgEnabled ? textEditor.bgColor : nil
+            ann.textOutlineColor = textEditor.outlineEnabled ? textEditor.outlineColor : nil
+            changed = true
+        }
+        if changed {
+            cachedCompositedImage = nil
+        }
+    }
+
     /// Returns currentColor with opacity applied for tools that respect it.
     /// Marker uses a fixed alpha in its draw method; loupe/measure/pixelate/blur are color-independent.
     func opacityAppliedColor(for tool: AnnotationTool) -> NSColor {
@@ -6994,8 +7033,8 @@ class OverlayView: NSView {
             }
         }
 
-        // Shift+click on empty space — start lasso marquee selection
-        if shiftHeld {
+        // Ctrl+click on empty space — start lasso marquee selection
+        if NSEvent.modifierFlags.contains(.control) {
             isLassoSelecting = true
             lassoStart = point
             lassoRect = .zero
@@ -7029,6 +7068,7 @@ class OverlayView: NSView {
                 currentColor = result.color
                 currentColorOpacity = 1.0
                 OverlayView.lastUsedOpacity = 1.0
+                UserDefaults.standard.set(1.0, forKey: "lastUsedColorOpacity")
                 // Also save to selected custom slot
                 if selectedColorSlot >= 0 && selectedColorSlot < customColors.count {
                     customColors[selectedColorSlot] = result.color.withAlphaComponent(1.0)
@@ -8109,6 +8149,41 @@ class OverlayView: NSView {
         return image
     }
 
+    var annotationLayerCache: NSImage? { cachedAnnotationLayer }
+
+    /// Incrementally add a newly committed annotation onto a previous cache snapshot.
+    /// Avoids a full rebuild which can cause a visible lag (cursor disappears for a frame).
+    func appendToAnnotationCache(_ annotation: Annotation, previousCache: NSImage) {
+        guard let existingCG = previousCache.cgImage(forProposedRect: nil, context: nil, hints: nil)
+        else { return }
+
+        let size = bounds.size
+        let scale = window?.backingScaleFactor ?? 2.0
+        let pxW = Int(ceil(size.width * scale))
+        let pxH = Int(ceil(size.height * scale))
+        let colorSpace = window?.screen?.colorSpace?.cgColorSpace ?? CGColorSpaceCreateDeviceRGB()
+        guard let cgCtx = CGContext(
+            data: nil, width: pxW, height: pxH,
+            bitsPerComponent: 8, bytesPerRow: 0,
+            space: colorSpace,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else { return }
+        cgCtx.scaleBy(x: scale, y: scale)
+
+        // Draw existing cache
+        cgCtx.draw(existingCG, in: CGRect(origin: .zero, size: size))
+
+        // Draw new annotation on top
+        let nsCtx = NSGraphicsContext(cgContext: cgCtx, flipped: false)
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = nsCtx
+        annotation.draw(in: nsCtx)
+        NSGraphicsContext.restoreGraphicsState()
+
+        guard let cgImage = cgCtx.makeImage() else { return }
+        cachedAnnotationLayer = NSImage(cgImage: cgImage, size: size)
+    }
+
     /// Build annotation layer excluding specific annotations (used during drag/resize).
     private func buildAnnotationLayer(excluding: Set<ObjectIdentifier>) -> NSImage {
         let filtered = annotations.filter { !excluding.contains(ObjectIdentifier($0)) }
@@ -8263,11 +8338,6 @@ class OverlayView: NSView {
 
         guard let cgImage = cgCtx.makeImage() else { return nil }
         return NSImage(cgImage: cgImage, size: selectionRect.size)
-    }
-
-    func copyToClipboard() {
-        guard let image = captureSelectedRegion() else { return }
-        ImageEncoder.copyToClipboard(image)
     }
 
     // MARK: - Cleanup
@@ -8438,6 +8508,7 @@ class OverlayView: NSView {
             guard let self = self else { return }
             self.currentColorOpacity = opacity
             OverlayView.lastUsedOpacity = opacity
+            UserDefaults.standard.set(Double(opacity), forKey: "lastUsedColorOpacity")
             self.applyColorToSelectedAnnotation()
             self.needsDisplay = true
         }
@@ -8672,34 +8743,6 @@ extension OverlayView: AnnotationCanvas {
 
 extension OverlayView: TextEditingCanvas {}
 
-// MARK: - HoverButton
-
-class HoverButton: NSButton {
-    private var trackingArea: NSTrackingArea?
-
-    override func updateTrackingAreas() {
-        super.updateTrackingAreas()
-        if let existing = trackingArea {
-            removeTrackingArea(existing)
-        }
-        let area = NSTrackingArea(
-            rect: bounds, options: [.mouseEnteredAndExited, .activeAlways], owner: self,
-            userInfo: nil)
-        addTrackingArea(area)
-        trackingArea = area
-    }
-
-    override func mouseEntered(with event: NSEvent) {
-        wantsLayer = true
-        layer?.backgroundColor = NSColor.white.withAlphaComponent(0.15).cgColor
-        layer?.cornerRadius = 4
-    }
-
-    override func mouseExited(with event: NSEvent) {
-        layer?.backgroundColor = nil
-    }
-}
-
 /// Small rounded-rect tooltip view used for editor mode toolbar hover labels.
 private class TooltipBackgroundView: NSView {
     var text: String = ""
@@ -8707,7 +8750,7 @@ private class TooltipBackgroundView: NSView {
     override func draw(_ dirtyRect: NSRect) {
         let attrs: [NSAttributedString.Key: Any] = [
             .font: NSFont.systemFont(ofSize: 11, weight: .medium),
-            .foregroundColor: NSColor.white,
+            .foregroundColor: ToolbarLayout.iconColor,
         ]
         ToolbarLayout.bgColor.setFill()
         NSBezierPath(roundedRect: bounds, xRadius: 4, yRadius: 4).fill()

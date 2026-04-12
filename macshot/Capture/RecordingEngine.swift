@@ -12,7 +12,7 @@ final class RecordingEngine: NSObject {
 
     // MARK: - State
 
-    enum State { case idle, countdown, recording, paused, stopping }
+    enum State { case idle, recording, paused, stopping }
     private(set) var state: State = .idle
 
     // MARK: - Config (read from UserDefaults at start)

@@ -131,11 +131,6 @@ enum TranslationService {
         }
     }
 
-    /// Invalidate the cached availability (e.g. when returning from System Settings).
-    static func invalidateAppleLanguageCache() {
-        cachedAppleAvailability = nil
-    }
-
     // MARK: - Translate a batch of strings (auto-detect source)
 
     /// Translates multiple strings using the selected provider.

@@ -26,14 +26,6 @@ enum LineStyle: Int, CaseIterable {
     case dashed = 1
     case dotted = 2
 
-    var label: String {
-        switch self {
-        case .solid: return "Solid"
-        case .dashed: return "Dashed"
-        case .dotted: return "Dotted"
-        }
-    }
-
     func apply(to path: NSBezierPath) {
         switch self {
         case .solid: break
@@ -96,15 +88,6 @@ enum NumberFormat: Int, CaseIterable {
         case .roman: return Self.toRoman(number)
         case .alpha: return Self.toAlpha(number, uppercase: true)
         case .alphaLower: return Self.toAlpha(number, uppercase: false)
-        }
-    }
-
-    var label: String {
-        switch self {
-        case .decimal: return "1"
-        case .roman: return "I"
-        case .alpha: return "A"
-        case .alphaLower: return "a"
         }
     }
 
@@ -333,7 +316,7 @@ class Annotation {
         switch tool {
         case .pencil, .marker:
             guard let points = points else { return false }
-            let strokeRadius = strokeWidth / 2
+            let strokeRadius = (tool == .marker ? strokeWidth * 6 : strokeWidth) / 2
             let effectiveThreshold = max(threshold, strokeRadius)
             for p in points {
                 if hypot(p.x - point.x, p.y - point.y) < effectiveThreshold { return true }
@@ -452,53 +435,6 @@ class Annotation {
         }
     }
 
-    /// Draw a selection highlight around this annotation
-    func drawSelectionHighlight() {
-        // Pencil/marker: trace the actual stroke path with a glowing outline
-        if tool == .pencil || tool == .marker {
-            guard let points = points, points.count >= 2 else { return }
-            let ctx = NSGraphicsContext.current?.cgContext
-            ctx?.saveGState()
-            ctx?.setAlpha(0.35)
-            ctx?.beginTransparencyLayer(auxiliaryInfo: nil)
-            let path = NSBezierPath()
-            path.move(to: points[0])
-            for i in 1..<points.count { path.line(to: points[i]) }
-            let effectiveWidth = strokeWidth
-            path.lineWidth = effectiveWidth + 6
-            path.lineCapStyle = .round
-            path.lineJoinStyle = .round
-            ToolbarLayout.accentColor.setStroke()
-            path.stroke()
-            ctx?.endTransparencyLayer()
-            ctx?.restoreGState()
-            return
-        }
-
-        let highlightRect: NSRect
-        switch tool {
-        case .text:
-            highlightRect = textDrawRect != .zero ? textDrawRect : boundingRect
-        case .number:
-            let radius = 8 + strokeWidth * 3
-            highlightRect = NSRect(x: startPoint.x - radius, y: startPoint.y - radius, width: radius * 2, height: radius * 2)
-        case .loupe:
-            highlightRect = boundingRect
-        default:
-            // Expand by half the stroke width so the highlight matches the visible shape
-            let strokePad = strokeWidth / 2
-            highlightRect = boundingRect.insetBy(dx: -strokePad, dy: -strokePad)
-        }
-
-        let padded = highlightRect.insetBy(dx: -4, dy: -4)
-        let path = NSBezierPath(roundedRect: padded, xRadius: 3, yRadius: 3)
-        path.lineWidth = 1.5
-        let pattern: [CGFloat] = [4, 4]
-        path.setLineDash(pattern, count: 2, phase: 0)
-        ToolbarLayout.accentColor.withAlphaComponent(0.6).setStroke()
-        path.stroke()
-    }
-
     // MARK: - Geometry helpers
 
     /// Approximate the arc length of a cubic bezier by sampling.
@@ -607,7 +543,7 @@ class Annotation {
         case .ellipse:
             drawEllipse()
         case .marker:
-            drawFreeform(alpha: 0.35, width: strokeWidth)
+            drawFreeform(alpha: 0.35, width: strokeWidth * 6)
         case .text:
             drawText()
         case .number:
@@ -708,16 +644,26 @@ class Annotation {
             ctx.beginTransparencyLayer(auxiliaryInfo: nil)
             color.withAlphaComponent(1.0).setFill()
 
+            // Map raw pressure (0–1) to a usable width range:
+            // - Minimum 30% of stroke width even at lightest touch
+            // - Power curve (0.6) compresses the range so light/medium pressure
+            //   differences are subtle, heavy pressure stands out
+            let minFraction: CGFloat = 0.3
+            func pressureWidth(_ p: CGFloat) -> CGFloat {
+                let mapped = minFraction + pow(min(max(p, 0), 1), 0.6) * (1.0 - minFraction)
+                return max(width * mapped, 0.5)
+            }
+
             // Draw filled circles at each point + connecting quads for smooth width transitions
             for i in 0..<points.count {
-                let r = max(width * pressures[i], 0.5) / 2
+                let r = pressureWidth(pressures[i]) / 2
                 ctx.fillEllipse(in: CGRect(x: points[i].x - r, y: points[i].y - r, width: r * 2, height: r * 2))
 
                 if i > 0 {
                     let p0 = points[i - 1]
                     let p1 = points[i]
-                    let r0 = max(width * pressures[i - 1], 0.5) / 2
-                    let r1 = max(width * pressures[i], 0.5) / 2
+                    let r0 = pressureWidth(pressures[i - 1]) / 2
+                    let r1 = pressureWidth(pressures[i]) / 2
 
                     let dx = p1.x - p0.x
                     let dy = p1.y - p0.y
@@ -1030,50 +976,6 @@ class Annotation {
             let circleRect = NSRect(x: firstPt.x - tailRadius, y: firstPt.y - tailRadius,
                                     width: tailRadius * 2, height: tailRadius * 2)
             NSBezierPath(ovalIn: circleRect).fill()
-        }
-    }
-
-    /// Sample a point and tangent along the annotation's curve at parameter t (0..1).
-    /// Works for legacy bezier (controlPoint) and multi-anchor (Catmull-Rom).
-    /// Returns (position, tangent) where tangent is unnormalized.
-    private func sampleCurve(t: CGFloat, from start: NSPoint, to end: NSPoint) -> (pos: NSPoint, tan: NSPoint) {
-        if hasMultiAnchor {
-            let pts = waypoints
-            let totalSegs = CGFloat(pts.count - 1)
-            let segF = t * totalSegs
-            let seg = min(Int(segF), pts.count - 2)
-            let lt = segF - CGFloat(seg)
-
-            let p0 = seg > 0 ? pts[seg - 1] : pts[seg]
-            let p1 = pts[seg]
-            let p2 = pts[seg + 1]
-            let p3 = seg + 2 < pts.count ? pts[seg + 2] : pts[seg + 1]
-
-            let cp1 = NSPoint(x: p1.x + (p2.x - p0.x) / 6, y: p1.y + (p2.y - p0.y) / 6)
-            let cp2 = NSPoint(x: p2.x - (p3.x - p1.x) / 6, y: p2.y - (p3.y - p1.y) / 6)
-
-            let u = 1 - lt
-            let px = u*u*u*p1.x + 3*u*u*lt*cp1.x + 3*u*lt*lt*cp2.x + lt*lt*lt*p2.x
-            let py = u*u*u*p1.y + 3*u*u*lt*cp1.y + 3*u*lt*lt*cp2.y + lt*lt*lt*p2.y
-            // Derivative of cubic bezier
-            let tx = 3*u*u*(cp1.x-p1.x) + 6*u*lt*(cp2.x-cp1.x) + 3*lt*lt*(p2.x-cp2.x)
-            let ty = 3*u*u*(cp1.y-p1.y) + 6*u*lt*(cp2.y-cp1.y) + 3*lt*lt*(p2.y-cp2.y)
-            return (NSPoint(x: px, y: py), NSPoint(x: tx, y: ty))
-        } else if let cp = controlPoint {
-            // Legacy quadratic bezier (cp1 == cp2)
-            let mt = 1 - t
-            let bx = mt * mt * start.x + 2 * mt * t * cp.x + t * t * end.x
-            let by = mt * mt * start.y + 2 * mt * t * cp.y + t * t * end.y
-            let tx = 2 * mt * (cp.x - start.x) + 2 * t * (end.x - cp.x)
-            let ty = 2 * mt * (cp.y - start.y) + 2 * t * (end.y - cp.y)
-            return (NSPoint(x: bx, y: by), NSPoint(x: tx, y: ty))
-        } else {
-            // Straight line
-            let bx = start.x + t * (end.x - start.x)
-            let by = start.y + t * (end.y - start.y)
-            let tx = end.x - start.x
-            let ty = end.y - start.y
-            return (NSPoint(x: bx, y: by), NSPoint(x: tx, y: ty))
         }
     }
 
@@ -1453,6 +1355,79 @@ class Annotation {
         }
 
         image.draw(in: textDrawRect)
+    }
+
+    /// Re-render the text image from attributedText with current formatting properties.
+    /// Call after changing fontSize, bold, italic, font family, alignment, etc. on a committed text annotation.
+    func reRenderTextImage() {
+        guard tool == .text, let attrText = attributedText, textDrawRect != .zero else { return }
+
+        // Rebuild attributed string with updated properties
+        let mutable = NSMutableAttributedString(attributedString: attrText)
+        let range = NSRange(location: 0, length: mutable.length)
+
+        var font: NSFont
+        if let familyName = fontFamilyName, familyName != "System",
+           let familyFont = NSFont(name: familyName, size: fontSize) {
+            font = familyFont
+        } else {
+            font = NSFont.systemFont(ofSize: fontSize)
+        }
+        if isBold && isItalic {
+            font = NSFontManager.shared.convert(font, toHaveTrait: [.boldFontMask, .italicFontMask])
+        } else if isBold {
+            font = NSFontManager.shared.convert(font, toHaveTrait: .boldFontMask)
+        } else if isItalic {
+            font = NSFontManager.shared.convert(font, toHaveTrait: .italicFontMask)
+        }
+        mutable.addAttribute(.font, value: font, range: range)
+
+        if isUnderline {
+            mutable.addAttribute(.underlineStyle, value: NSUnderlineStyle.single.rawValue, range: range)
+        } else {
+            mutable.removeAttribute(.underlineStyle, range: range)
+        }
+        if isStrikethrough {
+            mutable.addAttribute(.strikethroughStyle, value: NSUnderlineStyle.single.rawValue, range: range)
+        } else {
+            mutable.removeAttribute(.strikethroughStyle, range: range)
+        }
+        let paraStyle = NSMutableParagraphStyle()
+        paraStyle.alignment = textAlignment
+        mutable.addAttribute(.paragraphStyle, value: paraStyle, range: range)
+
+        attributedText = mutable
+
+        // Calculate new size using the current textDrawRect width
+        let inset: CGFloat = 4
+        let drawWidth = textDrawRect.width - inset * 2
+        let boundingRect = mutable.boundingRect(
+            with: NSSize(width: drawWidth, height: .greatestFiniteMagnitude),
+            options: [.usesLineFragmentOrigin, .usesFontLeading])
+        let newHeight = max(textDrawRect.height, ceil(boundingRect.height) + inset * 2)
+        let imgSize = NSSize(width: textDrawRect.width, height: newHeight)
+
+        // Re-render image
+        let img = NSImage(size: imgSize, flipped: true) { _ in
+            mutable.draw(in: NSRect(
+                x: inset, y: inset,
+                width: imgSize.width - inset * 2,
+                height: imgSize.height - inset * 2))
+            return true
+        }
+        textImage = img
+
+        // Update draw rect height (keep top edge fixed in AppKit coords: maxY stays the same)
+        let heightDelta = newHeight - textDrawRect.height
+        if heightDelta != 0 {
+            textDrawRect = NSRect(
+                x: textDrawRect.minX, y: textDrawRect.minY - heightDelta,
+                width: textDrawRect.width, height: newHeight)
+            startPoint = textDrawRect.origin
+            endPoint = NSPoint(x: textDrawRect.maxX, y: textDrawRect.maxY)
+        }
+
+        outlineGlowImage = nil
     }
 
     private func drawNumber() {
@@ -2091,12 +2066,3 @@ class Annotation {
     }
 }
 
-extension NSColor {
-    var bestContrastColor: NSColor {
-        guard let rgb = usingColorSpace(.sRGB) else { return .white }
-        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
-        rgb.getRed(&r, green: &g, blue: &b, alpha: &a)
-        let luminance = 0.299 * r + 0.587 * g + 0.114 * b
-        return (luminance * a) > 0.5 ? .black : .white
-    }
-}

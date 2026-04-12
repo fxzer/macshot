@@ -110,6 +110,15 @@ class ToolbarLayout {
         }
     }
 
+    /// Appearance matching the toolbar background brightness.
+    /// Dark background uses `.darkAqua`; light background uses `.aqua`.
+    static var appearance: NSAppearance? {
+        let color = bgColor.usingColorSpace(.deviceRGB) ?? bgColor
+        var brightness: CGFloat = 0
+        color.getHue(nil, saturation: nil, brightness: &brightness, alpha: nil)
+        return NSAppearance(named: brightness > 0.5 ? .aqua : .darkAqua)
+    }
+
     /// Save background color to UserDefaults.
     static func saveBgColor(_ color: NSColor) {
         if let data = try? NSKeyedArchiver.archivedData(withRootObject: color, requiringSecureCoding: false) {
