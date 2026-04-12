@@ -100,20 +100,24 @@ struct RecordingSettingsView: View {
                         Text(L("Very fast")).tag(4)
                     }
                 }
-                Stepper(value: $scrollMaxHeight, in: 0...100000, step: 5000) {
-                    HStack {
-                        Text(L("Max height"))
-                        Spacer()
-                        Text("\(scrollMaxHeight) px")
-                            .foregroundColor(.secondary)
-                            .monospacedDigit()
+                HStack {
+                    Text("\(scrollMaxHeight) px")
+                        .foregroundColor(.secondary)
+                        .monospacedDigit()
+                    Spacer()
+                    Stepper(value: $scrollMaxHeight, in: 0...100000, step: 5000) {
+                        EmptyView()
                     }
+                    .labelsHidden()
                 }
                 Toggle(L("Detect fixed/sticky headers"), isOn: $scrollFrozenDetection)
             } header: {
-                Text(L("Scroll Capture"))
-            } footer: {
-                Text(L("Max height: 0 = unlimited"))
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(L("Scroll Capture"))
+                    Text(L("Max height: 0 = unlimited"))
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
             }
         }
         .formStyle(.grouped)
