@@ -24,7 +24,7 @@ class SettingsWindowController: NSWindowController, NSWindowDelegate {
 
     init() {
         let window = SettingsWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 480, height: 660),
+            contentRect: NSRect(x: 0, y: 0, width: 540, height: 660),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false

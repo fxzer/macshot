@@ -46,19 +46,20 @@ struct OutputSettingsView: View {
                             .frame(width: 44, alignment: .trailing)
                     }
                 }
-                Toggle(L("Save at standard resolution (1x)"), isOn: $downscaleRetina)
-                Toggle(L("Embed sRGB color profile"), isOn: $embedColorProfile)
+                settingWithDescription(
+                    title: L("Save at standard resolution (1x)"),
+                    description: L("Halves dimensions on Retina displays, ~4x smaller files")
+                ) {
+                    Toggle("", isOn: $downscaleRetina).labelsHidden()
+                }
+                settingWithDescription(
+                    title: L("Embed sRGB color profile"),
+                    description: L("Ensures consistent colors across different displays")
+                ) {
+                    Toggle("", isOn: $embedColorProfile).labelsHidden()
+                }
             } header: {
                 Text(L("Save"))
-            } footer: {
-                VStack(alignment: .leading, spacing: 2) {
-                    if downscaleRetina {
-                        Text(L("Halves dimensions on Retina displays, ~4x smaller files"))
-                    }
-                    if embedColorProfile {
-                        Text(L("Ensures consistent colors across different displays"))
-                    }
-                }
             }
 
             // MARK: - History
@@ -126,6 +127,20 @@ struct OutputSettingsView: View {
             guard response == .OK, let url = panel.url else { return }
             SaveDirectoryAccess.save(url: url)
             savePath = url.path
+        }
+    }
+
+    @ViewBuilder
+    private func settingWithDescription<Content: View>(title: String, description: String, @ViewBuilder content: () -> Content) -> some View {
+        HStack(alignment: .center) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                Text(description)
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            }
+            Spacer()
+            content()
         }
     }
 }

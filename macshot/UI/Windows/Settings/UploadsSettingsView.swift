@@ -4,6 +4,7 @@ struct UploadsSettingsView: View {
 
     // Provider
     @AppStorage("uploadProvider") private var uploadProvider = "imgbb"
+    @AppStorage("uploadConfirmEnabled") private var uploadConfirmEnabled = true
 
     // imgbb
     @AppStorage("imgbbAPIKey") private var imgbbAPIKey = ""
@@ -31,75 +32,80 @@ struct UploadsSettingsView: View {
 
     var body: some View {
         Form {
-            // MARK: - Upload Provider
+            // MARK: - Upload Service
             Section {
-                Picker(L("Provider"), selection: $uploadProvider) {
-                    Text(L("imgbb (images only)")).tag("imgbb")
-                    Text(L("Google Drive (images + videos)")).tag("gdrive")
-                    Text(L("S3-Compatible (images + videos)")).tag("s3")
+                Picker(L("Upload provider"), selection: $uploadProvider) {
+                    Text("imgbb").tag("imgbb")
+                    Text("Google Drive").tag("gdrive")
+                    Text(L("S3-Compatible")).tag("s3")
                 }
+                Toggle(L("Confirm before uploading"), isOn: $uploadConfirmEnabled)
             } header: {
-                Text(L("Upload Provider"))
+                Text(L("Upload Service"))
             }
 
-            // MARK: - Google Drive
-            Section {
-                HStack {
-                    Text(L("Account"))
-                    Spacer()
-                    Text(gdriveSignedIn ? (gdriveEmail.isEmpty ? L("Signed in") : gdriveEmail) : L("Not signed in"))
-                        .foregroundColor(gdriveSignedIn ? .primary : .secondary)
+            // MARK: - Service Configuration (dynamic)
+            if uploadProvider == "imgbb" {
+                Section {
+                    TextField(L("API key"), text: $imgbbAPIKey, prompt: Text(L("Leave empty to use default")))
+                        .font(.system(.body, design: .monospaced))
+                } header: {
+                    Text(L("imgbb Configuration"))
+                } footer: {
+                    Text(L("A shared key is included — get your own free key at imgbb.com/api if you hit rate limits. Images only (no video support)."))
                 }
-                Button(gdriveSignedIn ? L("Sign Out") : L("Sign In with Google")) {
-                    gdriveSignInAction()
-                }
-            } header: {
-                Text(L("Google Drive"))
-            } footer: {
-                Text(L("Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private — nothing is shared publicly."))
             }
 
-            // MARK: - S3-Compatible
-            Section {
-                TextField(L("Endpoint"), text: $s3Endpoint, prompt: Text("https://abc123.r2.cloudflarestorage.com"))
-                    .font(.system(.body, design: .monospaced))
-                TextField(L("Region"), text: $s3Region, prompt: Text("auto"))
-                    .font(.system(.body, design: .monospaced))
-                TextField(L("Bucket"), text: $s3Bucket, prompt: Text("my-bucket"))
-                    .font(.system(.body, design: .monospaced))
-                TextField(L("Access Key"), text: $s3AccessKeyID, prompt: Text("AKIAIOSFODNN7EXAMPLE"))
-                    .font(.system(.body, design: .monospaced))
-                SecureField(L("Secret Key"), text: $s3SecretAccessKey, prompt: Text("wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"))
-                    .font(.system(.body, design: .monospaced))
-                TextField(L("Public URL"), text: $s3PublicURLBase, prompt: Text("https://cdn.example.com"))
-                    .font(.system(.body, design: .monospaced))
-                TextField(L("Path Prefix"), text: $s3PathPrefix, prompt: Text("screenshots/"))
-                    .font(.system(.body, design: .monospaced))
-                HStack {
-                    Button(L("Test Connection")) {
-                        s3TestConnection()
+            if uploadProvider == "gdrive" {
+                Section {
+                    HStack {
+                        Text(L("Account"))
+                        Spacer()
+                        Text(gdriveSignedIn ? (gdriveEmail.isEmpty ? L("Signed in") : gdriveEmail) : L("Not signed in"))
+                            .foregroundColor(gdriveSignedIn ? .primary : .secondary)
                     }
-                    .disabled(s3Testing)
-                    if !s3StatusMessage.isEmpty {
-                        Text(s3StatusMessage)
-                            .font(.footnote)
-                            .foregroundColor(s3StatusColor)
+                    Button(gdriveSignedIn ? L("Sign Out") : L("Sign In with Google")) {
+                        gdriveSignInAction()
                     }
+                } header: {
+                    Text(L("Google Drive Configuration"))
+                } footer: {
+                    Text(L("Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private — nothing is shared publicly."))
                 }
-            } header: {
-                Text(L("S3-Compatible Storage"))
-            } footer: {
-                Text(L("Works with AWS S3, Cloudflare R2, MinIO, DigitalOcean Spaces, Backblaze B2, and other S3-compatible services. Supports images and videos."))
             }
 
-            // MARK: - imgbb
-            Section {
-                TextField(L("API key"), text: $imgbbAPIKey, prompt: Text(L("Leave empty to use default")))
-                    .font(.system(.body, design: .monospaced))
-            } header: {
-                Text("imgbb")
-            } footer: {
-                Text(L("A shared key is included — get your own free key at imgbb.com/api if you hit rate limits. Images only (no video support)."))
+            if uploadProvider == "s3" {
+                Section {
+                    TextField(L("Endpoint"), text: $s3Endpoint, prompt: Text("https://abc123.r2.cloudflarestorage.com"))
+                        .font(.system(.body, design: .monospaced))
+                    TextField(L("Region"), text: $s3Region, prompt: Text("auto"))
+                        .font(.system(.body, design: .monospaced))
+                    TextField(L("Bucket"), text: $s3Bucket, prompt: Text("my-bucket"))
+                        .font(.system(.body, design: .monospaced))
+                    TextField(L("Access Key"), text: $s3AccessKeyID, prompt: Text("AKIAIOSFODNN7EXAMPLE"))
+                        .font(.system(.body, design: .monospaced))
+                    SecureField(L("Secret Key"), text: $s3SecretAccessKey, prompt: Text("wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"))
+                        .font(.system(.body, design: .monospaced))
+                    TextField(L("Public URL"), text: $s3PublicURLBase, prompt: Text("https://cdn.example.com"))
+                        .font(.system(.body, design: .monospaced))
+                    TextField(L("Path Prefix"), text: $s3PathPrefix, prompt: Text("screenshots/"))
+                        .font(.system(.body, design: .monospaced))
+                    HStack {
+                        Button(L("Test Connection")) {
+                            s3TestConnection()
+                        }
+                        .disabled(s3Testing)
+                        if !s3StatusMessage.isEmpty {
+                            Text(s3StatusMessage)
+                                .font(.footnote)
+                                .foregroundColor(s3StatusColor)
+                        }
+                    }
+                } header: {
+                    Text(L("S3-Compatible Storage"))
+                } footer: {
+                    Text(L("Works with AWS S3, Cloudflare R2, MinIO, DigitalOcean Spaces, Backblaze B2, and other S3-compatible services."))
+                }
             }
 
             // MARK: - Upload History
@@ -108,7 +114,7 @@ struct UploadsSettingsView: View {
                     Text(L("No uploads yet."))
                         .foregroundColor(.secondary)
                 } else {
-                    ForEach(Array(uploads.enumerated()), id: \.offset) { index, upload in
+                    ForEach(Array(uploads.enumerated()), id: \.offset) { _, upload in
                         VStack(alignment: .leading, spacing: 4) {
                             if let link = upload["link"] {
                                 uploadRow(tag: "URL", value: link)
@@ -166,7 +172,6 @@ struct UploadsSettingsView: View {
             GoogleDriveUploader.shared.signOut()
             refreshGDriveStatus()
         } else {
-            // Find the settings window
             let window = NSApp.windows.first { $0.title == L("macshot Settings") }
             GoogleDriveUploader.shared.signIn(from: window) { [self] success in
                 guard success else {

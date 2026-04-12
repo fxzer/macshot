@@ -58,11 +58,14 @@ struct RecordingSettingsView: View {
                     Text(L("Show in Finder")).tag("finder")
                     Text(L("Copy to clipboard")).tag("clipboard")
                 }
-                Toggle(L("Hide recording controls"), isOn: $hideRecordingHUD)
+                settingWithDescription(
+                    title: L("Hide recording controls"),
+                    description: L("Stop recording from the menu bar icon instead.")
+                ) {
+                    Toggle("", isOn: $hideRecordingHUD).labelsHidden()
+                }
             } header: {
                 Text(L("Behavior"))
-            } footer: {
-                Text(L("Stop recording from the menu bar icon instead."))
             }
 
             // MARK: - Webcam
@@ -126,6 +129,20 @@ struct RecordingSettingsView: View {
             guard response == .OK, let url = panel.url else { return }
             SaveDirectoryAccess.saveRecordingDirectory(url: url)
             recSavePath = url.path
+        }
+    }
+
+    @ViewBuilder
+    private func settingWithDescription<Content: View>(title: String, description: String, @ViewBuilder content: () -> Content) -> some View {
+        HStack(alignment: .center) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                Text(description)
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            }
+            Spacer()
+            content()
         }
     }
 }

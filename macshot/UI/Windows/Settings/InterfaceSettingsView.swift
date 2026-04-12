@@ -77,16 +77,34 @@ struct InterfaceSettingsView: View {
                             #endif
                         }
                     }
-                Toggle(L("Hide menu bar icon"), isOn: $hideMenuBarIcon)
-                    .onChange(of: hideMenuBarIcon) { newValue in
-                        (NSApp.delegate as? AppDelegate)?.setMenuBarIconVisible(!newValue)
-                    }
+                settingWithDescription(
+                    title: L("Hide menu bar icon"),
+                    description: L("Hotkeys still work. To show the icon again, re-launch macshot.")
+                ) {
+                    Toggle("", isOn: $hideMenuBarIcon)
+                        .labelsHidden()
+                        .onChange(of: hideMenuBarIcon) { newValue in
+                            (NSApp.delegate as? AppDelegate)?.setMenuBarIconVisible(!newValue)
+                        }
+                }
             } header: {
                 Text(L("Window"))
-            } footer: {
-                Text(L("Hotkeys still work. To show the icon again, re-launch macshot."))
             }
         }
         .formStyle(.grouped)
+    }
+
+    @ViewBuilder
+    private func settingWithDescription<Content: View>(title: String, description: String, @ViewBuilder content: () -> Content) -> some View {
+        HStack(alignment: .center) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                Text(description)
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            }
+            Spacer()
+            content()
+        }
     }
 }

@@ -2,7 +2,6 @@ import SwiftUI
 
 struct ToolsSettingsView: View {
 
-    // We need to observe changes to update the grid
     @State private var enabledTools: Set<Int>
     @State private var enabledActions: Set<Int>
 
@@ -61,7 +60,9 @@ struct ToolsSettingsView: View {
         Form {
             // MARK: - Annotation Tools
             Section {
-                toggleGrid(items: annotationTools, enabled: $enabledTools, key: "enabledTools")
+                ForEach(annotationTools, id: \.tag) { item in
+                    toggleRow(item: item, enabled: $enabledTools, key: "enabledTools")
+                }
             } header: {
                 Text(L("Annotation Tools"))
             } footer: {
@@ -70,7 +71,9 @@ struct ToolsSettingsView: View {
 
             // MARK: - Bottom Toolbar Actions
             Section {
-                toggleGrid(items: bottomActionItems, enabled: $enabledActions, key: "enabledActions")
+                ForEach(bottomActionItems, id: \.tag) { item in
+                    toggleRow(item: item, enabled: $enabledActions, key: "enabledActions")
+                }
             } header: {
                 Text(L("Bottom Toolbar Actions"))
             } footer: {
@@ -79,7 +82,9 @@ struct ToolsSettingsView: View {
 
             // MARK: - Right Toolbar Actions
             Section {
-                toggleGrid(items: rightActionItems, enabled: $enabledActions, key: "enabledActions")
+                ForEach(rightActionItems, id: \.tag) { item in
+                    toggleRow(item: item, enabled: $enabledActions, key: "enabledActions")
+                }
             } header: {
                 Text(L("Right Toolbar Actions"))
             } footer: {
@@ -90,32 +95,17 @@ struct ToolsSettingsView: View {
     }
 
     @ViewBuilder
-    private func toggleGrid(items: [(tag: Int, label: String)], enabled: Binding<Set<Int>>, key: String) -> some View {
-        let columns = 2
-        let rows = Int(ceil(Double(items.count) / Double(columns)))
-        ForEach(0..<rows, id: \.self) { row in
-            HStack(spacing: 16) {
-                ForEach(0..<columns, id: \.self) { col in
-                    let idx = row * columns + col
-                    if idx < items.count {
-                        let item = items[idx]
-                        Toggle(item.label, isOn: Binding(
-                            get: { enabled.wrappedValue.contains(item.tag) },
-                            set: { newValue in
-                                if newValue {
-                                    enabled.wrappedValue.insert(item.tag)
-                                } else {
-                                    enabled.wrappedValue.remove(item.tag)
-                                }
-                                UserDefaults.standard.set(Array(enabled.wrappedValue), forKey: key)
-                            }
-                        ))
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    } else {
-                        Spacer().frame(maxWidth: .infinity)
-                    }
+    private func toggleRow(item: (tag: Int, label: String), enabled: Binding<Set<Int>>, key: String) -> some View {
+        Toggle(item.label, isOn: Binding(
+            get: { enabled.wrappedValue.contains(item.tag) },
+            set: { newValue in
+                if newValue {
+                    enabled.wrappedValue.insert(item.tag)
+                } else {
+                    enabled.wrappedValue.remove(item.tag)
                 }
+                UserDefaults.standard.set(Array(enabled.wrappedValue), forKey: key)
             }
-        }
+        ))
     }
 }

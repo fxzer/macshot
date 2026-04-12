@@ -2,6 +2,63 @@ import SwiftUI
 import Combine
 import Carbon
 
+// MARK: - Inline Key Recorder Field
+
+struct KeyRecorderField: View {
+    let currentDisplay: String
+    let isRecording: Bool
+    let onStartRecording: () -> Void
+    let onClear: () -> Void
+    let onReset: () -> Void
+
+    @State private var isHovered = false
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Text(isRecording ? L("Type shortcut…") : currentDisplay)
+                .font(.system(size: 12, weight: .medium, design: .rounded))
+                .foregroundColor(isRecording ? .white : .secondary)
+                .lineLimit(1)
+
+            if !isRecording && currentDisplay != L("None") && isHovered {
+                Button {
+                    onClear()
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 10))
+                        .foregroundColor(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .frame(minWidth: 100, alignment: .center)
+        .background(
+            RoundedRectangle(cornerRadius: 6)
+                .fill(isRecording ? Color.accentColor.opacity(0.8) : Color.secondary.opacity(0.12))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 6)
+                .strokeBorder(isRecording ? Color.accentColor : Color.clear, lineWidth: 1.5)
+        )
+        .onTapGesture {
+            onStartRecording()
+        }
+        .onHover { hovering in
+            isHovered = hovering
+        }
+        .contextMenu {
+            Button(L("Reset to default")) {
+                onReset()
+            }
+            Button(L("Clear")) {
+                onClear()
+            }
+        }
+    }
+}
+
 // MARK: - Global Hotkey Recording Model
 
 class HotkeyRecordingModel: ObservableObject {
@@ -24,10 +81,22 @@ class HotkeyRecordingModel: ObservableObject {
     func startRecording(slot: HotkeyManager.HotkeySlot) {
         stopRecording()
         recordingSlot = slot
-        displayStrings[slot] = L("Waiting...")
 
         localMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self = self else { return event }
+
+            // Escape cancels
+            if event.keyCode == 53 {
+                self.stopRecording()
+                return nil
+            }
+
+            // Delete/Backspace clears
+            if event.keyCode == 51 || event.keyCode == 117 {
+                self.clearShortcut(slot: slot)
+                return nil
+            }
+
             let modifiers = event.modifierFlags
             var carbonMods: UInt32 = 0
             if modifiers.contains(.command) { carbonMods |= UInt32(cmdKey) }
@@ -59,9 +128,6 @@ class HotkeyRecordingModel: ObservableObject {
     }
 
     func stopRecording() {
-        if let slot = recordingSlot {
-            displayStrings[slot] = HotkeyManager.displayString(for: slot)
-        }
         recordingSlot = nil
         if let m = localMonitor { NSEvent.removeMonitor(m); localMonitor = nil }
     }
@@ -92,14 +158,22 @@ class ToolShortcutRecordingModel: ObservableObject {
     func startRecording(action: ToolShortcutManager.Action) {
         stopRecording()
         recordingAction = action
-        displayStrings[action] = "…"
 
         localMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self = self else { return event }
-            if event.keyCode == 53 { // Escape — cancel
+
+            // Escape cancels
+            if event.keyCode == 53 {
                 self.stopRecording()
                 return nil
             }
+
+            // Delete/Backspace clears
+            if event.keyCode == 51 || event.keyCode == 117 {
+                self.clearShortcut(action: action)
+                return nil
+            }
+
             guard !event.modifierFlags.contains(.command),
                   !event.modifierFlags.contains(.option),
                   !event.modifierFlags.contains(.control),
@@ -126,9 +200,6 @@ class ToolShortcutRecordingModel: ObservableObject {
     }
 
     func stopRecording() {
-        if let action = recordingAction {
-            displayStrings[action] = ToolShortcutManager.displayString(for: action)
-        }
         recordingAction = nil
         if let m = localMonitor { NSEvent.removeMonitor(m); localMonitor = nil }
     }
@@ -153,41 +224,26 @@ struct ShortcutsSettingsView: View {
                     HStack {
                         Text(slot.label)
                         Spacer()
-                        Text(hotkeyModel.displayStrings[slot] ?? L("None"))
-                            .foregroundColor(hotkeyModel.recordingSlot == slot ? .orange : .secondary)
-                            .frame(minWidth: 80)
-                            .monospacedDigit()
-                        Button(hotkeyModel.recordingSlot == slot ? L("Press keys...") : L("Set")) {
-                            if hotkeyModel.recordingSlot == slot {
-                                hotkeyModel.stopRecording()
-                            } else {
+                        KeyRecorderField(
+                            currentDisplay: hotkeyModel.displayStrings[slot] ?? L("None"),
+                            isRecording: hotkeyModel.recordingSlot == slot,
+                            onStartRecording: {
                                 toolModel.stopRecording()
                                 hotkeyModel.startRecording(slot: slot)
+                            },
+                            onClear: {
+                                hotkeyModel.clearShortcut(slot: slot)
+                            },
+                            onReset: {
+                                hotkeyModel.resetShortcut(slot: slot)
                             }
-                        }
-                        .frame(width: 90)
-                        Button {
-                            hotkeyModel.clearShortcut(slot: slot)
-                        } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .foregroundColor(.secondary)
-                        }
-                        .buttonStyle(.plain)
-                        .help(L("None"))
-                        Button {
-                            hotkeyModel.resetShortcut(slot: slot)
-                        } label: {
-                            Image(systemName: "arrow.counterclockwise.circle.fill")
-                                .foregroundColor(.secondary)
-                        }
-                        .buttonStyle(.plain)
-                        .help(L("Reset to default"))
+                        )
                     }
                 }
             } header: {
                 Text(L("Keyboard Shortcuts"))
             } footer: {
-                Text(L("Click \"Set\" and press a key combination with at least one modifier (⌘, ⌥, ⌃, ⇧) to set a shortcut."))
+                Text(L("Click to record shortcut. Esc to cancel, ⌫ to clear. Right-click to reset."))
             }
 
             // MARK: - Overlay / Editor Tool Shortcuts
@@ -196,40 +252,26 @@ struct ShortcutsSettingsView: View {
                     HStack {
                         Text(action.label)
                         Spacer()
-                        Text(toolModel.displayStrings[action] ?? L("None"))
-                            .foregroundColor(toolModel.recordingAction == action ? .orange : .secondary)
-                            .frame(minWidth: 50)
-                        Button(toolModel.recordingAction == action ? L("Press...") : L("Set")) {
-                            if toolModel.recordingAction == action {
-                                toolModel.stopRecording()
-                            } else {
+                        KeyRecorderField(
+                            currentDisplay: toolModel.displayStrings[action] ?? L("None"),
+                            isRecording: toolModel.recordingAction == action,
+                            onStartRecording: {
                                 hotkeyModel.stopRecording()
                                 toolModel.startRecording(action: action)
+                            },
+                            onClear: {
+                                toolModel.clearShortcut(action: action)
+                            },
+                            onReset: {
+                                toolModel.resetShortcut(action: action)
                             }
-                        }
-                        .frame(width: 70)
-                        Button {
-                            toolModel.clearShortcut(action: action)
-                        } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .foregroundColor(.secondary)
-                        }
-                        .buttonStyle(.plain)
-                        .help(L("None"))
-                        Button {
-                            toolModel.resetShortcut(action: action)
-                        } label: {
-                            Image(systemName: "arrow.counterclockwise.circle.fill")
-                                .foregroundColor(.secondary)
-                        }
-                        .buttonStyle(.plain)
-                        .help(L("Reset to default"))
+                        )
                     }
                 }
             } header: {
                 Text(L("Overlay / Editor Shortcuts"))
             } footer: {
-                Text(L("Press a single key to assign it as the shortcut for that tool. These work when the overlay or editor is active."))
+                Text(L("Press a single key to assign. These work when the overlay or editor is active."))
             }
         }
         .formStyle(.grouped)

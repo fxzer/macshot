@@ -48,7 +48,13 @@ struct CaptureSettingsView: View {
                 Toggle(L("Remember last selected tool"), isOn: $rememberLastTool)
                 Toggle(L("Show snap alignment guides"), isOn: $snapGuidesEnabled)
                 Toggle(L("Capture mouse cursor in screenshot"), isOn: $captureCursor)
-                Toggle(L("Use window title in saved filename"), isOn: $useWindowTitleInFilename)
+                settingWithDescription(
+                    title: L("Use window title in saved filename"),
+                    description: L("When snapping to a window, its title is used in the filename."),
+                    content: {
+                        Toggle("", isOn: $useWindowTitleInFilename).labelsHidden()
+                    }
+                )
             } header: {
                 Text(L("Capture Options"))
             }
@@ -70,12 +76,13 @@ struct CaptureSettingsView: View {
                 }
                 HStack {
                     Text(L("Preview size"))
-                    Spacer()
+                    Slider(value: $thumbnailScale, in: 0.5...2.0, step: 0.1)
+                        .frame(maxWidth: 160)
                     Text(scalePercentString)
                         .foregroundColor(.secondary)
                         .monospacedDigit()
+                        .frame(width: 44, alignment: .trailing)
                 }
-                Slider(value: $thumbnailScale, in: 0.5...2.0, step: 0.1)
             } header: {
                 Text(L("Thumbnail"))
             } footer: {
@@ -87,5 +94,19 @@ struct CaptureSettingsView: View {
 
     private var scalePercentString: String {
         "\(Int(round(thumbnailScale * 100)))%"
+    }
+
+    @ViewBuilder
+    private func settingWithDescription<Content: View>(title: String, description: String, @ViewBuilder content: () -> Content) -> some View {
+        HStack(alignment: .center) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                Text(description)
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            }
+            Spacer()
+            content()
+        }
     }
 }
