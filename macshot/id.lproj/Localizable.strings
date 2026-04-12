@@ -172,6 +172,9 @@
 /* Preferences - General */
 "macshot Preferences" = "Preferensi macshot";
 "General" = "Umum";
+"Interface" = "Interface";
+"Interface Options" = "Interface Options";
+"Window" = "Window";
 "Tools" = "Alat";
 "Recording" = "Rekaman";
 "About" = "Tentang";

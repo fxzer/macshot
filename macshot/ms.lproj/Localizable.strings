@@ -172,6 +172,9 @@
 /* Preferences - General */
 "macshot Preferences" = "Keutamaan macshot";
 "General" = "Umum";
+"Interface" = "Interface";
+"Interface Options" = "Interface Options";
+"Window" = "Window";
 "Tools" = "Alatan";
 "Recording" = "Rakaman";
 "About" = "Perihal";

@@ -172,6 +172,9 @@
 /* Preferences - General */
 "macshot Preferences" = "Préférences macshot";
 "General" = "Général";
+"Interface" = "Interface";
+"Interface Options" = "Interface Options";
+"Window" = "Window";
 "Tools" = "Outils";
 "Recording" = "Enregistrement";
 "About" = "À propos";
@@ -181,6 +184,8 @@
 "Language:" = "Langue :";
 "Restart the app to fully apply the new language." = "Redémarrez l'application pour appliquer la nouvelle langue.";
 "Capture" = "Capture";
+"Quick Actions" = "Quick Actions";
+"Capture Options" = "Capture Options";
 "Play sound on copy" = "Son lors de la copie";
 "Remember last selection area" = "Mémoriser la dernière zone de sélection";
 "Remember last selected tool" = "Mémoriser le dernier outil sélectionné";

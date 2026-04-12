@@ -172,6 +172,9 @@
 /* Preferences - General */
 "macshot Preferences" = "macshot 환경설정";
 "General" = "일반";
+"Interface" = "Interface";
+"Interface Options" = "Interface Options";
+"Window" = "Window";
 "Tools" = "도구";
 "Recording" = "녹화";
 "About" = "정보";

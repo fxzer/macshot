@@ -172,6 +172,9 @@
 /* Preferences - General */
 "macshot Preferences" = "macshot Einstellungen";
 "General" = "Allgemein";
+"Interface" = "Interface";
+"Interface Options" = "Interface Options";
+"Window" = "Window";
 "Tools" = "Werkzeuge";
 "Recording" = "Aufzeichnung";
 "About" = "Über";

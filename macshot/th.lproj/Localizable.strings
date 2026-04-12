@@ -172,6 +172,9 @@
 /* Preferences - General */
 "macshot Preferences" = "การตั้งค่า macshot";
 "General" = "ทั่วไป";
+"Interface" = "Interface";
+"Interface Options" = "Interface Options";
+"Window" = "Window";
 "Tools" = "เครื่องมือ";
 "Recording" = "การบันทึก";
 "About" = "เกี่ยวกับ";

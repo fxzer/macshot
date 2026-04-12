@@ -176,6 +176,9 @@
 /* Preferences - General */
 "macshot Preferences" = "macshot 偏好設定";
 "General" = "一般";
+"Interface" = "介面";
+"Interface Options" = "介面選項";
+"Window" = "Window";
 "Tools" = "工具";
 "Recording" = "錄製";
 "About" = "關於";

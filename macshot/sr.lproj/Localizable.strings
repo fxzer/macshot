@@ -172,6 +172,9 @@
 /* Preferences - General */
 "macshot Preferences" = "macshot подешавања";
 "General" = "Опште";
+"Interface" = "Interface";
+"Interface Options" = "Interface Options";
+"Window" = "Window";
 "Tools" = "Алати";
 "Recording" = "Снимање";
 "About" = "О програму";

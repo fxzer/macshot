@@ -172,6 +172,9 @@
 /* Preferences - General */
 "macshot Preferences" = "Προτιμήσεις macshot";
 "General" = "Γενικά";
+"Interface" = "Interface";
+"Interface Options" = "Interface Options";
+"Window" = "Window";
 "Tools" = "Εργαλεία";
 "Recording" = "Εγγραφή";
 "About" = "Σχετικά";

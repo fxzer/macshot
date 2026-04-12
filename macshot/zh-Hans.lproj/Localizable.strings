@@ -180,6 +180,9 @@
 /* Preferences - General */
 "macshot Preferences" = "macshot 偏好设置";
 "General" = "通用";
+"Interface" = "界面";
+"Interface Options" = "界面选项";
+"Window" = "窗口";
 "Tools" = "工具";
 "Recording" = "录制";
 "About" = "关于";
@@ -189,6 +192,8 @@
 "Language:" = "语言:";
 "Restart the app to fully apply the new language." = "重新启动应用以完全应用新语言。";
 "Capture" = "捕获";
+"Quick Actions" = "快速操作";
+"Capture Options" = "捕获选项";
 "Play sound on copy" = "拷贝时播放声音";
 "Remember last selection area" = "记住上次选择区域";
 "Remember last selected tool" = "记住上次选择的工具";

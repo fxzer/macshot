@@ -191,6 +191,8 @@
 /* Preferences - General */
 "macshot Preferences" = "macshot Preferences";
 "General" = "General";
+"Interface" = "Interface";
+"Interface Options" = "Interface Options";
 "Tools" = "Tools";
 "Recording" = "Recording";
 "About" = "About";
@@ -200,6 +202,8 @@
 "Language:" = "Language:";
 "Restart the app to fully apply the new language." = "Restart the app to fully apply the new language.";
 "Capture" = "Capture";
+"Quick Actions" = "Quick Actions";
+"Capture Options" = "Capture Options";
 "Play sound on capture" = "Play sound on capture";
 "Remember last selection area" = "Remember last selection area";
 "Remember last selected tool" = "Remember last selected tool";
@@ -233,6 +237,7 @@
 "Save folder:" = "Save folder:";
 "Browse…" = "Browse…";
 "Appearance" = "Appearance";
+"Window" = "Window";
 "Accent color:" = "Accent color:";
 "Icon color:" = "Icon color:";
 "Reset" = "Reset";

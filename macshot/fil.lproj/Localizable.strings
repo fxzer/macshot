@@ -172,6 +172,9 @@
 /* Preferences - General */
 "macshot Preferences" = "Mga Kagustuhan ng macshot";
 "General" = "Pangkalahatan";
+"Interface" = "Interface";
+"Interface Options" = "Interface Options";
+"Window" = "Window";
 "Tools" = "Mga Kasangkapan";
 "Recording" = "Pag-record";
 "About" = "Tungkol sa";

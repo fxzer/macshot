@@ -172,6 +172,9 @@
 /* Preferences - General */
 "macshot Preferences" = "macshot प्राथमिकताएँ";
 "General" = "सामान्य";
+"Interface" = "Interface";
+"Interface Options" = "Interface Options";
+"Window" = "Window";
 "Tools" = "उपकरण";
 "Recording" = "रिकॉर्डिंग";
 "About" = "बारे में";
