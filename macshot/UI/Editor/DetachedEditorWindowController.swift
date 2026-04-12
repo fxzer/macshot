@@ -383,17 +383,24 @@ extension DetachedEditorWindowController: OverlayViewDelegate {
               let raw = view.captureSelectedRegion() else { return }
         let image = applyPostProcessing(raw)
 
-        // quickCaptureMode: 0=save, 1=copy, 2=both, 3=do nothing (thumbnail only)
-        let mode = UserDefaults.standard.object(forKey: "quickCaptureMode") as? Int ?? 1
+        let actions = PostCaptureActionPreferences.screenshotActions
 
-        if mode == 1 || mode == 2 {
+        if actions.copyToClipboard {
             ImageEncoder.copyToClipboard(image)
         }
-        if mode == 0 || mode == 2 {
+        if actions.saveToFile {
             saveImageToDirectory(image)
         }
+        if actions.uploadAndCopyLink {
+            (NSApp.delegate as? AppDelegate)?.uploadImage(image)
+        }
+        if actions.pinToScreen {
+            (NSApp.delegate as? AppDelegate)?.showPin(image: image)
+        }
         playCopySound()
-        (NSApp.delegate as? AppDelegate)?.showFloatingThumbnail(image: image)
+        if actions.showQuickAccessOverlay {
+            (NSApp.delegate as? AppDelegate)?.showFloatingThumbnail(image: image)
+        }
 
         autoSaveToHistoryIfNeeded(compositedImage: image)
     }
@@ -591,7 +598,13 @@ private class AddCaptureOverlayHandler: NSObject, OverlayWindowControllerDelegat
         onCancel?()
     }
 
-    func overlayDidConfirm(_ controller: OverlayWindowController, capturedImage: NSImage?, annotationData: CaptureAnnotationData?) {
+    func overlayDidConfirm(
+        _ controller: OverlayWindowController,
+        capturedImage: NSImage?,
+        annotationData: CaptureAnnotationData?,
+        context: CaptureCompletionContext,
+        windowTitle: String?
+    ) {
         let image = capturedImage ?? overlayCrossScreenImage(controller)
         dismissOverlays()
         if let image = image {

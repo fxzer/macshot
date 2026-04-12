@@ -7646,7 +7646,7 @@ class OverlayView: NSView {
                     needsDisplay = true
                 }
             }
-        case 36:  // Return/Enter — quick capture (respects quickCaptureMode setting)
+        case 36:  // Return/Enter — quick capture using the configured post-capture actions
             if textEditView == nil, !isEditingInlineField, state == .selected {
                 overlayDelegate?.overlayViewDidRequestQuickSave()
             }

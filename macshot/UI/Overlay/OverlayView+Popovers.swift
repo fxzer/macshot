@@ -249,7 +249,7 @@ extension OverlayView {
             return
         }
 
-        let container = NSView(frame: NSRect(x: 0, y: 0, width: 240, height: 100))
+        let container = NSView(frame: NSRect(x: 0, y: 0, width: 240, height: 72))
         var y: CGFloat = 8
         let labelFont = NSFont.systemFont(ofSize: 11, weight: .medium)
         let labelColor = NSColor.secondaryLabelColor
@@ -270,10 +270,6 @@ extension OverlayView {
             sessionRecordingFPS
             ?? (UserDefaults.standard.integer(forKey: "recordingFPS") > 0
                 ? UserDefaults.standard.integer(forKey: "recordingFPS") : 30)
-        let effectiveOnStop =
-            sessionRecordingOnStop ?? UserDefaults.standard.string(forKey: "recordingOnStop")
-            ?? "editor"
-
         // FPS popup
         let fpsPopup = NSPopUpButton()
         fpsPopup.controlSize = .small
@@ -303,39 +299,10 @@ extension OverlayView {
             }
         }
 
-        class WhenDoneHandler: NSObject {
-            weak var overlayView: OverlayView?
-            init(overlayView: OverlayView?) {
-                self.overlayView = overlayView
-                super.init()
-            }
-            @objc func changed(_ sender: NSPopUpButton) {
-                let values = ["editor", "finder", "clipboard"]
-                overlayView?.sessionRecordingOnStop = values[sender.indexOfSelectedItem]
-            }
-        }
-
         let fpsHandler = FPSHandler(overlayView: self)
         fpsPopup.target = fpsHandler
         fpsPopup.action = #selector(FPSHandler.changed(_:))
         objc_setAssociatedObject(fpsPopup, "handler", fpsHandler, .OBJC_ASSOCIATION_RETAIN)
-
-        // When done popup
-        let whenDonePopup = NSPopUpButton()
-        whenDonePopup.addItems(withTitles: [L("Open editor"), L("Show in Finder"), L("Copy to clipboard")])
-        whenDonePopup.controlSize = .small
-        whenDonePopup.font = NSFont.systemFont(ofSize: 11)
-        switch effectiveOnStop {
-        case "finder": whenDonePopup.selectItem(at: 1)
-        case "clipboard": whenDonePopup.selectItem(at: 2)
-        default: whenDonePopup.selectItem(at: 0)
-        }
-
-        let whenDoneHandler = WhenDoneHandler(overlayView: self)
-        whenDonePopup.target = whenDoneHandler
-        whenDonePopup.action = #selector(WhenDoneHandler.changed(_:))
-        objc_setAssociatedObject(
-            whenDonePopup, "handler", whenDoneHandler, .OBJC_ASSOCIATION_RETAIN)
 
         // Delay popup
         let delayPopup = NSPopUpButton()
@@ -393,7 +360,6 @@ extension OverlayView {
         objc_setAssociatedObject(controlsPopup, "handler", controlsModeHandler, .OBJC_ASSOCIATION_RETAIN)
 
         addRow(label: L("FPS:"), control: fpsPopup)
-        addRow(label: L("When done:"), control: whenDonePopup)
         addRow(label: L("Delay:"), control: delayPopup)
         addRow(label: L("Controls:"), control: controlsPopup)
 

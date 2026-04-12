@@ -561,3 +561,12 @@
 "Include pre-release versions in update checks." = "Include pre-release versions in update checks.";
 "Check for Updates Now" = "Check for Updates Now";
 "Check Now" = "Check Now";
+"After Capture" = "After Capture";
+"Screenshot" = "Screenshot";
+"Action" = "Action";
+"Show quick access overlay" = "Show quick access overlay";
+"Copy file to clipboard" = "Copy file to clipboard";
+"Upload and copy link" = "Upload and copy link";
+"Open screenshot editor" = "Open screenshot editor";
+"Pin to screen" = "Pin to screen";
+"Open video editor" = "Open video editor";

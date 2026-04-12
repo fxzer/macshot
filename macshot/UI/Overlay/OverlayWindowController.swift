@@ -9,10 +9,21 @@ struct CaptureAnnotationData {
     let annotations: [Annotation]
 }
 
+enum CaptureCompletionContext {
+    case standard
+    case manualSave
+}
+
 @MainActor
 protocol OverlayWindowControllerDelegate: AnyObject {
     func overlayDidCancel(_ controller: OverlayWindowController)
-    func overlayDidConfirm(_ controller: OverlayWindowController, capturedImage: NSImage?, annotationData: CaptureAnnotationData?)
+    func overlayDidConfirm(
+        _ controller: OverlayWindowController,
+        capturedImage: NSImage?,
+        annotationData: CaptureAnnotationData?,
+        context: CaptureCompletionContext,
+        windowTitle: String?
+    )
     func overlayDidRequestPin(_ controller: OverlayWindowController, image: NSImage)
     func overlayDidRequestOCR(_ controller: OverlayWindowController, text: String, image: NSImage?)
     func overlayDidRequestUpload(_ controller: OverlayWindowController, image: NSImage)
@@ -355,7 +366,6 @@ extension OverlayWindowController: OverlayViewDelegate {
         }
 
         // Dismiss immediately — user is free to continue working
-        playCopySound()
         dismiss()
 
         // Apply post-processing if needed
@@ -372,12 +382,15 @@ extension OverlayWindowController: OverlayViewDelegate {
             finalImage = BeautifyRenderer.render(image: beautifyInput, config: beautifyCfg)
         }
 
-        // Copy button / Cmd+C always copies to clipboard
-        ImageEncoder.copyToClipboard(finalImage)
-
         // Don't save annotation data if effects/beautify were applied — the raw image
         // wouldn't match what the user sees, making annotation re-editing confusing.
-        overlayDelegate?.overlayDidConfirm(self, capturedImage: finalImage, annotationData: annotationData)
+        overlayDelegate?.overlayDidConfirm(
+            self,
+            capturedImage: finalImage,
+            annotationData: annotationData,
+            context: .standard,
+            windowTitle: capturedWindowTitle
+        )
     }
 
     func overlayViewDidRequestPin() {
@@ -463,10 +476,15 @@ extension OverlayWindowController: OverlayViewDelegate {
                 guard let self = self else { return }
                 self.overlayWindow?.level = savedLevel
                 self.shareDelegate = nil
-                self.playCopySound()
                 let img = image
                 self.dismiss()
-                self.overlayDelegate?.overlayDidConfirm(self, capturedImage: img, annotationData: nil)
+                self.overlayDelegate?.overlayDidConfirm(
+                    self,
+                    capturedImage: img,
+                    annotationData: nil,
+                    context: .standard,
+                    windowTitle: self.capturedWindowTitle
+                )
             },
             onDismiss: { [weak self] in
                 self?.overlayWindow?.level = savedLevel
@@ -673,14 +691,14 @@ extension OverlayWindowController: OverlayViewDelegate {
                 let finalNSImage = NSImage(cgImage: finalCGImage, size: image.size)
 
                 DispatchQueue.main.async {
-                    // quickCaptureMode: 0=save, 1=copy, 2=both, 3=do nothing
-                    let mode = UserDefaults.standard.object(forKey: "quickCaptureMode") as? Int ?? 1
-                    if mode == 1 || mode == 2 {
-                        self.copyImageToClipboard(finalNSImage)
-                    }
-                    self.playCopySound()
                     self.dismiss()
-                    self.overlayDelegate?.overlayDidConfirm(self, capturedImage: finalNSImage, annotationData: nil)
+                    self.overlayDelegate?.overlayDidConfirm(
+                        self,
+                        capturedImage: finalNSImage,
+                        annotationData: nil,
+                        context: .standard,
+                        windowTitle: self.capturedWindowTitle
+                    )
                 }
             } catch {
                 #if DEBUG
@@ -739,20 +757,13 @@ extension OverlayWindowController: OverlayViewDelegate {
             image = BeautifyRenderer.render(image: beautifyInput, config: beautifyCfg)
         }
 
-        // quickCaptureMode: 0=save, 1=copy, 2=both, 3=do nothing (thumbnail only)
-        let mode = UserDefaults.standard.object(forKey: "quickCaptureMode") as? Int ?? 1
-
-        if mode == 1 || mode == 2 {
-            ImageEncoder.copyToClipboard(image)
-        }
-        playCopySound()
-
-        overlayDelegate?.overlayDidConfirm(self, capturedImage: image, annotationData: annotationData)
-
-        if mode == 0 || mode == 2 {
-            saveImageToDirectory(image)
-        }
-        // mode 3: do nothing — image is passed to delegate which shows the thumbnail
+        overlayDelegate?.overlayDidConfirm(
+            self,
+            capturedImage: image,
+            annotationData: annotationData,
+            context: .standard,
+            windowTitle: capturedWindowTitle
+        )
     }
 
     func overlayViewDidRequestFileSave() {
@@ -771,7 +782,6 @@ extension OverlayWindowController: OverlayViewDelegate {
             return
         }
 
-        playCopySound()
         dismiss()
 
         // Apply post-processing
@@ -784,7 +794,13 @@ extension OverlayWindowController: OverlayViewDelegate {
             image = BeautifyRenderer.render(image: beautifyInput, config: beautifyCfg)
         }
 
-        overlayDelegate?.overlayDidConfirm(self, capturedImage: image, annotationData: nil)
+        overlayDelegate?.overlayDidConfirm(
+            self,
+            capturedImage: image,
+            annotationData: nil,
+            context: .manualSave,
+            windowTitle: capturedWindowTitle
+        )
         saveImageToDirectory(image)
     }
 
@@ -832,7 +848,13 @@ extension OverlayWindowController: OverlayViewDelegate {
                 SaveDirectoryAccess.save(url: url.deletingLastPathComponent())
                 self.playCopySound()
                 self.dismiss()
-                self.overlayDelegate?.overlayDidConfirm(self, capturedImage: nil, annotationData: nil)
+                self.overlayDelegate?.overlayDidConfirm(
+                    self,
+                    capturedImage: nil,
+                    annotationData: nil,
+                    context: .manualSave,
+                    windowTitle: self.capturedWindowTitle
+                )
             } else {
                 self.overlayWindow?.makeKeyAndOrderFront(nil)
                 if let view = self.overlayView {

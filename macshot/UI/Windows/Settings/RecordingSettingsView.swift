@@ -23,7 +23,6 @@ struct RecordingSettingsView: View {
     @AppStorage("recordingFPS") private var recordingFPS = 30
 
     // Behavior
-    @AppStorage("recordingOnStop") private var recordingOnStop = "editor"
     @AppStorage("recordingControlsMode") private var recordingControlsModeRaw = ""
 
     // Webcam
@@ -54,11 +53,6 @@ struct RecordingSettingsView: View {
 
             // MARK: - Behavior
             Section {
-                Picker(L("When done"), selection: $recordingOnStop) {
-                    Text(L("Open editor")).tag("editor")
-                    Text(L("Show in Finder")).tag("finder")
-                    Text(L("Copy to clipboard")).tag("clipboard")
-                }
                 Picker(L("Recording controls"), selection: $recordingControlsModeRaw) {
                     Text(L("Floating HUD")).tag(RecordingControlsMode.floatingHUD.rawValue)
                     Text(L("Menu Bar")).tag(RecordingControlsMode.menuBar.rawValue)
@@ -120,11 +114,6 @@ struct RecordingSettingsView: View {
 
     private func normalizePickerSelections() {
         recordingFPS = normalized(recordingFPS, allowed: [15, 24, 30, 60, 120], fallback: 30)
-        recordingOnStop = normalized(
-            recordingOnStop,
-            allowed: ["editor", "finder", "clipboard"],
-            fallback: "editor"
-        )
         webcamPosition = normalized(
             webcamPosition,
             allowed: ["bottomRight", "bottomLeft", "topRight", "topLeft"],

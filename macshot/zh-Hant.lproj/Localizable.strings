@@ -557,3 +557,12 @@
 "Include pre-release versions in update checks." = "更新檢查時包含預發佈版本。";
 "Check for Updates Now" = "立即檢查更新";
 "Check Now" = "立即檢查";
+"After Capture" = "擷取後";
+"Screenshot" = "截圖";
+"Action" = "動作";
+"Show quick access overlay" = "顯示快捷操作面板";
+"Copy file to clipboard" = "將檔案拷貝到剪貼簿";
+"Upload and copy link" = "上傳並複製連結";
+"Open screenshot editor" = "開啟截圖編輯器";
+"Pin to screen" = "固定到螢幕";
+"Open video editor" = "開啟影片編輯器";

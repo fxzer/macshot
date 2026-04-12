@@ -585,3 +585,12 @@
 "Include pre-release versions in update checks." = "更新检查时包含预发布版本。";
 "Check for Updates Now" = "立即检查更新";
 "Check Now" = "立即检查";
+"After Capture" = "捕获后";
+"Screenshot" = "截图";
+"Action" = "动作";
+"Show quick access overlay" = "显示快捷操作面板";
+"Copy file to clipboard" = "将文件拷贝到剪贴板";
+"Upload and copy link" = "上传并复制链接";
+"Open screenshot editor" = "打开截图编辑器";
+"Pin to screen" = "固定到屏幕";
+"Open video editor" = "打开视频编辑器";

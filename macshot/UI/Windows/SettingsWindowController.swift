@@ -12,9 +12,14 @@ private class SettingsWindow: NSWindow {
     }
 }
 
+private final class SettingsHostingView<Content: View>: NSHostingView<Content> {
+    override var acceptsFirstResponder: Bool { true }
+}
+
 class SettingsWindowController: NSWindowController, NSWindowDelegate {
 
     var onHotkeyChanged: (() -> Void)?
+    private var hostingView: NSView?
 
     init() {
         let window = SettingsWindow(
@@ -58,8 +63,9 @@ class SettingsWindowController: NSWindowController, NSWindowDelegate {
             }
         )
 
-        let hostingView = NSHostingView(rootView: settingsView)
+        let hostingView = SettingsHostingView(rootView: settingsView)
         hostingView.translatesAutoresizingMaskIntoConstraints = false
+        self.hostingView = hostingView
 
         // Add hosting view to window
         contentView.addSubview(hostingView)
@@ -87,6 +93,11 @@ class SettingsWindowController: NSWindowController, NSWindowDelegate {
         window?.makeKeyAndOrderFront(nil)
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
+        if let hostingView {
+            DispatchQueue.main.async { [weak self] in
+                self?.window?.makeFirstResponder(hostingView)
+            }
+        }
     }
 
     func windowWillClose(_ notification: Notification) {

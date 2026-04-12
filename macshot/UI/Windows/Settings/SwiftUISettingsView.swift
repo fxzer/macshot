@@ -21,6 +21,8 @@ struct SwiftUISettingsView: View {
                     InterfaceSettingsView()
                 case .capture:
                     CaptureSettingsView()
+                case .behavior:
+                    BehaviorSettingsView()
                 case .output:
                     OutputSettingsView()
                 case .shortcuts:
@@ -54,6 +56,7 @@ struct SwiftUISettingsView: View {
 enum SettingsTab: String, CaseIterable, Identifiable {
     case interface
     case capture
+    case behavior
     case output
     case shortcuts
     case tools
@@ -67,6 +70,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         switch self {
         case .interface: return L("General")
         case .capture: return L("Capture")
+        case .behavior: return L("Behavior")
         case .output: return L("Output")
         case .shortcuts: return L("Shortcuts")
         case .tools: return L("Tools")
@@ -80,6 +84,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         switch self {
         case .interface: return "rectangle.3.group"
         case .capture: return "camera"
+        case .behavior: return "slider.horizontal.3"
         case .output: return "arrow.down.doc"
         case .shortcuts: return "command"
         case .tools: return "wrench.and.screwdriver"

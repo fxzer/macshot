@@ -40,18 +40,18 @@ struct ToolsSettingsView: View {
         (1013, L("Adjust")),
         (1004, L("Beautify")),
         (1005, L("Remove Background")),
+        (1006, L("Auto-Redact")),
     ]
 
-    // 其他操作 Other Actions
+    // 捕获操作 Capture Actions - 按右侧工具栏顺序：Share, Upload, Pin, OCR, Translate, Scroll Capture, Record
     private let otherActions: [(tag: Int, label: String)] = [
+        (1012, L("Share")),
         (1001, L("Upload")),
         (1002, L("Pin")),
         (1003, L("OCR")),
-        (1006, L("Auto-Redact")),
         (1008, L("Translate")),
-        (1009, L("Record")),
         (1010, L("Scroll Capture")),
-        (1012, L("Share")),
+        (1009, L("Record")),
     ]
 
     init() {
@@ -115,21 +115,21 @@ struct ToolsSettingsView: View {
                     toggleRow(item: item, enabled: $enabledActions, key: "enabledActions")
                 }
             } header: {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(L("Effects"))
-                    Text(L("Hidden tools are removed from the toolbar."))
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                }
+                Text(L("Effects"))
             }
 
-            // MARK: - Other Actions (其他操作)
+            // MARK: - Capture Actions (捕获操作)
             Section {
                 ForEach(otherActions, id: \.tag) { item in
                     toggleRow(item: item, enabled: $enabledActions, key: "enabledActions")
                 }
             } header: {
-                Text(L("Other"))
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(L("Capture Actions"))
+                    Text(L("Hidden actions are removed from the right toolbar."))
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
             }
         }
         .formStyle(.grouped)

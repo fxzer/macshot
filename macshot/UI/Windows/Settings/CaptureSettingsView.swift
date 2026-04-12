@@ -2,11 +2,6 @@ import SwiftUI
 
 struct CaptureSettingsView: View {
 
-    // Quick Actions
-    @AppStorage("quickCaptureMode") private var quickCaptureMode: Int = 1
-    @AppStorage("quickCaptureOpenEditor") private var quickCaptureOpenEditor = false
-    @AppStorage("ocrAction") private var ocrAction: Int = 0
-
     // Capture Options
     @AppStorage("playCopySound") private var playCopySound = true
     @AppStorage("rememberLastSelection") private var rememberLastSelection = false
@@ -16,31 +11,12 @@ struct CaptureSettingsView: View {
     @AppStorage("useWindowTitleInFilename") private var useWindowTitleInFilename = false
 
     // Thumbnail
-    @AppStorage("showFloatingThumbnail") private var showFloatingThumbnail = true
     @AppStorage("thumbnailAutoDismiss") private var thumbnailAutoDismiss: Int = 5
     @AppStorage("thumbnailStacking") private var thumbnailStacking = true
     @AppStorage("thumbnailScale") private var thumbnailScale = 1.0
 
     var body: some View {
         Form {
-            // MARK: - Quick Actions
-            Section {
-                Picker(L("Enter / Quick Capture"), selection: $quickCaptureMode) {
-                    Text(L("Save to file")).tag(0)
-                    Text(L("Copy to clipboard")).tag(1)
-                    Text(L("Save + copy to clipboard")).tag(2)
-                    Text(L("Do nothing")).tag(3)
-                }
-                Toggle(L("Also open in Editor"), isOn: $quickCaptureOpenEditor)
-                Picker(L("OCR Capture"), selection: $ocrAction) {
-                    Text(L("Show window + copy to clipboard")).tag(0)
-                    Text(L("Show window only")).tag(1)
-                    Text(L("Copy to clipboard only")).tag(2)
-                }
-            } header: {
-                Text(L("Quick Actions"))
-            }
-
             // MARK: - Capture Options
             Section {
                 Toggle(L("Play sound on capture"), isOn: $playCopySound)
@@ -61,7 +37,6 @@ struct CaptureSettingsView: View {
 
             // MARK: - Thumbnail
             Section {
-                Toggle(L("Show floating thumbnail after capture"), isOn: $showFloatingThumbnail)
                 Picker(L("Auto-dismiss after"), selection: $thumbnailAutoDismiss) {
                     Text(L("Never")).tag(0)
                     Text("5 " + L("seconds")).tag(5)
@@ -101,8 +76,7 @@ struct CaptureSettingsView: View {
     }
 
     private func normalizePickerSelections() {
-        quickCaptureMode = normalized(quickCaptureMode, allowed: [0, 1, 2, 3], fallback: 1)
-        ocrAction = normalized(ocrAction, allowed: [0, 1, 2], fallback: 0)
+        PostCaptureActionPreferences.migrateIfNeeded()
         thumbnailAutoDismiss = normalized(
             thumbnailAutoDismiss,
             allowed: [0, 5, 10, 15, 30, 45, 60, 120, 300, 600],

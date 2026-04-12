@@ -24,6 +24,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     private var delayEscMonitor: Any?
     private var pendingDelaySelection: NSRect = .zero
     private var uploadToastController: UploadToastController?
+    private var recordingQuickActionsController: RecordingToastController?
     private var recordingEngine: RecordingEngine?
     private var audioMergeController: AudioMergeController?
     private var recordingOverlayController: OverlayWindowController?
@@ -63,6 +64,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         }
 
         updaterController = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: self, userDriverDelegate: nil)
+        PostCaptureActionPreferences.migrateIfNeeded()
         setupMainMenu()
         setupStatusBar()
         if UserDefaults.standard.bool(forKey: "hideMenuBarIcon") {
@@ -872,6 +874,201 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         Self.captureSound?.play()
     }
 
+    private func performScreenshotPostActions(
+        image: NSImage,
+        annotationData: CaptureAnnotationData?,
+        historyEntryID: String?,
+        windowTitle: String?,
+        context: CaptureCompletionContext
+    ) {
+        let actions = PostCaptureActionPreferences.screenshotActions
+
+        if actions.copyToClipboard {
+            ImageEncoder.copyToClipboard(image)
+        }
+        if actions.saveToFile && context != .manualSave {
+            saveImageToDefaultDirectory(image, windowTitle: windowTitle)
+        }
+        if actions.uploadAndCopyLink {
+            showUploadProgress(image: image)
+        }
+        if actions.pinToScreen {
+            showPin(image: image)
+        }
+        if actions.openEditor {
+            if let data = annotationData {
+                DetachedEditorWindowController.open(
+                    image: data.rawImage,
+                    annotations: data.annotations,
+                    historyEntryID: historyEntryID
+                )
+            } else {
+                DetachedEditorWindowController.open(
+                    image: image,
+                    historyEntryID: historyEntryID,
+                    disableBeautify: true
+                )
+            }
+        }
+        if actions.showQuickAccessOverlay {
+            showFloatingThumbnail(image: image, annotationData: annotationData, historyEntryID: historyEntryID)
+        }
+
+        playCopySound()
+    }
+
+    private func performRecordingPostActions(url: URL) {
+        let actions = PostCaptureActionPreferences.recordingActions
+
+        if actions.copyToClipboard {
+            copyRecordingToClipboard(url: url)
+        }
+        if actions.saveToFile {
+            saveRecordingToDefaultDirectory(url)
+        }
+        if actions.uploadAndCopyLink {
+            uploadRecording(url: url)
+        }
+        if actions.openVideoEditor {
+            VideoEditorWindowController.open(url: url)
+        }
+        if actions.showQuickAccessOverlay {
+            showRecordingQuickActions(url: url)
+        }
+    }
+
+    private func showRecordingQuickActions(url: URL) {
+        recordingQuickActionsController?.dismiss()
+
+        let controller = RecordingToastController(url: url)
+        controller.onDismiss = { [weak self] in
+            self?.recordingQuickActionsController = nil
+        }
+        controller.onCopy = { [weak self] in
+            self?.copyRecordingToClipboard(url: url)
+        }
+        controller.onSave = { [weak self] in
+            self?.saveRecordingToDefaultDirectory(url)
+        }
+        controller.onUpload = { [weak self] in
+            self?.uploadRecording(url: url)
+        }
+        controller.onOpen = {
+            VideoEditorWindowController.open(url: url)
+        }
+        controller.show()
+        recordingQuickActionsController = controller
+    }
+
+    private func saveImageToDefaultDirectory(_ image: NSImage, windowTitle: String?) {
+        let dirURL = SaveDirectoryAccess.resolve()
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd 'at' HH.mm.ss"
+        let timestamp = formatter.string(from: Date())
+        let useWindowTitle = UserDefaults.standard.bool(forKey: "useWindowTitleInFilename")
+        let baseName: String
+        if useWindowTitle, let windowTitle, !windowTitle.isEmpty {
+            let safeTitle = windowTitle
+                .replacingOccurrences(of: "/", with: "-")
+                .replacingOccurrences(of: ":", with: "-")
+            baseName = "Screenshot \(timestamp) — \(safeTitle)"
+        } else {
+            baseName = "Screenshot \(timestamp)"
+        }
+
+        let fileURL = uniqueDestinationURL(
+            in: dirURL,
+            baseName: baseName,
+            fileExtension: ImageEncoder.fileExtension
+        )
+        guard let imageData = ImageEncoder.encode(image) else {
+            SaveDirectoryAccess.stopAccessing(url: dirURL)
+            return
+        }
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            defer { SaveDirectoryAccess.stopAccessing(url: dirURL) }
+            try? imageData.write(to: fileURL)
+        }
+    }
+
+    private func saveRecordingToDefaultDirectory(_ sourceURL: URL) {
+        let dirURL = SaveDirectoryAccess.resolveRecordingDirectory()
+        let baseName = sourceURL.deletingPathExtension().lastPathComponent
+        let destinationURL = uniqueDestinationURL(
+            in: dirURL,
+            baseName: baseName,
+            fileExtension: sourceURL.pathExtension
+        )
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            defer { SaveDirectoryAccess.stopAccessing(url: dirURL) }
+            try? FileManager.default.copyItem(at: sourceURL, to: destinationURL)
+        }
+    }
+
+    private func uploadRecording(url: URL) {
+        uploadToastController?.dismiss()
+        let toast = UploadToastController()
+        uploadToastController = toast
+        toast.onDismiss = { [weak self] in
+            self?.uploadToastController = nil
+        }
+        toast.show(status: "Uploading...")
+
+        let provider = UserDefaults.standard.string(forKey: "uploadProvider") ?? "imgbb"
+        if provider == "gdrive" && !GoogleDriveUploader.shared.isSignedIn {
+            toast.showError(message: L("Sign in to Google Drive in Settings"))
+            return
+        }
+        if provider == "s3" && !S3Uploader.shared.isConfigured {
+            toast.showError(message: L("Configure S3 in Settings"))
+            return
+        }
+        guard provider == "gdrive" || provider == "s3" else {
+            toast.showError(message: L("Video upload requires Google Drive or S3"))
+            return
+        }
+
+        let providerLabel = provider == "s3" ? "S3" : "Drive"
+        let progressHandler: (Double) -> Void = { fraction in
+            toast.updateStatus(
+                String(format: L("Uploading to %@... %d%%"), providerLabel, Int(fraction * 100))
+            )
+        }
+        let completionHandler: (Result<String, Error>) -> Void = { result in
+            switch result {
+            case .success(let link):
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(link, forType: .string)
+                toast.showSuccess(link: link, deleteURL: "")
+            case .failure(let error):
+                toast.showError(message: error.localizedDescription)
+            }
+        }
+
+        if provider == "s3" {
+            S3Uploader.shared.onProgress = progressHandler
+            S3Uploader.shared.uploadVideo(url: url, completion: completionHandler)
+        } else {
+            GoogleDriveUploader.shared.onProgress = progressHandler
+            GoogleDriveUploader.shared.uploadVideo(url: url, completion: completionHandler)
+        }
+    }
+
+    private func uniqueDestinationURL(in directoryURL: URL, baseName: String, fileExtension: String) -> URL {
+        let sanitizedExtension = fileExtension.isEmpty ? "" : ".\(fileExtension)"
+        var candidate = directoryURL.appendingPathComponent(baseName + sanitizedExtension)
+        var suffix = 2
+
+        while FileManager.default.fileExists(atPath: candidate.path) {
+            candidate = directoryURL.appendingPathComponent("\(baseName) \(suffix)\(sanitizedExtension)")
+            suffix += 1
+        }
+
+        return candidate
+    }
+
     private func saveImageToFile(_ image: NSImage) {
         guard let imageData = ImageEncoder.encode(image) else { return }
         let savePanel = NSSavePanel()
@@ -919,6 +1116,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
 
         // Update upload toast if visible
         uploadToastController?.updateLocalization()
+
+        // Update recording quick actions if visible
+        recordingQuickActionsController?.updateLocalization()
 
         // Update permission onboarding window if open
         onboardingController?.updateLocalization()
@@ -1110,7 +1310,13 @@ extension AppDelegate: OverlayWindowControllerDelegate {
         // Focus is returned to the previous app by dismissOverlays() above.
     }
 
-    func overlayDidConfirm(_ controller: OverlayWindowController, capturedImage: NSImage?, annotationData: CaptureAnnotationData?) {
+    func overlayDidConfirm(
+        _ controller: OverlayWindowController,
+        capturedImage: NSImage?,
+        annotationData: CaptureAnnotationData?,
+        context: CaptureCompletionContext,
+        windowTitle: String?
+    ) {
         dismissOverlays()
         if let image = capturedImage {
             ScreenshotHistory.shared.add(
@@ -1119,20 +1325,14 @@ extension AppDelegate: OverlayWindowControllerDelegate {
                 annotations: annotationData?.annotations)
             // The entry just added is at index 0
             let entryID = ScreenshotHistory.shared.entries.first?.id
-            // Defer thumbnail to next runloop cycle so overlay teardown completes first
-            // and the main thread is free for the next capture trigger
-            let annData = annotationData
             DispatchQueue.main.async { [weak self] in
-                self?.showFloatingThumbnail(image: image, annotationData: annData, historyEntryID: entryID)
-            }
-
-            // "Also open in Editor" preference — open with history entry ID so Done saves back
-            if UserDefaults.standard.bool(forKey: "quickCaptureOpenEditor") {
-                if let data = annotationData {
-                    DetachedEditorWindowController.open(image: data.rawImage, annotations: data.annotations, historyEntryID: entryID)
-                } else {
-                    DetachedEditorWindowController.open(image: image, historyEntryID: entryID, disableBeautify: true)
-                }
+                self?.performScreenshotPostActions(
+                    image: image,
+                    annotationData: annotationData,
+                    historyEntryID: entryID,
+                    windowTitle: windowTitle,
+                    context: context
+                )
             }
         }
     }
@@ -1379,15 +1579,7 @@ extension AppDelegate: OverlayWindowControllerDelegate {
             if let url = url {
                 let deliverRecording: (URL) -> Void = { [weak self] finalURL in
                     guard let self = self else { return }
-                    let onStop = onStopOverride ?? UserDefaults.standard.string(forKey: "recordingOnStop") ?? "editor"
-                    switch onStop {
-                    case "finder":
-                        NSWorkspace.shared.activateFileViewerSelecting([finalURL])
-                    case "clipboard":
-                        self.copyRecordingToClipboard(url: finalURL)
-                    default:
-                        VideoEditorWindowController.open(url: finalURL)
-                    }
+                    self.performRecordingPostActions(url: finalURL)
                 }
 
                 // Offer audio merge when both mic + system audio were recorded
@@ -1880,20 +2072,13 @@ extension AppDelegate: OverlayWindowControllerDelegate {
 
         ScreenshotHistory.shared.add(image: image)
         let entryID = ScreenshotHistory.shared.entries.first?.id
-        // quickCaptureMode: 0=save, 1=copy, 2=both, 3=do nothing (thumbnail only)
-        let mode = UserDefaults.standard.object(forKey: "quickCaptureMode") as? Int ?? 1
-        if mode == 1 || mode == 2 {
-            ImageEncoder.copyToClipboard(image)
-        }
-        if mode == 0 || mode == 2 {
-            saveImageToFile(image)
-        }
-        playCopySound()
-        showFloatingThumbnail(image: image)
-
-        if UserDefaults.standard.bool(forKey: "quickCaptureOpenEditor") {
-            DetachedEditorWindowController.open(image: image, historyEntryID: entryID)
-        }
+        performScreenshotPostActions(
+            image: image,
+            annotationData: nil,
+            historyEntryID: entryID,
+            windowTitle: nil,
+            context: .standard
+        )
     }
 
     private func startDelayCountdown(seconds: Int) {
