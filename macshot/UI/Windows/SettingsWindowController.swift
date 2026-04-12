@@ -244,14 +244,32 @@ class SettingsWindowController: NSWindowController, NSWindowDelegate {
         }
     }
 
+    // MARK: - View Lifecycle Helpers
+
+    /// Safely disposes of a tab view, releasing NSHostingView resources
+    private func disposeTabView(_ view: NSView) {
+        // Use Mirror to safely access NSHostingView.rootView if present
+        let mirror = Mirror(reflecting: view)
+        for child in mirror.children {
+            if child.label == "rootView" {
+                // NSHostingView will release the old rootView when set to a new empty view
+                // This ensures SwiftUI view hierarchies are cleaned up promptly
+                (view as NSObject).setValue(EmptyView(), forKey: "rootView")
+                break
+            }
+        }
+        view.removeFromSuperview()
+    }
+
     private func refreshCurrentTabView() {
-        // Remove current tab view
+        // Remove and dispose current tab view
         if let currentView = tabContentViews[currentTabIdentifier] {
-            currentView.removeFromSuperview()
+            disposeTabView(currentView)
         }
 
-        // Clear all cached tab views so they will be recreated with new language when needed
-        tabContentViews.removeAll()
+        // Only clear the current tab from cache, other tabs remain cached
+        // They will be recreated with new language when accessed
+        tabContentViews.removeValue(forKey: currentTabIdentifier)
 
         // Recreate and add the current tab view with new language
         let newView: NSView
@@ -307,9 +325,9 @@ class SettingsWindowController: NSWindowController, NSWindowDelegate {
 
         guard let view = newView else { return }
 
-        // Remove old view
+        // Remove and dispose old view
         if let oldView = tabContentViews[currentTabIdentifier] {
-            oldView.removeFromSuperview()
+            disposeTabView(oldView)
         }
 
         // Add new view

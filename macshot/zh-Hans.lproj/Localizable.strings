@@ -72,7 +72,7 @@
 "Marker" = "荧光笔";
 "Text" = "文字";
 "Number" = "编号";
-"Number / Counter" = "编号 / 计数器";
+"Number / Counter" = "编号";
 "Stamp / Emoji" = "表情";
 "Censor" = "马赛克";
 "Censor (Pixelate / Blur / Solid)" = "马赛克";
@@ -102,7 +102,7 @@
 "Remove Background" = "抠图";
 "Beautify" = "风格化";
 "Adjust" = "调色";
-"Adjust (Image Effects)" = "调色（图像效果）";
+"Adjust (Image Effects)" = "调色";
 "Invert Colors" = "反色";
 "Record" = "录制";
 "Record screen" = "录制屏幕";
