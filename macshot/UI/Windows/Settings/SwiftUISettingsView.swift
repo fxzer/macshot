@@ -35,6 +35,7 @@ struct SwiftUISettingsView: View {
                     AboutSettingsView()
                 }
             }
+            .padding(20)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Color(nsColor: .windowBackgroundColor))
 

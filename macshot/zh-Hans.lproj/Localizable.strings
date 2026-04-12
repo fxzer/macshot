@@ -258,6 +258,13 @@
 "Right Toolbar Actions" = "右侧工具栏操作";
 "Hidden actions are removed from the right toolbar." = "隐藏的操作将从右侧工具栏中移除。";
 
+/* Tool Categories */
+"Drawing" = "画笔";
+"Shapes" = "形状";
+"Annotation" = "标注";
+"Effects" = "效果";
+"Other" = "其他";
+
 /* Preferences - Recording */
 "Frame rate:" = "帧率:";
 "After recording:" = "录制完成后:";
