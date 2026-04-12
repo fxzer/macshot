@@ -189,8 +189,8 @@ struct TabBarButton: View {
             // Dark mode: lighter gray for visibility
             return Color(red: 0.25, green: 0.25, blue: 0.25)
         } else {
-            // Light mode: subtle gray
-            return Color(red: 0.9, green: 0.9, blue: 0.9)
+            // Light mode: more visible gray for better contrast
+            return Color(red: 0.8, green: 0.8, blue: 0.8)
         }
     }
 }
