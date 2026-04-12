@@ -9,6 +9,7 @@ struct InterfaceSettingsView: View {
     // Appearance
     @State private var accentColor: Color
     @State private var iconColor: Color
+    @State private var bgColor: Color
 
     // Window
     @AppStorage("launchAtLogin") private var launchAtLogin = false
@@ -24,6 +25,7 @@ struct InterfaceSettingsView: View {
         _selectedLanguageIndex = State(initialValue: idx)
         _accentColor = State(initialValue: Color(nsColor: ToolbarLayout.accentColor))
         _iconColor = State(initialValue: Color(nsColor: ToolbarLayout.iconColor))
+        _bgColor = State(initialValue: Color(nsColor: ToolbarLayout.bgColor))
     }
 
     var body: some View {
@@ -46,21 +48,38 @@ struct InterfaceSettingsView: View {
 
             // MARK: - Appearance
             Section {
-                ColorPicker(L("Accent color"), selection: $accentColor, supportsOpacity: false)
-                    .onChange(of: accentColor) { newValue in
-                        ToolbarLayout.saveAccentColor(NSColor(newValue))
-                        NotificationCenter.default.post(name: .toolbarColorsDidChange, object: nil)
+                HStack {
+                    ColorPicker(L("Accent color"), selection: $accentColor, supportsOpacity: false)
+                        .onChange(of: accentColor) { newValue in
+                            ToolbarLayout.saveAccentColor(NSColor(newValue))
+                            postToolbarColorsDidChange()
+                        }
+                    Button(L("Reset")) {
+                        resetAccentColor()
                     }
-                ColorPicker(L("Icon color"), selection: $iconColor, supportsOpacity: false)
-                    .onChange(of: iconColor) { newValue in
-                        ToolbarLayout.saveIconColor(NSColor(newValue))
-                        NotificationCenter.default.post(name: .toolbarColorsDidChange, object: nil)
+                    .controlSize(.small)
+                }
+                HStack {
+                    ColorPicker(L("Icon color"), selection: $iconColor, supportsOpacity: false)
+                        .onChange(of: iconColor) { newValue in
+                            ToolbarLayout.saveIconColor(NSColor(newValue))
+                            postToolbarColorsDidChange()
+                        }
+                    Button(L("Reset")) {
+                        resetIconColor()
                     }
-                Button(L("Reset")) {
-                    ToolbarLayout.resetColors()
-                    accentColor = Color(nsColor: ToolbarLayout.defaultAccentColor)
-                    iconColor = Color(nsColor: ToolbarLayout.defaultIconColor)
-                    NotificationCenter.default.post(name: .toolbarColorsDidChange, object: nil)
+                    .controlSize(.small)
+                }
+                HStack {
+                    ColorPicker(L("Background color"), selection: $bgColor, supportsOpacity: true)
+                        .onChange(of: bgColor) { newValue in
+                            ToolbarLayout.saveBgColor(NSColor(newValue))
+                            postToolbarColorsDidChange()
+                        }
+                    Button(L("Reset")) {
+                        resetBackgroundColor()
+                    }
+                    .controlSize(.small)
                 }
             } header: {
                 Text(L("Appearance"))
@@ -79,15 +98,25 @@ struct InterfaceSettingsView: View {
                             #endif
                         }
                     }
-                settingWithDescription(
-                    title: L("Hide menu bar icon"),
-                    description: L("Hotkeys still work. To show the icon again, re-launch macshot.")
-                ) {
-                    Toggle("", isOn: $hideMenuBarIcon)
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text(L("Show menu bar icon"))
+                        Spacer()
+                        Toggle("", isOn: Binding(
+                            get: { !hideMenuBarIcon },
+                            set: { newValue in
+                                hideMenuBarIcon = !newValue
+                                (NSApp.delegate as? AppDelegate)?.setMenuBarIconVisible(newValue)
+                            }
+                        ))
                         .labelsHidden()
-                        .onChange(of: hideMenuBarIcon) { newValue in
-                            (NSApp.delegate as? AppDelegate)?.setMenuBarIconVisible(!newValue)
-                        }
+                    }
+
+                    if hideMenuBarIcon {
+                        Text(L("Hotkeys still work. To show the icon again, re-launch macshot."))
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
                 }
             } header: {
                 Text(L("Application"))
@@ -102,14 +131,41 @@ struct InterfaceSettingsView: View {
                 ) {
                     Toggle("", isOn: $betaUpdates).labelsHidden()
                 }
-                Button(L("Check for Updates Now")) {
-                    NSApp.sendAction(Selector(("checkForUpdates")), to: NSApp.delegate, from: nil)
-                }
             } header: {
-                Text(L("Updates"))
+                HStack {
+                    Text(L("Updates"))
+                    Spacer()
+                    Button(L("Check Now")) {
+                        NSApp.sendAction(Selector(("checkForUpdates")), to: NSApp.delegate, from: nil)
+                    }
+                    .buttonStyle(.link)
+                    .controlSize(.small)
+                }
             }
         }
         .formStyle(.grouped)
+    }
+
+    private func resetAccentColor() {
+        ToolbarLayout.saveAccentColor(ToolbarLayout.defaultAccentColor)
+        accentColor = Color(nsColor: ToolbarLayout.defaultAccentColor)
+        postToolbarColorsDidChange()
+    }
+
+    private func resetIconColor() {
+        ToolbarLayout.saveIconColor(ToolbarLayout.defaultIconColor)
+        iconColor = Color(nsColor: ToolbarLayout.defaultIconColor)
+        postToolbarColorsDidChange()
+    }
+
+    private func resetBackgroundColor() {
+        ToolbarLayout.saveBgColor(ToolbarLayout.defaultBgColor)
+        bgColor = Color(nsColor: ToolbarLayout.defaultBgColor)
+        postToolbarColorsDidChange()
+    }
+
+    private func postToolbarColorsDidChange() {
+        NotificationCenter.default.post(name: .toolbarColorsDidChange, object: nil)
     }
 
     @ViewBuilder

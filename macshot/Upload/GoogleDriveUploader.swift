@@ -537,7 +537,7 @@ final class GoogleDriveUploader: NSObject, ASWebAuthenticationPresentationContex
 
     private var tokenFileURL: URL {
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        let dir = appSupport.appendingPathComponent("com.sw33tlie.macshot")
+        let dir = appSupport.appendingPathComponent("com.fxzer.macshot")
         if !FileManager.default.fileExists(atPath: dir.path) {
             try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true,
                                                       attributes: [.posixPermissions: 0o700])

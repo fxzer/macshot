@@ -208,6 +208,121 @@ class RecordingHUDPanel: NSPanel {
     override var canBecomeKey: Bool { false }
 }
 
+final class RecordingStatusItemView: NSView {
+    static let preferredWidth: CGFloat = 94
+
+    var onStopRecording: (() -> Void)?
+    var onPauseRecording: (() -> Void)?
+    var onResumeRecording: (() -> Void)?
+
+    private let stopButton = NSButton()
+    private let pauseButton = NSButton()
+    private let recordDot = NSTextField(labelWithString: "●")
+    private let timeLabel = NSTextField(labelWithString: "00:00")
+    private(set) var isPaused = false
+
+    override var intrinsicContentSize: NSSize {
+        NSSize(width: Self.preferredWidth, height: 22)
+    }
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: NSRect(x: 0, y: 0, width: Self.preferredWidth, height: 22))
+        setupStopButton()
+        setupPauseButton()
+        setupTimeLabel()
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func layout() {
+        super.layout()
+
+        let buttonSize = NSSize(width: 16, height: 16)
+        stopButton.frame = NSRect(x: 4, y: (bounds.height - buttonSize.height) / 2, width: buttonSize.width, height: buttonSize.height)
+        pauseButton.frame = NSRect(x: stopButton.frame.maxX + 4, y: (bounds.height - buttonSize.height) / 2, width: buttonSize.width, height: buttonSize.height)
+
+        recordDot.sizeToFit()
+        recordDot.frame.origin = NSPoint(x: pauseButton.frame.maxX + 5, y: (bounds.height - recordDot.frame.height) / 2)
+
+        timeLabel.frame = NSRect(
+            x: recordDot.frame.maxX + 3,
+            y: (bounds.height - 14) / 2,
+            width: 34,
+            height: 14
+        )
+    }
+
+    func update(elapsedSeconds: Int) {
+        let mins = elapsedSeconds / 60
+        let secs = elapsedSeconds % 60
+        timeLabel.stringValue = String(format: "%02d:%02d", mins, secs)
+        needsLayout = true
+    }
+
+    func setPaused(_ paused: Bool) {
+        isPaused = paused
+        recordDot.textColor = paused ? .systemOrange : .systemRed
+        pauseButton.toolTip = paused ? L("Resume") : L("Pause")
+        updatePauseIcon()
+    }
+
+    private func setupStopButton() {
+        stopButton.isBordered = false
+        stopButton.imageScaling = .scaleProportionallyDown
+        stopButton.contentTintColor = .labelColor
+        stopButton.target = self
+        stopButton.action = #selector(stopClicked)
+        stopButton.toolTip = L("Stop Recording")
+        let cfg = NSImage.SymbolConfiguration(pointSize: 10, weight: .semibold)
+        stopButton.image = NSImage(systemSymbolName: "stop.fill", accessibilityDescription: nil)?
+            .withSymbolConfiguration(cfg)
+        addSubview(stopButton)
+    }
+
+    private func setupPauseButton() {
+        pauseButton.isBordered = false
+        pauseButton.imageScaling = .scaleProportionallyDown
+        pauseButton.contentTintColor = .labelColor
+        pauseButton.target = self
+        pauseButton.action = #selector(pauseClicked)
+        pauseButton.toolTip = L("Pause")
+        updatePauseIcon()
+        addSubview(pauseButton)
+    }
+
+    private func setupTimeLabel() {
+        recordDot.font = .systemFont(ofSize: 10, weight: .bold)
+        recordDot.textColor = .systemRed
+        addSubview(recordDot)
+
+        timeLabel.font = .monospacedDigitSystemFont(ofSize: 11, weight: .semibold)
+        timeLabel.textColor = .labelColor
+        timeLabel.alignment = .left
+        addSubview(timeLabel)
+    }
+
+    @objc private func stopClicked() {
+        onStopRecording?()
+    }
+
+    @objc private func pauseClicked() {
+        if isPaused {
+            onResumeRecording?()
+        } else {
+            onPauseRecording?()
+        }
+    }
+
+    private func updatePauseIcon() {
+        let name = isPaused ? "play.fill" : "pause.fill"
+        let cfg = NSImage.SymbolConfiguration(pointSize: 10, weight: .semibold)
+        pauseButton.image = NSImage(systemSymbolName: name, accessibilityDescription: nil)?
+            .withSymbolConfiguration(cfg)
+    }
+}
+
 // MARK: - Container view (drag handle + hover effects)
 
 private class HUDContainerView: NSView {

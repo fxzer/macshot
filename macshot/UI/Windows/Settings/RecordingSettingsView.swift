@@ -1,14 +1,30 @@
 import SwiftUI
 
+enum RecordingControlsMode: String {
+    case floatingHUD = "floatingHUD"
+    case menuBar = "menuBar"
+
+    static func resolved(raw: String?) -> RecordingControlsMode? {
+        guard let raw else { return nil }
+        return RecordingControlsMode(rawValue: raw)
+    }
+
+    static var current: RecordingControlsMode {
+        if let stored = resolved(raw: UserDefaults.standard.string(forKey: "recordingControlsMode")) {
+            return stored
+        }
+        return UserDefaults.standard.bool(forKey: "hideRecordingHUD") ? .menuBar : .floatingHUD
+    }
+}
+
 struct RecordingSettingsView: View {
 
-    // Output
+    // Quality
     @AppStorage("recordingFPS") private var recordingFPS = 30
-    @State private var recSavePath: String = SaveDirectoryAccess.recordingDisplayPath
 
     // Behavior
     @AppStorage("recordingOnStop") private var recordingOnStop = "editor"
-    @AppStorage("hideRecordingHUD") private var hideRecordingHUD = false
+    @AppStorage("recordingControlsMode") private var recordingControlsModeRaw = ""
 
     // Webcam
     @AppStorage("webcamPosition") private var webcamPosition = "bottomRight"
@@ -17,13 +33,13 @@ struct RecordingSettingsView: View {
 
     // Scroll Capture
     @AppStorage("scrollAutoScrollEnabled") private var scrollAutoScroll = false
-    @AppStorage("scrollAutoScrollSpeed") private var scrollSpeed = 3
-    @AppStorage("scrollMaxHeight") private var scrollMaxHeight = 30000
+    @AppStorage("scrollAutoScrollSpeed") private var scrollSpeed: Int = 3
+    @AppStorage("scrollMaxHeight") private var scrollMaxHeight: Int = 30000
     @AppStorage("scrollFrozenDetection") private var scrollFrozenDetection = true
 
     var body: some View {
         Form {
-            // MARK: - Output
+            // MARK: - Quality
             Section {
                 Picker(L("Frame rate"), selection: $recordingFPS) {
                     Text(L("15 fps")).tag(15)
@@ -32,23 +48,8 @@ struct RecordingSettingsView: View {
                     Text(L("60 fps")).tag(60)
                     Text(L("120 fps")).tag(120)
                 }
-                HStack {
-                    Text(L("Save folder"))
-                    Spacer()
-                    Text(recSavePath)
-                        .foregroundColor(.secondary)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                    Button(L("Browse…")) {
-                        browseRecSavePath()
-                    }
-                    Button(L("Clear")) {
-                        SaveDirectoryAccess.clearRecordingDirectory()
-                        recSavePath = SaveDirectoryAccess.recordingDisplayPath
-                    }
-                }
             } header: {
-                Text(L("Output"))
+                Text(L("Quality"))
             }
 
             // MARK: - Behavior
@@ -58,11 +59,12 @@ struct RecordingSettingsView: View {
                     Text(L("Show in Finder")).tag("finder")
                     Text(L("Copy to clipboard")).tag("clipboard")
                 }
-                settingWithDescription(
-                    title: L("Hide recording controls"),
-                    description: L("Stop recording from the menu bar icon instead.")
-                ) {
-                    Toggle("", isOn: $hideRecordingHUD).labelsHidden()
+                Picker(L("Recording controls"), selection: $recordingControlsModeRaw) {
+                    Text(L("Floating HUD")).tag(RecordingControlsMode.floatingHUD.rawValue)
+                    Text(L("Menu Bar")).tag(RecordingControlsMode.menuBar.rawValue)
+                }
+                .onChange(of: recordingControlsModeRaw) { newValue in
+                    syncLegacyControlsMode(rawValue: newValue)
                 }
             } header: {
                 Text(L("Behavior"))
@@ -100,53 +102,54 @@ struct RecordingSettingsView: View {
                         Text(L("Very fast")).tag(4)
                     }
                 }
-                HStack {
-                    Text("\(scrollMaxHeight) px")
-                        .foregroundColor(.secondary)
-                        .monospacedDigit()
-                    Spacer()
-                    Stepper(value: $scrollMaxHeight, in: 0...100000, step: 5000) {
-                        EmptyView()
-                    }
-                    .labelsHidden()
+                Picker(L("Max height"), selection: $scrollMaxHeight) {
+                    Text(L("Unlimited")).tag(0)
+                    Text("10,000 px").tag(10000)
+                    Text("30,000 px").tag(30000)
+                    Text("50,000 px").tag(50000)
+                    Text("100,000 px").tag(100000)
                 }
                 Toggle(L("Detect fixed/sticky headers"), isOn: $scrollFrozenDetection)
             } header: {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(L("Scroll Capture"))
-                    Text(L("Max height: 0 = unlimited"))
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                }
+                Text(L("Scroll Capture"))
             }
         }
         .formStyle(.grouped)
+        .onAppear(perform: normalizePickerSelections)
     }
 
-    private func browseRecSavePath() {
-        let panel = NSOpenPanel()
-        panel.canChooseDirectories = true
-        panel.canChooseFiles = false
-        panel.allowsMultipleSelection = false
-        panel.directoryURL = SaveDirectoryAccess.recordingDirectoryHint()
-        panel.begin { response in
-            guard response == .OK, let url = panel.url else { return }
-            SaveDirectoryAccess.saveRecordingDirectory(url: url)
-            recSavePath = url.path
-        }
+    private func normalizePickerSelections() {
+        recordingFPS = normalized(recordingFPS, allowed: [15, 24, 30, 60, 120], fallback: 30)
+        recordingOnStop = normalized(
+            recordingOnStop,
+            allowed: ["editor", "finder", "clipboard"],
+            fallback: "editor"
+        )
+        webcamPosition = normalized(
+            webcamPosition,
+            allowed: ["bottomRight", "bottomLeft", "topRight", "topLeft"],
+            fallback: "bottomRight"
+        )
+        webcamSize = normalized(webcamSize, allowed: ["small", "medium", "large"], fallback: "medium")
+        webcamShape = normalized(webcamShape, allowed: ["circle", "roundedRect"], fallback: "circle")
+        scrollSpeed = normalized(scrollSpeed, allowed: [1, 2, 3, 4], fallback: 3)
+        scrollMaxHeight = normalized(
+            scrollMaxHeight,
+            allowed: [0, 10000, 30000, 50000, 100000],
+            fallback: 30000
+        )
+
+        let normalizedControlsMode = RecordingControlsMode.resolved(raw: recordingControlsModeRaw) ?? .current
+        recordingControlsModeRaw = normalizedControlsMode.rawValue
+        syncLegacyControlsMode(rawValue: normalizedControlsMode.rawValue)
     }
 
-    @ViewBuilder
-    private func settingWithDescription<Content: View>(title: String, description: String, @ViewBuilder content: () -> Content) -> some View {
-        HStack(alignment: .center) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                Text(description)
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-            }
-            Spacer()
-            content()
-        }
+    private func normalized<T: Equatable>(_ value: T, allowed: [T], fallback: T) -> T {
+        allowed.contains(value) ? value : fallback
+    }
+
+    private func syncLegacyControlsMode(rawValue: String) {
+        let resolved = RecordingControlsMode.resolved(raw: rawValue) ?? .current
+        UserDefaults.standard.set(resolved == .menuBar, forKey: "hideRecordingHUD")
     }
 }

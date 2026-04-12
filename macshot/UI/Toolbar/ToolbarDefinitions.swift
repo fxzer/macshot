@@ -65,6 +65,7 @@ class ToolbarLayout {
     // Default theme colors (Flameshot purple style)
     static let defaultAccentColor = NSColor(calibratedRed: 0.55, green: 0.30, blue: 0.85, alpha: 1.0)
     static let defaultIconColor = NSColor.white
+    static let defaultBgColor = NSColor(white: 0.12, alpha: 1.0)
 
     // User-customizable colors — read from UserDefaults with defaults matching the original look
     static var accentColor: NSColor {
@@ -81,8 +82,14 @@ class ToolbarLayout {
         }
         return defaultIconColor
     }
+    static var bgColor: NSColor {
+        if let data = UserDefaults.standard.data(forKey: "toolbarBgColor"),
+           let color = try? NSKeyedUnarchiver.unarchivedObject(ofClass: NSColor.self, from: data) {
+            return color
+        }
+        return defaultBgColor
+    }
     static var handleColor: NSColor { accentColor }
-    static var bgColor = NSColor(white: 0.12, alpha: 1.0)
     static var selectedBg: NSColor { accentColor }
     static let buttonSize: CGFloat = 32
     static let buttonSpacing: CGFloat = 2
@@ -103,10 +110,18 @@ class ToolbarLayout {
         }
     }
 
-    /// Reset both colors to defaults.
+    /// Save background color to UserDefaults.
+    static func saveBgColor(_ color: NSColor) {
+        if let data = try? NSKeyedArchiver.archivedData(withRootObject: color, requiringSecureCoding: false) {
+            UserDefaults.standard.set(data, forKey: "toolbarBgColor")
+        }
+    }
+
+    /// Reset all colors to defaults.
     static func resetColors() {
         UserDefaults.standard.removeObject(forKey: "toolbarAccentColor")
         UserDefaults.standard.removeObject(forKey: "toolbarIconColor")
+        UserDefaults.standard.removeObject(forKey: "toolbarBgColor")
     }
 
     // Bottom toolbar items (drawing tools + colors + undo/redo + processing actions)

@@ -35,7 +35,6 @@ struct SwiftUISettingsView: View {
                     AboutSettingsView()
                 }
             }
-            .padding(20)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Color(nsColor: .windowBackgroundColor))
 
@@ -190,8 +189,8 @@ struct TabBarButton: View {
             // Dark mode: lighter gray for visibility
             return Color(red: 0.25, green: 0.25, blue: 0.25)
         } else {
-            // Light mode: more visible gray for better contrast
-            return Color(red: 0.8, green: 0.8, blue: 0.8)
+            // Light mode: subtle gray for better contrast
+            return Color(red: 0.85, green: 0.85, blue: 0.85)
         }
     }
 }
@@ -201,14 +200,14 @@ struct TabBarButton: View {
 struct SettingsFooter: View {
     var body: some View {
         HStack {
-            Text("\(L("Made by")) sw33tLie")
+            Text("\(L("Made by")) fxzer")
                 .font(.system(size: 11))
                 .foregroundColor(.secondary)
 
             Spacer()
 
             Button(action: { openGitHub() }) {
-                Text("github.com/sw33tLie/macshot")
+                Text("github.com/fxzer/macshot")
                     .font(.system(size: 11))
                     .foregroundColor(.blue)
             }
@@ -226,7 +225,7 @@ struct SettingsFooter: View {
     }
 
     private func openGitHub() {
-        if let url = URL(string: "https://github.com/sw33tLie/macshot") {
+        if let url = URL(string: "https://github.com/fxzer/macshot") {
             NSWorkspace.shared.open(url)
         }
     }

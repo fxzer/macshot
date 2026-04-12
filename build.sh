@@ -55,7 +55,7 @@ echo "   ✅ 已清理"
 
 # 3. 清理旧权限系统
 echo "📍 步骤 3/5: 清理旧权限系统..."
-if tccutil reset All com.sw33tlie.macshot.macshot >/dev/null 2>&1; then
+if tccutil reset All com.fxzer.macshot.macshot >/dev/null 2>&1; then
     echo "   ✅ 系统权限已清除"
 else
     echo "   ⚠️  权限清除失败（可能需要手动在系统设置中移除）"

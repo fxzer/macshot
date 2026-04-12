@@ -4,6 +4,7 @@ struct OutputSettingsView: View {
 
     // Save
     @State private var savePath: String = SaveDirectoryAccess.displayPath
+    @State private var recordingSavePath: String = SaveDirectoryAccess.recordingDisplayPath
     @AppStorage("imageFormat") private var imageFormat = "png"
     @AppStorage("imageQuality") private var imageQuality = 0.85
     @AppStorage("downscaleRetina") private var downscaleRetina = false
@@ -11,7 +12,6 @@ struct OutputSettingsView: View {
 
     // History
     @AppStorage("historySize") private var historySize = 10
-    @AppStorage("historyUnlimited") private var historyUnlimited = false
 
     // Translation
     @AppStorage("translationProvider") private var translationProvider = "google"
@@ -58,100 +58,107 @@ struct OutputSettingsView: View {
                 ) {
                     Toggle("", isOn: $embedColorProfile).labelsHidden()
                 }
+                Picker(L("History size"), selection: $historySize) {
+                    Text(L("Unlimited")).tag(999)
+                    Divider()
+                    Text("10").tag(10)
+                    Text("25").tag(25)
+                    Text("50").tag(50)
+                    Text("100").tag(100)
+                }
+                .onChange(of: historySize) { _ in
+                    ScreenshotHistory.shared.pruneToMax()
+                }
             } header: {
                 Text(L("Save"))
             }
 
-            // MARK: - History
+            // MARK: - Recording
             Section {
-                if !historyUnlimited {
-                    HStack {
-                        Text("\(historySize)")
-                            .foregroundColor(.secondary)
-                            .monospacedDigit()
-                        Spacer()
-                        Stepper(value: $historySize, in: 0...50) {
-                            EmptyView()
-                        }
-                        .labelsHidden()
+                HStack {
+                    Text(L("Save folder"))
+                    Spacer()
+                    Text(recordingSavePath)
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                    Button(L("Browse…")) {
+                        browseRecordingSavePath()
                     }
-                    .onChange(of: historySize) { _ in
-                        ScreenshotHistory.shared.pruneToMax()
+                    Button(L("Clear")) {
+                        SaveDirectoryAccess.clearRecordingDirectory()
+                        recordingSavePath = SaveDirectoryAccess.recordingDisplayPath
                     }
                 }
-                Toggle(L("Unlimited"), isOn: $historyUnlimited)
             } header: {
-                Text(L("History"))
-            } footer: {
-                if !historyUnlimited {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(L("History size"))
-                        Text(L("Set to 0 to disable history"))
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                    }
-                }
+                Text(L("Recording"))
             }
 
             // MARK: - Translation
             if TranslationService.appleTranslationAvailable {
                 Section {
-                    Picker(L("Engine"), selection: $translationProvider) {
-                        Text(L("Apple (on-device)")).tag("apple")
-                        Text(L("Google Translate")).tag("google")
-                    }
-                    .onChange(of: translationProvider) { newValue in
-                        TranslationService.provider = TranslationProvider(rawValue: newValue) ?? .google
-                    }
-
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(L("Apple (on-device)"))
-                            .font(.subheadline)
-                            .foregroundColor(.primary)
-                        Text(L("Apple translation is faster and works offline."))
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
+                        Picker(L("Engine"), selection: $translationProvider) {
+                            Text(L("Apple (on-device)")).tag("apple")
+                            Text(L("Google Translate")).tag("google")
+                        }
+                        .onChange(of: translationProvider) { newValue in
+                            TranslationService.provider = TranslationProvider(rawValue: newValue) ?? .google
+                        }
 
-                        Text(L("Google Translate"))
-                            .font(.subheadline)
-                            .foregroundColor(.primary)
-                            .padding(.top, 4)
-                        Text(L("Google Translate supports more languages."))
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                    }
-                    .padding(.top, 8)
-                    .padding(.bottom, 8)
-
-                    Button(L("Download language packs in System Settings…")) {
-                        if let url = URL(string: "x-apple.systempreferences:com.apple.Localization.Settings.extension?Translation") {
-                            NSWorkspace.shared.open(url)
+                        if translationProvider == "apple" {
+                            Text(L("Apple translation is faster and works offline."))
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        } else if translationProvider == "google" {
+                            Text(L("Google Translate supports more languages."))
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
                         }
                     }
-                    .foregroundColor(.accentColor)
+
+                    HStack {
+                        Text(L("Language packs"))
+                        Spacer()
+                        Button(L("Download")) {
+                            // Open System Settings > General > Language & Region
+                            if let url = URL(string: "x-apple.systempreferences:com.apple.Localization") {
+                                NSWorkspace.shared.open(url)
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.small)
+                    }
                 } header: {
                     Text(L("Translation"))
                 }
             }
         }
         .formStyle(.grouped)
+        .onAppear(perform: normalizePickerSelections)
     }
 
     private var qualityPercentString: String {
         "\(Int(round(imageQuality * 100)))%"
     }
 
-    private func browseSavePath() {
-        let panel = NSOpenPanel()
-        panel.canChooseDirectories = true
-        panel.canChooseFiles = false
-        panel.allowsMultipleSelection = false
-        panel.directoryURL = SaveDirectoryAccess.directoryHint()
-        panel.begin { response in
-            guard response == .OK, let url = panel.url else { return }
-            SaveDirectoryAccess.save(url: url)
-            savePath = url.path
+    private func normalizePickerSelections() {
+        imageFormat = normalized(imageFormat, allowed: ["png", "jpeg", "heic", "webp"], fallback: "png")
+        historySize = normalized(historySize, allowed: [999, 10, 25, 50, 100], fallback: 10)
+
+        if TranslationService.appleTranslationAvailable {
+            translationProvider = normalized(
+                translationProvider,
+                allowed: ["apple", "google"],
+                fallback: "google"
+            )
+        } else {
+            translationProvider = "google"
         }
+    }
+
+    private func normalized<T: Equatable>(_ value: T, allowed: [T], fallback: T) -> T {
+        allowed.contains(value) ? value : fallback
     }
 
     @ViewBuilder
@@ -167,4 +174,32 @@ struct OutputSettingsView: View {
             content()
         }
     }
+
+
+    private func browseSavePath() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.directoryURL = SaveDirectoryAccess.directoryHint()
+        panel.begin { response in
+            guard response == .OK, let url = panel.url else { return }
+            SaveDirectoryAccess.save(url: url)
+            savePath = url.path
+        }
+    }
+
+    private func browseRecordingSavePath() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.directoryURL = SaveDirectoryAccess.recordingDirectoryHint()
+        panel.begin { response in
+            guard response == .OK, let url = panel.url else { return }
+            SaveDirectoryAccess.saveRecordingDirectory(url: url)
+            recordingSavePath = url.path
+        }
+    }
+
 }

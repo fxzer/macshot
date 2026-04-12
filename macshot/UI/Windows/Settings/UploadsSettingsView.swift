@@ -141,6 +141,7 @@ struct UploadsSettingsView: View {
         }
         .formStyle(.grouped)
         .onAppear {
+            normalizePickerSelections()
             refreshGDriveStatus()
             loadUploads()
         }
@@ -174,6 +175,14 @@ struct UploadsSettingsView: View {
     private func refreshGDriveStatus() {
         gdriveSignedIn = GoogleDriveUploader.shared.isSignedIn
         gdriveEmail = GoogleDriveUploader.shared.userEmail ?? ""
+    }
+
+    private func normalizePickerSelections() {
+        uploadProvider = normalized(uploadProvider, allowed: ["imgbb", "gdrive", "s3"], fallback: "imgbb")
+    }
+
+    private func normalized<T: Equatable>(_ value: T, allowed: [T], fallback: T) -> T {
+        allowed.contains(value) ? value : fallback
     }
 
     private func gdriveSignInAction() {

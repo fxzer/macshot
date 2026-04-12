@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/sw33tLie/macshot/releases/latest">Download</a> · <a href="https://github.com/sw33tLie/macshot/blob/main/CHANGELOG.md">Changelog</a> · <a href="https://github.com/sw33tLie/macshot/blob/main/PRIVACY.md">Privacy</a>
+  <a href="https://github.com/fxzer/macshot/releases/latest">Download</a> · <a href="https://github.com/fxzer/macshot/blob/main/CHANGELOG.md">Changelog</a> · <a href="https://github.com/fxzer/macshot/blob/main/PRIVACY.md">Privacy</a>
 </p>
 
 <p align="center">
@@ -34,10 +34,10 @@
 
 **Homebrew:**
 ```bash
-brew install sw33tlie/macshot/macshot
+brew install fxzer/macshot/macshot
 ```
 
-**Manual:** Download the latest `.dmg` from [Releases](https://github.com/sw33tLie/macshot/releases), open it, drag to `/Applications`.
+**Manual:** Download the latest `.dmg` from [Releases](https://github.com/fxzer/macshot/releases), open it, drag to `/Applications`.
 
 ---
 
@@ -186,7 +186,7 @@ macshot requires **Screen Recording** permission. macOS will prompt you on first
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=sw33tLie/macshot&type=Date)](https://star-history.com/#sw33tLie/macshot&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=fxzer/macshot&type=Date)](https://star-history.com/#fxzer/macshot&Date)
 
 ## Requirements
 

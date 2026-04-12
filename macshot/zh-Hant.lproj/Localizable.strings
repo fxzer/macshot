@@ -197,6 +197,7 @@
 "Capture mouse cursor in screenshot" = "在螢幕截圖中擷取滑鼠游標";
 "Use window title in saved filename" = "在儲存的檔案名稱中使用視窗標題";
 "Hide menu bar icon" = "隱藏選單列圖像";
+"Show menu bar icon" = "顯示選單列圖像";
 "Hotkeys still work. To show the icon again, re-launch macshot." = "快捷鍵仍可使用。若要再次顯示圖像，請重新啟動 macshot。";
 "Check for updates automatically" = "自動檢查更新";
 "Check for beta updates" = "檢查測試版更新";
@@ -452,6 +453,10 @@
 "Hide controls" = "隱藏控制";
 "Hide recording controls" = "隱藏錄製控制";
 "Stop recording from the menu bar icon instead." = "改為從選單列圖像停止錄製。";
+"Controls:" = "控制：";
+"Recording controls" = "錄製控制";
+"Floating HUD" = "懸浮窗";
+"Menu Bar" = "選單列";
 "Pixelate" = "馬賽克";
 "Blur" = "模糊";
 "Solid" = "填色";
@@ -551,3 +556,4 @@
 "Works with AWS S3, Cloudflare R2, MinIO, DigitalOcean Spaces, Backblaze B2, and other S3-compatible services." = "適用於 AWS S3、Cloudflare R2、MinIO、DigitalOcean Spaces、Backblaze B2 及其他 S3 相容服務。";
 "Include pre-release versions in update checks." = "更新檢查時包含預發佈版本。";
 "Check for Updates Now" = "立即檢查更新";
+"Check Now" = "立即檢查";

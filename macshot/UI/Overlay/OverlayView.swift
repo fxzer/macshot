@@ -708,7 +708,7 @@ class OverlayView: NSView {
     var sessionRecordingFPS: Int?
     var sessionRecordingOnStop: String?
     var sessionRecordingDelay: Int?
-    var sessionHideRecordingHUD: Bool?
+    var sessionRecordingControlsMode: String?
 
     // Scroll capture state
     var isScrollCapturing: Bool = false
@@ -7952,7 +7952,7 @@ class OverlayView: NSView {
 
     // MARK: - Annotation Copy/Paste
 
-    private static let annotationPasteboardType = NSPasteboard.PasteboardType("com.sw33tlie.macshot.annotations")
+    private static let annotationPasteboardType = NSPasteboard.PasteboardType("com.fxzer.macshot.annotations")
 
     /// Copy selected annotations to the pasteboard.
     func copySelectedAnnotations() {

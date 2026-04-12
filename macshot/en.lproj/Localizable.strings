@@ -213,6 +213,7 @@
 "Capture mouse cursor in screenshot" = "Capture mouse cursor in screenshot";
 "Use window title in saved filename" = "Use window title in saved filename";
 "Hide menu bar icon" = "Hide menu bar icon";
+"Show menu bar icon" = "Show menu bar icon";
 "Hotkeys still work. To show the icon again, re-launch macshot." = "Hotkeys still work. To show the icon again, re-launch macshot.";
 "Check for updates automatically" = "Check for updates automatically";
 "Check for beta updates" = "Check for beta updates";
@@ -451,6 +452,10 @@
 "Hide controls" = "Hide controls";
 "Hide recording controls" = "Hide recording controls";
 "Stop recording from the menu bar icon instead." = "Stop recording from the menu bar icon instead.";
+"Controls:" = "Controls:";
+"Recording controls" = "Recording controls";
+"Floating HUD" = "Floating HUD";
+"Menu Bar" = "Menu Bar";
 "Pixelate" = "Pixelate";
 "Blur" = "Blur";
 "Solid" = "Solid";
@@ -526,11 +531,16 @@
 "Secret Key" = "Secret Key";
 "Shape" = "Shape";
 "When done" = "When done";
+"Keep" = "Keep";
+"screenshots" = "screenshots";
 
 // New settings strings
 "Auto-dismiss: 0 = never" = "Auto-dismiss: 0 = never";
 "Click to record shortcut. Esc to cancel, ⌫ to clear. Right-click to reset." = "Click to record shortcut. Esc to cancel, ⌫ to clear. Right-click to reset.";
 "Confirm before uploading" = "Confirm before uploading";
+"Auto-dismiss after" = "Auto-dismiss after";
+"later" = "later";
+"Never" = "Never";
 "Dismiss after" = "Dismiss after";
 "Google Drive Configuration" = "Google Drive Configuration";
 "imgbb Configuration" = "imgbb Configuration";
@@ -540,6 +550,8 @@
 "Preview size" = "Preview size";
 "S3-Compatible" = "S3-Compatible";
 "seconds" = "seconds";
+"minute" = "minute";
+"minutes" = "minutes";
 "Set to 0 to disable history" = "Set to 0 to disable history";
 "Type shortcut…" = "Type shortcut…";
 "Updates" = "Updates";
@@ -548,3 +560,4 @@
 "Works with AWS S3, Cloudflare R2, MinIO, DigitalOcean Spaces, Backblaze B2, and other S3-compatible services." = "Works with AWS S3, Cloudflare R2, MinIO, DigitalOcean Spaces, Backblaze B2, and other S3-compatible services.";
 "Include pre-release versions in update checks." = "Include pre-release versions in update checks.";
 "Check for Updates Now" = "Check for Updates Now";
+"Check Now" = "Check Now";

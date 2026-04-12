@@ -33,16 +33,15 @@ class ScreenshotHistory {
     private let indexFile: URL
 
     var maxEntries: Int {
-        if UserDefaults.standard.bool(forKey: "historyUnlimited") { return Int.max }
         if let stored = UserDefaults.standard.object(forKey: "historySize") as? Int {
-            return stored
+            return stored == 999 ? Int.max : stored
         }
         return 10  // default
     }
 
     private init() {
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        historyDir = appSupport.appendingPathComponent("com.sw33tlie.macshot/history")
+        historyDir = appSupport.appendingPathComponent("com.fxzer.macshot/history")
         indexFile = historyDir.appendingPathComponent("index.json")
 
         // Create directory with 0700 permissions (owner only)

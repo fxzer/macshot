@@ -1163,7 +1163,7 @@
 
 ### Added
 - **Image format setting**: Choose between PNG (lossless, default) and JPEG with adjustable quality slider (10–100%) in Preferences. Applies to clipboard copy, file save, quick save, and screenshot history.
-- **Disk-based screenshot history**: Recent captures are now stored as files in `~/Library/Application Support/com.sw33tlie.macshot/history/` instead of in memory. Zero RAM overhead, persists across restarts, and directory is created with owner-only permissions (0700).
+- **Disk-based screenshot history**: Recent captures are now stored as files in `~/Library/Application Support/com.fxzer.macshot/history/` instead of in memory. Zero RAM overhead, persists across restarts, and directory is created with owner-only permissions (0700).
 
 ## [1.2.7] - 2026-03-11
 
@@ -1276,7 +1276,7 @@
 ### Changed
 - Removed the size display toolbar button (replaced by the always-visible pixel dimensions label above the selection)
 - Preferences window now includes toggles for capture sound and floating thumbnail
-- Added "Made by sw33tLie" attribution with GitHub link in Preferences
+- Added "Made by fxzer" attribution with GitHub link in Preferences
 
 ## [1.0.0] - 2026-03-11
 

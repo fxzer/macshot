@@ -28,6 +28,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     private var audioMergeController: AudioMergeController?
     private var recordingOverlayController: OverlayWindowController?
     private var recordingHUDPanel: RecordingHUDPanel?
+    private var recordingStatusItemView: RecordingStatusItemView?
     private var recordingScreenRect: NSRect = .zero  // screen-space capture rect
     private var recordingScreen: NSScreen?
     private var mouseHighlightOverlay: MouseHighlightOverlay?
@@ -49,12 +50,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
 
     func applicationDidFinishLaunching(_ aNotification: Notification) {
         // Prevent multiple instances — if already running, activate the existing one and quit
-        let bundleID = Bundle.main.bundleIdentifier ?? "com.sw33tlie.macshot.macshot"
+        let bundleID = Bundle.main.bundleIdentifier ?? "com.fxzer.macshot.macshot"
         let running = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID)
         if running.count > 1 {
             // Tell the existing instance to show its icon and open Settings
             DistributedNotificationCenter.default().postNotificationName(
-                .init("com.sw33tlie.macshot.showAndOpenPrefs"),
+                .init("com.fxzer.macshot.showAndOpenPrefs"),
                 object: nil, userInfo: nil, deliverImmediately: true
             )
             NSApp.terminate(nil)
@@ -84,7 +85,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         // Listen for duplicate-launch notification to restore icon
         DistributedNotificationCenter.default().addObserver(
             self, selector: #selector(handleShowAndOpenPrefs),
-            name: .init("com.sw33tlie.macshot.showAndOpenPrefs"), object: nil
+            name: .init("com.fxzer.macshot.showAndOpenPrefs"), object: nil
         )
 
         // Dismiss overlays when the user switches spaces
@@ -1248,7 +1249,9 @@ extension AppDelegate: OverlayWindowControllerDelegate {
         let fpsOverride = controller.sessionRecordingFPS
         let onStopOverride = controller.sessionRecordingOnStop
         let delayOverride = controller.sessionRecordingDelay
-        let hideHUD = controller.sessionHideRecordingHUD ?? UserDefaults.standard.bool(forKey: "hideRecordingHUD")
+        let controlsMode =
+            RecordingControlsMode.resolved(raw: controller.sessionRecordingControlsMode)
+            ?? RecordingControlsMode.current
 
         // Detach webcam preview before dismissing overlays so we can reuse the live session
         let existingWebcam = controller.detachWebcamPreview()
@@ -1269,20 +1272,22 @@ extension AppDelegate: OverlayWindowControllerDelegate {
                 existingWebcam?.close()
                 self.startRecordingCountdown(seconds: delay, rect: rect, screen: screen,
                                         fpsOverride: fpsOverride,
-                                        onStopOverride: onStopOverride)
+                                        onStopOverride: onStopOverride,
+                                        controlsMode: controlsMode)
             } else {
                 self.beginRecording(rect: rect, screen: screen,
                                fpsOverride: fpsOverride,
                                onStopOverride: onStopOverride,
                                existingWebcam: existingWebcam,
-                               hideHUD: hideHUD)
+                               controlsMode: controlsMode)
             }
         }
     }
 
     private func startRecordingCountdown(seconds: Int, rect: NSRect, screen: NSScreen,
                                           fpsOverride: Int?,
-                                          onStopOverride: String?) {
+                                          onStopOverride: String?,
+                                          controlsMode: RecordingControlsMode) {
         let size = NSSize(width: 140, height: 140)
         let origin = NSPoint(
             x: rect.midX - size.width / 2,
@@ -1335,7 +1340,8 @@ extension AppDelegate: OverlayWindowControllerDelegate {
                 self?.removeDelayEscMonitors()
                 self?.beginRecording(rect: rect, screen: screen,
                                      fpsOverride: fpsOverride,
-                                     onStopOverride: onStopOverride)
+                                     onStopOverride: onStopOverride,
+                                     controlsMode: controlsMode)
             } else {
                 countdownView.remaining = remaining
                 countdownView.needsDisplay = true
@@ -1357,7 +1363,7 @@ extension AppDelegate: OverlayWindowControllerDelegate {
                                  fpsOverride: Int?,
                                  onStopOverride: String?,
                                  existingWebcam: WebcamOverlay? = nil,
-                                 hideHUD: Bool = false) {
+                                 controlsMode: RecordingControlsMode = .floatingHUD) {
         let engine = RecordingEngine()
         engine.onProgress = { [weak self] seconds in
             self?.updateRecordingHUD(seconds: seconds)
@@ -1411,7 +1417,7 @@ extension AppDelegate: OverlayWindowControllerDelegate {
         border.orderFrontRegardless()
         selectionBorderOverlay = border
 
-        if !hideHUD {
+        if controlsMode == .floatingHUD {
             // Show the floating timer HUD
             let hud = RecordingHUDPanel()
             hud.update(elapsedSeconds: 0)
@@ -1427,10 +1433,11 @@ extension AppDelegate: OverlayWindowControllerDelegate {
             }
             hud.orderFrontRegardless()
             recordingHUDPanel = hud
+        }
 
-            engine.onPauseChanged = { [weak self] paused in
-                self?.recordingHUDPanel?.setPaused(paused)
-            }
+        engine.onPauseChanged = { [weak self] paused in
+            self?.recordingHUDPanel?.setPaused(paused)
+            self?.recordingStatusItemView?.setPaused(paused)
         }
 
         // Start mouse highlight overlay if enabled (requires Input Monitoring permission)
@@ -1476,7 +1483,7 @@ extension AppDelegate: OverlayWindowControllerDelegate {
         }
 
         // Turn menu bar icon into a stop button (ensure it's visible even if user hid it)
-        enterRecordingMenuBarMode()
+        enterRecordingMenuBarMode(controlsMode: controlsMode)
 
         // Collect window IDs of UI chrome to exclude from the recording
         // (selection border + HUD). Webcam, mouse highlight, and keystroke
@@ -1507,28 +1514,36 @@ extension AppDelegate: OverlayWindowControllerDelegate {
 
     private func updateRecordingHUD(seconds: Int) {
         recordingHUDPanel?.update(elapsedSeconds: seconds)
+        recordingStatusItemView?.update(elapsedSeconds: seconds)
         if let screen = recordingScreen, !(recordingHUDPanel?.userHasDragged ?? false) {
             recordingHUDPanel?.positionOnScreen(relativeTo: recordingScreenRect, screen: screen)
         }
     }
 
-    private func enterRecordingMenuBarMode() {
+    private func enterRecordingMenuBarMode(controlsMode: RecordingControlsMode) {
         menuBarIconWasHidden = UserDefaults.standard.bool(forKey: "hideMenuBarIcon")
         if menuBarIconWasHidden {
             setMenuBarIconVisible(true)
         }
-        // Replace menu with a single stop action, change icon to stop symbol
-        if let button = statusItem.button {
+        removeRecordingStatusItemView()
+
+        if controlsMode == .menuBar {
+            installRecordingStatusItemView()
+        } else if let button = statusItem.button {
+            statusItem.length = NSStatusItem.variableLength
+            button.title = ""
             button.image = NSImage(systemSymbolName: "stop.circle.fill", accessibilityDescription: "Stop Recording")
             button.image?.isTemplate = true
             button.image?.size = NSSize(width: 22, height: 22)
+            button.target = self
+            button.action = #selector(stopRecording)
         }
         statusItem.menu = nil
-        statusItem.button?.target = self
-        statusItem.button?.action = #selector(stopRecording)
     }
 
     private func exitRecordingMenuBarMode() {
+        removeRecordingStatusItemView()
+        statusItem.length = NSStatusItem.variableLength
         applyNormalStatusBarIcon()
         rebuildStatusBarMenu()
 
@@ -1537,6 +1552,44 @@ extension AppDelegate: OverlayWindowControllerDelegate {
             setMenuBarIconVisible(false)
             menuBarIconWasHidden = false
         }
+    }
+
+    private func installRecordingStatusItemView() {
+        guard let button = statusItem.button else { return }
+
+        let controlsView = RecordingStatusItemView(frame: .zero)
+        controlsView.translatesAutoresizingMaskIntoConstraints = false
+        controlsView.update(elapsedSeconds: 0)
+        controlsView.onStopRecording = { [weak self] in
+            self?.stopRecording()
+        }
+        controlsView.onPauseRecording = { [weak self] in
+            self?.recordingEngine?.pauseRecording()
+        }
+        controlsView.onResumeRecording = { [weak self] in
+            self?.recordingEngine?.resumeRecording()
+        }
+
+        button.image = nil
+        button.title = ""
+        button.target = nil
+        button.action = nil
+
+        statusItem.length = RecordingStatusItemView.preferredWidth + 6
+        button.addSubview(controlsView)
+        NSLayoutConstraint.activate([
+            controlsView.leadingAnchor.constraint(equalTo: button.leadingAnchor, constant: 3),
+            controlsView.trailingAnchor.constraint(equalTo: button.trailingAnchor, constant: -3),
+            controlsView.centerYAnchor.constraint(equalTo: button.centerYAnchor),
+            controlsView.heightAnchor.constraint(equalToConstant: controlsView.intrinsicContentSize.height),
+        ])
+
+        recordingStatusItemView = controlsView
+    }
+
+    private func removeRecordingStatusItemView() {
+        recordingStatusItemView?.removeFromSuperview()
+        recordingStatusItemView = nil
     }
 
     private func copyRecordingToClipboard(url: URL) {

@@ -5,35 +5,36 @@ struct ToolsSettingsView: View {
     @State private var enabledTools: Set<Int>
     @State private var enabledActions: Set<Int>
 
-    // 画笔 Drawing
+    // 画笔 Drawing - 按工具栏顺序：Pencil, Line, Arrow, Marker
     private let drawingTools: [(tag: Int, label: String)] = [
         (AnnotationTool.pencil.rawValue, L("Pencil")),
+        (AnnotationTool.line.rawValue, L("Line")),
+        (AnnotationTool.arrow.rawValue, L("Arrow")),
         (AnnotationTool.marker.rawValue, L("Marker")),
     ]
 
-    // 形状 Shapes
+    // 形状 Shapes - 按工具栏顺序：Rectangle, Ellipse, Pixelate, Loupe
     private let shapeTools: [(tag: Int, label: String)] = [
-        (AnnotationTool.line.rawValue, L("Line")),
-        (AnnotationTool.arrow.rawValue, L("Arrow")),
         (AnnotationTool.rectangle.rawValue, L("Rectangle")),
         (AnnotationTool.ellipse.rawValue, L("Ellipse")),
-    ]
-
-    // 标注 Annotation
-    private let annotationTools: [(tag: Int, label: String)] = [
-        (AnnotationTool.text.rawValue, L("Text")),
-        (AnnotationTool.number.rawValue, L("Number")),
-        (AnnotationTool.stamp.rawValue, L("Stamp")),
-        (AnnotationTool.colorSampler.rawValue, L("Color Picker")),
-        (AnnotationTool.measure.rawValue, L("Measure")),
-    ]
-
-    // 效果 Effects
-    private let effectTools: [(tag: Int, label: String)] = [
         (AnnotationTool.pixelate.rawValue, L("Pixelate")),
         (AnnotationTool.loupe.rawValue, L("Loupe")),
     ]
 
+    // 标注 Annotation - 按工具栏顺序：Text, Number, Stamp, Measure
+    private let annotationTools: [(tag: Int, label: String)] = [
+        (AnnotationTool.text.rawValue, L("Text")),
+        (AnnotationTool.number.rawValue, L("Number")),
+        (AnnotationTool.stamp.rawValue, L("Stamp")),
+        (AnnotationTool.measure.rawValue, L("Measure")),
+    ]
+
+    // 颜色 Color
+    private let colorTools: [(tag: Int, label: String)] = [
+        (AnnotationTool.colorSampler.rawValue, L("Color Picker")),
+    ]
+
+    // 效果 Effects
     private let effectActions: [(tag: Int, label: String)] = [
         (1011, L("Invert Colors")),
         (1013, L("Adjust")),
@@ -99,11 +100,17 @@ struct ToolsSettingsView: View {
                 Text(L("Annotation"))
             }
 
-            // MARK: - Effect Tools (效果工具)
+            // MARK: - Color Tools (颜色)
             Section {
-                ForEach(effectTools, id: \.tag) { item in
+                ForEach(colorTools, id: \.tag) { item in
                     toggleRow(item: item, enabled: $enabledTools, key: "enabledTools")
                 }
+            } header: {
+                Text(L("Color"))
+            }
+
+            // MARK: - Effect Tools (效果)
+            Section {
                 ForEach(effectActions, id: \.tag) { item in
                     toggleRow(item: item, enabled: $enabledActions, key: "enabledActions")
                 }

@@ -40,12 +40,12 @@ struct AboutSettingsView: View {
             Spacer().frame(height: 12)
 
             // Author
-            Text("\(L("Made by")) sw33tLie")
+            Text("\(L("Made by")) fxzer")
                 .font(.subheadline.weight(.medium))
                 .foregroundColor(.secondary)
 
             // GitHub link
-            Link("github.com/sw33tLie/macshot", destination: URL(string: "https://github.com/sw33tLie/macshot")!)
+            Link("github.com/fxzer/macshot", destination: URL(string: "https://github.com/fxzer/macshot")!)
                 .font(.subheadline)
 
             Spacer().frame(height: 4)

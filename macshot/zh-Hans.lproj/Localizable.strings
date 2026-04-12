@@ -107,6 +107,7 @@
 "Record" = "录制";
 "Record screen" = "录制屏幕";
 "Translate" = "翻译";
+"Auto-Redact" = "自动遮蔽";
 "Auto-Redact sensitive data" = "自动遮蔽敏感数据";
 "Move Selection" = "移动选区";
 
@@ -191,6 +192,8 @@
 "Uploads" = "上传";
 "Language" = "语言";
 "Language:" = "语言:";
+"Language packs" = "语言包";
+"Download" = "下载";
 "Changes take effect immediately." = "更改立即生效。";
 "Capture" = "捕获";
 "Quick Actions" = "快速操作";
@@ -198,12 +201,13 @@
 "Play sound on copy" = "拷贝时播放声音";
 "Remember last selection area" = "记住上次选择区域";
 "Remember last selected tool" = "记住上次选择的工具";
-"Show floating thumbnail after capture" = "捕获后显示浮动缩略图";
+"Show floating thumbnail after capture" = "捕获后显示";
 "Launch at login" = "登录时启动";
 "Show snap alignment guides" = "显示对齐辅助线";
 "Capture mouse cursor in screenshot" = "在截图中捕获鼠标指针";
 "Use window title in saved filename" = "在保存文件名中使用窗口标题";
 "Hide menu bar icon" = "隐藏菜单栏图标";
+"Show menu bar icon" = "显示菜单栏图标";
 "Hotkeys still work. To show the icon again, re-launch macshot." = "快捷键仍可使用。若要再次显示图标，请重新启动 macshot。";
 "Check for updates automatically" = "自动检查更新";
 "Check for beta updates" = "检查测试版更新";
@@ -250,6 +254,7 @@
 
 /* Preferences - Tools */
 "Annotation Tools" = "标注工具";
+"Hidden tools are removed from the toolbar." = "隐藏的工具将从工具栏中移除。";
 "Hidden tools are removed from the bottom toolbar." = "隐藏的工具将从底部工具栏中移除。";
 "Capture Actions" = "捕获操作";
 "Bottom Toolbar Actions" = "底部工具栏操作";
@@ -467,6 +472,10 @@
 "Hide controls" = "隐藏控制";
 "Hide recording controls" = "隐藏录制控制";
 "Stop recording from the menu bar icon instead." = "改为从菜单栏图标停止录制。";
+"Controls:" = "控件:";
+"Recording controls" = "录制控件";
+"Floating HUD" = "悬浮窗";
+"Menu Bar" = "菜单栏";
 "Pixelate" = "像素化";
 "Blur" = "模糊";
 "Solid" = "纯色";
@@ -477,7 +486,7 @@
 "In-App Shortcuts" = "应用内快捷键";
 "Set" = "设置";
 "Press..." = "按下...";
-"Reset to default" = "恢复默认";
+"Reset to default" = "重置";
 "Press a single key to assign it as the shortcut for that tool. These work when the overlay or editor is active." = "按下一个键将其指定为该工具的快捷键。这些快捷键在覆盖层或编辑器激活时有效。";
 "Keep Separate" = "保持分离";
 "Merge Audio" = "合并音频";
@@ -531,6 +540,7 @@
 "Frame rate" = "帧率";
 "History size" = "历史数量";
 "Icon color" = "图标颜色";
+"Background color" = "背景颜色";
 "Image format" = "图片格式";
 "Max height" = "最大高度";
 "OCR Capture" = "OCR 捕获";
@@ -539,16 +549,21 @@
 "Public URL" = "公共 URL";
 "Quality" = "质量";
 "Region" = "区域";
-"Save folder" = "存储文件夹";
+"Save folder" = "存储位置";
 "Scroll speed" = "滚动速度";
 "Secret Key" = "私有密钥";
 "Shape" = "形状";
 "When done" = "完成后";
+"Keep" = "保留";
+"screenshots" = "个截图";
 
 // New settings strings
 "Auto-dismiss: 0 = never" = "自动关闭：0 = 永不";
 "Click to record shortcut. Esc to cancel, ⌫ to clear. Right-click to reset." = "点击录制快捷键。Esc 取消，⌫ 清除。右键点击可重置。";
 "Confirm before uploading" = "上传前确认";
+"Auto-dismiss after" = "自动关闭";
+"later" = "后";
+"Never" = "永不";
 "Dismiss after" = "自动关闭";
 "Google Drive Configuration" = "Google Drive 配置";
 "imgbb Configuration" = "imgbb 配置";
@@ -559,6 +574,8 @@
 "Preview size" = "预览大小";
 "S3-Compatible" = "S3 兼容";
 "seconds" = "秒";
+"minute" = "分钟";
+"minutes" = "分钟";
 "Set to 0 to disable history" = "设为 0 以禁用历史记录";
 "Type shortcut…" = "输入快捷键…";
 "Updates" = "更新";
@@ -567,3 +584,4 @@
 "Works with AWS S3, Cloudflare R2, MinIO, DigitalOcean Spaces, Backblaze B2, and other S3-compatible services." = "适用于 AWS S3、Cloudflare R2、MinIO、DigitalOcean Spaces、Backblaze B2 及其他 S3 兼容服务。";
 "Include pre-release versions in update checks." = "更新检查时包含预发布版本。";
 "Check for Updates Now" = "立即检查更新";
+"Check Now" = "立即检查";

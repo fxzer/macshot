@@ -3,9 +3,9 @@ import SwiftUI
 struct CaptureSettingsView: View {
 
     // Quick Actions
-    @AppStorage("quickCaptureMode") private var quickCaptureMode = 1
+    @AppStorage("quickCaptureMode") private var quickCaptureMode: Int = 1
     @AppStorage("quickCaptureOpenEditor") private var quickCaptureOpenEditor = false
-    @AppStorage("ocrAction") private var ocrAction = 0
+    @AppStorage("ocrAction") private var ocrAction: Int = 0
 
     // Capture Options
     @AppStorage("playCopySound") private var playCopySound = true
@@ -17,7 +17,7 @@ struct CaptureSettingsView: View {
 
     // Thumbnail
     @AppStorage("showFloatingThumbnail") private var showFloatingThumbnail = true
-    @AppStorage("thumbnailAutoDismiss") private var thumbnailAutoDismiss = 5
+    @AppStorage("thumbnailAutoDismiss") private var thumbnailAutoDismiss: Int = 5
     @AppStorage("thumbnailStacking") private var thumbnailStacking = true
     @AppStorage("thumbnailScale") private var thumbnailScale = 1.0
 
@@ -62,13 +62,17 @@ struct CaptureSettingsView: View {
             // MARK: - Thumbnail
             Section {
                 Toggle(L("Show floating thumbnail after capture"), isOn: $showFloatingThumbnail)
-                Stepper(value: $thumbnailAutoDismiss, in: 0...60) {
-                    HStack {
-                        Text(L("Dismiss after"))
-                        Spacer()
-                        Text("\(thumbnailAutoDismiss) \(L("seconds"))")
-                            .foregroundColor(.secondary)
-                    }
+                Picker(L("Auto-dismiss after"), selection: $thumbnailAutoDismiss) {
+                    Text(L("Never")).tag(0)
+                    Text("5 " + L("seconds")).tag(5)
+                    Text("10 " + L("seconds")).tag(10)
+                    Text("15 " + L("seconds")).tag(15)
+                    Text("30 " + L("seconds")).tag(30)
+                    Text("45 " + L("seconds")).tag(45)
+                    Text("1 " + L("minute")).tag(60)
+                    Text("2 " + L("minutes")).tag(120)
+                    Text("5 " + L("minutes")).tag(300)
+                    Text("10 " + L("minutes")).tag(600)
                 }
                 Picker(L("Multiple previews"), selection: $thumbnailStacking) {
                     Text(L("Stack (keep all)")).tag(true)
@@ -78,7 +82,7 @@ struct CaptureSettingsView: View {
                     Text(L("Preview size"))
                     Spacer()
                     Slider(value: $thumbnailScale, in: 0.5...2.0, step: 0.1)
-                        .frame(width: 240)
+                        .frame(width: 300)
                     Text(scalePercentString)
                         .foregroundColor(.secondary)
                         .monospacedDigit()
@@ -86,15 +90,28 @@ struct CaptureSettingsView: View {
                 }
             } header: {
                 Text(L("Thumbnail"))
-            } footer: {
-                Text(L("Auto-dismiss: 0 = never"))
             }
         }
         .formStyle(.grouped)
+        .onAppear(perform: normalizePickerSelections)
     }
 
     private var scalePercentString: String {
         "\(Int(round(thumbnailScale * 100)))%"
+    }
+
+    private func normalizePickerSelections() {
+        quickCaptureMode = normalized(quickCaptureMode, allowed: [0, 1, 2, 3], fallback: 1)
+        ocrAction = normalized(ocrAction, allowed: [0, 1, 2], fallback: 0)
+        thumbnailAutoDismiss = normalized(
+            thumbnailAutoDismiss,
+            allowed: [0, 5, 10, 15, 30, 45, 60, 120, 300, 600],
+            fallback: 5
+        )
+    }
+
+    private func normalized<T: Equatable>(_ value: T, allowed: [T], fallback: T) -> T {
+        allowed.contains(value) ? value : fallback
     }
 
     @ViewBuilder

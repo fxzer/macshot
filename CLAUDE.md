@@ -7,7 +7,7 @@ Native macOS screenshot & annotation tool inspired by Flameshot. Built with Swif
 - **Language:** Swift 5.0
 - **UI:** AppKit (all windows created in code, storyboard is minimal — just app entry + main menu)
 - **Min Target:** macOS 12.3+ (Monterey)
-- **Bundle ID:** com.sw33tlie.macshot.macshot
+- **Bundle ID:** com.fxzer.macshot.macshot
 - **Sandbox:** Enabled (entitlements: network.client, files.user-selected.read-write, files.bookmarks.app-scope)
 - **LSUIElement:** YES (menu bar only app, no dock icon — switches to `.regular` when editor windows are open)
 - **Permissions:** Screen Recording (Info.plist has Privacy - Screen Capture Usage Description)
@@ -331,7 +331,7 @@ Beta users opt in via Preferences > "Check for beta updates". This sets `allowed
 ### Appcast safety
 
 - CI validates the generated appcast XML with `python3 ET.parse()` before committing. If invalid, the build fails and the broken XML never reaches users.
-- Appcast is served from `https://raw.githubusercontent.com/sw33tLie/macshot/main/appcast.xml` (CDN-cached, ~5 min TTL).
+- Appcast is served from `https://raw.githubusercontent.com/fxzer/macshot/main/appcast.xml` (CDN-cached, ~5 min TTL).
 - Stable item extraction uses `python3 xml.etree.ElementTree` with `ET.register_namespace('sparkle', ...)` to preserve the `sparkle:` prefix.
 
 ### Manual trigger (fallback)

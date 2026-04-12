@@ -18,9 +18,9 @@ macshot is a free, open-source screenshot and screen recording tool for macOS. I
 macshot stores the following data locally on your Mac:
 
 - **Screenshots and recordings** — saved to your chosen folder (default: Pictures).
-- **Screenshot history** — recent captures stored in `~/Library/Application Support/com.sw33tlie.macshot/history/`. You control the history size in Preferences (set to 0 to disable).
+- **Screenshot history** — recent captures stored in `~/Library/Application Support/com.fxzer.macshot/history/`. You control the history size in Preferences (set to 0 to disable).
 - **Preferences** — settings stored in macOS UserDefaults.
-- **Google Drive OAuth tokens** — if you sign in to Google Drive, authentication tokens are stored in `~/Library/Application Support/com.sw33tlie.macshot/gdrive_tokens.json` with owner-only permissions (0600). Tokens are used solely to upload files to your own Google Drive. You can sign out at any time in Preferences, which deletes the token file.
+- **Google Drive OAuth tokens** — if you sign in to Google Drive, authentication tokens are stored in `~/Library/Application Support/com.fxzer.macshot/gdrive_tokens.json` with owner-only permissions (0600). Tokens are used solely to upload files to your own Google Drive. You can sign out at any time in Preferences, which deletes the token file.
 
 ## Third-party services
 
@@ -40,7 +40,7 @@ macshot integrates with the following optional third-party services. Use of thes
 
 ### Sparkle (auto-updates)
 - **Purpose:** Check for and install macshot updates.
-- **Data sent:** A request to `https://raw.githubusercontent.com/sw33tLie/macshot/main/appcast.xml` to check for new versions. No personal data is included in the request.
+- **Data sent:** A request to `https://raw.githubusercontent.com/fxzer/macshot/main/appcast.xml` to check for new versions. No personal data is included in the request.
 
 ## Permissions
 
@@ -48,8 +48,8 @@ macshot requests **Screen Recording** permission from macOS. This permission is 
 
 ## Open source
 
-macshot is fully open source. You can inspect the complete source code at [https://github.com/sw33tLie/macshot](https://github.com/sw33tLie/macshot) to verify these claims.
+macshot is fully open source. You can inspect the complete source code at [https://github.com/fxzer/macshot](https://github.com/fxzer/macshot) to verify these claims.
 
 ## Contact
 
-If you have questions about this privacy policy, open an issue at [https://github.com/sw33tLie/macshot/issues](https://github.com/sw33tLie/macshot/issues).
+If you have questions about this privacy policy, open an issue at [https://github.com/fxzer/macshot/issues](https://github.com/fxzer/macshot/issues).
