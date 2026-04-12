@@ -42,8 +42,6 @@ struct InterfaceSettingsView: View {
                 }
             } header: {
                 Text(L("Language"))
-            } footer: {
-                Text(L("Changes take effect immediately."))
             }
 
             // MARK: - Appearance
