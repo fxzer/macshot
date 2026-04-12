@@ -121,7 +121,7 @@
 /* Tool Options */
 "Size" = "大小";
 "Stroke" = "描边";
-"Radius" = "半径";
+"Radius" = "圆角";
 "Start:" = "起始:";
 "Draw:" = "绘制:";
 "Auto:" = "自动:";
