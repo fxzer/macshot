@@ -496,3 +496,29 @@
 "Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private — nothing is shared publicly." = "A fájlok a Google Drive-on lévő \"macshot\" mappába töltődnek fel. Minden privát marad — semmi nem kerül nyilvános megosztásra.";
 
 "Pressure" = "Nyomás";
+
+// Settings (colon-free aliases)
+"Accent color" = "Kiemelőszín";
+"Access Key" = "Hozzáférési kulcs";
+"Account" = "Fiók";
+"API key" = "API kulcs";
+"Bucket" = "Tároló";
+"Endpoint" = "Végpont";
+"Engine" = "Motor";
+"Enter / Quick Capture" = "Enter / Gyors rögzítés";
+"Frame rate" = "Képkockaszám";
+"History size" = "Előzmények mérete";
+"Icon color" = "Ikon szín";
+"Image format" = "Képformátum";
+"Max height" = "Max magasság";
+"OCR Capture" = "OCR rögzítés";
+"Path Prefix" = "Útvonal előtag";
+"Position" = "Pozíció";
+"Public URL" = "Nyilvános URL";
+"Quality" = "Minőség";
+"Region" = "Régió";
+"Save folder" = "Mentési mappa";
+"Scroll speed" = "Görgetési sebesség";
+"Secret Key" = "Titkos kulcs";
+"Shape" = "Alakzat";
+"When done" = "Befejezéskor";

@@ -498,3 +498,29 @@
 "Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private — nothing is shared publicly." = "Tiedostot ladataan \"macshot\"-kansioon Google Drivessasi. Kaikki pysyy yksityisenä — mitään ei jaeta julkisesti.";
 
 "Pressure" = "Paine";
+
+// Settings (colon-free aliases)
+"Accent color" = "Korostusväri";
+"Access Key" = "Kayttoavain";
+"Account" = "Tili";
+"API key" = "API-avain";
+"Bucket" = "Sailio";
+"Endpoint" = "Paatepiste";
+"Engine" = "Moottori";
+"Enter / Quick Capture" = "Enter / Pikakaappaus";
+"Frame rate" = "Kuvataajuus";
+"History size" = "Historian koko";
+"Icon color" = "Kuvakkeen väri";
+"Image format" = "Kuvamuoto";
+"Max height" = "Enimmäiskorkeus";
+"OCR Capture" = "OCR-kaappaus";
+"Path Prefix" = "Polun etuliite";
+"Position" = "Sijainti";
+"Public URL" = "Julkinen URL";
+"Quality" = "Laatu";
+"Region" = "Alue";
+"Save folder" = "Tallennuskansio";
+"Scroll speed" = "Vieritysnopeus";
+"Secret Key" = "Salainen avain";
+"Shape" = "Muoto";
+"When done" = "Kun valmis";

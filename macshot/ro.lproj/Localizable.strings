@@ -496,3 +496,29 @@
 "Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private — nothing is shared publicly." = "Fișierele sunt încărcate într-un folder \"macshot\" din Google Drive-ul tău. Totul rămâne privat — nimic nu este distribuit public.";
 
 "Pressure" = "Presiune";
+
+// Settings (colon-free aliases)
+"Accent color" = "Culoare accent";
+"Access Key" = "Cheie de acces";
+"Account" = "Cont";
+"API key" = "Cheie API";
+"Bucket" = "Bucket";
+"Endpoint" = "Endpoint";
+"Engine" = "Motor";
+"Enter / Quick Capture" = "Enter / Captura rapida";
+"Frame rate" = "Rata de cadre";
+"History size" = "Dimensiune istoric";
+"Icon color" = "Culoare pictograma";
+"Image format" = "Format imagine";
+"Max height" = "Inaltime maxima";
+"OCR Capture" = "Captura OCR";
+"Path Prefix" = "Prefix cale";
+"Position" = "Pozitie";
+"Public URL" = "URL public";
+"Quality" = "Calitate";
+"Region" = "Regiune";
+"Save folder" = "Dosar de salvare";
+"Scroll speed" = "Viteza de derulare";
+"Secret Key" = "Cheie secreta";
+"Shape" = "Forma";
+"When done" = "La finalizare";

@@ -496,3 +496,29 @@
 "Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private — nothing is shared publicly." = "Datoteke se učitavaju u mapu \"macshot\" na vašem Google Disku. Sve ostaje privatno — ništa se ne dijeli javno.";
 
 "Pressure" = "Pritisak";
+
+// Settings (colon-free aliases)
+"Accent color" = "Naglasna boja";
+"Access Key" = "Pristupni kljuc";
+"Account" = "Racun";
+"API key" = "API kljuc";
+"Bucket" = "Spremnik";
+"Endpoint" = "Krajnja tocka";
+"Engine" = "Pokretac";
+"Enter / Quick Capture" = "Enter / Brzo snimanje";
+"Frame rate" = "Broj sli. u sek.";
+"History size" = "Velicina povijesti";
+"Icon color" = "Boja ikone";
+"Image format" = "Format slike";
+"Max height" = "Maks. visina";
+"OCR Capture" = "OCR snimanje";
+"Path Prefix" = "Prefiks putanje";
+"Position" = "Pozicija";
+"Public URL" = "Javni URL";
+"Quality" = "Kvaliteta";
+"Region" = "Regija";
+"Save folder" = "Mapa za spremanje";
+"Scroll speed" = "Brzina pomicanja";
+"Secret Key" = "Tajni kljuc";
+"Shape" = "Oblik";
+"When done" = "Po zavrsetku";

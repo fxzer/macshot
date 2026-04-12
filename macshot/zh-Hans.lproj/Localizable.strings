@@ -508,3 +508,52 @@
 "Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private — nothing is shared publicly." = "文件将上传到您 Google Drive 中的\"macshot\"文件夹。所有内容均保持私密——不会公开共享任何内容。";
 
 "Pressure" = "压感";
+
+// Settings (colon-free aliases)
+"Accent color" = "强调色";
+"Access Key" = "访问密钥";
+"Account" = "账户";
+"API key" = "API 密钥";
+"Bucket" = "存储桶";
+"Endpoint" = "端点";
+"Engine" = "引擎";
+"Enter / Quick Capture" = "回车 / 快速捕获";
+"Frame rate" = "帧率";
+"History size" = "历史数量";
+"Icon color" = "图标颜色";
+"Image format" = "图片格式";
+"Max height" = "最大高度";
+"OCR Capture" = "OCR 捕获";
+"Path Prefix" = "路径前缀";
+"Position" = "位置";
+"Public URL" = "公共 URL";
+"Quality" = "质量";
+"Region" = "区域";
+"Save folder" = "存储文件夹";
+"Scroll speed" = "滚动速度";
+"Secret Key" = "私有密钥";
+"Shape" = "形状";
+"When done" = "完成后";
+
+// New settings strings
+"Auto-dismiss: 0 = never" = "自动关闭：0 = 永不";
+"Click to record shortcut. Esc to cancel, ⌫ to clear. Right-click to reset." = "点击录制快捷键。Esc 取消，⌫ 清除。右键点击可重置。";
+"Confirm before uploading" = "上传前确认";
+"Dismiss after" = "自动关闭";
+"Google Drive Configuration" = "Google Drive 配置";
+"imgbb Configuration" = "imgbb 配置";
+"Max height: 0 = unlimited" = "最大高度：0 = 不限制";
+"Multiple previews" = "多个预览";
+"Play sound on capture" = "截图时播放声音";
+"Press a single key to assign. These work when the overlay or editor is active." = "按单个键即可分配。这些快捷键在覆盖层或编辑器激活时生效。";
+"Preview size" = "预览大小";
+"S3-Compatible" = "S3 兼容";
+"seconds" = "秒";
+"Set to 0 to disable history" = "设为 0 以禁用历史记录";
+"Type shortcut…" = "输入快捷键…";
+"Updates" = "更新";
+"Upload provider" = "上传服务商";
+"When snapping to a window, its title is used in the filename." = "吸附窗口时，文件名将使用该窗口的标题。";
+"Works with AWS S3, Cloudflare R2, MinIO, DigitalOcean Spaces, Backblaze B2, and other S3-compatible services." = "适用于 AWS S3、Cloudflare R2、MinIO、DigitalOcean Spaces、Backblaze B2 及其他 S3 兼容服务。";
+"Include pre-release versions in update checks." = "更新检查时包含预发布版本。";
+"Check for Updates Now" = "立即检查更新";

@@ -498,3 +498,29 @@
 "Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private — nothing is shared publicly." = "ফাইলগুলি আপনার Google Drive-এর \"macshot\" ফোল্ডারে আপলোড করা হয়। সব কিছু ব্যক্তিগত থাকে — কিছুই প্রকাশ্যে শেয়ার করা হয় না।";
 
 "Pressure" = "চাপ";
+
+// Settings (colon-free aliases)
+"Accent color" = "অ্যাক্সেন্ট রং";
+"Access Key" = "অ্যাক্সেস কী";
+"Account" = "অ্যাকাউন্ট";
+"API key" = "API কী";
+"Bucket" = "বাকেট";
+"Endpoint" = "এন্ডপয়েন্ট";
+"Engine" = "ইঞ্জিন";
+"Enter / Quick Capture" = "Enter / দ্রুত ক্যাপচার";
+"Frame rate" = "ফ্রেম রেট";
+"History size" = "ইতিহাসের আকার";
+"Icon color" = "আইকন রং";
+"Image format" = "ছবির ফরম্যাট";
+"Max height" = "সর্বোচ্চ উচ্চতা";
+"OCR Capture" = "OCR ক্যাপচার";
+"Path Prefix" = "পাথ প্রিফিক্স";
+"Position" = "অবস্থান";
+"Public URL" = "পাবলিক URL";
+"Quality" = "গুণমান";
+"Region" = "অঞ্চল";
+"Save folder" = "সংরক্ষণ ফোল্ডার";
+"Scroll speed" = "স্ক্রল গতি";
+"Secret Key" = "সিক্রেট কী";
+"Shape" = "আকৃতি";
+"When done" = "শেষ হলে";

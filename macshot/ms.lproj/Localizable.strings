@@ -498,3 +498,29 @@
 "Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private — nothing is shared publicly." = "Fail dimuat naik ke folder \"macshot\" dalam Google Drive anda. Semua maklumat kekal peribadi — tiada apa yang dikongsi secara awam.";
 
 "Pressure" = "Tekanan";
+
+// Settings (colon-free aliases)
+"Accent color" = "Warna aksen";
+"Access Key" = "Kunci Akses";
+"Account" = "Akaun";
+"API key" = "Kunci API";
+"Bucket" = "Bucket";
+"Endpoint" = "Endpoint";
+"Engine" = "Enjin";
+"Enter / Quick Capture" = "Enter / Tangkapan Pantas";
+"Frame rate" = "Kadar bingkai";
+"History size" = "Saiz sejarah";
+"Icon color" = "Warna ikon";
+"Image format" = "Format imej";
+"Max height" = "Tinggi maks";
+"OCR Capture" = "Tangkapan OCR";
+"Path Prefix" = "Awalan Laluan";
+"Position" = "Kedudukan";
+"Public URL" = "URL Awam";
+"Quality" = "Kualiti";
+"Region" = "Rantau";
+"Save folder" = "Folder simpan";
+"Scroll speed" = "Kelajuan tatal";
+"Secret Key" = "Kunci Rahsia";
+"Shape" = "Bentuk";
+"When done" = "Apabila selesai";

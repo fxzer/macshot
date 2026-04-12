@@ -498,3 +498,29 @@
 "Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private — nothing is shared publicly." = "Dosyalar, Google Drive'ınızdaki \"macshot\" klasörüne yüklenir. Her şey gizli kalır — hiçbir şey herkesle paylaşılmaz.";
 
 "Pressure" = "Basınç";
+
+// Settings (colon-free aliases)
+"Accent color" = "Vurgu rengi";
+"Access Key" = "Erişim Anahtarı";
+"Account" = "Hesap";
+"API key" = "API anahtarı";
+"Bucket" = "Kova";
+"Endpoint" = "Uç Nokta";
+"Engine" = "Motor";
+"Enter / Quick Capture" = "Enter / Hızlı Yakalama";
+"Frame rate" = "Kare hızı";
+"History size" = "Geçmiş boyutu";
+"Icon color" = "Simge rengi";
+"Image format" = "Görsel biçimi";
+"Max height" = "Maks. yükseklik";
+"OCR Capture" = "OCR Yakalama";
+"Path Prefix" = "Yol Ön Eki";
+"Position" = "Konum";
+"Public URL" = "Genel URL";
+"Quality" = "Kalite";
+"Region" = "Bölge";
+"Save folder" = "Kayıt klasörü";
+"Scroll speed" = "Kaydırma hızı";
+"Secret Key" = "Gizli Anahtar";
+"Shape" = "Şekil";
+"When done" = "Tamamlandığında";

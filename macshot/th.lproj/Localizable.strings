@@ -496,3 +496,29 @@
 "Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private — nothing is shared publicly." = "ไฟล์จะถูกอัปโหลดไปยังโฟลเดอร์ \"macshot\" ใน Google Drive ของคุณ ทุกอย่างเป็นส่วนตัว — ไม่มีการแชร์สาธารณะ";
 
 "Pressure" = "แรงกด";
+
+// Settings (colon-free aliases)
+"Accent color" = "สีเน้น";
+"Access Key" = "Access Key";
+"Account" = "บัญชี";
+"API key" = "API key";
+"Bucket" = "Bucket";
+"Endpoint" = "Endpoint";
+"Engine" = "เครื่องมือ";
+"Enter / Quick Capture" = "Enter / จับภาพด่วน";
+"Frame rate" = "อัตราเฟรม";
+"History size" = "ขนาดประวัติ";
+"Icon color" = "สีไอคอน";
+"Image format" = "รูปแบบภาพ";
+"Max height" = "ความสูงสูงสุด";
+"OCR Capture" = "การจับภาพ OCR";
+"Path Prefix" = "Path Prefix";
+"Position" = "ตำแหน่ง";
+"Public URL" = "Public URL";
+"Quality" = "คุณภาพ";
+"Region" = "ภูมิภาค";
+"Save folder" = "โฟลเดอร์บันทึก";
+"Scroll speed" = "ความเร็วเลื่อน";
+"Secret Key" = "Secret Key";
+"Shape" = "รูปร่าง";
+"When done" = "เมื่อเสร็จ";

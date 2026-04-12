@@ -496,3 +496,29 @@
 "Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private — nothing is shared publicly." = "Các tệp được tải lên thư mục \"macshot\" trong Google Drive của bạn. Mọi thứ đều được giữ bí mật — không có gì được chia sẻ công khai.";
 
 "Pressure" = "Lực nhấn";
+
+// Settings (colon-free aliases)
+"Accent color" = "Màu nhấn";
+"Access Key" = "Khóa truy cập";
+"Account" = "Tài khoản";
+"API key" = "Khóa API";
+"Bucket" = "Bucket";
+"Endpoint" = "Endpoint";
+"Engine" = "Công cụ";
+"Enter / Quick Capture" = "Enter / Chụp nhanh";
+"Frame rate" = "Tốc độ khung hình";
+"History size" = "Dung lượng lịch sử";
+"Icon color" = "Màu biểu tượng";
+"Image format" = "Định dạng ảnh";
+"Max height" = "Chiều cao tối đa";
+"OCR Capture" = "Chụp OCR";
+"Path Prefix" = "Tiền tố đường dẫn";
+"Position" = "Vị trí";
+"Public URL" = "URL công khai";
+"Quality" = "Chất lượng";
+"Region" = "Vùng";
+"Save folder" = "Thư mục lưu";
+"Scroll speed" = "Tốc độ cuộn";
+"Secret Key" = "Khóa bí mật";
+"Shape" = "Hình dạng";
+"When done" = "Khi xong";

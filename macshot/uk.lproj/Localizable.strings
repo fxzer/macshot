@@ -496,3 +496,29 @@
 "Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private — nothing is shared publicly." = "Файли завантажуються до папки \"macshot\" на вашому Google Диску. Все залишається приватним — нічого не публікується у відкритому доступі.";
 
 "Pressure" = "Тиск";
+
+// Settings (colon-free aliases)
+"Accent color" = "Колір акценту";
+"Access Key" = "Ключ доступу";
+"Account" = "Обліковий запис";
+"API key" = "API-ключ";
+"Bucket" = "Бакет";
+"Endpoint" = "Адреса";
+"Engine" = "Рушій";
+"Enter / Quick Capture" = "Enter / Швидке захоплення";
+"Frame rate" = "Частота кадрів";
+"History size" = "Розмір історії";
+"Icon color" = "Колір іконки";
+"Image format" = "Формат зображення";
+"Max height" = "Макс. висота";
+"OCR Capture" = "Захоплення OCR";
+"Path Prefix" = "Префікс шляху";
+"Position" = "Позиція";
+"Public URL" = "Публічна URL-адреса";
+"Quality" = "Якість";
+"Region" = "Регіон";
+"Save folder" = "Тека збереження";
+"Scroll speed" = "Швидкість прокрутки";
+"Secret Key" = "Секретний ключ";
+"Shape" = "Форма";
+"When done" = "Після завершення";

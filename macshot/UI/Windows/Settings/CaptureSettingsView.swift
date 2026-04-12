@@ -76,8 +76,9 @@ struct CaptureSettingsView: View {
                 }
                 HStack {
                     Text(L("Preview size"))
+                    Spacer()
                     Slider(value: $thumbnailScale, in: 0.5...2.0, step: 0.1)
-                        .frame(maxWidth: 160)
+                        .frame(width: 160)
                     Text(scalePercentString)
                         .foregroundColor(.secondary)
                         .monospacedDigit()

@@ -498,3 +498,29 @@
 "Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private — nothing is shared publicly." = "கோப்புகள் உங்கள் Google Drive-ல் உள்ள \"macshot\" கோப்புறையில் பதிவேற்றப்படும். அனைத்தும் தனிப்பட்டதாக இருக்கும் — எதுவும் பொதுவில் பகிரப்படாது.";
 
 "Pressure" = "அழுத்தம்";
+
+// Settings (colon-free aliases)
+"Accent color" = "முதன்மை நிறம்";
+"Access Key" = "அணுகல் விசை";
+"Account" = "கணக்கு";
+"API key" = "API விசை";
+"Bucket" = "பக்கெட்";
+"Endpoint" = "முனைப்புள்ளி";
+"Engine" = "இயந்திரம்";
+"Enter / Quick Capture" = "Enter / விரைவு பிடிப்பு";
+"Frame rate" = "பிரேம் வீதம்";
+"History size" = "வரலாற்று அளவு";
+"Icon color" = "ஐகான் நிறம்";
+"Image format" = "பட வடிவம்";
+"Max height" = "அதிகபட்ச உயரம்";
+"OCR Capture" = "OCR பிடிப்பு";
+"Path Prefix" = "பாதை முன்னொட்டு";
+"Position" = "நிலை";
+"Public URL" = "பொது URL";
+"Quality" = "தரம்";
+"Region" = "பிராந்தியம்";
+"Save folder" = "சேமிப்பு கோப்புறை";
+"Scroll speed" = "உருள் வேகம்";
+"Secret Key" = "ரகசிய விசை";
+"Shape" = "வடிவம்";
+"When done" = "முடிந்ததும்";

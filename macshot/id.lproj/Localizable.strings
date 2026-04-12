@@ -496,3 +496,29 @@
 "Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private — nothing is shared publicly." = "File diunggah ke folder \"macshot\" di Google Drive Anda. Semuanya tetap privat — tidak ada yang dibagikan secara publik.";
 
 "Pressure" = "Tekanan";
+
+// Settings (colon-free aliases)
+"Accent color" = "Warna aksen";
+"Access Key" = "Access Key";
+"Account" = "Akun";
+"API key" = "Kunci API";
+"Bucket" = "Bucket";
+"Endpoint" = "Endpoint";
+"Engine" = "Mesin";
+"Enter / Quick Capture" = "Enter / Tangkap Cepat";
+"Frame rate" = "Laju bingkai";
+"History size" = "Ukuran riwayat";
+"Icon color" = "Warna ikon";
+"Image format" = "Format gambar";
+"Max height" = "Tinggi maks";
+"OCR Capture" = "Tangkapan OCR";
+"Path Prefix" = "Prefiks Path";
+"Position" = "Posisi";
+"Public URL" = "URL Publik";
+"Quality" = "Kualitas";
+"Region" = "Region";
+"Save folder" = "Folder simpan";
+"Scroll speed" = "Kecepatan gulir";
+"Secret Key" = "Secret Key";
+"Shape" = "Bentuk";
+"When done" = "Setelah selesai";

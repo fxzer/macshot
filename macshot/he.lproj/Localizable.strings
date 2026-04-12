@@ -498,3 +498,29 @@
 "Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private — nothing is shared publicly." = "הקבצים מועלים לתיקייה \"macshot\" ב-Google Drive שלך. הכל נשאר פרטי — שום דבר אינו משותף באופן ציבורי.";
 
 "Pressure" = "לחץ";
+
+// Settings (colon-free aliases)
+"Accent color" = "צבע הדגשה";
+"Access Key" = "מפתח גישה";
+"Account" = "חשבון";
+"API key" = "מפתח API";
+"Bucket" = "Bucket";
+"Endpoint" = "כתובת שרת";
+"Engine" = "מנוע";
+"Enter / Quick Capture" = "Enter / לכידה מהירה";
+"Frame rate" = "קצב פריימים";
+"History size" = "גודל היסטוריה";
+"Icon color" = "צבע סמל";
+"Image format" = "פורמט תמונה";
+"Max height" = "גובה מקסימלי";
+"OCR Capture" = "לכידת OCR";
+"Path Prefix" = "קידומת נתיב";
+"Position" = "מיקום";
+"Public URL" = "כתובת URL ציבורית";
+"Quality" = "איכות";
+"Region" = "אזור";
+"Save folder" = "תיקיית שמירה";
+"Scroll speed" = "מהירות גלילה";
+"Secret Key" = "מפתח סודי";
+"Shape" = "צורה";
+"When done" = "בסיום";

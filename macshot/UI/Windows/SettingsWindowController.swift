@@ -58,7 +58,7 @@ class SettingsWindowController: NSWindowController, NSWindowDelegate {
 
         // Create tab bar with icons (all use outline style)
         let tabs = [
-            TabBarView.TabItem(identifier: "interface", title: L("Interface"), iconName: "rectangle.3.group"),
+            TabBarView.TabItem(identifier: "interface", title: L("General"), iconName: "rectangle.3.group"),
             TabBarView.TabItem(identifier: "capture", title: L("Capture"), iconName: "camera"),
             TabBarView.TabItem(identifier: "output", title: L("Output"), iconName: "arrow.down.doc"),
             TabBarView.TabItem(identifier: "shortcuts", title: L("Shortcuts"), iconName: "command"),
@@ -215,7 +215,7 @@ class SettingsWindowController: NSWindowController, NSWindowDelegate {
         guard let tabBar = tabBarView else { return }
 
         let tabs: [TabBarView.TabItem] = [
-            TabBarView.TabItem(identifier: "interface", title: L("Interface"), iconName: "rectangle.3.group"),
+            TabBarView.TabItem(identifier: "interface", title: L("General"), iconName: "rectangle.3.group"),
             TabBarView.TabItem(identifier: "capture", title: L("Capture"), iconName: "camera"),
             TabBarView.TabItem(identifier: "output", title: L("Output"), iconName: "arrow.down.doc"),
             TabBarView.TabItem(identifier: "shortcuts", title: L("Shortcuts"), iconName: "command"),

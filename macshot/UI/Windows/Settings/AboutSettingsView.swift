@@ -2,9 +2,6 @@ import SwiftUI
 
 struct AboutSettingsView: View {
 
-    @AppStorage("SUEnableAutomaticChecks") private var autoUpdate = true
-    @AppStorage("betaUpdatesEnabled") private var betaUpdates = false
-
     private var version: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
     }
@@ -58,18 +55,7 @@ struct AboutSettingsView: View {
                 .font(.caption)
                 .foregroundColor(.secondary)
 
-            Spacer().frame(height: 12)
-
-            // Updates section - use Form for card style
-            Form {
-                Section {
-                    Toggle(L("Check for updates automatically"), isOn: $autoUpdate)
-                    Toggle(L("Check for beta updates"), isOn: $betaUpdates)
-                } header: {
-                    Text(L("Updates"))
-                }
-            }
-            .formStyle(.grouped)
+            Spacer()
         }
         .frame(maxWidth: .infinity)
     }

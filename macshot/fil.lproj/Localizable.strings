@@ -498,3 +498,29 @@
 "Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private — nothing is shared publicly." = "Ina-upload ang mga file sa isang \"macshot\" na folder sa iyong Google Drive. Nananatiling pribado ang lahat — walang ibinabahagi nang publiko.";
 
 "Pressure" = "Pressure";
+
+// Settings (colon-free aliases)
+"Accent color" = "Kulay ng accent";
+"Access Key" = "Access Key";
+"Account" = "Account";
+"API key" = "API key";
+"Bucket" = "Bucket";
+"Endpoint" = "Endpoint";
+"Engine" = "Engine";
+"Enter / Quick Capture" = "Enter / Mabilisang Pagkuha";
+"Frame rate" = "Frame rate";
+"History size" = "Laki ng kasaysayan";
+"Icon color" = "Kulay ng icon";
+"Image format" = "Format ng larawan";
+"Max height" = "Pinakamataas na taas";
+"OCR Capture" = "OCR Capture";
+"Path Prefix" = "Path Prefix";
+"Position" = "Posisyon";
+"Public URL" = "Public URL";
+"Quality" = "Kalidad";
+"Region" = "Rehiyon";
+"Save folder" = "Folder na pag-save-an";
+"Scroll speed" = "Bilis ng scroll";
+"Secret Key" = "Secret Key";
+"Shape" = "Hugis";
+"When done" = "Kapag tapos na";

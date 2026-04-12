@@ -498,3 +498,29 @@
 "Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private — nothing is shared publicly." = "يتم تحميل الملفات إلى مجلد \"macshot\" في Google Drive الخاص بك. كل شيء يبقى خاصًا — لا يُشارك أي شيء بشكل عام.";
 
 "Pressure" = "الضغط";
+
+// Settings (colon-free aliases)
+"Accent color" = "لون التمييز";
+"Access Key" = "مفتاح الوصول";
+"Account" = "الحساب";
+"API key" = "مفتاح API";
+"Bucket" = "الحاوية";
+"Endpoint" = "نقطة النهاية";
+"Engine" = "المحرك";
+"Enter / Quick Capture" = "Enter / التقاط سريع";
+"Frame rate" = "معدل الإطارات";
+"History size" = "حجم السجل";
+"Icon color" = "لون الأيقونة";
+"Image format" = "صيغة الصورة";
+"Max height" = "الارتفاع الأقصى";
+"OCR Capture" = "التقاط OCR";
+"Path Prefix" = "بادئة المسار";
+"Position" = "الموضع";
+"Public URL" = "الرابط العام";
+"Quality" = "الجودة";
+"Region" = "المنطقة";
+"Save folder" = "مجلد الحفظ";
+"Scroll speed" = "سرعة التمرير";
+"Secret Key" = "المفتاح السري";
+"Shape" = "الشكل";
+"When done" = "عند الانتهاء";

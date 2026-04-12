@@ -500,3 +500,51 @@
 "Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private — nothing is shared publicly." = "Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private — nothing is shared publicly.";
 
 "Pressure" = "Pressure";
+
+// Settings (colon-free aliases)
+"Accent color" = "Accent color";
+"Access Key" = "Access Key";
+"Account" = "Account";
+"API key" = "API key";
+"Bucket" = "Bucket";
+"Endpoint" = "Endpoint";
+"Engine" = "Engine";
+"Enter / Quick Capture" = "Enter / Quick Capture";
+"Frame rate" = "Frame rate";
+"History size" = "History size";
+"Icon color" = "Icon color";
+"Image format" = "Image format";
+"Max height" = "Max height";
+"OCR Capture" = "OCR Capture";
+"Path Prefix" = "Path Prefix";
+"Position" = "Position";
+"Public URL" = "Public URL";
+"Quality" = "Quality";
+"Region" = "Region";
+"Save folder" = "Save folder";
+"Scroll speed" = "Scroll speed";
+"Secret Key" = "Secret Key";
+"Shape" = "Shape";
+"When done" = "When done";
+
+// New settings strings
+"Auto-dismiss: 0 = never" = "Auto-dismiss: 0 = never";
+"Click to record shortcut. Esc to cancel, ⌫ to clear. Right-click to reset." = "Click to record shortcut. Esc to cancel, ⌫ to clear. Right-click to reset.";
+"Confirm before uploading" = "Confirm before uploading";
+"Dismiss after" = "Dismiss after";
+"Google Drive Configuration" = "Google Drive Configuration";
+"imgbb Configuration" = "imgbb Configuration";
+"Max height: 0 = unlimited" = "Max height: 0 = unlimited";
+"Multiple previews" = "Multiple previews";
+"Press a single key to assign. These work when the overlay or editor is active." = "Press a single key to assign. These work when the overlay or editor is active.";
+"Preview size" = "Preview size";
+"S3-Compatible" = "S3-Compatible";
+"seconds" = "seconds";
+"Set to 0 to disable history" = "Set to 0 to disable history";
+"Type shortcut…" = "Type shortcut…";
+"Updates" = "Updates";
+"Upload provider" = "Upload provider";
+"When snapping to a window, its title is used in the filename." = "When snapping to a window, its title is used in the filename.";
+"Works with AWS S3, Cloudflare R2, MinIO, DigitalOcean Spaces, Backblaze B2, and other S3-compatible services." = "Works with AWS S3, Cloudflare R2, MinIO, DigitalOcean Spaces, Backblaze B2, and other S3-compatible services.";
+"Include pre-release versions in update checks." = "Include pre-release versions in update checks.";
+"Check for Updates Now" = "Check for Updates Now";

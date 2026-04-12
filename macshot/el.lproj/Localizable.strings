@@ -498,3 +498,29 @@
 "Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private — nothing is shared publicly." = "Τα αρχεία ανεβαίνουν σε έναν φάκελο \"macshot\" στο Google Drive σου. Όλα παραμένουν ιδιωτικά — τίποτα δεν κοινοποιείται δημόσια.";
 
 "Pressure" = "Πίεση";
+
+// Settings (colon-free aliases)
+"Accent color" = "Χρώμα τονισμού";
+"Access Key" = "Κλειδί πρόσβασης";
+"Account" = "Λογαριασμός";
+"API key" = "Κλειδί API";
+"Bucket" = "Bucket";
+"Endpoint" = "Endpoint";
+"Engine" = "Μηχανή";
+"Enter / Quick Capture" = "Enter / Γρήγορη λήψη";
+"Frame rate" = "Ρυθμός καρέ";
+"History size" = "Μέγεθος ιστορικού";
+"Icon color" = "Χρώμα εικονιδίου";
+"Image format" = "Μορφή εικόνας";
+"Max height" = "Μέγιστο ύψος";
+"OCR Capture" = "Λήψη OCR";
+"Path Prefix" = "Πρόθεμα διαδρομής";
+"Position" = "Θέση";
+"Public URL" = "Δημόσιο URL";
+"Quality" = "Ποιότητα";
+"Region" = "Περιοχή";
+"Save folder" = "Φάκελος αποθήκευσης";
+"Scroll speed" = "Ταχύτητα κύλισης";
+"Secret Key" = "Μυστικό κλειδί";
+"Shape" = "Σχήμα";
+"When done" = "Μετά την ολοκλήρωση";

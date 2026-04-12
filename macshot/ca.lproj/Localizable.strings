@@ -498,3 +498,29 @@
 "Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private — nothing is shared publicly." = "Els fitxers es pugen a una carpeta \"macshot\" del vostre Google Drive. Tot és privat — res no es comparteix públicament.";
 
 "Pressure" = "Pressió";
+
+// Settings (colon-free aliases)
+"Accent color" = "Color d'accent";
+"Access Key" = "Clau d'acces";
+"Account" = "Compte";
+"API key" = "Clau API";
+"Bucket" = "Bucket";
+"Endpoint" = "Endpoint";
+"Engine" = "Motor";
+"Enter / Quick Capture" = "Enter / Captura rapida";
+"Frame rate" = "Velocitat de fotogrames";
+"History size" = "Mida de l'historial";
+"Icon color" = "Color de la icona";
+"Image format" = "Format d'imatge";
+"Max height" = "Alcada maxima";
+"OCR Capture" = "Captura OCR";
+"Path Prefix" = "Prefix de ruta";
+"Position" = "Posicio";
+"Public URL" = "URL publica";
+"Quality" = "Qualitat";
+"Region" = "Regio";
+"Save folder" = "Carpeta de desat";
+"Scroll speed" = "Velocitat de desplacament";
+"Secret Key" = "Clau secreta";
+"Shape" = "Forma";
+"When done" = "En acabar";

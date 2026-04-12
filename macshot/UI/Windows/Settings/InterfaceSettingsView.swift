@@ -14,6 +14,10 @@ struct InterfaceSettingsView: View {
     @AppStorage("launchAtLogin") private var launchAtLogin = false
     @AppStorage("hideMenuBarIcon") private var hideMenuBarIcon = false
 
+    // Updates
+    @AppStorage("SUEnableAutomaticChecks") private var autoUpdate = true
+    @AppStorage("betaUpdatesEnabled") private var betaUpdates = false
+
     init() {
         let currentLang = LanguageManager.shared.currentLanguage
         let idx = LanguageManager.availableLanguages.firstIndex(where: { $0.code == currentLang }) ?? 0
@@ -89,6 +93,22 @@ struct InterfaceSettingsView: View {
                 }
             } header: {
                 Text(L("Window"))
+            }
+
+            // MARK: - Updates
+            Section {
+                Toggle(L("Check for updates automatically"), isOn: $autoUpdate)
+                settingWithDescription(
+                    title: L("Check for beta updates"),
+                    description: L("Include pre-release versions in update checks.")
+                ) {
+                    Toggle("", isOn: $betaUpdates).labelsHidden()
+                }
+                Button(L("Check for Updates Now")) {
+                    NSApp.sendAction(Selector(("checkForUpdates")), to: NSApp.delegate, from: nil)
+                }
+            } header: {
+                Text(L("Updates"))
             }
         }
         .formStyle(.grouped)

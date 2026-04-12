@@ -498,3 +498,29 @@
 "Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private — nothing is shared publicly." = "파일은 Google Drive의 \"macshot\" 폴더에 업로드됩니다. 모든 것은 비공개로 유지되며 공개적으로 공유되지 않습니다.";
 
 "Pressure" = "필압";
+
+// Settings (colon-free aliases)
+"Accent color" = "강조 색상";
+"Access Key" = "액세스 키";
+"Account" = "계정";
+"API key" = "API 키";
+"Bucket" = "버킷";
+"Endpoint" = "엔드포인트";
+"Engine" = "엔진";
+"Enter / Quick Capture" = "Enter / 빠른 캡처";
+"Frame rate" = "프레임 레이트";
+"History size" = "기록 크기";
+"Icon color" = "아이콘 색상";
+"Image format" = "이미지 포맷";
+"Max height" = "최대 높이";
+"OCR Capture" = "OCR 캡처";
+"Path Prefix" = "경로 접두사";
+"Position" = "위치";
+"Public URL" = "공개 URL";
+"Quality" = "품질";
+"Region" = "리전";
+"Save folder" = "저장 폴더";
+"Scroll speed" = "스크롤 속도";
+"Secret Key" = "시크릿 키";
+"Shape" = "모양";
+"When done" = "완료 시";

@@ -496,3 +496,29 @@
 "Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private — nothing is shared publicly." = "Soubory jsou nahrávány do složky \"macshot\" na vašem Disku Google. Vše zůstává soukromé — nic není veřejně sdíleno.";
 
 "Pressure" = "Přítlak";
+
+// Settings (colon-free aliases)
+"Accent color" = "Barva zvýraznění";
+"Access Key" = "Přístupový klíč";
+"Account" = "Účet";
+"API key" = "API klíč";
+"Bucket" = "Bucket";
+"Endpoint" = "Endpoint";
+"Engine" = "Engine";
+"Enter / Quick Capture" = "Enter / Rychlé zachycení";
+"Frame rate" = "Snímková frekvence";
+"History size" = "Velikost historie";
+"Icon color" = "Barva ikony";
+"Image format" = "Formát obrázku";
+"Max height" = "Maximální výška";
+"OCR Capture" = "OCR snímek";
+"Path Prefix" = "Předpona cesty";
+"Position" = "Pozice";
+"Public URL" = "Veřejná URL";
+"Quality" = "Kvalita";
+"Region" = "Region";
+"Save folder" = "Složka pro uložení";
+"Scroll speed" = "Rychlost posouvání";
+"Secret Key" = "Tajný klíč";
+"Shape" = "Tvar";
+"When done" = "Po dokončení";
