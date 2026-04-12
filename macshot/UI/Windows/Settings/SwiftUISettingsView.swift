@@ -126,6 +126,7 @@ struct TabBarButton: View {
     let action: () -> Void
 
     @State private var isHovered = false
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         Button(action: action) {
@@ -174,9 +175,20 @@ struct TabBarButton: View {
     private var backgroundView: some View {
         if isSelected || isHovered {
             RoundedRectangle(cornerRadius: 6)
-                .fill(Color(nsColor: NSColor(hex: 0xE5E5E5, alpha: 0.8)))
+                .fill(backgroundColor)
                 .padding(.horizontal, 1)
                 .padding(.vertical, 5)
+        }
+    }
+
+    private var backgroundColor: Color {
+        // Use system adaptive colors for light/dark mode
+        if colorScheme == .dark {
+            // Dark mode: lighter gray for visibility
+            return Color(red: 0.25, green: 0.25, blue: 0.25)
+        } else {
+            // Light mode: subtle gray
+            return Color(red: 0.9, green: 0.9, blue: 0.9)
         }
     }
 }
@@ -222,16 +234,4 @@ struct SettingsFooter: View {
 #Preview {
     SwiftUISettingsView()
         .frame(width: 540, height: 660)
-}
-
-// MARK: - Helper Extensions
-
-extension NSColor {
-    /// Create an NSColor from a hex value (e.g., 0xE5E5E5)
-    convenience init(hex: UInt32, alpha: CGFloat = 1.0) {
-        let red = CGFloat((hex & 0xFF0000) >> 16) / 255.0
-        let green = CGFloat((hex & 0x00FF00) >> 8) / 255.0
-        let blue = CGFloat(hex & 0x0000FF) / 255.0
-        self.init(red: red, green: green, blue: blue, alpha: alpha)
-    }
 }
