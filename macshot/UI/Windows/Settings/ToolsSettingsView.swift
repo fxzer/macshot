@@ -108,9 +108,12 @@ struct ToolsSettingsView: View {
                     toggleRow(item: item, enabled: $enabledActions, key: "enabledActions")
                 }
             } header: {
-                Text(L("Effects"))
-            } footer: {
-                Text(L("Hidden tools are removed from the toolbar."))
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(L("Effects"))
+                    Text(L("Hidden tools are removed from the toolbar."))
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
             }
 
             // MARK: - Other Actions (其他操作)
