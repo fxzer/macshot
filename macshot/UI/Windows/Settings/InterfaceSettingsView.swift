@@ -90,7 +90,7 @@ struct InterfaceSettingsView: View {
                         }
                 }
             } header: {
-                Text(L("Window"))
+                Text(L("Application"))
             }
 
             // MARK: - Updates
