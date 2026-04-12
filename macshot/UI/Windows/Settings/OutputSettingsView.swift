@@ -103,6 +103,26 @@ struct OutputSettingsView: View {
                     .onChange(of: translationProvider) { newValue in
                         TranslationService.provider = TranslationProvider(rawValue: newValue) ?? .google
                     }
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(L("Apple (on-device)"))
+                            .font(.subheadline)
+                            .foregroundColor(.primary)
+                        Text(L("Apple translation is faster and works offline."))
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+
+                        Text(L("Google Translate"))
+                            .font(.subheadline)
+                            .foregroundColor(.primary)
+                            .padding(.top, 4)
+                        Text(L("Google Translate supports more languages."))
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.top, 8)
+                    .padding(.bottom, 8)
+
                     Button(L("Download language packs in System Settings…")) {
                         if let url = URL(string: "x-apple.systempreferences:com.apple.Localization.Settings.extension?Translation") {
                             NSWorkspace.shared.open(url)
@@ -111,8 +131,6 @@ struct OutputSettingsView: View {
                     .foregroundColor(.accentColor)
                 } header: {
                     Text(L("Translation"))
-                } footer: {
-                    Text(L("Apple translation is faster and works offline. Google Translate supports more languages."))
                 }
             }
         }
