@@ -241,9 +241,12 @@ struct ShortcutsSettingsView: View {
                     }
                 }
             } header: {
-                Text(L("Global Keyboard Shortcuts"))
-            } footer: {
-                Text(L("Click to record shortcut. Esc to cancel, ⌫ to clear. Right-click to reset."))
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(L("Global Keyboard Shortcuts"))
+                    Text(L("Click to record shortcut. Esc to cancel, ⌫ to clear. Right-click to reset."))
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
             }
 
             // MARK: - Overlay / Editor Tool Shortcuts
@@ -269,9 +272,12 @@ struct ShortcutsSettingsView: View {
                     }
                 }
             } header: {
-                Text(L("In-App Shortcuts"))
-            } footer: {
-                Text(L("Press a single key to assign. These work when the overlay or editor is active."))
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(L("In-App Shortcuts"))
+                    Text(L("Press a single key to assign. These work when the overlay or editor is active."))
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
             }
         }
         .formStyle(.grouped)
