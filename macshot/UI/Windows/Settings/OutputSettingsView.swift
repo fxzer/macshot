@@ -60,7 +60,6 @@ struct OutputSettingsView: View {
                 }
                 Picker(L("History size"), selection: $historySize) {
                     Text(L("Unlimited")).tag(999)
-                    Divider()
                     Text("10").tag(10)
                     Text("25").tag(25)
                     Text("50").tag(50)
