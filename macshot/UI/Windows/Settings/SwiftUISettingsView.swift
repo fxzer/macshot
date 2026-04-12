@@ -98,7 +98,7 @@ struct CustomTabBar: View {
     private var tabs: [SettingsTab] { SettingsTab.allCases }
 
     var body: some View {
-        HStack(spacing: 0) {
+        HStack(spacing: 2) {
             ForEach(tabs) { tab in
                 TabBarButton(
                     tab: tab,
@@ -107,7 +107,9 @@ struct CustomTabBar: View {
                 )
             }
         }
-        .frame(height: 56)
+        .frame(maxWidth: .infinity)
+        .padding(.top, 8)
+        .padding(.bottom, 4)
         .background(Color(nsColor: .windowBackgroundColor))
         .overlay(
             Rectangle()
@@ -143,7 +145,7 @@ struct TabBarButton: View {
                     .fixedSize()
             }
             .frame(minWidth: 50)
-            .padding(.vertical, 4)
+            .padding(.vertical, 6)
             .contentShape(Rectangle()) // Make entire area clickable
         }
         .buttonStyle(.plain)
@@ -177,7 +179,7 @@ struct TabBarButton: View {
             RoundedRectangle(cornerRadius: 6)
                 .fill(backgroundColor)
                 .padding(.horizontal, 1)
-                .padding(.vertical, 5)
+                .padding(.vertical, 3)
         }
     }
 
