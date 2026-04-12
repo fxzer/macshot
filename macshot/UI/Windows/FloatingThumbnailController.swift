@@ -192,6 +192,11 @@ class FloatingThumbnailController: NSObject, NSDraggingSource {
 
     func draggingSession(_ session: NSDraggingSession, sourceOperationMaskFor context: NSDraggingContext) -> NSDragOperation { .copy }
     func draggingSession(_ session: NSDraggingSession, endedAt screenPoint: NSPoint, operation: NSDragOperation) { dismiss() }
+
+    func updateLocalization() {
+        // Update thumbnail view localization
+        thumbnailView?.updateLocalization()
+    }
 }
 
 // MARK: - Thumbnail View
@@ -454,4 +459,8 @@ private class ThumbnailView: NSView {
 
     @objc private func closeAllAction() { onCloseAll?() }
     @objc private func saveAllAction()  { onSaveAll?() }
+
+    func updateLocalization() {
+        needsDisplay = true
+    }
 }

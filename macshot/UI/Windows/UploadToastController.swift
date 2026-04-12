@@ -266,6 +266,10 @@ class UploadToastController {
             self?.dismiss()
         })
     }
+
+    func updateLocalization() {
+        (window?.contentView as? ToastBackgroundView)?.needsDisplay = true
+    }
 }
 
 // MARK: - Background view (mimics macOS notification appearance)
@@ -303,5 +307,9 @@ private class ToastBackgroundView: NSView {
         let border = NSBezierPath(roundedRect: bounds.insetBy(dx: 0.5, dy: 0.5), xRadius: cornerRadius, yRadius: cornerRadius)
         border.lineWidth = 0.5
         border.stroke()
+    }
+
+    func updateLocalization() {
+        needsDisplay = true
     }
 }

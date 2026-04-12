@@ -349,6 +349,16 @@ class OCRResultController: NSObject {
         let words = text.split(whereSeparator: { $0.isWhitespace || $0.isNewline }).count
         charCountLabel?.stringValue = String(format: L("%d chars · %d words"), chars, words)
     }
+
+    func updateLocalization() {
+        window?.title = L("Text Recognition")
+        copyButton?.title = L("Copy")
+        translateButton?.title = isShowingTranslation ? L("Show Original") : L("Translate")
+        // Update char count label
+        if let tv = textView, let text = tv.textStorage?.string {
+            updateCharCount(for: text)
+        }
+    }
 }
 
 private class KeyablePanel: NSPanel {

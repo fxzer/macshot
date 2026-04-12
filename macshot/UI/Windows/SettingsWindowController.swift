@@ -105,9 +105,21 @@ class SettingsWindowController: NSWindowController, NSWindowDelegate {
         window.delegate = self
         setupUI()
         loadSettings()
+
+        // Listen for language changes
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(languageDidChangeNotification),
+            name: LanguageManager.changedNotification,
+            object: nil
+        )
     }
 
     required init?(coder: NSCoder) { fatalError() }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
 
     // MARK: - Top-level layout
 
@@ -1026,11 +1038,11 @@ class SettingsWindowController: NSWindowController, NSWindowDelegate {
         stack.alignment = .leading
         stack.spacing = 0
         stack.translatesAutoresizingMaskIntoConstraints = false
-        stack.edgeInsets = NSEdgeInsets(top: 0, left: 20, bottom: 16, right: 20)
+        stack.edgeInsets = NSEdgeInsets(top: 20, left: 20, bottom: 20, right: 20)
 
-        // ── Language ──────────────────────────────────────────
+        // MARK: - Language Section
         stack.addArrangedSubview(sectionHeader(L("Language")))
-        stack.setCustomSpacing(10, after: stack.arrangedSubviews.last!)
+        stack.setCustomSpacing(12, after: stack.arrangedSubviews.last!)
 
         languagePopup = NSPopUpButton()
         for lang in LanguageManager.availableLanguages {
@@ -1044,24 +1056,25 @@ class SettingsWindowController: NSWindowController, NSWindowDelegate {
         languagePopup.action = #selector(languageChanged(_:))
 
         stack.addArrangedSubview(labeledRow(L("Language:"), controls: [languagePopup]))
-        stack.setCustomSpacing(4, after: stack.arrangedSubviews.last!)
+        stack.setCustomSpacing(6, after: stack.arrangedSubviews.last!)
 
-        let langNote = NSTextField(wrappingLabelWithString: L("Restart the app to fully apply the new language."))
-        langNote.font = NSFont.systemFont(ofSize: 10)
+        let langNote = NSTextField(wrappingLabelWithString: L("Changes take effect immediately."))
+        langNote.font = NSFont.systemFont(ofSize: 11)
         langNote.textColor = .secondaryLabelColor
+        langNote.lineBreakMode = .byWordWrapping
         stack.addArrangedSubview(indented(langNote))
-        stack.setCustomSpacing(20, after: stack.arrangedSubviews.last!)
+        stack.setCustomSpacing(24, after: stack.arrangedSubviews.last!)
 
-        // ── Appearance ───────────────────────────────────────
+        // MARK: - Appearance Section
         stack.addArrangedSubview(sectionHeader(L("Appearance")))
-        stack.setCustomSpacing(10, after: stack.arrangedSubviews.last!)
+        stack.setCustomSpacing(12, after: stack.arrangedSubviews.last!)
 
-        accentColorWell = NSColorWell(frame: NSRect(x: 0, y: 0, width: 36, height: 24))
+        accentColorWell = NSColorWell(frame: NSRect(x: 0, y: 0, width: 40, height: 28))
         accentColorWell.color = ToolbarLayout.accentColor
         accentColorWell.target = self
         accentColorWell.action = #selector(accentColorChanged(_:))
 
-        iconColorWell = NSColorWell(frame: NSRect(x: 0, y: 0, width: 36, height: 24))
+        iconColorWell = NSColorWell(frame: NSRect(x: 0, y: 0, width: 40, height: 28))
         iconColorWell.color = ToolbarLayout.iconColor
         iconColorWell.target = self
         iconColorWell.action = #selector(iconColorChanged(_:))
@@ -1071,27 +1084,28 @@ class SettingsWindowController: NSWindowController, NSWindowDelegate {
         resetColorsBtn.controlSize = .small
 
         stack.addArrangedSubview(labeledRow(L("Accent color:"), controls: [accentColorWell]))
-        stack.setCustomSpacing(6, after: stack.arrangedSubviews.last!)
+        stack.setCustomSpacing(8, after: stack.arrangedSubviews.last!)
         stack.addArrangedSubview(labeledRow(L("Icon color:"), controls: [iconColorWell]))
-        stack.setCustomSpacing(6, after: stack.arrangedSubviews.last!)
+        stack.setCustomSpacing(8, after: stack.arrangedSubviews.last!)
         stack.addArrangedSubview(labeledRow("", controls: [resetColorsBtn]))
-        stack.setCustomSpacing(20, after: stack.arrangedSubviews.last!)
+        stack.setCustomSpacing(24, after: stack.arrangedSubviews.last!)
 
-        // ── Window ────────────────────────────────────────────
+        // MARK: - Window Section
         stack.addArrangedSubview(sectionHeader(L("Window")))
-        stack.setCustomSpacing(10, after: stack.arrangedSubviews.last!)
+        stack.setCustomSpacing(12, after: stack.arrangedSubviews.last!)
 
         launchAtLoginCheckbox = NSButton(checkboxWithTitle: L("Launch at login"), target: self, action: #selector(launchAtLoginChanged(_:)))
         stack.addArrangedSubview(indented(launchAtLoginCheckbox))
-        stack.setCustomSpacing(6, after: stack.arrangedSubviews.last!)
+        stack.setCustomSpacing(8, after: stack.arrangedSubviews.last!)
 
         hideMenuBarIconCheckbox = NSButton(checkboxWithTitle: L("Hide menu bar icon"), target: self, action: #selector(hideMenuBarIconChanged(_:)))
         stack.addArrangedSubview(indented(hideMenuBarIconCheckbox))
-        stack.setCustomSpacing(4, after: stack.arrangedSubviews.last!)
+        stack.setCustomSpacing(6, after: stack.arrangedSubviews.last!)
 
         let hideNote = NSTextField(wrappingLabelWithString: L("Hotkeys still work. To show the icon again, re-launch macshot."))
-        hideNote.font = NSFont.systemFont(ofSize: 10)
+        hideNote.font = NSFont.systemFont(ofSize: 11)
         hideNote.textColor = .secondaryLabelColor
+        hideNote.lineBreakMode = .byWordWrapping
         stack.addArrangedSubview(indented(hideNote))
 
         // Spacer to push content to top
@@ -1913,7 +1927,90 @@ class SettingsWindowController: NSWindowController, NSWindowDelegate {
         let idx = sender.indexOfSelectedItem
         guard idx >= 0, idx < languages.count else { return }
         LanguageManager.shared.currentLanguage = languages[idx].code
+        // Language change will trigger notification and refresh UI
     }
+
+    @objc private func languageDidChangeNotification(_ notification: Notification) {
+        // Refresh window title
+        window?.title = L("macshot Settings")
+
+        // Refresh tab bar labels
+        updateTabBarLabels()
+
+        // Refresh footer text
+        updateFooterText()
+
+        // Recreate the current tab view with new language
+        refreshCurrentTabView()
+    }
+
+    private func updateTabBarLabels() {
+        guard let tabBar = tabBarView else { return }
+
+        let tabs: [TabBarView.TabItem] = [
+            TabBarView.TabItem(identifier: "interface", title: L("Interface"), iconName: "rectangle.3.group"),
+            TabBarView.TabItem(identifier: "capture", title: L("Capture"), iconName: "camera"),
+            TabBarView.TabItem(identifier: "output", title: L("Output"), iconName: "arrow.down.doc"),
+            TabBarView.TabItem(identifier: "shortcuts", title: L("Shortcuts"), iconName: "command"),
+            TabBarView.TabItem(identifier: "tools", title: L("Tools"), iconName: "wrench.and.screwdriver"),
+            TabBarView.TabItem(identifier: "recording", title: L("Recording"), iconName: "record.circle"),
+            TabBarView.TabItem(identifier: "uploads", title: L("Uploads"), iconName: "cloud"),
+            TabBarView.TabItem(identifier: "about", title: L("About"), iconName: "info.circle"),
+        ]
+
+        tabBar.updateTabs(tabs, selectedIdentifier: currentTabIdentifier)
+    }
+
+    private func updateFooterText() {
+        guard let cv = window?.contentView else { return }
+
+        // Find the "Made by" label in the footer
+        for subview in cv.subviews {
+            if let stack = subview as? NSStackView, stack.orientation == .horizontal {
+                for stackSubview in stack.arrangedSubviews {
+                    if let label = stackSubview as? NSTextField, label.stringValue.contains("sw33tLie") {
+                        label.stringValue = "\(L("Made by")) sw33tLie"
+                        break
+                    }
+                }
+            }
+        }
+    }
+
+    private func refreshCurrentTabView() {
+        // Remove current tab view
+        if let currentView = tabContentViews[currentTabIdentifier] {
+            currentView.removeFromSuperview()
+        }
+
+        // Clear all cached tab views so they will be recreated with new language when needed
+        tabContentViews.removeAll()
+
+        // Recreate and add the current tab view with new language
+        let newView: NSView
+        switch currentTabIdentifier {
+        case "interface": newView = makeInterfaceTabView()
+        case "capture": newView = makeCaptureTabView()
+        case "output": newView = makeOutputTabView()
+        case "shortcuts": newView = makeShortcutsTabView()
+        case "tools": newView = makeToolsTabView()
+        case "recording": newView = makeRecordingTabView()
+        case "uploads": newView = makeUploadsTabView()
+        case "about": newView = makeAboutTabView()
+        default: newView = NSView()
+        }
+
+        tabContentViews[currentTabIdentifier] = newView
+        contentContainerView.addSubview(newView)
+        newView.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            newView.topAnchor.constraint(equalTo: contentContainerView.topAnchor),
+            newView.leadingAnchor.constraint(equalTo: contentContainerView.leadingAnchor),
+            newView.trailingAnchor.constraint(equalTo: contentContainerView.trailingAnchor),
+            newView.bottomAnchor.constraint(equalTo: contentContainerView.bottomAnchor),
+        ])
+    }
+
     @objc private func openGitHub() {
         if let url = URL(string: "https://github.com/sw33tLie/macshot") { NSWorkspace.shared.open(url) }
     }
@@ -2106,8 +2203,27 @@ class SettingsWindowController: NSWindowController, NSWindowDelegate {
     // MARK: - Tab Switching
 
     private func switchTab(to identifier: String) {
-        guard identifier != currentTabIdentifier,
-              let newView = tabContentViews[identifier] else { return }
+        guard identifier != currentTabIdentifier else { return }
+
+        // Get or create the tab view
+        var newView = tabContentViews[identifier]
+        if newView == nil {
+            // Tab view doesn't exist, create it
+            switch identifier {
+            case "interface": newView = makeInterfaceTabView()
+            case "capture": newView = makeCaptureTabView()
+            case "output": newView = makeOutputTabView()
+            case "shortcuts": newView = makeShortcutsTabView()
+            case "tools": newView = makeToolsTabView()
+            case "recording": newView = makeRecordingTabView()
+            case "uploads": newView = makeUploadsTabView()
+            case "about": newView = makeAboutTabView()
+            default: newView = NSView()
+            }
+            tabContentViews[identifier] = newView
+        }
+
+        guard let view = newView else { return }
 
         // Remove old view
         if let oldView = tabContentViews[currentTabIdentifier] {
@@ -2115,13 +2231,13 @@ class SettingsWindowController: NSWindowController, NSWindowDelegate {
         }
 
         // Add new view
-        contentContainerView.addSubview(newView)
-        newView.translatesAutoresizingMaskIntoConstraints = false
+        contentContainerView.addSubview(view)
+        view.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
-            newView.topAnchor.constraint(equalTo: contentContainerView.topAnchor),
-            newView.leadingAnchor.constraint(equalTo: contentContainerView.leadingAnchor),
-            newView.trailingAnchor.constraint(equalTo: contentContainerView.trailingAnchor),
-            newView.bottomAnchor.constraint(equalTo: contentContainerView.bottomAnchor),
+            view.topAnchor.constraint(equalTo: contentContainerView.topAnchor),
+            view.leadingAnchor.constraint(equalTo: contentContainerView.leadingAnchor),
+            view.trailingAnchor.constraint(equalTo: contentContainerView.trailingAnchor),
+            view.bottomAnchor.constraint(equalTo: contentContainerView.bottomAnchor),
         ])
 
         currentTabIdentifier = identifier

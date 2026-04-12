@@ -280,6 +280,12 @@ final class HistoryOverlayController: NSObject, QLPreviewPanelDataSource, QLPrev
     @objc private func contextQuickLook(_ sender: NSMenuItem) { quickLook(index: sender.tag) }
     @objc private func contextDelete(_ sender: NSMenuItem) { deleteEntry(index: sender.tag) }
 
+    func updateLocalization() {
+        // Reload the panel with updated localization
+        panel?.title = L("Recent Captures")
+        contentView?.updateLocalization()
+    }
+
     // MARK: - QLPreviewPanelDataSource
 
     func numberOfPreviewItems(in panel: QLPreviewPanel!) -> Int { 1 }
@@ -897,5 +903,10 @@ private final class HistoryPanelView: NSView, NSDraggingSource {
         default:
             super.keyDown(with: event)
         }
+    }
+
+    func updateLocalization() {
+        // Reload entries with updated localization
+        needsDisplay = true
     }
 }

@@ -143,8 +143,8 @@ class TabBarView: NSView {
 
         // Label
         let label = NSTextField(labelWithString: tab.title)
-        label.font = NSFont.systemFont(ofSize: 11, weight: isSelected ? .semibold : .regular)
-        label.textColor = isSelected ? .labelColor : .secondaryLabelColor
+        label.font = NSFont.systemFont(ofSize: 11, weight: .regular)
+        label.textColor = isSelected ? .controlAccentColor : .secondaryLabelColor
         label.alignment = .center
         label.translatesAutoresizingMaskIntoConstraints = false
         label.isEditable = false
@@ -224,12 +224,42 @@ class TabBarView: NSView {
 
             // Update label style
             if index < tabLabels.count {
-                tabLabels[index].font = NSFont.systemFont(ofSize: 11, weight: isSelected ? .semibold : .regular)
-                tabLabels[index].textColor = isSelected ? .labelColor : .secondaryLabelColor
+                tabLabels[index].font = NSFont.systemFont(ofSize: 11, weight: .regular)
+                tabLabels[index].textColor = isSelected ? .controlAccentColor : .secondaryLabelColor
             }
         }
 
         onTabSelected?(identifier)
+    }
+
+    /// Update the tabs with new data while preserving the selected tab
+    func updateTabs(_ newTabs: [TabItem], selectedIdentifier: String) {
+        // Clear existing tabs
+        for container in tabContainers {
+            container.removeFromSuperview()
+        }
+
+        // Clear arrays
+        tabs.removeAll()
+        tabButtons.removeAll()
+        tabBackgrounds.removeAll()
+        tabIcons.removeAll()
+        tabLabels.removeAll()
+        tabContainers.removeAll()
+        tabTrackingAreas.removeAll()
+
+        // Update tabs data
+        tabs = newTabs
+
+        // Recreate tab items
+        for (index, tab) in tabs.enumerated() {
+            let isSelected = tab.identifier == selectedIdentifier
+            if isSelected {
+                selectedTabIndex = index
+            }
+            let container = createTabItem(tab: tab, isSelected: isSelected, index: index)
+            stackView.addArrangedSubview(container)
+        }
     }
 
     // MARK: - Mouse Tracking
@@ -264,7 +294,7 @@ class TabBarView: NSView {
             tabBackgrounds[index].layer?.backgroundColor = NSColor(hex: 0xE5E5E5, alpha: 0.8).cgColor
         } else if isHovered {
             // Hover state: slightly lighter than selected
-            tabBackgrounds[index].layer?.backgroundColor = NSColor(hex: 0xEAEAEA, alpha: 0.8).cgColor
+            tabBackgrounds[index].layer?.backgroundColor = NSColor(hex: 0xE5E5E5, alpha: 0.8).cgColor
         } else {
             // Normal state: clear
             tabBackgrounds[index].layer?.backgroundColor = .clear

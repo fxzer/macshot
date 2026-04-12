@@ -99,6 +99,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             name: .init("macshot.pinFromHistory"), object: nil
         )
 
+        // Listen for language changes
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(languageDidChange(_:)),
+            name: LanguageManager.changedNotification, object: nil
+        )
+
         // Check screen recording permission. If not yet granted, show the
         // custom onboarding window instead of letting macOS throw its own dialogs.
         PermissionOnboardingController.checkPermissionSync { [weak self] granted in
@@ -888,6 +894,33 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     @objc private func pinFromHistory(_ notification: Notification) {
         guard let image = notification.object as? NSImage else { return }
         showPin(image: image)
+    }
+
+    @objc private func languageDidChange(_ notification: Notification) {
+        // Rebuild the status bar menu with new language
+        rebuildStatusBarMenu()
+
+        // Update OCR result window if open
+        ocrController?.updateLocalization()
+
+        // Update history overlay if open
+        historyOverlayController?.updateLocalization()
+
+        // Update floating thumbnails
+        for thumbnail in thumbnailControllers {
+            thumbnail.updateLocalization()
+        }
+
+        // Update pin windows
+        for pin in pinControllers {
+            pin.updateLocalization()
+        }
+
+        // Update upload toast if visible
+        uploadToastController?.updateLocalization()
+
+        // Update permission onboarding window if open
+        onboardingController?.updateLocalization()
     }
 
     func showPin(image: NSImage) {

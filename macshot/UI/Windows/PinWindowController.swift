@@ -136,6 +136,11 @@ class PinWindowController {
         DetachedEditorWindowController.open(image: image)
         close()
     }
+
+    func updateLocalization() {
+        // Pin window is borderless, no title to update
+        pinView?.needsDisplay = true
+    }
 }
 
 // MARK: - Pin Panel (receives gesture events without activating the app)

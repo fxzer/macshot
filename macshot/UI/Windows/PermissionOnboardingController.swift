@@ -39,6 +39,7 @@ class PermissionOnboardingController: NSWindowController {
 
     // MARK: - UI
 
+    private weak var titleLabel: NSTextField?
     private weak var statusLabel: NSTextField?
     private weak var actionButton: NSButton?
     private weak var continueButton: NSButton?
@@ -63,6 +64,7 @@ class PermissionOnboardingController: NSWindowController {
         title.alignment = .center
         title.translatesAutoresizingMaskIntoConstraints = false
         cv.addSubview(title)
+        self.titleLabel = title
 
         // Guide image — always visible, shows how to enable permission
         let imgView = NSImageView()
@@ -268,5 +270,15 @@ class PermissionOnboardingController: NSWindowController {
         pollTimer = nil
         window?.orderOut(nil)
         onPermissionGranted?()
+    }
+
+    func updateLocalization() {
+        window?.title = L("Welcome to macshot")
+        titleLabel?.stringValue = L("macshot needs one permission")
+        statusLabel?.stringValue = permissionGranted ?
+            L("Screen Recording granted!") :
+            L("Screen Recording not yet granted")
+        actionButton?.title = L("Open Screen Recording Settings")
+        continueButton?.title = L("Continue")
     }
 }
