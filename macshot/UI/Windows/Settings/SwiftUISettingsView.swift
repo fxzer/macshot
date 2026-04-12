@@ -154,6 +154,7 @@ struct TabBarButton: View {
             .contentShape(Rectangle()) // Make entire area clickable
         }
         .buttonStyle(.plain)
+        .focusable(false)
         .background(backgroundView)
         .onHover { hovering in
             isHovered = hovering
