@@ -65,14 +65,15 @@ struct OutputSettingsView: View {
             // MARK: - History
             Section {
                 if !historyUnlimited {
-                    Stepper(value: $historySize, in: 0...50) {
-                        HStack {
-                            Text(L("History size"))
-                            Spacer()
-                            Text("\(historySize)")
-                                .foregroundColor(.secondary)
-                                .monospacedDigit()
+                    HStack {
+                        Text("\(historySize)")
+                            .foregroundColor(.secondary)
+                            .monospacedDigit()
+                        Spacer()
+                        Stepper(value: $historySize, in: 0...50) {
+                            EmptyView()
                         }
+                        .labelsHidden()
                     }
                     .onChange(of: historySize) { _ in
                         ScreenshotHistory.shared.pruneToMax()
@@ -83,7 +84,12 @@ struct OutputSettingsView: View {
                 Text(L("History"))
             } footer: {
                 if !historyUnlimited {
-                    Text(L("Set to 0 to disable history"))
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(L("History size"))
+                        Text(L("Set to 0 to disable history"))
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
                 }
             }
 
