@@ -50,9 +50,12 @@ struct UploadsSettingsView: View {
                     TextField(L("API key"), text: $imgbbAPIKey, prompt: Text(L("Leave empty to use default")))
                         .font(.system(.body, design: .monospaced))
                 } header: {
-                    Text(L("imgbb Configuration"))
-                } footer: {
-                    Text(L("A shared key is included — get your own free key at imgbb.com/api if you hit rate limits. Images only (no video support)."))
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(L("imgbb Configuration"))
+                        Text(L("A shared key is included — get your own free key at imgbb.com/api if you hit rate limits. Images only (no video support)."))
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
                 }
             }
 
@@ -68,9 +71,12 @@ struct UploadsSettingsView: View {
                         gdriveSignInAction()
                     }
                 } header: {
-                    Text(L("Google Drive Configuration"))
-                } footer: {
-                    Text(L("Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private — nothing is shared publicly."))
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(L("Google Drive Configuration"))
+                        Text(L("Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private — nothing is shared publicly."))
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
                 }
             }
 
@@ -102,9 +108,12 @@ struct UploadsSettingsView: View {
                         }
                     }
                 } header: {
-                    Text(L("S3-Compatible Storage"))
-                } footer: {
-                    Text(L("Works with AWS S3, Cloudflare R2, MinIO, DigitalOcean Spaces, Backblaze B2, and other S3-compatible services."))
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(L("S3-Compatible Storage"))
+                        Text(L("Works with AWS S3, Cloudflare R2, MinIO, DigitalOcean Spaces, Backblaze B2, and other S3-compatible services."))
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
                 }
             }
 
