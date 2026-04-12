@@ -241,6 +241,7 @@
 "Window" = "Window";
 "Accent color:" = "Accent color:";
 "Icon color:" = "Icon color:";
+"Background color:" = "Background color:";
 "Reset" = "Reset";
 "OCR Capture:" = "OCR Capture:";
 "Show window + copy to clipboard" = "Show window + copy to clipboard";

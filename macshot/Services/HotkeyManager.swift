@@ -131,15 +131,6 @@ class HotkeyManager {
         register(slot: .openFromClipboard, callback: openFromClipboard)
     }
 
-    /// Re-register all hotkeys (e.g., after settings change).
-    func reregisterAll() {
-        let savedCallbacks = callbacks
-        unregisterAll()
-        for (slot, cb) in savedCallbacks {
-            register(slot: slot, callback: cb)
-        }
-    }
-
     private func installEventHandler() {
         guard eventHandlerRef == nil else { return }
         var eventType = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
@@ -220,11 +211,6 @@ class HotkeyManager {
         let (keyCode, modifiers) = readHotkey(for: slot)
         if keyCode == 0 && modifiers == 0 { return "None" }
         return modifierString(from: modifiers) + keyString(from: keyCode)
-    }
-
-    /// Legacy display string (for capture area).
-    static func shortcutDisplayString() -> String {
-        return displayString(for: .captureArea)
     }
 
     /// Returns true if the keyCode is a function key (F1–F20), safe to use without modifiers.

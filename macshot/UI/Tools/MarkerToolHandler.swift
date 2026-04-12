@@ -247,12 +247,6 @@ final class MarkerToolHandler: AnnotationToolHandler {
         commitAnnotation(annotation, canvas: canvas)
     }
 
-    /// Invalidate cached OCR data (call when selection changes).
-    func invalidateCache() {
-        cachedObservations = nil
-        cachedSelectionRect = .zero
-    }
-
     // MARK: - Live text line height detection
 
     private var ocrInFlight = false

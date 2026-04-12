@@ -43,8 +43,8 @@ final class VideoEditorWindowController: NSObject, NSWindowDelegate {
 
         // Scale down to fit screen, maintaining aspect ratio
         let scale = min(1.0, min(maxW / contentW, (maxH - controlsH) / contentH))
-        let winW = max(480, contentW * scale)
-        let winH = max(360, contentH * scale + controlsH)
+        let winW = max(820, contentW * scale)
+        let winH = max(400, contentH * scale + controlsH)
         let winX = screen.frame.midX - winW / 2
         let winY = screen.frame.midY - winH / 2
 
@@ -54,11 +54,11 @@ final class VideoEditorWindowController: NSObject, NSWindowDelegate {
             backing: .buffered, defer: false
         )
         win.title = L("macshot Video Editor")
-        win.minSize = NSSize(width: 600, height: 400)
+        win.minSize = NSSize(width: 820, height: 400)
         win.isReleasedWhenClosed = false
         win.delegate = self
         win.collectionBehavior = [.fullScreenAuxiliary]
-        win.backgroundColor = NSColor(white: 0.12, alpha: 1)
+        win.backgroundColor = ToolbarLayout.bgColor
 
         let view = VideoEditorView(frame: NSRect(x: 0, y: 0, width: winW, height: winH), videoURL: url)
         win.contentView = view
@@ -116,7 +116,12 @@ private final class VideoEditorView: NSView {
     private var formatToggleRect: NSRect = .zero
     private var formatMP4Rect: NSRect = .zero
     private var formatGIFRect: NSRect = .zero
-    private var isConvertingGIF: Bool = false
+
+    // Export dimensions
+    private var originalWidth: Int = 0
+    private var originalHeight: Int = 0
+    private var exportScale: CGFloat = 1.0  // 1.0 = original, 0.5 = 50%, etc.
+    private var dimensionsBtnRect: NSRect = .zero
 
     // Button rects
     private var playBtnRect: NSRect = .zero
@@ -161,6 +166,13 @@ private final class VideoEditorView: NSView {
         let asset = AVAsset(url: videoURL)
         self.asset = asset
 
+        // Store original pixel dimensions
+        if let track = asset.tracks(withMediaType: .video).first {
+            let size = track.naturalSize.applying(track.preferredTransform)
+            originalWidth = Int(abs(size.width))
+            originalHeight = Int(abs(size.height))
+        }
+
         Task {
             // Use video track duration (asset duration can be wrong when audio track is present)
             let seconds: Double
@@ -197,6 +209,13 @@ private final class VideoEditorView: NSView {
             duration = 1.0
         }
         trimEnd = duration
+
+        // Store original GIF dimensions
+        if let src = CGImageSourceCreateWithURL(videoURL as CFURL, nil),
+           let img = CGImageSourceCreateImageAtIndex(src, 0, nil) {
+            originalWidth = img.width
+            originalHeight = img.height
+        }
 
         let iv = NSImageView()
         iv.image = gifImage
@@ -330,11 +349,11 @@ private final class VideoEditorView: NSView {
     override func draw(_ dirtyRect: NSRect) {
         // Controls background
         let controlsBg = NSRect(x: 0, y: 0, width: bounds.width, height: controlsH)
-        NSColor(white: 0.08, alpha: 1).setFill()
+        ToolbarLayout.bgColor.setFill()
         NSBezierPath(rect: controlsBg).fill()
 
         // Separator
-        NSColor.white.withAlphaComponent(0.1).setFill()
+        ToolbarLayout.iconColor.withAlphaComponent(0.1).setFill()
         NSBezierPath(rect: NSRect(x: 0, y: controlsH, width: bounds.width, height: 0.5)).fill()
 
         guard duration > 0 else { return }
@@ -359,17 +378,18 @@ private final class VideoEditorView: NSView {
 
         // Track background with rounded clip
         let trackPath = NSBezierPath(roundedRect: timelineRect, xRadius: 5, yRadius: 5)
-        NSColor.white.withAlphaComponent(0.06).setFill()
+        ToolbarLayout.iconColor.withAlphaComponent(0.06).setFill()
         trackPath.fill()
 
-        // Draw thumbnails
+        // Draw thumbnails — use floor/ceil to avoid sub-pixel gaps between tiles
         NSGraphicsContext.saveGraphicsState()
         trackPath.addClip()
         if !thumbnailImages.isEmpty {
             let count = thumbnailImages.count
-            let thumbW = tlW / CGFloat(count)
             for (i, img) in thumbnailImages.enumerated() {
-                let r = NSRect(x: tlX + CGFloat(i) * thumbW, y: tlY, width: thumbW + 1, height: tlH)
+                let x0 = floor(tlX + CGFloat(i) * tlW / CGFloat(count))
+                let x1 = ceil(tlX + CGFloat(i + 1) * tlW / CGFloat(count))
+                let r = NSRect(x: x0, y: tlY, width: x1 - x0, height: tlH)
                 img.draw(in: r, from: .zero, operation: .sourceOver, fraction: 0.5)
             }
         }
@@ -413,20 +433,20 @@ private final class VideoEditorView: NSView {
             let playheadX = max(tlX, min(tlX + tlW, tlX + CGFloat(currentTime / duration) * tlW))
 
             // Playhead line with subtle shadow
-            NSColor.white.withAlphaComponent(0.9).setFill()
+            ToolbarLayout.iconColor.withAlphaComponent(0.9).setFill()
             let playheadRect = NSRect(x: playheadX - 1, y: tlY - 2, width: 2, height: tlH + 4)
             NSBezierPath(roundedRect: playheadRect, xRadius: 1, yRadius: 1).fill()
 
             // Playhead circle
             let circleR: CGFloat = 5
             let circleX = max(tlX + circleR, min(tlX + tlW - circleR, playheadX))
-            NSColor.white.setFill()
+            ToolbarLayout.iconColor.setFill()
             NSBezierPath(ovalIn: NSRect(x: circleX - circleR, y: tlY + tlH + 2, width: circleR * 2, height: circleR * 2)).fill()
         }
     }
 
     private func drawHandleGrip(in rect: NSRect) {
-        NSColor.white.withAlphaComponent(0.5).setStroke()
+        ToolbarLayout.iconColor.withAlphaComponent(0.5).setStroke()
         let path = NSBezierPath()
         path.lineWidth = 1
         let midY = rect.midY
@@ -442,9 +462,13 @@ private final class VideoEditorView: NSView {
         let btnY: CGFloat = 12
         let gap: CGFloat = 8
         let iconBtnW: CGFloat = 34
-        // Use compact (icon-only) buttons when window is narrow
-        let compact = bounds.width < 700
-        let labelBtnW: CGFloat = compact ? iconBtnW : 100
+        let labelBtnW: CGFloat = 100
+
+        // Pre-compute right group width so left content knows where to stop
+        let copyArrowW: CGFloat = 20
+        let saveArrowW: CGFloat = 20
+        let rightGroupW = (labelBtnW + copyArrowW) + gap + iconBtnW + gap + labelBtnW + gap + (labelBtnW + saveArrowW)
+        let maxLeftX = bounds.width - timelinePad - rightGroupW - 12  // 12pt breathing room
 
         // Left group: play, mute
         var x: CGFloat = timelinePad
@@ -470,7 +494,7 @@ private final class VideoEditorView: NSView {
             formatGIFRect = NSRect(x: formatToggleRect.minX + halfW, y: segY, width: halfW, height: segH)
 
             // Background
-            NSColor.white.withAlphaComponent(0.08).setFill()
+            ToolbarLayout.iconColor.withAlphaComponent(0.08).setFill()
             NSBezierPath(roundedRect: formatToggleRect, xRadius: 5, yRadius: 5).fill()
 
             // Selected segment highlight
@@ -481,11 +505,11 @@ private final class VideoEditorView: NSView {
             // Labels
             let selAttrs: [NSAttributedString.Key: Any] = [
                 .font: NSFont.systemFont(ofSize: 11, weight: .semibold),
-                .foregroundColor: NSColor.white,
+                .foregroundColor: ToolbarLayout.iconColor,
             ]
             let unselAttrs: [NSAttributedString.Key: Any] = [
                 .font: NSFont.systemFont(ofSize: 11, weight: .medium),
-                .foregroundColor: NSColor.white.withAlphaComponent(0.5),
+                .foregroundColor: ToolbarLayout.iconColor.withAlphaComponent(0.5),
             ]
             let mp4Str = "MP4" as NSString
             let gifStr = "GIF" as NSString
@@ -498,31 +522,74 @@ private final class VideoEditorView: NSView {
             x += segW + 12
         }
 
-        if !compact {
+        do {
             let infoAttrs: [NSAttributedString.Key: Any] = [
                 .font: NSFont.systemFont(ofSize: 10, weight: .regular),
-                .foregroundColor: NSColor.white.withAlphaComponent(0.4),
+                .foregroundColor: ToolbarLayout.iconColor.withAlphaComponent(0.4),
             ]
-            let fileSize = (try? FileManager.default.attributesOfItem(atPath: videoURL.path)[.size] as? Int) ?? 0
-            let sizeStr = ByteCountFormatter.string(fromByteCount: Int64(fileSize), countStyle: .file)
+            let sourceFileSize = (try? FileManager.default.attributesOfItem(atPath: videoURL.path)[.size] as? Int) ?? 0
+            let sizeStr = ByteCountFormatter.string(fromByteCount: Int64(sourceFileSize), countStyle: .file)
             let fpsValue = asset?.tracks(withMediaType: .video).first?.nominalFrameRate ?? 0
-            let fpsStr = fpsValue > 0 ? "\(Int(fpsValue.rounded()))fps  ·  " : ""
-            var resStr = ""
-            if let track = asset?.tracks(withMediaType: .video).first {
-                let size = track.naturalSize.applying(track.preferredTransform)
-                resStr = "\(Int(abs(size.width)))×\(Int(abs(size.height)))"
-            } else if isGIF, let src = CGImageSourceCreateWithURL(videoURL as CFURL, nil),
-                      let img = CGImageSourceCreateImageAtIndex(src, 0, nil) {
-                resStr = "\(img.width)×\(img.height)"
-            }
-            let infoStr = "\(sizeStr)  ·  \(fpsStr)\(resStr)" as NSString
+            let fpsStr = fpsValue > 0 ? "\(Int(fpsValue.rounded()))fps" : ""
+            let infoStr = "\(sizeStr)  ·  \(fpsStr)" as NSString
             let infoSize = infoStr.size(withAttributes: infoAttrs)
-            infoStr.draw(at: NSPoint(x: x + 4, y: btnY + (btnH - infoSize.height) / 2), withAttributes: infoAttrs)
+            if x + infoSize.width < maxLeftX {
+                infoStr.draw(at: NSPoint(x: x + 4, y: btnY + (btnH - infoSize.height) / 2), withAttributes: infoAttrs)
+                x += infoSize.width + 12
+            }
+
+            // Dimensions dropdown button
+            dimensionsBtnRect = .zero
+            if originalWidth > 0 && x < maxLeftX {
+                let exportW = Int(CGFloat(originalWidth) * exportScale)
+                let exportH = Int(CGFloat(originalHeight) * exportScale)
+                let dimLabel: String
+                if exportScale >= 0.999 {
+                    dimLabel = "\(originalWidth)×\(originalHeight)"
+                } else {
+                    let pct = Int((exportScale * 100).rounded())
+                    dimLabel = "\(exportW)×\(exportH) (\(pct)%)"
+                }
+                let dimAttrs: [NSAttributedString.Key: Any] = [
+                    .font: NSFont.monospacedDigitSystemFont(ofSize: 10, weight: .medium),
+                    .foregroundColor: ToolbarLayout.iconColor.withAlphaComponent(exportScale < 0.999 ? 0.7 : 0.4),
+                ]
+                let dimStr = "  ·  \(dimLabel) ▼" as NSString
+                let dimSize = dimStr.size(withAttributes: dimAttrs)
+                let dimBtnW = dimSize.width + 8
+                if x + dimBtnW < maxLeftX {
+                    dimensionsBtnRect = NSRect(x: x, y: btnY, width: dimBtnW, height: btnH)
+                    dimStr.draw(at: NSPoint(x: x + 4, y: btnY + (btnH - dimSize.height) / 2), withAttributes: dimAttrs)
+                    x += dimBtnW
+                }
+            }
+
+            // Estimated export size — show when trim, scale, or format change would affect output
+            let trimRatio = duration > 0 ? (trimEnd - trimStart) / duration : 1.0
+            let scaleRatio = exportScale * exportScale  // pixels scale quadratically
+            let willChange = trimRatio < 0.99 || scaleRatio < 0.99 || exportAsGIF
+            if willChange && sourceFileSize > 0 && x < maxLeftX {
+                let estimated: Int64
+                if exportAsGIF {
+                    let gifFPSRatio = min(15.0, fpsValue) / max(fpsValue, 1.0)
+                    estimated = Int64(Double(sourceFileSize) * trimRatio * scaleRatio * 3.0 * Double(gifFPSRatio))
+                } else {
+                    estimated = Int64(Double(sourceFileSize) * trimRatio * scaleRatio)
+                }
+                let estStr = "  ·  ~\(ByteCountFormatter.string(fromByteCount: estimated, countStyle: .file))" as NSString
+                let estAttrs: [NSAttributedString.Key: Any] = [
+                    .font: NSFont.systemFont(ofSize: 10, weight: .medium),
+                    .foregroundColor: ToolbarLayout.iconColor.withAlphaComponent(0.35),
+                ]
+                let estSize = estStr.size(withAttributes: estAttrs)
+                if x + estSize.width + 8 < maxLeftX {
+                    estStr.draw(at: NSPoint(x: x + 4, y: btnY + (btnH - estSize.height) / 2), withAttributes: estAttrs)
+                }
+            }
         }
 
         // Right group: save, upload, finder, copy
         x = bounds.width - timelinePad
-        let copyArrowW: CGFloat = 20
         let fullCopyW = labelBtnW + copyArrowW
         x -= fullCopyW
         let fullCopyRect = NSRect(x: x, y: btnY, width: fullCopyW, height: btnH)
@@ -530,26 +597,14 @@ private final class VideoEditorView: NSView {
         copyArrowRect = NSRect(x: x + labelBtnW, y: btnY, width: copyArrowW, height: btnH)
 
         // Draw combined background
-        NSColor.white.withAlphaComponent(0.1).setFill()
+        ToolbarLayout.iconColor.withAlphaComponent(0.1).setFill()
         NSBezierPath(roundedRect: fullCopyRect, xRadius: 6, yRadius: 6).fill()
 
-        if compact {
-            if let img = NSImage(systemSymbolName: "doc.on.doc", accessibilityDescription: nil)?
-                    .withSymbolConfiguration(.init(pointSize: 13, weight: .medium)) {
-                let tinted = NSImage(size: img.size, flipped: false) { r in
-                    img.draw(in: r, from: .zero, operation: .sourceOver, fraction: 1)
-                    NSColor.white.setFill()
-                    r.fill(using: .sourceAtop)
-                    return true
-                }
-                tinted.draw(in: NSRect(x: copyBtnRect.midX - img.size.width / 2, y: copyBtnRect.midY - img.size.height / 2,
-                                        width: img.size.width, height: img.size.height))
-            }
-        } else {
+        do {
             let iconSize: CGFloat = 12
             let copyAttrs: [NSAttributedString.Key: Any] = [
                 .font: NSFont.systemFont(ofSize: 11, weight: .medium),
-                .foregroundColor: NSColor.white.withAlphaComponent(0.85),
+                .foregroundColor: ToolbarLayout.iconColor.withAlphaComponent(0.85),
             ]
             let copyLabel = L("Copy") as NSString
             let copyLabelSize = copyLabel.size(withAttributes: copyAttrs)
@@ -559,7 +614,7 @@ private final class VideoEditorView: NSView {
                     .withSymbolConfiguration(.init(pointSize: iconSize, weight: .medium)) {
                 let tinted = NSImage(size: img.size, flipped: false) { r in
                     img.draw(in: r, from: .zero, operation: .sourceOver, fraction: 1)
-                    NSColor.white.withAlphaComponent(0.85).setFill()
+                    ToolbarLayout.iconColor.withAlphaComponent(0.85).setFill()
                     r.fill(using: .sourceAtop)
                     return true
                 }
@@ -569,7 +624,7 @@ private final class VideoEditorView: NSView {
         }
 
         // Separator line
-        NSColor.white.withAlphaComponent(0.2).setStroke()
+        ToolbarLayout.iconColor.withAlphaComponent(0.2).setStroke()
         let copySep = NSBezierPath()
         copySep.move(to: NSPoint(x: copyArrowRect.minX, y: copyArrowRect.minY + 4))
         copySep.line(to: NSPoint(x: copyArrowRect.minX, y: copyArrowRect.maxY - 4))
@@ -581,7 +636,7 @@ private final class VideoEditorView: NSView {
                 .withSymbolConfiguration(.init(pointSize: 8, weight: .semibold)) {
             let tinted = NSImage(size: chevron.size, flipped: false) { r in
                 chevron.draw(in: r, from: .zero, operation: .sourceOver, fraction: 1)
-                NSColor.white.withAlphaComponent(0.6).setFill()
+                ToolbarLayout.iconColor.withAlphaComponent(0.6).setFill()
                 r.fill(using: .sourceAtop)
                 return true
             }
@@ -596,11 +651,7 @@ private final class VideoEditorView: NSView {
         let uploadProvider = UserDefaults.standard.string(forKey: "uploadProvider") ?? "imgbb"
         let canUpload = (uploadProvider == "gdrive" && GoogleDriveUploader.shared.isSignedIn) || (uploadProvider == "s3" && S3Uploader.shared.isConfigured)
         uploadBtnRect = NSRect(x: x, y: btnY, width: labelBtnW, height: btnH)
-        if compact {
-            drawIconButton(rect: uploadBtnRect, symbol: "icloud.and.arrow.up", accent: false)
-        } else {
-            drawLabelButton(rect: uploadBtnRect, symbol: "icloud.and.arrow.up", label: L("Upload"), dimmed: !canUpload)
-        }
+        drawLabelButton(rect: uploadBtnRect, symbol: "icloud.and.arrow.up", label: L("Upload"), dimmed: !canUpload)
         let arrowW: CGFloat = 20
         x -= gap + labelBtnW + arrowW
         let fullSaveW = labelBtnW + arrowW
@@ -609,28 +660,15 @@ private final class VideoEditorView: NSView {
         saveArrowRect = NSRect(x: x + labelBtnW, y: btnY, width: arrowW, height: btnH)
 
         // Draw combined background
-        NSColor.white.withAlphaComponent(0.1).setFill()
+        ToolbarLayout.iconColor.withAlphaComponent(0.1).setFill()
         NSBezierPath(roundedRect: fullSaveRect, xRadius: 6, yRadius: 6).fill()
 
-        // Draw save icon + label in left portion
-        if compact {
-            if let img = NSImage(systemSymbolName: "square.and.arrow.down", accessibilityDescription: nil)?
-                    .withSymbolConfiguration(.init(pointSize: 13, weight: .medium)) {
-                let tinted = NSImage(size: img.size, flipped: false) { r in
-                    img.draw(in: r, from: .zero, operation: .sourceOver, fraction: 1)
-                    NSColor.white.setFill()
-                    r.fill(using: .sourceAtop)
-                    return true
-                }
-                let imgRect = NSRect(x: saveBtnRect.midX - img.size.width / 2, y: saveBtnRect.midY - img.size.height / 2,
-                                      width: img.size.width, height: img.size.height)
-                tinted.draw(in: imgRect)
-            }
-        } else {
+        // Draw save icon + label
+        do {
             let iconSize: CGFloat = 12
             let attrs: [NSAttributedString.Key: Any] = [
                 .font: NSFont.systemFont(ofSize: 11, weight: .medium),
-                .foregroundColor: NSColor.white.withAlphaComponent(0.85),
+                .foregroundColor: ToolbarLayout.iconColor.withAlphaComponent(0.85),
             ]
             let saveLabel = L("Save") as NSString
             let labelSize = saveLabel.size(withAttributes: attrs)
@@ -640,7 +678,7 @@ private final class VideoEditorView: NSView {
                     .withSymbolConfiguration(.init(pointSize: iconSize, weight: .medium)) {
                 let tinted = NSImage(size: img.size, flipped: false) { r in
                     img.draw(in: r, from: .zero, operation: .sourceOver, fraction: 1)
-                    NSColor.white.withAlphaComponent(0.85).setFill()
+                    ToolbarLayout.iconColor.withAlphaComponent(0.85).setFill()
                     r.fill(using: .sourceAtop)
                     return true
                 }
@@ -650,7 +688,7 @@ private final class VideoEditorView: NSView {
         }
 
         // Draw separator line
-        NSColor.white.withAlphaComponent(0.2).setStroke()
+        ToolbarLayout.iconColor.withAlphaComponent(0.2).setStroke()
         let sep = NSBezierPath()
         sep.move(to: NSPoint(x: saveArrowRect.minX, y: saveArrowRect.minY + 4))
         sep.line(to: NSPoint(x: saveArrowRect.minX, y: saveArrowRect.maxY - 4))
@@ -662,7 +700,7 @@ private final class VideoEditorView: NSView {
                 .withSymbolConfiguration(.init(pointSize: 8, weight: .semibold)) {
             let tinted = NSImage(size: chevron.size, flipped: false) { r in
                 chevron.draw(in: r, from: .zero, operation: .sourceOver, fraction: 1)
-                NSColor.white.withAlphaComponent(0.6).setFill()
+                ToolbarLayout.iconColor.withAlphaComponent(0.6).setFill()
                 r.fill(using: .sourceAtop)
                 return true
             }
@@ -672,7 +710,7 @@ private final class VideoEditorView: NSView {
     }
 
     private func drawIconButton(rect: NSRect, symbol: String, accent: Bool, active: Bool = false, dimmed: Bool = false) {
-        let bg = accent ? ToolbarLayout.accentColor : (active ? ToolbarLayout.accentColor.withAlphaComponent(0.4) : NSColor.white.withAlphaComponent(dimmed ? 0.04 : 0.1))
+        let bg = accent ? ToolbarLayout.accentColor : (active ? ToolbarLayout.accentColor.withAlphaComponent(0.4) : ToolbarLayout.iconColor.withAlphaComponent(dimmed ? 0.04 : 0.1))
         bg.setFill()
         NSBezierPath(roundedRect: rect, xRadius: 6, yRadius: 6).fill()
 
@@ -681,7 +719,7 @@ private final class VideoEditorView: NSView {
                 .withSymbolConfiguration(.init(pointSize: 13, weight: .medium)) {
             let tinted = NSImage(size: img.size, flipped: false) { r in
                 img.draw(in: r, from: .zero, operation: .sourceOver, fraction: 1)
-                NSColor.white.withAlphaComponent(alpha).setFill()
+                ToolbarLayout.iconColor.withAlphaComponent(alpha).setFill()
                 r.fill(using: .sourceAtop)
                 return true
             }
@@ -692,7 +730,7 @@ private final class VideoEditorView: NSView {
     }
 
     private func drawLabelButton(rect: NSRect, symbol: String, label: String, dimmed: Bool = false) {
-        let bg = NSColor.white.withAlphaComponent(dimmed ? 0.04 : 0.1)
+        let bg = ToolbarLayout.iconColor.withAlphaComponent(dimmed ? 0.04 : 0.1)
         bg.setFill()
         NSBezierPath(roundedRect: rect, xRadius: 6, yRadius: 6).fill()
 
@@ -700,7 +738,7 @@ private final class VideoEditorView: NSView {
         let iconSize: CGFloat = 12
         let attrs: [NSAttributedString.Key: Any] = [
             .font: NSFont.systemFont(ofSize: 11, weight: .medium),
-            .foregroundColor: NSColor.white.withAlphaComponent(alpha),
+            .foregroundColor: ToolbarLayout.iconColor.withAlphaComponent(alpha),
         ]
         let str = label as NSString
         let textSize = str.size(withAttributes: attrs)
@@ -712,7 +750,7 @@ private final class VideoEditorView: NSView {
                 .withSymbolConfiguration(.init(pointSize: iconSize, weight: .medium)) {
             let tinted = NSImage(size: img.size, flipped: false) { r in
                 img.draw(in: r, from: .zero, operation: .sourceOver, fraction: 1)
-                NSColor.white.withAlphaComponent(alpha).setFill()
+                ToolbarLayout.iconColor.withAlphaComponent(alpha).setFill()
                 r.fill(using: .sourceAtop)
                 return true
             }
@@ -730,7 +768,7 @@ private final class VideoEditorView: NSView {
         let rightStr = String(format: L("%@ selected"), formatTime(trimDuration)) as NSString
         let attrs: [NSAttributedString.Key: Any] = [
             .font: NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium),
-            .foregroundColor: NSColor.white.withAlphaComponent(0.5),
+            .foregroundColor: ToolbarLayout.iconColor.withAlphaComponent(0.5),
         ]
 
         leftStr.draw(at: NSPoint(x: timelinePad, y: labelY), withAttributes: attrs)
@@ -790,6 +828,11 @@ private final class VideoEditorView: NSView {
         }
         if formatGIFRect.contains(point) && !exportAsGIF {
             exportAsGIF = true; savedURL = nil; needsDisplay = true; return
+        }
+
+        // Dimensions dropdown
+        if dimensionsBtnRect.contains(point) && originalWidth > 0 {
+            showDimensionsMenu(); return
         }
 
         // Buttons
@@ -930,23 +973,55 @@ private final class VideoEditorView: NSView {
     }
 
     private func exportSession(asset: AVAsset, timeRange: CMTimeRange, outputURL: URL) -> AVAssetExportSession? {
-        // If muted, create a composition without audio tracks
-        if isMuted {
-            let composition = AVMutableComposition()
-            guard let videoTrack = asset.tracks(withMediaType: .video).first,
-                  let compositionVideoTrack = composition.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid) else { return nil }
-            try? compositionVideoTrack.insertTimeRange(timeRange, of: videoTrack, at: .zero)
-            guard let session = AVAssetExportSession(asset: composition, presetName: AVAssetExportPresetHighestQuality) else { return nil }
-            session.outputURL = outputURL
-            session.outputFileType = .mp4
-            return session
-        } else {
-            guard let session = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetHighestQuality) else { return nil }
-            session.outputURL = outputURL
-            session.outputFileType = .mp4
-            session.timeRange = timeRange
-            return session
+        let needsScale = exportScale < 0.999
+
+        // Build a composition when we need to strip audio or scale
+        let composition = AVMutableComposition()
+        guard let videoTrack = asset.tracks(withMediaType: .video).first,
+              let compositionVideoTrack = composition.addMutableTrack(withMediaType: .video, preferredTrackID: kCMPersistentTrackID_Invalid) else { return nil }
+        try? compositionVideoTrack.insertTimeRange(timeRange, of: videoTrack, at: .zero)
+
+        // Include audio unless muted
+        if !isMuted {
+            for audioTrack in asset.tracks(withMediaType: .audio) {
+                if let compAudio = composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid) {
+                    try? compAudio.insertTimeRange(timeRange, of: audioTrack, at: .zero)
+                }
+            }
         }
+
+        let presetName = needsScale ? AVAssetExportPresetHighestQuality : AVAssetExportPresetHighestQuality
+        guard let session = AVAssetExportSession(asset: composition, presetName: presetName) else { return nil }
+        session.outputURL = outputURL
+        session.outputFileType = .mp4
+
+        // Apply scale via video composition
+        if needsScale {
+            let naturalSize = videoTrack.naturalSize.applying(videoTrack.preferredTransform)
+            let w = abs(naturalSize.width)
+            let h = abs(naturalSize.height)
+            // Round to even for codec compatibility
+            let scaledW = CGFloat((Int(w * exportScale) / 2) * 2)
+            let scaledH = CGFloat((Int(h * exportScale) / 2) * 2)
+
+            let instruction = AVMutableVideoCompositionInstruction()
+            instruction.timeRange = CMTimeRange(start: .zero, duration: composition.duration)
+            let layerInstruction = AVMutableVideoCompositionLayerInstruction(assetTrack: compositionVideoTrack)
+
+            // Apply the original transform (handles rotation) scaled down
+            var transform = videoTrack.preferredTransform
+            transform = transform.concatenating(CGAffineTransform(scaleX: exportScale, y: exportScale))
+            layerInstruction.setTransform(transform, at: .zero)
+            instruction.layerInstructions = [layerInstruction]
+
+            let videoComposition = AVMutableVideoComposition()
+            videoComposition.instructions = [instruction]
+            videoComposition.renderSize = CGSize(width: scaledW, height: scaledH)
+            videoComposition.frameDuration = CMTime(value: 1, timescale: CMTimeScale(videoTrack.nominalFrameRate))
+            session.videoComposition = videoComposition
+        }
+
+        return session
     }
 
     private func saveVideo() {
@@ -988,13 +1063,50 @@ private final class VideoEditorView: NSView {
     }
 
     private func showSaveMenu() {
-        // Currently unused — save arrow just does Save As
         saveVideoAs()
+    }
+
+    private func showDimensionsMenu() {
+        let menu = NSMenu()
+        let w = originalWidth, h = originalHeight
+
+        // Original (100%)
+        let origItem = NSMenuItem(title: "\(w) × \(h)  (Original)", action: #selector(dimensionSelected(_:)), keyEquivalent: "")
+        origItem.target = self
+        origItem.tag = 100
+        origItem.state = exportScale >= 0.999 ? .on : .off
+        menu.addItem(origItem)
+
+        menu.addItem(NSMenuItem.separator())
+
+        // Preset percentages — only include if the result is at least 128px wide
+        let presets: [(Int, String)] = [(75, "75%"), (50, "50%"), (33, "33%"), (25, "25%")]
+        for (pct, label) in presets {
+            let scaledW = w * pct / 100
+            let scaledH = h * pct / 100
+            guard scaledW >= 128 else { continue }
+            // Round to even for codec compatibility
+            let evenW = (scaledW / 2) * 2
+            let evenH = (scaledH / 2) * 2
+            let item = NSMenuItem(title: "\(evenW) × \(evenH)  (\(label))", action: #selector(dimensionSelected(_:)), keyEquivalent: "")
+            item.target = self
+            item.tag = pct
+            item.state = abs(exportScale - CGFloat(pct) / 100.0) < 0.01 ? .on : .off
+            menu.addItem(item)
+        }
+
+        let pos = NSPoint(x: dimensionsBtnRect.minX, y: dimensionsBtnRect.maxY)
+        menu.popUp(positioning: nil, at: pos, in: self)
+    }
+
+    @objc private func dimensionSelected(_ sender: NSMenuItem) {
+        exportScale = CGFloat(sender.tag) / 100.0
+        savedURL = nil
+        needsDisplay = true
     }
 
     private func convertToGIF(destURL: URL, completion: ((Bool) -> Void)? = nil) {
         guard let asset = asset else { completion?(false); return }
-        isConvertingGIF = true
         showStatus(L("Converting to GIF…"))
 
         let startTime = CMTime(seconds: trimStart, preferredTimescale: 600)
@@ -1002,21 +1114,31 @@ private final class VideoEditorView: NSView {
         let timeRange = CMTimeRange(start: startTime, end: endTime)
         // GIF capped at 15fps
         let gifFPS = min(15, asset.tracks(withMediaType: .video).first.map { Int($0.nominalFrameRate.rounded()) } ?? 15)
+        let scale = exportScale
 
         Task.detached(priority: .userInitiated) { [weak self] in
             do {
                 let reader = try AVAssetReader(asset: asset)
                 guard let videoTrack = asset.tracks(withMediaType: .video).first else {
                     await MainActor.run {
-                        self?.isConvertingGIF = false
                         self?.showStatus(L("No video track found"), isError: true)
                         completion?(false)
                     }
                     return
                 }
-                let outputSettings: [String: Any] = [
+
+                // If scaling, request scaled output directly from AVAssetReaderTrackOutput
+                var outputSettings: [String: Any] = [
                     kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA
                 ]
+                if scale < 0.999 {
+                    let natSize = videoTrack.naturalSize.applying(videoTrack.preferredTransform)
+                    let w = Int(abs(natSize.width) * scale) / 2 * 2
+                    let h = Int(abs(natSize.height) * scale) / 2 * 2
+                    outputSettings[kCVPixelBufferWidthKey as String] = w
+                    outputSettings[kCVPixelBufferHeightKey as String] = h
+                }
+
                 let trackOutput = AVAssetReaderTrackOutput(track: videoTrack, outputSettings: outputSettings)
                 trackOutput.alwaysCopiesSampleData = false
                 reader.timeRange = timeRange
@@ -1040,7 +1162,6 @@ private final class VideoEditorView: NSView {
                 try FileManager.default.moveItem(at: tmpURL, to: destURL)
 
                 await MainActor.run {
-                    self?.isConvertingGIF = false
                     self?.savedURL = destURL
                     self?.showStatus(String(format: L("Saved to %@"), destURL.lastPathComponent))
                     self?.needsDisplay = true
@@ -1048,7 +1169,6 @@ private final class VideoEditorView: NSView {
                 }
             } catch {
                 await MainActor.run {
-                    self?.isConvertingGIF = false
                     self?.showStatus(L("GIF conversion failed"), isError: true)
                     completion?(false)
                 }
@@ -1058,7 +1178,8 @@ private final class VideoEditorView: NSView {
 
     private func saveToDestination(_ destURL: URL, dirURL: URL?) {
         let needsTrim = trimStart > 0.01 || (duration - trimEnd) > 0.01
-        let needsExport = needsTrim || isMuted
+        let needsScale = exportScale < 0.999
+        let needsExport = needsTrim || isMuted || needsScale
 
         if !needsExport {
             // No processing needed — copy temp file to destination

@@ -22,7 +22,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     private var delayCountdownWindow: NSWindow?
     private var delayTimer: Timer?
     private var delayEscMonitor: Any?
-    private var pendingDelaySelection: NSRect = .zero
     private var uploadToastController: UploadToastController?
     private var recordingQuickActionsController: RecordingToastController?
     private var recordingEngine: RecordingEngine?
@@ -417,19 +416,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             if let prev = appToActivate, !prev.isTerminated,
                prev.bundleIdentifier != Bundle.main.bundleIdentifier {
                 Self.activateApp(prev)
-            } else if let appDel = NSApp.delegate as? AppDelegate,
-                      appDel.hasVisibleFloatingPanels {
-                // Floating thumbnails/pins are visible — just yield active status
-                // without hiding. NSApp.hide would kill them.
+            } else {
+                // No known previous app — yield focus to whatever is frontmost.
+                // Avoid NSApp.hide(nil) which can suspend the Carbon event loop
+                // and break global hotkeys until the app is reactivated.
                 Self.activateApp(
                     NSWorkspace.shared.runningApplications.first {
                         $0.isActive && $0.bundleIdentifier != Bundle.main.bundleIdentifier
                     } ?? NSWorkspace.shared.frontmostApplication ?? NSRunningApplication.current
                 )
-            } else {
-                // No known previous app and no floating panels —
-                // hide macshot so macOS activates the next app.
-                NSApp.hide(nil)
             }
         }
     }
@@ -2081,75 +2076,6 @@ extension AppDelegate: OverlayWindowControllerDelegate {
         )
     }
 
-    private func startDelayCountdown(seconds: Int) {
-        // Create a floating countdown window centered on screen
-        let size = NSSize(width: 120, height: 120)
-        guard let screen = NSScreen.main else { return }
-        let origin = NSPoint(
-            x: screen.frame.midX - size.width / 2,
-            y: screen.frame.midY - size.height / 2
-        )
-
-        let window = NSWindow(
-            contentRect: NSRect(origin: origin, size: size),
-            styleMask: [.borderless],
-            backing: .buffered,
-            defer: false
-        )
-        window.isOpaque = false
-        window.backgroundColor = .clear
-        window.level = .floating
-        window.hasShadow = false
-        window.ignoresMouseEvents = true
-        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-
-        let countdownView = CountdownView(frame: NSRect(origin: .zero, size: size))
-        countdownView.remaining = seconds
-        window.contentView = countdownView
-        window.makeKeyAndOrderFront(nil)
-        delayCountdownWindow = window
-
-        var remaining = seconds
-        delayTimer?.invalidate()
-        delayTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] timer in
-            remaining -= 1
-            if remaining <= 0 {
-                timer.invalidate()
-                self?.delayTimer = nil
-                self?.delayCountdownWindow?.orderOut(nil)
-                self?.delayCountdownWindow = nil
-                self?.performDelayedCapture()
-            } else {
-                countdownView.remaining = remaining
-                countdownView.needsDisplay = true
-            }
-        }
-    }
-
-    private func performDelayedCapture() {
-        let savedRect = pendingDelaySelection
-        isCapturing = true
-
-        ScreenCaptureManager.captureAllScreens { [weak self] captures in
-            guard let self = self else { return }
-
-            if captures.isEmpty {
-                self.isCapturing = false
-                return
-            }
-
-            NSApp.activate(ignoringOtherApps: true)
-
-            for capture in captures {
-                let controller = OverlayWindowController(capture: capture)
-                controller.overlayDelegate = self
-                controller.showOverlay()
-                // Restore the selection region
-                controller.applySelection(savedRect)
-                self.overlayControllers.append(controller)
-            }
-        }
-    }
 }
 
 // MARK: - PinWindowControllerDelegate

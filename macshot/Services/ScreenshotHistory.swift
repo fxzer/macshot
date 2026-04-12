@@ -145,58 +145,6 @@ class ScreenshotHistory {
         }
     }
 
-    /// Add a GIF recording to history by copying the file and extracting a thumbnail from the first frame.
-    func addRecording(url: URL) {
-        let max = maxEntries
-        guard max > 0 else { return }
-
-        let ext = url.pathExtension.lowercased()
-        guard ext == "gif" else { return }  // only GIF for now — MP4 thumbnails need AVAsset
-
-        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
-              CGImageSourceGetCount(source) > 0,
-              let cgImage = CGImageSourceCreateImageAtIndex(source, 0, nil) else { return }
-
-        let id = UUID().uuidString
-        let image = NSImage(cgImage: cgImage, size: NSSize(width: cgImage.width, height: cgImage.height))
-        let thumb = makeThumbnail(image: image, maxWidth: 36)
-
-        let entry = HistoryEntry(
-            id: id,
-            fileExtension: ext,
-            timestamp: Date(),
-            pixelWidth: cgImage.width,
-            pixelHeight: cgImage.height,
-            thumbnail: thumb
-        )
-        entries.insert(entry, at: 0)
-
-        while entries.count > max {
-            let removed = entries.removeLast()
-            deleteFiles(for: removed.id, ext: removed.fileExtension)
-        }
-        saveIndex()
-
-        // Copy GIF + save thumbnail + preview on background thread
-        let destURL = historyDir.appendingPathComponent("\(id).\(ext)")
-        let thumbURL = historyDir.appendingPathComponent("\(id)_thumb.png")
-        let previewURL = historyDir.appendingPathComponent("\(id)_preview.png")
-        let preview = makePreview(image: image)
-        DispatchQueue.global(qos: .utility).async {
-            try? FileManager.default.copyItem(at: url, to: destURL)
-            if let thumbTiff = thumb.tiffRepresentation,
-               let thumbBitmap = NSBitmapImageRep(data: thumbTiff),
-               let thumbPng = thumbBitmap.representation(using: .png, properties: [:]) {
-                try? thumbPng.write(to: thumbURL, options: .atomic)
-            }
-            if let prevTiff = preview.tiffRepresentation,
-               let prevBitmap = NSBitmapImageRep(data: prevTiff),
-               let prevPng = prevBitmap.representation(using: .png, properties: [:]) {
-                try? prevPng.write(to: previewURL, options: .atomic)
-            }
-        }
-    }
-
     /// Update an existing history entry in-place (for "Done" in editor).
     /// Rewrites the composited image, raw image, annotations, thumbnail, and preview.
     func updateEntry(id: String, compositedImage: NSImage, rawImage: NSImage?, annotations: [Annotation]?) {

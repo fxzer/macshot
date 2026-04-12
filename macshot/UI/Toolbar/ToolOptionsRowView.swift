@@ -14,9 +14,6 @@ class ToolOptionsRowView: NSView {
     private let padding: CGFloat = 8
     /// The natural content width calculated during rebuild, before any external resizing.
     private(set) var contentWidth: CGFloat = 200
-    private var accent: NSColor { ToolbarLayout.accentColor }
-    private var iconColor: NSColor { ToolbarLayout.iconColor }
-
     // Consume clicks on gaps between controls so they don't fall through to OverlayView.
     // In editor mode, let gap clicks pass through so drawing works over the options area.
     override func hitTest(_ point: NSPoint) -> NSView? {
@@ -48,9 +45,9 @@ class ToolOptionsRowView: NSView {
         wantsLayer = true
         layer?.cornerRadius = 6
         layer?.backgroundColor = ToolbarLayout.bgColor.cgColor
-        // Force dark appearance so system controls (NSSegmentedControl labels,
-        // NSTextField, NSButton titles) use light text on the dark toolbar background.
-        appearance = NSAppearance(named: .darkAqua)
+        // Match appearance to toolbar background brightness so system controls
+        // (NSSegmentedControl labels, NSTextField, NSButton titles) stay readable.
+        appearance = ToolbarLayout.appearance
     }
 
     required init?(coder: NSCoder) { fatalError() }
@@ -1370,22 +1367,12 @@ class ToolOptionsRowView: NSView {
         ov.needsDisplay = true
     }
 
-    @objc private func fontSizeChanged(_ sender: NSStepper) {
-        guard let ov = overlayView else { return }
-        ov.textEditor.fontSize = CGFloat(sender.integerValue)
-        UserDefaults.standard.set(sender.doubleValue, forKey: "fontSize")
-        if let label = viewWithTag(998) as? NSTextField {
-            label.stringValue = "\(sender.integerValue)pt"
-            label.sizeToFit()
-        }
-        ov.textEditor.applyFontSizeChange()
-        ov.needsDisplay = true
-    }
 
-    @objc private func boldToggled() { overlayView?.textEditor.toggleBold(); overlayView.map { $0.needsDisplay = true; rebuild(for: $0.currentTool) } }
-    @objc private func italicToggled() { overlayView?.textEditor.toggleItalic(); overlayView.map { $0.needsDisplay = true; rebuild(for: $0.currentTool) } }
-    @objc private func underlineToggled() { overlayView?.textEditor.toggleUnderline(); overlayView.map { $0.needsDisplay = true; rebuild(for: $0.currentTool) } }
-    @objc private func strikethroughToggled() { overlayView?.textEditor.toggleStrikethrough(); overlayView.map { $0.needsDisplay = true; rebuild(for: $0.currentTool) } }
+
+    @objc private func boldToggled() { overlayView?.textEditor.toggleBold(); overlayView.map { $0.applyTextFormattingToSelectedAnnotations(); $0.needsDisplay = true; rebuild(for: $0.currentTool) } }
+    @objc private func italicToggled() { overlayView?.textEditor.toggleItalic(); overlayView.map { $0.applyTextFormattingToSelectedAnnotations(); $0.needsDisplay = true; rebuild(for: $0.currentTool) } }
+    @objc private func underlineToggled() { overlayView?.textEditor.toggleUnderline(); overlayView.map { $0.applyTextFormattingToSelectedAnnotations(); $0.needsDisplay = true; rebuild(for: $0.currentTool) } }
+    @objc private func strikethroughToggled() { overlayView?.textEditor.toggleStrikethrough(); overlayView.map { $0.applyTextFormattingToSelectedAnnotations(); $0.needsDisplay = true; rebuild(for: $0.currentTool) } }
 
     @objc private func measureUnitChanged(_ sender: NSSegmentedControl) {
         guard let ov = overlayView else { return }
@@ -1461,6 +1448,7 @@ class ToolOptionsRowView: NSView {
             ov.textEditor.fontFamily = family
             UserDefaults.standard.set(family, forKey: "textFontFamily")
             ov.textEditor.applyFontSizeChange()
+            ov.applyTextFormattingToSelectedAnnotations()
             ov.rebuildToolbarLayout()
             ov.needsDisplay = true
             PopoverHelper.dismiss()
@@ -1476,6 +1464,7 @@ class ToolOptionsRowView: NSView {
         if let align = NSTextAlignment(rawValue: sender.tag) {
             ov.textEditor.alignment = align
             ov.textEditor.applyAlignment()
+            ov.applyTextFormattingToSelectedAnnotations()
             // Update all alignment buttons — only the selected one should be on
             for case let btn as NSButton in subviews where
                 btn.tag == NSTextAlignment.left.rawValue ||
@@ -1493,6 +1482,7 @@ class ToolOptionsRowView: NSView {
         UserDefaults.standard.set(Double(ov.textEditor.fontSize), forKey: "textFontSize")
         ov.textEditor.applyFontSizeChange()
         ov.textEditor.resizeToFit()
+        ov.applyTextFormattingToSelectedAnnotations()
         if let label = viewWithTag(998) as? NSTextField { label.stringValue = "\(Int(ov.textEditor.fontSize))" }
         ov.needsDisplay = true
     }
@@ -1503,6 +1493,7 @@ class ToolOptionsRowView: NSView {
         UserDefaults.standard.set(Double(ov.textEditor.fontSize), forKey: "textFontSize")
         ov.textEditor.applyFontSizeChange()
         ov.textEditor.resizeToFit()
+        ov.applyTextFormattingToSelectedAnnotations()
         if let label = viewWithTag(998) as? NSTextField { label.stringValue = "\(Int(ov.textEditor.fontSize))" }
         ov.needsDisplay = true
     }
@@ -1513,6 +1504,7 @@ class ToolOptionsRowView: NSView {
         UserDefaults.standard.set(ov.textEditor.bgEnabled, forKey: "textBgEnabled")
         // Update swatch opacity
         if let swatch = viewWithTag(975) { swatch.layer?.opacity = ov.textEditor.bgEnabled ? 1.0 : 0.3 }
+        ov.applyTextBgOutlineToSelectedAnnotations()
         ov.needsDisplay = true
     }
 
@@ -1521,6 +1513,7 @@ class ToolOptionsRowView: NSView {
         ov.textEditor.outlineEnabled = sender.state == .on
         UserDefaults.standard.set(ov.textEditor.outlineEnabled, forKey: "textOutlineEnabled")
         if let swatch = viewWithTag(976) { swatch.layer?.opacity = ov.textEditor.outlineEnabled ? 1.0 : 0.3 }
+        ov.applyTextBgOutlineToSelectedAnnotations()
         ov.needsDisplay = true
     }
 
