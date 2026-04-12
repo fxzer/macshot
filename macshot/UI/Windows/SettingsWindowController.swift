@@ -13,7 +13,13 @@ private class SettingsWindow: NSWindow {
     }
 }
 
-class SettingsWindowController: NSWindowController, NSTabViewDelegate, NSWindowDelegate {
+class SettingsWindowController: NSWindowController, NSWindowDelegate {
+
+    // Tab content views
+    private var tabContentViews: [String: NSView] = [:]
+    private var currentTabIdentifier: String = "interface"
+    private var contentContainerView: NSView!
+    private var tabBarView: TabBarView!
 
     private var hotkeyFields: [HotkeyManager.HotkeySlot: NSTextField] = [:]
     private var hotkeyButtons: [HotkeyManager.HotkeySlot: NSButton] = [:]
@@ -108,56 +114,51 @@ class SettingsWindowController: NSWindowController, NSTabViewDelegate, NSWindowD
     private func setupUI() {
         guard let cv = window?.contentView else { return }
 
-        // Logo
-        let logo = NSImageView()
-        logo.image = NSImage(named: "Logo")
-        logo.imageScaling = .scaleProportionallyUpOrDown
-        logo.translatesAutoresizingMaskIntoConstraints = false
+        // Create tab bar with icons (all use outline style)
+        let tabs = [
+            TabBarView.TabItem(identifier: "interface", title: L("Interface"), iconName: "rectangle.3.group"),
+            TabBarView.TabItem(identifier: "capture", title: L("Capture"), iconName: "camera"),
+            TabBarView.TabItem(identifier: "output", title: L("Output"), iconName: "arrow.down.doc"),
+            TabBarView.TabItem(identifier: "shortcuts", title: L("Shortcuts"), iconName: "command"),
+            TabBarView.TabItem(identifier: "tools", title: L("Tools"), iconName: "wrench.and.screwdriver"),
+            TabBarView.TabItem(identifier: "recording", title: L("Recording"), iconName: "record.circle"),
+            TabBarView.TabItem(identifier: "uploads", title: L("Uploads"), iconName: "cloud"),
+            TabBarView.TabItem(identifier: "about", title: L("About"), iconName: "info.circle"),
+        ]
 
-        // Tab view
-        let tabView = NSTabView()
-        tabView.translatesAutoresizingMaskIntoConstraints = false
-        tabView.delegate = self
+        let tabBar = TabBarView(tabs: tabs, initialSelection: currentTabIdentifier)
+        tabBar.translatesAutoresizingMaskIntoConstraints = false
+        tabBar.onTabSelected = { [weak self] identifier in
+            self?.switchTab(to: identifier)
+        }
+        tabBarView = tabBar  // Save reference
 
-        let interfaceTab = NSTabViewItem(identifier: "interface")
-        interfaceTab.label = L("Interface")
-        interfaceTab.view = makeInterfaceTabView()
-        tabView.addTabViewItem(interfaceTab)
+        // Content container for tab views
+        contentContainerView = NSView()
+        contentContainerView.translatesAutoresizingMaskIntoConstraints = false
+        contentContainerView.wantsLayer = true
 
-        let captureTab = NSTabViewItem(identifier: "capture")
-        captureTab.label = L("Capture")
-        captureTab.view = makeCaptureTabView()
-        tabView.addTabViewItem(captureTab)
+        // Prepare all tab content views
+        tabContentViews["interface"] = makeInterfaceTabView()
+        tabContentViews["capture"] = makeCaptureTabView()
+        tabContentViews["output"] = makeOutputTabView()
+        tabContentViews["shortcuts"] = makeShortcutsTabView()
+        tabContentViews["tools"] = makeToolsTabView()
+        tabContentViews["recording"] = makeRecordingTabView()
+        tabContentViews["uploads"] = makeUploadsTabView()
+        tabContentViews["about"] = makeAboutTabView()
 
-        let outputTab = NSTabViewItem(identifier: "output")
-        outputTab.label = L("Output")
-        outputTab.view = makeOutputTabView()
-        tabView.addTabViewItem(outputTab)
-
-        let shortcutsTab = NSTabViewItem(identifier: "shortcuts")
-        shortcutsTab.label = L("Shortcuts")
-        shortcutsTab.view = makeShortcutsTabView()
-        tabView.addTabViewItem(shortcutsTab)
-
-        let toolsTab = NSTabViewItem(identifier: "tools")
-        toolsTab.label = L("Tools")
-        toolsTab.view = makeToolsTabView()
-        tabView.addTabViewItem(toolsTab)
-
-        let recordingTab = NSTabViewItem(identifier: "recording")
-        recordingTab.label = L("Recording")
-        recordingTab.view = makeRecordingTabView()
-        tabView.addTabViewItem(recordingTab)
-
-        let uploadsTab = NSTabViewItem(identifier: "uploads")
-        uploadsTab.label = L("Uploads")
-        uploadsTab.view = makeUploadsTabView()
-        tabView.addTabViewItem(uploadsTab)
-
-        let aboutTab = NSTabViewItem(identifier: "about")
-        aboutTab.label = L("About")
-        aboutTab.view = makeAboutTabView()
-        tabView.addTabViewItem(aboutTab)
+        // Add initial tab content
+        if let initialView = tabContentViews[currentTabIdentifier] {
+            contentContainerView.addSubview(initialView)
+            initialView.translatesAutoresizingMaskIntoConstraints = false
+            NSLayoutConstraint.activate([
+                initialView.topAnchor.constraint(equalTo: contentContainerView.topAnchor),
+                initialView.leadingAnchor.constraint(equalTo: contentContainerView.leadingAnchor),
+                initialView.trailingAnchor.constraint(equalTo: contentContainerView.trailingAnchor),
+                initialView.bottomAnchor.constraint(equalTo: contentContainerView.bottomAnchor),
+            ])
+        }
 
         // Footer separator
         let sep = NSBox()
@@ -186,23 +187,23 @@ class SettingsWindowController: NSWindowController, NSTabViewDelegate, NSWindowD
         footerStack.spacing = 0
         footerStack.translatesAutoresizingMaskIntoConstraints = false
 
-        cv.addSubview(logo)
-        cv.addSubview(tabView)
+        cv.addSubview(tabBar)
+        cv.addSubview(contentContainerView)
         cv.addSubview(sep)
         cv.addSubview(footerStack)
 
         NSLayoutConstraint.activate([
-            // Logo centered at top
-            logo.topAnchor.constraint(equalTo: cv.topAnchor, constant: 16),
-            logo.centerXAnchor.constraint(equalTo: cv.centerXAnchor),
-            logo.widthAnchor.constraint(equalToConstant: 56),
-            logo.heightAnchor.constraint(equalToConstant: 56),
+            // Tab bar at top
+            tabBar.topAnchor.constraint(equalTo: cv.topAnchor, constant: 8),
+            tabBar.leadingAnchor.constraint(equalTo: cv.leadingAnchor),
+            tabBar.trailingAnchor.constraint(equalTo: cv.trailingAnchor),
+            tabBar.heightAnchor.constraint(equalToConstant: 57),  // 56 bar + 1 separator
 
-            // Tab view below logo, above footer
-            tabView.topAnchor.constraint(equalTo: logo.bottomAnchor, constant: 8),
-            tabView.leadingAnchor.constraint(equalTo: cv.leadingAnchor),
-            tabView.trailingAnchor.constraint(equalTo: cv.trailingAnchor),
-            tabView.bottomAnchor.constraint(equalTo: sep.topAnchor, constant: -0),
+            // Content container below tab bar
+            contentContainerView.topAnchor.constraint(equalTo: tabBar.bottomAnchor),
+            contentContainerView.leadingAnchor.constraint(equalTo: cv.leadingAnchor),
+            contentContainerView.trailingAnchor.constraint(equalTo: cv.trailingAnchor),
+            contentContainerView.bottomAnchor.constraint(equalTo: sep.topAnchor, constant: -0),
 
             // Footer separator
             sep.leadingAnchor.constraint(equalTo: cv.leadingAnchor),
@@ -217,7 +218,6 @@ class SettingsWindowController: NSWindowController, NSTabViewDelegate, NSWindowD
             footerStack.heightAnchor.constraint(equalToConstant: 20),
         ])
     }
-
     // MARK: - General Tab
 
     // MARK: - Shortcuts Tab
@@ -2103,10 +2103,31 @@ class SettingsWindowController: NSWindowController, NSTabViewDelegate, NSWindowD
         }
     }
 
-    // MARK: - NSTabViewDelegate
+    // MARK: - Tab Switching
 
-    func tabView(_ tabView: NSTabView, didSelect tabViewItem: NSTabViewItem?) {
-        if tabViewItem?.identifier as? String == "uploads" {
+    private func switchTab(to identifier: String) {
+        guard identifier != currentTabIdentifier,
+              let newView = tabContentViews[identifier] else { return }
+
+        // Remove old view
+        if let oldView = tabContentViews[currentTabIdentifier] {
+            oldView.removeFromSuperview()
+        }
+
+        // Add new view
+        contentContainerView.addSubview(newView)
+        newView.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            newView.topAnchor.constraint(equalTo: contentContainerView.topAnchor),
+            newView.leadingAnchor.constraint(equalTo: contentContainerView.leadingAnchor),
+            newView.trailingAnchor.constraint(equalTo: contentContainerView.trailingAnchor),
+            newView.bottomAnchor.constraint(equalTo: contentContainerView.bottomAnchor),
+        ])
+
+        currentTabIdentifier = identifier
+
+        // Reload uploads tab if selected
+        if identifier == "uploads" {
             reloadUploadsTab()
         }
     }
