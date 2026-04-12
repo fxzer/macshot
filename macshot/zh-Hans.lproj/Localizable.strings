@@ -242,6 +242,7 @@
 
 /* Preferences - Shortcuts */
 "Keyboard Shortcuts" = "键盘快捷键";
+"Global Keyboard Shortcuts" = "全局快捷键";
 "Hotkeys" = "快捷键";
 "Clear shortcut" = "清除快捷键";
 "Press keys..." = "按下按键...";
@@ -466,6 +467,7 @@
 "Done" = "完成";
 "Do nothing" = "不执行任何操作";
 "Overlay / Editor Shortcuts" = "覆盖层 / 编辑器快捷键";
+"In-App Shortcuts" = "应用内快捷键";
 "Set" = "设置";
 "Press..." = "按下...";
 "Reset to default" = "恢复默认";

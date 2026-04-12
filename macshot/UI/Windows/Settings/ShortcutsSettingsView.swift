@@ -241,7 +241,7 @@ struct ShortcutsSettingsView: View {
                     }
                 }
             } header: {
-                Text(L("Keyboard Shortcuts"))
+                Text(L("Global Keyboard Shortcuts"))
             } footer: {
                 Text(L("Click to record shortcut. Esc to cancel, ⌫ to clear. Right-click to reset."))
             }
@@ -269,7 +269,7 @@ struct ShortcutsSettingsView: View {
                     }
                 }
             } header: {
-                Text(L("Overlay / Editor Shortcuts"))
+                Text(L("In-App Shortcuts"))
             } footer: {
                 Text(L("Press a single key to assign. These work when the overlay or editor is active."))
             }
