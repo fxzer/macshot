@@ -12,7 +12,7 @@ final class EllipseToolHandler: AnnotationToolHandler {
             startPoint: point,
             endPoint: point,
             color: canvas.opacityAppliedColor(for: .ellipse),
-            strokeWidth: canvas.currentStrokeWidth
+            strokeWidth: canvas.initialStrokeWidth(for: .ellipse)
         )
         annotation.rectFillStyle = canvas.currentRectFillStyle
         annotation.lineStyle = canvas.currentLineStyle

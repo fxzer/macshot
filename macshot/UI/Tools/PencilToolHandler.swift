@@ -29,7 +29,7 @@ final class PencilToolHandler: AnnotationToolHandler {
             startPoint: point,
             endPoint: point,
             color: canvas.opacityAppliedColor(for: .pencil),
-            strokeWidth: canvas.currentStrokeWidth
+            strokeWidth: canvas.initialStrokeWidth(for: .pencil)
         )
         annotation.points = [point]
         if canvas.pencilPressureEnabled {

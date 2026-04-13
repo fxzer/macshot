@@ -14,7 +14,7 @@ final class PixelateToolHandler: AnnotationToolHandler {
             startPoint: point,
             endPoint: point,
             color: canvas.opacityAppliedColor(for: .pixelate),
-            strokeWidth: canvas.currentStrokeWidth
+            strokeWidth: canvas.initialStrokeWidth(for: .pixelate)
         )
         annotation.censorMode = mode
         // Solid mode doesn't need a source image; all others do

@@ -12,7 +12,7 @@ final class MeasureToolHandler: AnnotationToolHandler {
             startPoint: point,
             endPoint: point,
             color: canvas.opacityAppliedColor(for: .measure),
-            strokeWidth: canvas.currentStrokeWidth
+            strokeWidth: canvas.initialStrokeWidth(for: .measure)
         )
         annotation.measureInPoints = canvas.currentMeasureInPoints
         return annotation

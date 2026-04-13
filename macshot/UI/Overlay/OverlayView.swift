@@ -204,6 +204,7 @@ class OverlayView: NSView {
 
     // Debounce timer for scroll wheel property adjustments (prevents memory explosion)
     private var scrollPropertyAdjustTimer: Timer?
+    private var pendingScrollPropertyCommit: (() -> Void)?
     private var pendingPropertyChange: (annotation: Annotation, snapshot: Annotation, newValue: CGFloat, key: String)?
     /// True while the user is adjusting annotation properties via scroll wheel.
     /// Enables the split-layer fast path (draw cached static layer + only the selected annotation live).
@@ -359,6 +360,11 @@ class OverlayView: NSView {
     /// All currently selected annotations (supports multi-select via Shift+Click).
     private var selectedAnnotations: [Annotation] = [] {
         didSet {
+            if (selectedAnnotations.first !== oldValue.first || selectedAnnotations.count != oldValue.count)
+                && isScrollAdjustingProperty
+            {
+                finalizeScrollPropertyAdjustmentIfNeeded()
+            }
             let oldSingle = oldValue.first
             let newSingle = selectedAnnotations.first
             if newSingle !== oldSingle || oldValue.count != selectedAnnotations.count {
@@ -6037,12 +6043,11 @@ class OverlayView: NSView {
                 let newWidth = min(30, max(1, oldWidth + delta * step))
                 if newWidth != oldWidth {
                     ann.strokeWidth = newWidth
-                    currentStrokeWidth = newWidth
+                    setActiveStrokeWidth(newWidth, for: ann.tool)
                     needsDisplay = true
                     toolOptionsRowView?.updateStrokeSlider(value: newWidth)
                     scheduleScrollPropertyCommit { [weak self] in
                         guard let self = self else { return }
-                        UserDefaults.standard.set(Double(newWidth), forKey: "currentStrokeWidth")
                         let snapshot = ann.clone()
                         self.pushPropertyChangeUndo(annotation: ann, snapshot: snapshot)
                     }
@@ -6860,16 +6865,30 @@ class OverlayView: NSView {
     /// Debounce helper for scroll-wheel property adjustments.
     /// Runs `commit` once scrolling stops, then rebuilds all annotation caches.
     private func scheduleScrollPropertyCommit(_ commit: @escaping () -> Void) {
+        pendingScrollPropertyCommit = commit
         scrollPropertyAdjustTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: false) { [weak self] _ in
             guard let self = self else { return }
-            commit()
-            self.isScrollAdjustingProperty = false
-            self.cachedAnnotationLayerExcludingSelected = nil
-            self.cachedAnnotationLayer = nil
-            self.cachedCompositedImage = nil
-            self.scrollPropertyAdjustTimer = nil
-            self.needsDisplay = true
+            self.pendingScrollPropertyCommit?()
+            self.finishScrollPropertyAdjustmentState()
         }
+    }
+
+    private func finalizeScrollPropertyAdjustmentIfNeeded() {
+        guard isScrollAdjustingProperty else { return }
+        scrollPropertyAdjustTimer?.invalidate()
+        scrollPropertyAdjustTimer = nil
+        pendingScrollPropertyCommit?()
+        finishScrollPropertyAdjustmentState()
+    }
+
+    private func finishScrollPropertyAdjustmentState() {
+        pendingScrollPropertyCommit = nil
+        isScrollAdjustingProperty = false
+        cachedAnnotationLayerExcludingSelected = nil
+        cachedAnnotationLayer = nil
+        cachedCompositedImage = nil
+        scrollPropertyAdjustTimer = nil
+        needsDisplay = true
     }
 
     private func applyColorToSelectedAnnotation() {
@@ -8730,6 +8749,23 @@ extension OverlayView: AnnotationCanvas {
 
     func setNeedsDisplay() {
         needsDisplay = true
+    }
+
+    func initialStrokeWidth(for tool: AnnotationTool) -> CGFloat {
+        switch tool {
+        case .pencil:
+            return currentPencilStrokeWidth
+        case .line:
+            return currentLineStrokeWidth
+        case .arrow:
+            return currentArrowStrokeWidth
+        case .marker:
+            return currentMarkerSize
+        case .number:
+            return currentNumberSize
+        default:
+            return currentStrokeWidth
+        }
     }
 
     func autoSelectNewAnnotation(_ annotation: Annotation) {

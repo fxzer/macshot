@@ -12,7 +12,7 @@ final class RectangleToolHandler: AnnotationToolHandler {
             startPoint: point,
             endPoint: point,
             color: canvas.opacityAppliedColor(for: .rectangle),
-            strokeWidth: canvas.currentStrokeWidth
+            strokeWidth: canvas.initialStrokeWidth(for: .rectangle)
         )
         annotation.rectCornerRadius = canvas.currentRectCornerRadius
         annotation.rectFillStyle = canvas.currentRectFillStyle

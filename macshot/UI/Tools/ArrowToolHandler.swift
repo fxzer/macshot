@@ -12,7 +12,7 @@ final class ArrowToolHandler: AnnotationToolHandler {
             startPoint: point,
             endPoint: point,
             color: canvas.opacityAppliedColor(for: .arrow),
-            strokeWidth: canvas.currentStrokeWidth
+            strokeWidth: canvas.initialStrokeWidth(for: .arrow)
         )
         annotation.lineStyle = canvas.currentLineStyle
         annotation.arrowStyle = canvas.currentArrowStyle

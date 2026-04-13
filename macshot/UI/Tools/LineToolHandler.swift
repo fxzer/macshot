@@ -12,7 +12,7 @@ final class LineToolHandler: AnnotationToolHandler {
             startPoint: point,
             endPoint: point,
             color: canvas.opacityAppliedColor(for: .line),
-            strokeWidth: canvas.currentStrokeWidth
+            strokeWidth: canvas.initialStrokeWidth(for: .line)
         )
         annotation.lineStyle = canvas.currentLineStyle
         return annotation

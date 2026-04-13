@@ -32,6 +32,8 @@ protocol AnnotationCanvas: AnyObject {
 
     /// currentColor with tool-appropriate opacity applied.
     func opacityAppliedColor(for tool: AnnotationTool) -> NSColor
+    /// Returns the persisted stroke/size value that should seed a brand-new annotation for this tool.
+    func initialStrokeWidth(for tool: AnnotationTool) -> CGFloat
 
     // Annotation storage
     var annotations: [Annotation] { get set }

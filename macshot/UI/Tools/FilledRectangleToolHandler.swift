@@ -12,7 +12,7 @@ final class FilledRectangleToolHandler: AnnotationToolHandler {
             startPoint: point,
             endPoint: point,
             color: canvas.opacityAppliedColor(for: .filledRectangle),
-            strokeWidth: canvas.currentStrokeWidth
+            strokeWidth: canvas.initialStrokeWidth(for: .filledRectangle)
         )
     }
 
