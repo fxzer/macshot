@@ -29,28 +29,44 @@ struct KeyRecorderField: View {
     let onReset: () -> Void
 
     @State private var isHovered = false
+    private let accessoryWidth: CGFloat = 14
+    private let fieldWidth: CGFloat = 112
 
     var body: some View {
-        HStack(spacing: 4) {
+        ZStack {
             Text(isRecording ? L("Type shortcut…") : currentDisplay)
                 .font(.system(size: 12, weight: .medium, design: .rounded))
                 .foregroundColor(isRecording ? .white : .secondary)
                 .lineLimit(1)
+                .truncationMode(.tail)
+                .frame(maxWidth: .infinity, alignment: .center)
 
-            if !isRecording && currentDisplay != L("None") && isHovered {
-                Button {
-                    onClear()
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 10))
-                        .foregroundColor(.secondary)
+            HStack(spacing: 4) {
+                Color.clear
+                    .frame(width: accessoryWidth, height: 1)
+
+                Spacer(minLength: 0)
+
+                Group {
+                    if !isRecording && currentDisplay != L("None") && isHovered {
+                        Button {
+                            onClear()
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.system(size: 10))
+                                .foregroundColor(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                    } else {
+                        Color.clear
+                    }
                 }
-                .buttonStyle(.plain)
+                .frame(width: accessoryWidth, alignment: .trailing)
             }
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
-        .frame(minWidth: 100, alignment: .center)
+        .frame(width: fieldWidth, alignment: .center)
         .background(
             RoundedRectangle(cornerRadius: 6)
                 .fill(isRecording ? Color.accentColor.opacity(0.8) : Color.secondary.opacity(0.12))
@@ -59,6 +75,7 @@ struct KeyRecorderField: View {
             RoundedRectangle(cornerRadius: 6)
                 .strokeBorder(isRecording ? Color.accentColor : Color.clear, lineWidth: 1.5)
         )
+        .contentShape(RoundedRectangle(cornerRadius: 6))
         .onTapGesture {
             onStartRecording()
         }
@@ -251,6 +268,17 @@ class ToolShortcutRecordingModel: ObservableObject {
             ToolShortcutManager.setKey("", for: conflictAction)
         }
 
+        if let conflictRatio = AspectRatioShortcutManager.conflictingRatio(for: key, excluding: nil) {
+            let shouldReplace = ShortcutConflictAlert.confirmReplacement(
+                title: L("Shortcut Conflict"),
+                shortcut: key.uppercased(),
+                existingAction: conflictRatio.displayName,
+                newAction: action.label
+            )
+            guard shouldReplace else { return }
+            AspectRatioShortcutManager.setKey("", for: conflictRatio.id)
+        }
+
         ToolShortcutManager.setKey(key, for: action)
         refreshAll()
     }
@@ -268,6 +296,7 @@ struct ShortcutsSettingsView: View {
     @State private var newWidth: Int?
     @State private var newHeight: Int?
     @State private var errorMessage: String?
+    private let ratioInputControlHeight: CGFloat = 24
 
     var onHotkeyChanged: (() -> Void)?
 
@@ -284,6 +313,7 @@ struct ShortcutsSettingsView: View {
                             isRecording: hotkeyModel.recordingSlot == slot,
                             onStartRecording: {
                                 toolModel.stopRecording()
+                                aspectRatioModel.stopRecording()
                                 hotkeyModel.startRecording(slot: slot)
                             },
                             onClear: {
@@ -315,6 +345,7 @@ struct ShortcutsSettingsView: View {
                             isRecording: toolModel.recordingAction == action,
                             onStartRecording: {
                                 hotkeyModel.stopRecording()
+                                aspectRatioModel.stopRecording()
                                 toolModel.startRecording(action: action)
                             },
                             onClear: {
@@ -387,29 +418,49 @@ struct ShortcutsSettingsView: View {
                                     .foregroundColor(.red)
                             }
                             .buttonStyle(.plain)
+                            .disabled(aspectRatios.count <= 1)
                             .help(L("Remove this ratio"))
                         }
                         .padding(.vertical, 2)
                     }
 
-                    Divider()
+                    // 小标题分隔
+                    Text(L("Add New Ratio"))
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .frame(height: 16, alignment: .leading)
 
                     // 添加新比例
                     VStack(alignment: .leading, spacing: 8) {
-                        HStack {
+                        HStack(alignment: .center, spacing: 8) {
                             TextField(L("Width"), value: $newWidth, format: .number)
-                                .frame(width: 60)
                                 .textFieldStyle(.roundedBorder)
+                                .controlSize(.small)
+                                .frame(width: 74)
+                                .frame(height: ratioInputControlHeight)
                             Text(":")
+                                .font(.system(size: 13, weight: .semibold))
                                 .foregroundColor(.secondary)
+                                .frame(width: 10, height: ratioInputControlHeight, alignment: .center)
+                                .offset(y: -0.5)
                             TextField(L("Height"), value: $newHeight, format: .number)
-                                .frame(width: 60)
                                 .textFieldStyle(.roundedBorder)
+                                .controlSize(.small)
+                                .frame(width: 74)
+                                .frame(height: ratioInputControlHeight)
 
                             Button(action: addNewRatio) {
                                 Image(systemName: "plus.circle.fill")
+                                    .font(.system(size: 17))
+                                    .foregroundStyle(
+                                        isNewRatioValid
+                                            ? Color.accentColor
+                                            : Color.secondary
+                                    )
+                                    .frame(width: ratioInputControlHeight, height: ratioInputControlHeight)
                             }
                             .buttonStyle(.plain)
+                            .frame(width: ratioInputControlHeight, height: ratioInputControlHeight)
                             .disabled(!isNewRatioValid)
                             .help(L("Add new aspect ratio"))
 
@@ -422,6 +473,7 @@ struct ShortcutsSettingsView: View {
                             }
                             .buttonStyle(.link)
                             .controlSize(.small)
+                            .foregroundStyle(Color.settingsSystemAccent)
                         }
 
                         // 错误提示
@@ -462,6 +514,12 @@ struct ShortcutsSettingsView: View {
             aspectRatioModel.refreshAll()
             loadAspectRatios()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .aspectRatioShortcutsDidChange)) { _ in
+            aspectRatioModel.refreshAll()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .toolShortcutsDidChange)) { _ in
+            toolModel.refreshAll()
+        }
     }
 
     // MARK: - Aspect Ratio Management
@@ -472,12 +530,7 @@ struct ShortcutsSettingsView: View {
 
     private var isNewRatioValid: Bool {
         guard let width = newWidth, let height = newHeight else { return false }
-        guard width > 0, height > 0, width <= 100, height <= 100 else { return false }
-        // Check if exact ratio already exists
-        guard !aspectRatios.contains(where: { $0.width == width && $0.height == height }) else { return false }
-        // Check if inverted ratio already exists
-        let hasInverted = aspectRatios.contains(where: { $0.width == height && $0.height == width })
-        return !hasInverted
+        return AspectRatioPreferences.validationError(width: width, height: height) == nil
     }
 
     private func addNewRatio() {
@@ -496,7 +549,13 @@ struct ShortcutsSettingsView: View {
     }
 
     private func removeRatio(_ ratio: CustomAspectRatio) {
-        AspectRatioPreferences.removeRatio(id: ratio.id)
+        let (success, error) = AspectRatioPreferences.removeRatio(id: ratio.id)
+        guard success else {
+            errorMessage = error
+            return
+        }
+
+        errorMessage = nil
         loadAspectRatios()
     }
 }

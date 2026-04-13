@@ -20,20 +20,28 @@ private enum ShortcutConflictAlert {
         alert.addButton(withTitle: L("Cancel"))
         return alert.runModal() == .alertFirstButtonReturn
     }
+
+    static func showMessage(title: String, message: String) {
+        let alert = NSAlert()
+        alert.messageText = title
+        alert.informativeText = message
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: L("OK"))
+        alert.runModal()
+    }
 }
 
 /// Manages aspect ratio lock shortcuts (similar to ToolShortcutManager)
 enum AspectRatioShortcutManager {
     private static let defaultsKey = "aspectRatioShortcuts"
-    private static let defaultKeys = ["1", "2", "3", "4", "5", "6"]
+    private static let defaultKeys = ["1", "3", "9"]
     private static let cancelKey = "0"
     private static let invertKey = "r"
 
     /// Get the shortcut key for a specific ratio ID. Empty string = disabled.
     static func key(for ratioID: UUID) -> String {
         let idString = ratioID.uuidString
-        if let dict = UserDefaults.standard.dictionary(forKey: defaultsKey) as? [String: String],
-           let key = dict[idString] {
+        if let key = sanitizedMappings()[idString] {
             return key
         }
 
@@ -48,7 +56,7 @@ enum AspectRatioShortcutManager {
 
     /// Set the shortcut key for a ratio ID. Pass empty string to disable.
     static func setKey(_ key: String, for ratioID: UUID) {
-        var dict = (UserDefaults.standard.dictionary(forKey: defaultsKey) as? [String: String]) ?? [:]
+        var dict = sanitizedMappings()
         dict[ratioID.uuidString] = key.lowercased()
         UserDefaults.standard.set(dict, forKey: defaultsKey)
         NotificationCenter.default.post(name: .aspectRatioShortcutsDidChange, object: nil)
@@ -107,11 +115,38 @@ enum AspectRatioShortcutManager {
         return normalizedKey == cancelKey || normalizedKey == invertKey
     }
 
+    /// User-facing message for reserved keys used by the aspect ratio system.
+    static func reservedKeyMessage(for key: String) -> String? {
+        let normalizedKey = key.lowercased()
+        switch normalizedKey {
+        case cancelKey:
+            return String(format: L("Shortcut %@ is reserved for clearing the aspect ratio lock."), normalizedKey.uppercased())
+        case invertKey:
+            return String(format: L("Shortcut %@ is reserved for inverting the aspect ratio."), normalizedKey.uppercased())
+        default:
+            return nil
+        }
+    }
+
     /// Get the cancel key
     static var cancelKeyValue: String { cancelKey }
 
     /// Get the invert key
     static var invertKeyValue: String { invertKey }
+
+    private static func sanitizedMappings() -> [String: String] {
+        let storedMappings = (UserDefaults.standard.dictionary(forKey: defaultsKey) as? [String: String]) ?? [:]
+        let filteredMappings = storedMappings.filter { _, key in
+            !isSpecialKey(key)
+        }
+
+        if filteredMappings.count != storedMappings.count {
+            UserDefaults.standard.set(filteredMappings, forKey: defaultsKey)
+            NotificationCenter.default.post(name: .aspectRatioShortcutsDidChange, object: nil)
+        }
+
+        return filteredMappings
+    }
 }
 
 // MARK: - Recording Model for UI
@@ -128,9 +163,11 @@ class AspectRatioShortcutRecordingModel: ObservableObject {
     }
 
     func refreshAll() {
-        for ratio in AspectRatioPreferences.allRatios {
-            displayStrings[ratio.id] = AspectRatioShortcutManager.displayString(for: ratio.id)
-        }
+        displayStrings = Dictionary(
+            uniqueKeysWithValues: AspectRatioPreferences.allRatios.map { ratio in
+                (ratio.id, AspectRatioShortcutManager.displayString(for: ratio.id))
+            }
+        )
     }
 
     func startRecording(ratioID: UUID) {
@@ -185,6 +222,14 @@ class AspectRatioShortcutRecordingModel: ObservableObject {
     private func assignShortcut(ratioID: UUID, key: String) {
         stopRecording()
 
+        if let reservedMessage = AspectRatioShortcutManager.reservedKeyMessage(for: key) {
+            ShortcutConflictAlert.showMessage(
+                title: L("Shortcut Unavailable"),
+                message: reservedMessage
+            )
+            return
+        }
+
         if let conflictRatio = AspectRatioShortcutManager.conflictingRatio(for: key, excluding: ratioID) {
             let shouldReplace = ShortcutConflictAlert.confirmReplacement(
                 title: L("Shortcut Conflict"),
@@ -194,6 +239,17 @@ class AspectRatioShortcutRecordingModel: ObservableObject {
             )
             guard shouldReplace else { return }
             AspectRatioShortcutManager.setKey("", for: conflictRatio.id)
+        }
+
+        if let conflictAction = ToolShortcutManager.conflictingAction(for: key) {
+            let shouldReplace = ShortcutConflictAlert.confirmReplacement(
+                title: L("Shortcut Conflict"),
+                shortcut: key.uppercased(),
+                existingAction: conflictAction.label,
+                newAction: AspectRatioPreferences.allRatios.first(where: { $0.id == ratioID })?.displayName ?? ""
+            )
+            guard shouldReplace else { return }
+            ToolShortcutManager.setKey("", for: conflictAction)
         }
 
         AspectRatioShortcutManager.setKey(key, for: ratioID)

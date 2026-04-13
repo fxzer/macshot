@@ -617,6 +617,7 @@
 /* Aspect Ratios */
 "Aspect Ratios" = "宽高比";
 "Customize aspect ratios for screenshot selection." = "自定义截图选择的宽高比。";
+"Add New Ratio" = "添加新比例";
 "Add new aspect ratio" = "添加新比例";
 "Remove this ratio" = "删除此比例";
 "Reset to Defaults" = "重置为默认";
@@ -629,5 +630,14 @@
 "Invalid ratio. Width and height must be between 1 and 100." = "无效比例。宽度和高度必须在 1 到 100 之间。";
 "This ratio already exists." = "此比例已存在。";
 "Ratio %@ already exists. Press R to invert it to %@." = "比例 %@ 已存在。按 R 键可反转为 %@。";
+"Ratio %@ already exists." = "比例 %@ 已存在。";
 "Failed to add ratio." = "添加比例失败。";
+"At least one aspect ratio must remain." = "至少需要保留一个宽高比。";
+"Shortcut Unavailable" = "快捷键不可用";
+"Shortcut %@ is reserved for clearing the aspect ratio lock." = "快捷键 %@ 保留用于清除宽高比锁定。";
+"Shortcut %@ is reserved for inverting the aspect ratio." = "快捷键 %@ 保留用于反转宽高比。";
+"OK" = "确定";
+"Aspect ratio shortcuts: %@" = "宽高比快捷键：%@";
+"Aspect ratio locked: %@. Press the same shortcut again to clear." = "已锁定比例：%@。再次按相同快捷键可清除。";
+"Aspect ratio locked: %@. Press the same shortcut again to clear, %@ to invert." = "已锁定比例：%@。再次按相同快捷键可清除，按 %@ 键可反转。";
 "Dismiss" = "关闭";

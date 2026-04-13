@@ -47,6 +47,7 @@ struct AboutSettingsView: View {
             // GitHub link
             Link("github.com/fxzer/macshot", destination: URL(string: "https://github.com/fxzer/macshot")!)
                 .font(.subheadline)
+                .foregroundStyle(Color.settingsSystemAccent)
 
             Spacer().frame(height: 4)
 

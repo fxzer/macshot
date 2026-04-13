@@ -62,8 +62,8 @@ struct ToolbarButton {
 
 class ToolbarLayout {
 
-    // Default theme colors (Flameshot purple style)
-    static let defaultAccentColor = NSColor(calibratedRed: 0.55, green: 0.30, blue: 0.85, alpha: 1.0)
+    // Accent color follows the current macOS system setting unless the user overrides it.
+    static var defaultAccentColor: NSColor { .controlAccentColor }
     static let defaultIconColor = NSColor.white
     static let defaultBgColor = NSColor(white: 0.12, alpha: 1.0)
 
@@ -103,6 +103,11 @@ class ToolbarLayout {
         }
     }
 
+    /// Remove the user override so accent color follows the current system setting again.
+    static func resetAccentColor() {
+        UserDefaults.standard.removeObject(forKey: "toolbarAccentColor")
+    }
+
     /// Save icon color to UserDefaults.
     static func saveIconColor(_ color: NSColor) {
         if let data = try? NSKeyedArchiver.archivedData(withRootObject: color, requiringSecureCoding: false) {
@@ -128,7 +133,7 @@ class ToolbarLayout {
 
     /// Reset all colors to defaults.
     static func resetColors() {
-        UserDefaults.standard.removeObject(forKey: "toolbarAccentColor")
+        resetAccentColor()
         UserDefaults.standard.removeObject(forKey: "toolbarIconColor")
         UserDefaults.standard.removeObject(forKey: "toolbarBgColor")
     }

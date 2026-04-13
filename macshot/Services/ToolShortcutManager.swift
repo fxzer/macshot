@@ -75,10 +75,24 @@ enum ToolShortcutManager {
     /// Set the key character for an action. Pass empty string to disable.
     static func setKey(_ key: String, for action: Action) {
         var dict = (UserDefaults.standard.dictionary(forKey: defaultsKey) as? [String: String]) ?? [:]
-        dict[action.rawValue] = key
+        dict[action.rawValue] = key.lowercased()
         UserDefaults.standard.set(dict, forKey: defaultsKey)
         // Rebuild the lookup cache
         _cachedLookup = nil
+        NotificationCenter.default.post(name: .toolShortcutsDidChange, object: nil)
+    }
+
+    /// Returns another action already using the same key, excluding the provided action.
+    static func conflictingAction(for key: String, excluding excludedAction: Action? = nil) -> Action? {
+        let normalizedKey = key.lowercased()
+        guard !normalizedKey.isEmpty else { return nil }
+
+        for action in Action.allCases where action != excludedAction {
+            if self.key(for: action).lowercased() == normalizedKey {
+                return action
+            }
+        }
+        return nil
     }
 
     /// Build a reverse lookup: character → ToolbarButtonAction.
@@ -120,4 +134,8 @@ enum ToolShortcutManager {
         let k = key(for: action)
         return k.isEmpty ? L("None") : k.uppercased()
     }
+}
+
+extension Notification.Name {
+    static let toolShortcutsDidChange = Notification.Name("toolShortcutsDidChange")
 }

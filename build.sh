@@ -10,6 +10,26 @@ set -o pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DERIVED_DATA="$ROOT_DIR/DerivedData"
+PROJECT_FILE="$ROOT_DIR/macshot.xcodeproj/project.pbxproj"
+
+detect_bundle_id() {
+    local bundle_id
+    bundle_id="$(grep -m 1 'PRODUCT_BUNDLE_IDENTIFIER =' "$PROJECT_FILE" | sed -E 's/.*PRODUCT_BUNDLE_IDENTIFIER = ([^;]+);/\1/' | tr -d '[:space:]')"
+    if [ -z "$bundle_id" ]; then
+        bundle_id="com.fxzer.macshot.macshot"
+    fi
+    printf '%s\n' "$bundle_id"
+}
+
+reset_tcc_service() {
+    local service="$1"
+    local bundle_id="$2"
+    if tccutil reset "$service" "$bundle_id" >/dev/null 2>&1; then
+        echo "   ✅ 已重置 $service"
+    else
+        echo "   ⚠️  无法重置 $service"
+    fi
+}
 
 DO_CLEAN=0
 for arg in "$@"; do
@@ -23,6 +43,8 @@ for arg in "$@"; do
             ;;
     esac
 done
+
+BUNDLE_ID="$(detect_bundle_id)"
 
 # 并行编译任务数（默认用 CPU 核数；与 Xcode 里 “并行编译” 一致思路）
 JOBS="$(sysctl -n hw.ncpu 2>/dev/null || echo 4)"
@@ -55,11 +77,11 @@ echo "   ✅ 已清理"
 
 # 3. 清理旧权限系统
 echo "📍 步骤 3/5: 清理旧权限系统..."
-if tccutil reset All com.fxzer.macshot.macshot >/dev/null 2>&1; then
-    echo "   ✅ 系统权限已清除"
-else
-    echo "   ⚠️  权限清除失败（可能需要手动在系统设置中移除）"
-fi
+echo "   Bundle ID: $BUNDLE_ID"
+reset_tcc_service "All" "$BUNDLE_ID"
+reset_tcc_service "ScreenCapture" "$BUNDLE_ID"
+reset_tcc_service "Microphone" "$BUNDLE_ID"
+reset_tcc_service "Camera" "$BUNDLE_ID"
 
 # 4. 构建
 # Sparkle 为 SPM binaryTarget：若 artifacts 目录残缺（常见报错：找不到 Sparkle.xcframework），

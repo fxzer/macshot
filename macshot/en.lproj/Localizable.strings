@@ -613,6 +613,7 @@
 /* Aspect Ratios */
 "Aspect Ratios" = "Aspect Ratios";
 "Customize aspect ratios for screenshot selection." = "Customize aspect ratios for screenshot selection.";
+"Add New Ratio" = "Add New Ratio";
 "Add new aspect ratio" = "Add new aspect ratio";
 "Remove this ratio" = "Remove this ratio";
 "Reset to Defaults" = "Reset to Defaults";
@@ -625,5 +626,14 @@
 "Invalid ratio. Width and height must be between 1 and 100." = "Invalid ratio. Width and height must be between 1 and 100.";
 "This ratio already exists." = "This ratio already exists.";
 "Ratio %@ already exists. Press R to invert it to %@." = "Ratio %@ already exists. Press R to invert it to %@.";
+"Ratio %@ already exists." = "Ratio %@ already exists.";
 "Failed to add ratio." = "Failed to add ratio.";
+"At least one aspect ratio must remain." = "At least one aspect ratio must remain.";
+"Shortcut Unavailable" = "Shortcut Unavailable";
+"Shortcut %@ is reserved for clearing the aspect ratio lock." = "Shortcut %@ is reserved for clearing the aspect ratio lock.";
+"Shortcut %@ is reserved for inverting the aspect ratio." = "Shortcut %@ is reserved for inverting the aspect ratio.";
+"OK" = "OK";
+"Aspect ratio shortcuts: %@" = "Aspect ratio shortcuts: %@";
+"Aspect ratio locked: %@. Press the same shortcut again to clear." = "Aspect ratio locked: %@. Press the same shortcut again to clear.";
+"Aspect ratio locked: %@. Press the same shortcut again to clear, %@ to invert." = "Aspect ratio locked: %@. Press the same shortcut again to clear, %@ to invert.";
 "Dismiss" = "Dismiss";

@@ -18,10 +18,15 @@ private final class SettingsHostingView<Content: View>: NSHostingView<Content> {
 
 class SettingsWindowController: NSWindowController, NSWindowDelegate {
 
-    var onHotkeyChanged: (() -> Void)?
+    var onHotkeyChanged: (() -> Void)? {
+        didSet {
+            updateRootView()
+        }
+    }
     private var hostingView: NSView?
 
-    init() {
+    init(onHotkeyChanged: (() -> Void)? = nil) {
+        self.onHotkeyChanged = onHotkeyChanged
         let window = SettingsWindow(
             contentRect: NSRect(x: 0, y: 0, width: 540, height: 660),
             styleMask: [.titled, .closable],
@@ -55,15 +60,7 @@ class SettingsWindowController: NSWindowController, NSWindowDelegate {
     private func setupUI() {
         guard let contentView = window?.contentView else { return }
 
-        // Create SwiftUI settings view
-        let settingsView = SwiftUISettingsView(
-            onHotkeyChanged: onHotkeyChanged,
-            onWindowClose: { [weak self] in
-                self?.close()
-            }
-        )
-
-        let hostingView = SettingsHostingView(rootView: settingsView)
+        let hostingView = SettingsHostingView(rootView: makeSettingsView())
         hostingView.translatesAutoresizingMaskIntoConstraints = false
         self.hostingView = hostingView
 
@@ -84,6 +81,20 @@ class SettingsWindowController: NSWindowController, NSWindowDelegate {
         // Update window title when language changes
         window?.title = L("macshot Settings")
         // SwiftUI view will automatically refresh via NotificationCenter publisher
+    }
+
+    private func makeSettingsView() -> SwiftUISettingsView {
+        SwiftUISettingsView(
+            onHotkeyChanged: onHotkeyChanged,
+            onWindowClose: { [weak self] in
+                self?.close()
+            }
+        )
+    }
+
+    private func updateRootView() {
+        guard let hostingView = hostingView as? SettingsHostingView<SwiftUISettingsView> else { return }
+        hostingView.rootView = makeSettingsView()
     }
 
     // MARK: - Public Methods

@@ -182,6 +182,45 @@ class OverlayView: NSView {
                 self = .customRatio(width: width, height: height)
             }
         }
+
+        private var dimensions: (width: Int, height: Int)? {
+            switch self {
+            case .none:
+                return nil
+            case .oneToOne:
+                return (1, 1)
+            case .threeToFour:
+                return (3, 4)
+            case .nineToSixteen:
+                return (9, 16)
+            case .customRatio(let width, let height):
+                return (width, height)
+            }
+        }
+
+        func sharesShortcutGroup(with other: AspectRatioLock) -> Bool {
+            guard let lhs = dimensions, let rhs = other.dimensions else { return false }
+
+            func normalizedPair(for dimensions: (width: Int, height: Int)) -> (Int, Int) {
+                let divisor = greatestCommonDivisor(abs(dimensions.width), abs(dimensions.height))
+                let normalizedWidth = divisor > 0 ? dimensions.width / divisor : dimensions.width
+                let normalizedHeight = divisor > 0 ? dimensions.height / divisor : dimensions.height
+                return (min(normalizedWidth, normalizedHeight), max(normalizedWidth, normalizedHeight))
+            }
+
+            func greatestCommonDivisor(_ lhs: Int, _ rhs: Int) -> Int {
+                var a = lhs
+                var b = rhs
+                while b != 0 {
+                    let remainder = a % b
+                    a = b
+                    b = remainder
+                }
+                return a
+            }
+
+            return normalizedPair(for: lhs) == normalizedPair(for: rhs)
+        }
     }
 
     // Zoom
@@ -2141,12 +2180,25 @@ class OverlayView: NSView {
             if isCancellingAspectRatioLock {
                 hintText = L("Aspect ratio lock cleared")
             } else if aspectRatioLock == .none {
-                hintText = L(
-                    "Lock aspect ratio: 1=1:1  2=2:3  3=3:4  4=4:5  5=5:7  6=9:16  (R to invert  0 to cancel)"
+                hintText = String(
+                    format: L("Aspect ratio shortcuts: %@"),
+                    aspectRatioShortcutItems(includeInvert: true)
+                        .map { "\($0.key)=\($0.label)" }
+                        .joined(separator: "  ")
                 )
             } else {
-                hintText = L("Aspect ratio locked: ") + aspectRatioLock.displayName
-                    + L(" (press the same number again to clear, R to invert)")
+                if aspectRatioLock == .oneToOne {
+                    hintText = String(
+                        format: L("Aspect ratio locked: %@. Press the same shortcut again to clear."),
+                        aspectRatioLock.displayName
+                    )
+                } else {
+                    hintText = String(
+                        format: L("Aspect ratio locked: %@. Press the same shortcut again to clear, %@ to invert."),
+                        aspectRatioLock.displayName,
+                        AspectRatioShortcutManager.invertKeyValue.uppercased()
+                    )
+                }
             }
 
             let attrs: [NSAttributedString.Key: Any] = [
@@ -2267,28 +2319,38 @@ class OverlayView: NSView {
 
         lines.append((line1Elements, 14))
 
-        // Line 2: 比例锁定第一部分 0-3
-        var line2Elements: [(type: String, text: String, width: CGFloat)] = []
-        line2Elements.append(("label", L("Ratio:"), (L("Ratio:") as NSString).size(withAttributes: [.font: baseFont, .foregroundColor: labelColor]).width))
-        let keys1 = ["0", "1", "2", "3"]
-        let ratios1 = [L("Free"), "1:1", "2:3", "3:4"]
-        for (i, key) in keys1.enumerated() {
-            line2Elements.append(("key", key, (key as NSString).size(withAttributes: [.font: keyFont]).width))
-            line2Elements.append(("label", ratios1[i], (ratios1[i] as NSString).size(withAttributes: [.font: baseFont, .foregroundColor: labelColor]).width))
+        // Line 2+: 比例锁定快捷键（动态生成）
+        let ratioItems = aspectRatioShortcutItems(includeInvert: true)
+        let ratioChunks = stride(from: 0, to: ratioItems.count, by: 4).map { start in
+            Array(ratioItems[start..<min(start + 4, ratioItems.count)])
         }
 
-        lines.append((line2Elements, 14))
+        for (index, chunk) in ratioChunks.enumerated() {
+            var ratioLineElements: [(type: String, text: String, width: CGFloat)] = []
+            if index == 0 {
+                let ratioLabel = L("Ratio:")
+                ratioLineElements.append((
+                    "label",
+                    ratioLabel,
+                    (ratioLabel as NSString).size(withAttributes: [.font: baseFont, .foregroundColor: labelColor]).width
+                ))
+            }
 
-        // Line 3: 比例锁定第二部分 4-6 + R
-        var line3Elements: [(type: String, text: String, width: CGFloat)] = []
-        let keys2 = ["4", "5", "6", "R"]
-        let ratios2 = ["4:5", "5:7", "9:16", L("Invert")]
-        for (i, key) in keys2.enumerated() {
-            line3Elements.append(("key", key, (key as NSString).size(withAttributes: [.font: keyFont]).width))
-            line3Elements.append(("label", ratios2[i], (ratios2[i] as NSString).size(withAttributes: [.font: baseFont, .foregroundColor: labelColor]).width))
+            for item in chunk {
+                ratioLineElements.append((
+                    "key",
+                    item.key,
+                    (item.key as NSString).size(withAttributes: [.font: keyFont]).width
+                ))
+                ratioLineElements.append((
+                    "label",
+                    item.label,
+                    (item.label as NSString).size(withAttributes: [.font: baseFont, .foregroundColor: labelColor]).width
+                ))
+            }
+
+            lines.append((ratioLineElements, 14))
         }
-
-        lines.append((line3Elements, 14))
 
         // Line 4: F 全屏
         var line4Elements: [(type: String, text: String, width: CGFloat)] = []
@@ -7866,8 +7928,8 @@ class OverlayView: NSView {
                             isCancellingAspectRatioLock = true
                             showAspectRatioHint()
                             needsDisplay = true
+                            return
                         }
-                        return
                     }
 
                     // 检查特殊快捷键：反转比例
@@ -7876,8 +7938,8 @@ class OverlayView: NSView {
                             aspectRatioLock = aspectRatioLock.inverted
                             showAspectRatioHint()
                             needsDisplay = true
+                            return
                         }
-                        return
                     }
 
                     // 查找用户自定义的快捷键
@@ -8053,8 +8115,26 @@ class OverlayView: NSView {
 
     // MARK: - Aspect Ratio Lock Helpers
 
+    private func aspectRatioShortcutItems(includeInvert: Bool) -> [(key: String, label: String)] {
+        var items: [(key: String, label: String)] = [
+            (AspectRatioShortcutManager.cancelKeyValue.uppercased(), L("Free"))
+        ]
+
+        for ratio in AspectRatioPreferences.allRatios {
+            let key = AspectRatioShortcutManager.key(for: ratio.id).uppercased()
+            guard !key.isEmpty else { continue }
+            items.append((key, ratio.displayName))
+        }
+
+        if includeInvert {
+            items.append((AspectRatioShortcutManager.invertKeyValue.uppercased(), L("Invert")))
+        }
+
+        return items
+    }
+
     private func toggleAspectRatioLock(_ lock: AspectRatioLock) {
-        if aspectRatioLock == lock {
+        if aspectRatioLock == lock || aspectRatioLock.sharesShortcutGroup(with: lock) {
             // 再次按下同一键，取消锁定
             aspectRatioLock = .none
             isCancellingAspectRatioLock = true

@@ -215,7 +215,7 @@ struct SettingsFooter: View {
             Button(action: { openGitHub() }) {
                 Text("github.com/fxzer/macshot")
                     .font(.system(size: 11))
-                    .foregroundColor(.blue)
+                    .foregroundStyle(Color.settingsSystemAccent)
             }
             .buttonStyle(.plain)
         }

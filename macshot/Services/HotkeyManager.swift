@@ -201,6 +201,19 @@ class HotkeyManager {
         UserDefaults.standard.removeObject(forKey: slot.disabledKey)
     }
 
+    /// Returns another slot already using the same hotkey, excluding the provided slot.
+    static func conflictingSlot(for keyCode: UInt32, modifiers: UInt32, excluding excludedSlot: HotkeySlot? = nil) -> HotkeySlot? {
+        guard keyCode != 0 || modifiers != 0 else { return nil }
+
+        for slot in HotkeySlot.allCases where slot != excludedSlot {
+            let existing = readHotkey(for: slot)
+            if existing.keyCode == keyCode && existing.modifiers == modifiers {
+                return slot
+            }
+        }
+        return nil
+    }
+
     /// Explicitly disable a hotkey slot.
     static func disableHotkey(for slot: HotkeySlot) {
         UserDefaults.standard.set(true, forKey: slot.disabledKey)

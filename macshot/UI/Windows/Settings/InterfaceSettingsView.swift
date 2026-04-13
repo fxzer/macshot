@@ -140,6 +140,7 @@ struct InterfaceSettingsView: View {
                     }
                     .buttonStyle(.link)
                     .controlSize(.small)
+                    .foregroundStyle(Color.settingsSystemAccent)
                 }
             }
         }
@@ -147,7 +148,7 @@ struct InterfaceSettingsView: View {
     }
 
     private func resetAccentColor() {
-        ToolbarLayout.saveAccentColor(ToolbarLayout.defaultAccentColor)
+        ToolbarLayout.resetAccentColor()
         accentColor = Color(nsColor: ToolbarLayout.defaultAccentColor)
         postToolbarColorsDidChange()
     }
