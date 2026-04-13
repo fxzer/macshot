@@ -609,3 +609,21 @@
 "Works best in China with a personal API token. Images only (no video support)." = "Works best in China with a personal API token. Images only (no video support).";
 "Enter your SM.MS token in Settings" = "Enter your SM.MS token in Settings";
 "S3 / R2 / MinIO" = "S3 / R2 / MinIO";
+
+/* Aspect Ratios */
+"Aspect Ratios" = "Aspect Ratios";
+"Customize aspect ratios for screenshot selection." = "Customize aspect ratios for screenshot selection.";
+"Add new aspect ratio" = "Add new aspect ratio";
+"Remove this ratio" = "Remove this ratio";
+"Reset to Defaults" = "Reset to Defaults";
+"Width" = "Width";
+"Height" = "Height";
+"Aspect Ratio Shortcuts" = "Capture Aspect Ratios";
+"Press a single key to assign. These work when selecting a screenshot area." = "Press a single key to assign. These work when selecting a screenshot area.";
+"No aspect ratios configured." = "No aspect ratios configured.";
+"R → %@" = "R → %@";
+"Invalid ratio. Width and height must be between 1 and 100." = "Invalid ratio. Width and height must be between 1 and 100.";
+"This ratio already exists." = "This ratio already exists.";
+"Ratio %@ already exists. Press R to invert it to %@." = "Ratio %@ already exists. Press R to invert it to %@.";
+"Failed to add ratio." = "Failed to add ratio.";
+"Dismiss" = "Dismiss";

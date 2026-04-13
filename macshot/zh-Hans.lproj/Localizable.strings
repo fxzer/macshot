@@ -613,3 +613,21 @@
 "Works best in China with a personal API token. Images only (no video support)." = "更适合中国大陆网络环境，建议使用你自己的 API Token。仅支持图片，不支持视频。";
 "Enter your SM.MS token in Settings" = "请先在偏好设置里填写 SM.MS Token";
 "S3 / R2 / MinIO" = "S3 / R2 / MinIO";
+
+/* Aspect Ratios */
+"Aspect Ratios" = "宽高比";
+"Customize aspect ratios for screenshot selection." = "自定义截图选择的宽高比。";
+"Add new aspect ratio" = "添加新比例";
+"Remove this ratio" = "删除此比例";
+"Reset to Defaults" = "重置为默认";
+"Width" = "宽度";
+"Height" = "高度";
+"Aspect Ratio Shortcuts" = "捕获宽高比";
+"Press a single key to assign. These work when selecting a screenshot area." = "按单键分配。在选择截图区域时有效。";
+"No aspect ratios configured." = "未配置宽高比。";
+"R → %@" = "R → %@";
+"Invalid ratio. Width and height must be between 1 and 100." = "无效比例。宽度和高度必须在 1 到 100 之间。";
+"This ratio already exists." = "此比例已存在。";
+"Ratio %@ already exists. Press R to invert it to %@." = "比例 %@ 已存在。按 R 键可反转为 %@。";
+"Failed to add ratio." = "添加比例失败。";
+"Dismiss" = "关闭";

@@ -64,6 +64,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
 
         updaterController = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: self, userDriverDelegate: nil)
         PostCaptureActionPreferences.migrateIfNeeded()
+        AspectRatioPreferences.migrateIfNeeded()
         setupMainMenu()
         setupStatusBar()
         if UserDefaults.standard.bool(forKey: "hideMenuBarIcon") {
@@ -1310,11 +1311,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
 
     @objc private func openSettings() {
         if settingsController == nil {
-            settingsController = SettingsWindowController()
-            settingsController?.onHotkeyChanged = { [weak self] in
+            settingsController = SettingsWindowController(onHotkeyChanged: { [weak self] in
                 self?.registerHotkey()
                 self?.rebuildStatusBarMenu()
-            }
+            })
         }
         settingsController?.showWindow()
     }

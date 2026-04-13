@@ -124,34 +124,21 @@ class OverlayView: NSView {
     private(set) var state: State = .idle
 
     // Aspect Ratio Lock
-    enum AspectRatioLock {
+    enum AspectRatioLock: Equatable {
         case none
         case oneToOne        // 1:1
-        case twoToThree      // 2:3 (竖屏，宽:高 = 2:3)
-        case threeToTwo      // 3:2 (横屏，宽:高 = 3:2)
-        case threeToFour     // 3:4 (竖屏，宽:高 = 3:4)
-        case fourToThree     // 4:3 (横屏，宽:高 = 4:3)
-        case fourToFive      // 4:5 (竖屏，宽:高 = 4:5)
-        case fiveToFour      // 5:4 (横屏，宽:高 = 5:4)
-        case fiveToSeven     // 5:7 (竖屏，宽:高 = 5:7)
-        case sevenToFive     // 7:5 (横屏，宽:高 = 7:5)
-        case nineToSixteen   // 9:16 (竖屏，宽:高 = 9:16)
-        case sixteenToNine   // 16:9 (横屏，宽:高 = 16:9)
+        case threeToFour     // 3:4 (竖屏，按 R 反转为 4:3)
+        case nineToSixteen   // 9:16 (竖屏，按 R 反转为 16:9)
 
         var ratio: CGFloat {
             switch self {
             case .none: return 0
             case .oneToOne: return 1.0
-            case .twoToThree: return 2.0 / 3.0
-            case .threeToTwo: return 3.0 / 2.0
             case .threeToFour: return 3.0 / 4.0
-            case .fourToThree: return 4.0 / 3.0
-            case .fourToFive: return 4.0 / 5.0
-            case .fiveToFour: return 5.0 / 4.0
-            case .fiveToSeven: return 5.0 / 7.0
-            case .sevenToFive: return 7.0 / 5.0
             case .nineToSixteen: return 9.0 / 16.0
-            case .sixteenToNine: return 16.0 / 9.0
+            case .customRatio(let width, let height):
+                guard height > 0 else { return 0 }
+                return CGFloat(width) / CGFloat(height)
             }
         }
 
@@ -159,33 +146,40 @@ class OverlayView: NSView {
             switch self {
             case .none: return L("Free")
             case .oneToOne: return "1:1"
-            case .twoToThree: return "2:3"
-            case .threeToTwo: return "3:2"
             case .threeToFour: return "3:4"
-            case .fourToThree: return "4:3"
-            case .fourToFive: return "4:5"
-            case .fiveToFour: return "5:4"
-            case .fiveToSeven: return "5:7"
-            case .sevenToFive: return "7:5"
             case .nineToSixteen: return "9:16"
-            case .sixteenToNine: return "16:9"
+            case .customRatio(let width, let height):
+                return "\(width):\(height)"
             }
         }
 
-        /// 返回反转后的比例（2:3 <-> 3:2, 3:4 <-> 4:3, 4:5 <-> 5:4, 5:7 <-> 7:5, 9:16 <-> 16:9）
+        /// 返回反转后的比例（3:4 <-> 4:3, 9:16 <-> 16:9）
         var inverted: AspectRatioLock {
             switch self {
             case .none, .oneToOne: return self
-            case .twoToThree: return .threeToTwo
-            case .threeToTwo: return .twoToThree
-            case .threeToFour: return .fourToThree
-            case .fourToThree: return .threeToFour
-            case .fourToFive: return .fiveToFour
-            case .fiveToFour: return .fourToFive
-            case .fiveToSeven: return .sevenToFive
-            case .sevenToFive: return .fiveToSeven
-            case .nineToSixteen: return .sixteenToNine
-            case .sixteenToNine: return .nineToSixteen
+            case .threeToFour: return .customRatio(width: 4, height: 3)
+            case .nineToSixteen: return .customRatio(width: 16, height: 9)
+            case .customRatio(let width, let height):
+                return .customRatio(width: height, height: width)
+            }
+        }
+
+        /// Custom ratio for inverted or user-added ratios
+        case customRatio(width: Int, height: Int)
+
+        /// 从 CustomAspectRatio 创建 AspectRatioLock
+        init(from ratio: CustomAspectRatio) {
+            let width = ratio.width
+            let height = ratio.height
+
+            // 尝试匹配基础枚举值
+            switch (width, height) {
+            case (1, 1): self = .oneToOne
+            case (3, 4): self = .threeToFour
+            case (9, 16): self = .nineToSixteen
+            default:
+                // 用户自定义的比例
+                self = .customRatio(width: width, height: height)
             }
         }
     }
@@ -236,6 +230,10 @@ class OverlayView: NSView {
     private var aspectRatioHintOpacity: CGFloat = 0.0
     private var aspectRatioHintFadeTimer: Timer?
     private var isCancellingAspectRatioLock: Bool = false  // 跟踪是否正在取消锁定
+
+    // Aspect ratio change observers
+    private var aspectRatioObserver: NSObjectProtocol?
+    private var aspectRatioShortcutObserver: NSObjectProtocol?
 
     // Mouse tracking for cross-monitor hint display
     private var isMouseOnThisScreen: Bool = false  // Track if mouse is currently on this screen
@@ -1000,6 +998,29 @@ class OverlayView: NSView {
         NotificationCenter.default.addObserver(
             self, selector: #selector(handleSaveDirectoryChanged),
             name: .saveDirectoryDidChange, object: nil)
+
+        // Setup aspect ratio observers
+        setupAspectRatioObservers()
+    }
+
+    private func setupAspectRatioObservers() {
+        // Monitor aspect ratio list changes
+        aspectRatioObserver = NotificationCenter.default.addObserver(
+            forName: .aspectRatiosDidChange,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.needsDisplay = true
+        }
+
+        // Monitor aspect ratio shortcut changes
+        aspectRatioShortcutObserver = NotificationCenter.default.addObserver(
+            forName: .aspectRatioShortcutsDidChange,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.needsDisplay = true
+        }
     }
 
     @objc private func handleToolbarColorsChanged() {
@@ -1052,6 +1073,14 @@ class OverlayView: NSView {
 
         editorZoomAnimTimer?.invalidate()
         editorZoomAnimTimer = nil
+
+        // Remove aspect ratio observers
+        if let observer = aspectRatioObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        if let observer = aspectRatioShortcutObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
 
         // Remove notification observer
         NotificationCenter.default.removeObserver(self)
@@ -7826,30 +7855,12 @@ class OverlayView: NSView {
                 }
             }
 
-            // 宽高比锁定：1=1:1, 2=2:3, 3=3:4, 4=4:5, 5=5:7, 6=9:16
+            // 宽高比锁定快捷键（动态从 AspectRatioShortcutManager 获取）
             if (state == .idle || state == .selecting || state == .selected) && !isEditingInlineField {
-                if let char = event.charactersIgnoringModifiers, !event.modifierFlags.contains(.command) {
+                if let char = event.charactersIgnoringModifiers?.lowercased(), !event.modifierFlags.contains(.command) {
 
-                    switch char {
-                    case "1":
-                        toggleAspectRatioLock(.oneToOne)
-                        return
-                    case "2":
-                        toggleAspectRatioLock(.twoToThree)
-                        return
-                    case "3":
-                        toggleAspectRatioLock(.threeToFour)
-                        return
-                    case "4":
-                        toggleAspectRatioLock(.fourToFive)
-                        return
-                    case "5":
-                        toggleAspectRatioLock(.fiveToSeven)
-                        return
-                    case "6":
-                        toggleAspectRatioLock(.nineToSixteen)
-                        return
-                    case "0":  // 0 键取消锁定
+                    // 检查特殊快捷键：取消锁定
+                    if char == AspectRatioShortcutManager.cancelKeyValue {
                         if aspectRatioLock != .none {
                             aspectRatioLock = .none
                             isCancellingAspectRatioLock = true
@@ -7857,18 +7868,27 @@ class OverlayView: NSView {
                             needsDisplay = true
                         }
                         return
-                    case "r", "R":  // R 键反转当前比例
+                    }
+
+                    // 检查特殊快捷键：反转比例
+                    if char == AspectRatioShortcutManager.invertKeyValue {
                         if aspectRatioLock != .none && aspectRatioLock != .oneToOne {
                             aspectRatioLock = aspectRatioLock.inverted
                             showAspectRatioHint()
                             needsDisplay = true
                         }
                         return
-                    default:
-                        break
+                    }
+
+                    // 查找用户自定义的快捷键
+                    if let ratio = AspectRatioShortcutManager.lookupRatio(for: char) {
+                        let newLock = AspectRatioLock(from: ratio)
+                        toggleAspectRatioLock(newLock)
+                        return
                     }
                 }
             }
+
             // Single-key tool shortcuts (only when selected, not editing text/inline fields, no modifiers)
             if state == .selected && textEditView == nil && !isEditingInlineField
                 && !event.modifierFlags.contains(.command)

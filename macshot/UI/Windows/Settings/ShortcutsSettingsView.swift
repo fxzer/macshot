@@ -2,6 +2,23 @@ import SwiftUI
 import Combine
 import Carbon
 
+private enum ShortcutConflictAlert {
+    static func confirmReplacement(title: String, shortcut: String, existingAction: String, newAction: String) -> Bool {
+        let alert = NSAlert()
+        alert.messageText = title
+        alert.informativeText = String.localizedStringWithFormat(
+            L("Shortcut conflict message"),
+            shortcut,
+            existingAction,
+            newAction
+        )
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: L("Replace"))
+        alert.addButton(withTitle: L("Cancel"))
+        return alert.runModal() == .alertFirstButtonReturn
+    }
+}
+
 // MARK: - Inline Key Recorder Field
 
 struct KeyRecorderField: View {
@@ -105,10 +122,7 @@ class HotkeyRecordingModel: ObservableObject {
             if modifiers.contains(.control) { carbonMods |= UInt32(controlKey) }
             let keyCode = UInt32(event.keyCode)
             if carbonMods == 0 && !HotkeyManager.isFunctionKey(keyCode) { return nil }
-            HotkeyManager.saveHotkey(for: slot, keyCode: keyCode, modifiers: carbonMods)
-            self.displayStrings[slot] = HotkeyManager.displayString(for: slot)
-            self.stopRecording()
-            self.onHotkeyChanged?()
+            self.assignShortcut(slot: slot, keyCode: keyCode, modifiers: carbonMods)
             return nil
         }
     }
@@ -122,9 +136,7 @@ class HotkeyRecordingModel: ObservableObject {
 
     func resetShortcut(slot: HotkeyManager.HotkeySlot) {
         stopRecording()
-        HotkeyManager.saveHotkey(for: slot, keyCode: slot.defaultKeyCode, modifiers: slot.defaultModifiers)
-        displayStrings[slot] = HotkeyManager.displayString(for: slot)
-        onHotkeyChanged?()
+        assignShortcut(slot: slot, keyCode: slot.defaultKeyCode, modifiers: slot.defaultModifiers)
     }
 
     func stopRecording() {
@@ -134,6 +146,26 @@ class HotkeyRecordingModel: ObservableObject {
 
     deinit {
         if let m = localMonitor { NSEvent.removeMonitor(m) }
+    }
+
+    private func assignShortcut(slot: HotkeyManager.HotkeySlot, keyCode: UInt32, modifiers: UInt32) {
+        stopRecording()
+
+        if let conflictSlot = HotkeyManager.conflictingSlot(for: keyCode, modifiers: modifiers, excluding: slot) {
+            let shortcut = HotkeyManager.modifierString(from: modifiers) + HotkeyManager.keyString(from: keyCode)
+            let shouldReplace = ShortcutConflictAlert.confirmReplacement(
+                title: L("Shortcut Conflict"),
+                shortcut: shortcut,
+                existingAction: conflictSlot.label,
+                newAction: slot.label
+            )
+            guard shouldReplace else { return }
+            HotkeyManager.disableHotkey(for: conflictSlot)
+        }
+
+        HotkeyManager.saveHotkey(for: slot, keyCode: keyCode, modifiers: modifiers)
+        refreshAll()
+        onHotkeyChanged?()
     }
 }
 
@@ -180,9 +212,7 @@ class ToolShortcutRecordingModel: ObservableObject {
                   let char = event.charactersIgnoringModifiers?.lowercased(),
                   char.count == 1 else { return nil }
 
-            ToolShortcutManager.setKey(char, for: action)
-            self.displayStrings[action] = ToolShortcutManager.displayString(for: action)
-            self.stopRecording()
+            self.assignShortcut(action: action, key: char)
             return nil
         }
     }
@@ -195,8 +225,7 @@ class ToolShortcutRecordingModel: ObservableObject {
 
     func resetShortcut(action: ToolShortcutManager.Action) {
         stopRecording()
-        ToolShortcutManager.setKey(action.defaultKey, for: action)
-        displayStrings[action] = ToolShortcutManager.displayString(for: action)
+        assignShortcut(action: action, key: action.defaultKey)
     }
 
     func stopRecording() {
@@ -207,6 +236,24 @@ class ToolShortcutRecordingModel: ObservableObject {
     deinit {
         if let m = localMonitor { NSEvent.removeMonitor(m) }
     }
+
+    private func assignShortcut(action: ToolShortcutManager.Action, key: String) {
+        stopRecording()
+
+        if let conflictAction = ToolShortcutManager.conflictingAction(for: key, excluding: action) {
+            let shouldReplace = ShortcutConflictAlert.confirmReplacement(
+                title: L("Shortcut Conflict"),
+                shortcut: key.uppercased(),
+                existingAction: conflictAction.label,
+                newAction: action.label
+            )
+            guard shouldReplace else { return }
+            ToolShortcutManager.setKey("", for: conflictAction)
+        }
+
+        ToolShortcutManager.setKey(key, for: action)
+        refreshAll()
+    }
 }
 
 // MARK: - View
@@ -214,6 +261,14 @@ class ToolShortcutRecordingModel: ObservableObject {
 struct ShortcutsSettingsView: View {
     @StateObject private var hotkeyModel = HotkeyRecordingModel()
     @StateObject private var toolModel = ToolShortcutRecordingModel()
+    @StateObject private var aspectRatioModel = AspectRatioShortcutRecordingModel()
+
+    // Aspect ratio management states
+    @State private var aspectRatios: [CustomAspectRatio] = []
+    @State private var newWidth: Int?
+    @State private var newHeight: Int?
+    @State private var errorMessage: String?
+
     var onHotkeyChanged: (() -> Void)?
 
     var body: some View {
@@ -279,10 +334,169 @@ struct ShortcutsSettingsView: View {
                         .foregroundColor(.secondary)
                 }
             }
+
+            // MARK: - Aspect Ratio Shortcuts
+            Section {
+                if aspectRatios.isEmpty {
+                    Text(L("No aspect ratios configured."))
+                        .foregroundColor(.secondary)
+                } else {
+                    ForEach(aspectRatios, id: \.id) { ratio in
+                        HStack {
+                            // 比例名称
+                            Text(ratio.displayName)
+                                .frame(width: 50, alignment: .leading)
+
+                            // 比例数值
+                            Text(String(format: "%.2f", ratio.ratio))
+                                .font(.system(.caption))
+                                .foregroundColor(.secondary)
+                                .frame(width: 40, alignment: .leading)
+
+                            // 反转提示（非正方形比例）
+                            if ratio.width != ratio.height {
+                                let inverted = ratio.inverted
+                                Text(String(format: L("R → %@"), inverted.displayName))
+                                    .font(.system(.caption2))
+                                    .foregroundColor(.secondary)
+                            }
+
+                            Spacer()
+
+                            // 快捷键录制器
+                            KeyRecorderField(
+                                currentDisplay: aspectRatioModel.displayStrings[ratio.id] ?? L("None"),
+                                isRecording: aspectRatioModel.recordingRatioID == ratio.id,
+                                onStartRecording: {
+                                    hotkeyModel.stopRecording()
+                                    toolModel.stopRecording()
+                                    aspectRatioModel.startRecording(ratioID: ratio.id)
+                                },
+                                onClear: {
+                                    aspectRatioModel.clearShortcut(ratioID: ratio.id)
+                                },
+                                onReset: {
+                                    aspectRatioModel.resetShortcut(ratioID: ratio.id)
+                                }
+                            )
+                            .frame(maxWidth: 120)
+
+                            // 删除按钮
+                            Button(action: { removeRatio(ratio) }) {
+                                Image(systemName: "minus.circle.fill")
+                                    .foregroundColor(.red)
+                            }
+                            .buttonStyle(.plain)
+                            .help(L("Remove this ratio"))
+                        }
+                        .padding(.vertical, 2)
+                    }
+
+                    Divider()
+
+                    // 添加新比例
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            TextField(L("Width"), value: $newWidth, format: .number)
+                                .frame(width: 60)
+                                .textFieldStyle(.roundedBorder)
+                            Text(":")
+                                .foregroundColor(.secondary)
+                            TextField(L("Height"), value: $newHeight, format: .number)
+                                .frame(width: 60)
+                                .textFieldStyle(.roundedBorder)
+
+                            Button(action: addNewRatio) {
+                                Image(systemName: "plus.circle.fill")
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(!isNewRatioValid)
+                            .help(L("Add new aspect ratio"))
+
+                            Spacer()
+
+                            Button(L("Reset to Defaults")) {
+                                AspectRatioPreferences.resetToDefaults()
+                                loadAspectRatios()
+                                errorMessage = nil
+                            }
+                            .buttonStyle(.link)
+                            .controlSize(.small)
+                        }
+
+                        // 错误提示
+                        if let error = errorMessage {
+                            HStack {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .foregroundColor(.orange)
+                                Text(error)
+                                    .font(.caption)
+                                    .foregroundColor(.orange)
+                                Spacer()
+                                Button(action: { errorMessage = nil }) {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .foregroundColor(.secondary)
+                                }
+                                .buttonStyle(.plain)
+                                .help(L("Dismiss"))
+                            }
+                        }
+                    }
+                }
+            } header: {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(L("Aspect Ratio Shortcuts"))
+                    Text(L("Press a single key to assign. These work when selecting a screenshot area."))
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+            }
         }
         .formStyle(.grouped)
         .onAppear {
             hotkeyModel.onHotkeyChanged = onHotkeyChanged
+            aspectRatioModel.refreshAll()
+            loadAspectRatios()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .aspectRatiosDidChange)) { _ in
+            aspectRatioModel.refreshAll()
+            loadAspectRatios()
+        }
+    }
+
+    // MARK: - Aspect Ratio Management
+
+    private func loadAspectRatios() {
+        aspectRatios = AspectRatioPreferences.allRatios
+    }
+
+    private var isNewRatioValid: Bool {
+        guard let width = newWidth, let height = newHeight else { return false }
+        guard width > 0, height > 0, width <= 100, height <= 100 else { return false }
+        // Check if exact ratio already exists
+        guard !aspectRatios.contains(where: { $0.width == width && $0.height == height }) else { return false }
+        // Check if inverted ratio already exists
+        let hasInverted = aspectRatios.contains(where: { $0.width == height && $0.height == width })
+        return !hasInverted
+    }
+
+    private func addNewRatio() {
+        guard let width = newWidth, let height = newHeight else { return }
+
+        let (success, error) = AspectRatioPreferences.addRatio(width: width, height: height)
+        guard success else {
+            errorMessage = error ?? L("Failed to add ratio.")
+            return
+        }
+
+        errorMessage = nil
+        newWidth = nil
+        newHeight = nil
+        loadAspectRatios()
+    }
+
+    private func removeRatio(_ ratio: CustomAspectRatio) {
+        AspectRatioPreferences.removeRatio(id: ratio.id)
+        loadAspectRatios()
     }
 }
