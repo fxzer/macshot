@@ -598,6 +598,7 @@ class OverlayView: NSView {
     var currentStampImage: NSImage?  // selected emoji/image for stamp tool
     var currentStampEmoji: String?  // emoji string for highlight tracking
     private var stampPreviewPoint: NSPoint?  // mouse position for stamp cursor preview
+    private let stampPreviewRadius: CGFloat = 40
     var currentRectCornerRadius: CGFloat = {
         let v = UserDefaults.standard.object(forKey: "currentRectCornerRadius") as? Double
         return v != nil ? CGFloat(v!) : 0
@@ -996,6 +997,9 @@ class OverlayView: NSView {
         NotificationCenter.default.addObserver(
             self, selector: #selector(handleToolbarColorsChanged),
             name: .toolbarColorsDidChange, object: nil)
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(handleSaveDirectoryChanged),
+            name: .saveDirectoryDidChange, object: nil)
     }
 
     @objc private func handleToolbarColorsChanged() {
@@ -1006,6 +1010,11 @@ class OverlayView: NSView {
         if let tool = toolOptionsRowView?.currentTool {
             toolOptionsRowView?.rebuild(for: tool)
         }
+        needsDisplay = true
+    }
+
+    @objc private func handleSaveDirectoryChanged() {
+        rebuildToolbarLayout()
         needsDisplay = true
     }
 
@@ -1061,6 +1070,62 @@ class OverlayView: NSView {
         setNeedsDisplay(NSRect(x: newView.x - r, y: newView.y - r, width: r * 2, height: r * 2))
     }
 
+    private func shouldShowStampPreview(at viewPoint: NSPoint) -> Bool {
+        guard currentTool == .stamp,
+            currentStampImage != nil,
+            state == .selected,
+            !isRecording,
+            !showBeautifyInOptionsRow,
+            pointIsInSelection(viewPoint),
+            !isPointOnChrome(viewPoint)
+        else { return false }
+        return true
+    }
+
+    private func shouldShowLoupePreview(at viewPoint: NSPoint) -> Bool {
+        guard currentTool == .loupe,
+            state == .selected,
+            !isRecording,
+            !showBeautifyInOptionsRow,
+            pointIsInSelection(viewPoint),
+            !isPointOnChrome(viewPoint)
+        else { return false }
+        return true
+    }
+
+    private func shouldShowDrawingCursorPreview(at viewPoint: NSPoint) -> Bool {
+        guard state == .selected,
+            !isRecording,
+            (currentTool == .pencil || currentTool == .marker),
+            pointIsInSelection(viewPoint),
+            !isPointOnChrome(viewPoint)
+        else { return false }
+        return true
+    }
+
+    private func clearStampPreview() {
+        guard let oldPt = stampPreviewPoint else { return }
+        stampPreviewPoint = nil
+        invalidateCursorPreview(oldCanvas: oldPt, newCanvas: oldPt, radius: stampPreviewRadius)
+    }
+
+    private func clearLoupePreview() {
+        guard loupeCursorPoint != .zero else { return }
+        let oldPt = loupeCursorPoint
+        let radius = currentLoupeSize / 2 + 4
+        loupeCursorPoint = .zero
+        invalidateCursorPreview(oldCanvas: oldPt, newCanvas: oldPt, radius: radius)
+    }
+
+    private func clearDrawingCursorPreview() {
+        guard drawingCursorPoint != .zero else { return }
+        let oldPt = drawingCursorPoint
+        let radius = drawingCursorRadius + 4
+        drawingCursorPoint = .zero
+        smartMarkerLineHeight = nil
+        invalidateCursorPreview(oldCanvas: oldPt, newCanvas: oldPt, radius: radius)
+    }
+
     override func mouseMoved(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
 
@@ -1080,9 +1145,7 @@ class OverlayView: NSView {
         }
 
         // Stamp cursor preview — track in view coords (same as annotations)
-        if currentTool == .stamp && currentStampImage != nil && state == .selected && !isRecording
-            && !showBeautifyInOptionsRow
-        {
+        if shouldShowStampPreview(at: point) {
             let canvasStampPt = viewToCanvas(point)
             if stampPreviewPoint == nil
                 || hypot(
@@ -1091,12 +1154,10 @@ class OverlayView: NSView {
             {
                 let oldPt = stampPreviewPoint ?? .zero
                 stampPreviewPoint = canvasStampPt
-                invalidateCursorPreview(oldCanvas: oldPt, newCanvas: canvasStampPt, radius: 40)
+                invalidateCursorPreview(oldCanvas: oldPt, newCanvas: canvasStampPt, radius: stampPreviewRadius)
             }
-        } else if stampPreviewPoint != nil {
-            let oldPt = stampPreviewPoint!
-            stampPreviewPoint = nil
-            invalidateCursorPreview(oldCanvas: oldPt, newCanvas: oldPt, radius: 40)
+        } else {
+            clearStampPreview()
         }
 
         // Update cursor on every mouse move
@@ -1125,20 +1186,20 @@ class OverlayView: NSView {
         }
 
         // Track cursor for loupe live preview (use canvas space for zoom correctness)
-        if state == .selected && currentTool == .loupe && !isRecording && !showBeautifyInOptionsRow {
-            let newPoint = viewToCanvas(convert(event.locationInWindow, from: nil))
+        if shouldShowLoupePreview(at: point) {
+            let newPoint = viewToCanvas(point)
             if newPoint != loupeCursorPoint {
                 let oldPt = loupeCursorPoint
                 loupeCursorPoint = newPoint
                 let r = currentLoupeSize / 2 + 4
                 invalidateCursorPreview(oldCanvas: oldPt, newCanvas: newPoint, radius: r)
             }
+        } else {
+            clearLoupePreview()
         }
 
         // Track cursor for pencil/marker dot preview (canvas space so it scales with zoom)
-        let showDrawingCursor = state == .selected && !isRecording
-            && (currentTool == .pencil || currentTool == .marker)
-        if showDrawingCursor {
+        if shouldShowDrawingCursorPreview(at: point) {
             let canvasPoint = viewToCanvas(point)
             if canvasPoint != drawingCursorPoint {
                 let oldPt = drawingCursorPoint
@@ -1156,12 +1217,8 @@ class OverlayView: NSView {
                 let r = max(oldR, newR) + 4
                 invalidateCursorPreview(oldCanvas: oldPt, newCanvas: canvasPoint, radius: r)
             }
-        } else if drawingCursorPoint != .zero {
-            let oldPt = drawingCursorPoint
-            let r = drawingCursorRadius + 4
-            drawingCursorPoint = .zero
-            smartMarkerLineHeight = nil
-            invalidateCursorPreview(oldCanvas: oldPt, newCanvas: oldPt, radius: r)
+        } else {
+            clearDrawingCursorPreview()
         }
 
         // Toolbar hover handled by ToolbarButtonView (real NSView subviews)
@@ -1959,7 +2016,7 @@ class OverlayView: NSView {
 
             // Stamp cursor preview
             if let previewPt = stampPreviewPoint, let img = currentStampImage,
-                currentTool == .stamp, !isRecording
+                shouldShowStampPreview(at: canvasToView(previewPt))
             {
                 let stampSize: CGFloat = 64
                 let aspect = img.size.width / max(img.size.height, 1)
@@ -6670,6 +6727,15 @@ class OverlayView: NSView {
             } else if currentTool != .colorSampler {
                 hideColorSamplerMagnifier()
             }
+            if currentTool != .stamp {
+                clearStampPreview()
+            }
+            if currentTool != .loupe {
+                clearLoupePreview()
+            }
+            if currentTool != .pencil && currentTool != .marker {
+                clearDrawingCursorPreview()
+            }
             // Update tool options row to reflect the new tool
             toolOptionsRowView?.rebuild(for: currentTool)
             needsDisplay = true
@@ -6684,6 +6750,9 @@ class OverlayView: NSView {
             break
         case .moveSelection:
             guard let win = window else { break }
+            clearStampPreview()
+            clearLoupePreview()
+            clearDrawingCursorPreview()
             // Moving breaks window snap — revert to normal beautify mode
             if selectionIsWindowSnap {
                 selectionIsWindowSnap = false
@@ -6773,8 +6842,9 @@ class OverlayView: NSView {
             showEffectsPopover(anchorView: btn)
         case .beautify:
             commitTextFieldIfNeeded()
-            stampPreviewPoint = nil
-            loupeCursorPoint = .zero
+            clearStampPreview()
+            clearLoupePreview()
+            clearDrawingCursorPreview()
             // Auto-enable beautify on first click in this session
             if !beautifyEnabled {
                 beautifyEnabled = true
@@ -6895,6 +6965,14 @@ class OverlayView: NSView {
         guard !selectedAnnotations.isEmpty else { return }
         for ann in selectedAnnotations {
             ann.color = opacityAppliedColor(for: ann.tool)
+            if ann.tool == .pixelate || ann.tool == .blur {
+                if ann.censorMode != .solid {
+                    ann.sourceImage = ann.sourceImage ?? screenshotImage
+                    ann.sourceImageBounds = captureDrawRect
+                }
+                ann.bakedBlurNSImage = nil
+                ann.bakePixelate()
+            }
         }
         cachedCompositedImage = nil
         needsDisplay = true

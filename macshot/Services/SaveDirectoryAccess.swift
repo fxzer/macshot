@@ -1,5 +1,10 @@
 import Foundation
 
+extension Notification.Name {
+    static let saveDirectoryDidChange = Notification.Name("saveDirectoryDidChange")
+    static let recordingSaveDirectoryDidChange = Notification.Name("recordingSaveDirectoryDidChange")
+}
+
 /// Manages security-scoped bookmark access for the user-chosen save directory.
 /// In sandbox mode, a raw file path is not enough — we need a bookmark that the
 /// system can resolve to regrant access across app launches.
@@ -16,6 +21,7 @@ enum SaveDirectoryAccess {
                                                   relativeTo: nil) {
             UserDefaults.standard.set(bookmark, forKey: bookmarkKey)
         }
+        NotificationCenter.default.post(name: .saveDirectoryDidChange, object: nil)
     }
 
     /// Resolve the save directory URL and start sandbox-scoped access.
@@ -77,11 +83,13 @@ enum SaveDirectoryAccess {
                                                   relativeTo: nil) {
             UserDefaults.standard.set(bookmark, forKey: recBookmarkKey)
         }
+        NotificationCenter.default.post(name: .recordingSaveDirectoryDidChange, object: nil)
     }
 
     static func clearRecordingDirectory() {
         UserDefaults.standard.removeObject(forKey: recPathKey)
         UserDefaults.standard.removeObject(forKey: recBookmarkKey)
+        NotificationCenter.default.post(name: .recordingSaveDirectoryDidChange, object: nil)
     }
 
     /// Like resolveRecordingDirectory(), but returns nil if no valid security-scoped bookmark exists.

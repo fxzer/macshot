@@ -1,4 +1,5 @@
 import Cocoa
+import Vision
 
 enum AnnotationTool: Int, CaseIterable {
     case pencil          // freeform draw
@@ -119,12 +120,17 @@ enum CensorMode: Int, CaseIterable {
 
     var label: String {
         switch self {
-        case .pixelate: return "Pixelate"
-        case .blur: return "Blur"
-        case .solid: return "Solid"
-        case .erase: return "Erase"
+        case .pixelate: return LanguageManager.shared.localizedString("Pixelate")
+        case .blur: return LanguageManager.shared.localizedString("Blur")
+        case .solid: return LanguageManager.shared.localizedString("Solid")
+        case .erase: return LanguageManager.shared.localizedString("Erase")
         }
     }
+}
+
+enum CensorDrawScope: Int, CaseIterable {
+    case all = 0
+    case textOnly = 1
 }
 
 enum ArrowStyle: Int, CaseIterable {
@@ -196,6 +202,7 @@ class Annotation {
     var stampImage: NSImage?          // rendered emoji or loaded picture for stamp tool
     var measureInPoints: Bool = false  // true = show pt, false = show px
     var censorMode: CensorMode = .pixelate
+    var censorDrawScope: CensorDrawScope = .all
     var textBgColor: NSColor?         // background pill color (nil = no background)
     var textOutlineColor: NSColor?    // text outline/stroke color (nil = no outline)
     var textAlignment: NSTextAlignment = .left // text alignment within the box
@@ -241,6 +248,7 @@ class Annotation {
         c.stampImage = stampImage
         c.measureInPoints = measureInPoints
         c.censorMode = censorMode
+        c.censorDrawScope = censorDrawScope
         c.textBgColor = textBgColor
         c.textOutlineColor = textOutlineColor
         c.textAlignment = textAlignment
@@ -270,6 +278,8 @@ class Annotation {
         numberFormat = src.numberFormat
         measureInPoints = src.measureInPoints
         censorMode = src.censorMode
+        censorDrawScope = src.censorDrawScope
+        bakedBlurNSImage = src.bakedBlurNSImage
     }
 
     var boundingRect: NSRect {
@@ -316,7 +326,7 @@ class Annotation {
         switch tool {
         case .pencil, .marker:
             guard let points = points else { return false }
-            let strokeRadius = (tool == .marker ? strokeWidth * 6 : strokeWidth) / 2
+            let strokeRadius = strokeWidth / 2
             let effectiveThreshold = max(threshold, strokeRadius)
             for p in points {
                 if hypot(p.x - point.x, p.y - point.y) < effectiveThreshold { return true }
@@ -543,7 +553,7 @@ class Annotation {
         case .ellipse:
             drawEllipse()
         case .marker:
-            drawFreeform(alpha: 0.35, width: strokeWidth * 6)
+            drawFreeform(alpha: 0.35, width: strokeWidth)
         case .text:
             drawText()
         case .number:
@@ -1612,6 +1622,11 @@ class Annotation {
         let mode = censorMode
         let rect = boundingRect
 
+        if censorDrawScope == .textOnly, let textOnlyImage = bakeTextOnlyCensor() {
+            bakedBlurNSImage = textOnlyImage
+            return
+        }
+
         // Solid mode: no source image needed — just a filled rect
         if mode == .solid {
             let img = NSImage(size: rect.size, flipped: false) { drawRect in
@@ -1670,6 +1685,60 @@ class Annotation {
             guard let pixelatedCG = ctx3.makeImage() else { return }
             bakedBlurNSImage = NSImage(cgImage: pixelatedCG, size: rect.size)
         }
+    }
+
+    private func bakeTextOnlyCensor() -> NSImage? {
+        let rect = boundingRect
+        guard rect.width > 4, rect.height > 4,
+              let regionImage = cropRegionFromSource(),
+              let tiffData = regionImage.tiffRepresentation,
+              let bitmap = NSBitmapImageRep(data: tiffData),
+              let cgImage = bitmap.cgImage
+        else { return nil }
+
+        let request = VNRecognizeTextRequest()
+        request.recognitionLevel = .fast
+        request.usesLanguageCorrection = false
+
+        let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
+        try? handler.perform([request])
+        let observations = (request.results as? [VNRecognizedTextObservation]) ?? []
+        let imageBounds = NSRect(origin: .zero, size: rect.size)
+        let padding: CGFloat = 4
+
+        let result = NSImage(size: rect.size, flipped: false) { _ in
+            for observation in observations {
+                let box = observation.boundingBox
+                let localRect = NSRect(
+                    x: box.origin.x * rect.width - padding,
+                    y: box.origin.y * rect.height - padding,
+                    width: box.width * rect.width + padding * 2,
+                    height: box.height * rect.height + padding * 2
+                ).intersection(imageBounds)
+
+                guard localRect.width > 1, localRect.height > 1 else { continue }
+
+                let textAnnotation = Annotation(
+                    tool: self.tool,
+                    startPoint: localRect.origin,
+                    endPoint: NSPoint(x: localRect.maxX, y: localRect.maxY),
+                    color: self.color,
+                    strokeWidth: self.strokeWidth
+                )
+                textAnnotation.censorMode = self.censorMode
+                textAnnotation.censorDrawScope = .all
+                if self.censorMode != .solid {
+                    textAnnotation.sourceImage = regionImage
+                    textAnnotation.sourceImageBounds = imageBounds
+                }
+                textAnnotation.bakePixelate()
+                if let baked = textAnnotation.bakedBlurNSImage {
+                    baked.draw(in: localRect, from: .zero, operation: .sourceOver, fraction: 1.0)
+                }
+            }
+            return true
+        }
+        return result
     }
 
     /// Unified censor drawing — dispatches based on censorMode.
@@ -2065,4 +2134,3 @@ class Annotation {
         attrStr.draw(with: textRect, options: [.usesLineFragmentOrigin, .usesFontLeading])
     }
 }
-

@@ -389,7 +389,14 @@ extension DetachedEditorWindowController: OverlayViewDelegate {
             ImageEncoder.copyToClipboard(image)
         }
         if actions.saveToFile {
-            saveImageToDirectory(image)
+            saveImageToDirectory(image) { result in
+                switch result {
+                case .success(let fileURL):
+                    view.showOverlayHint(String(format: L("Saved to %@"), fileURL.lastPathComponent))
+                case .failure:
+                    view.showOverlayError(L("Save failed"))
+                }
+            }
         }
         if actions.uploadAndCopyLink {
             (NSApp.delegate as? AppDelegate)?.uploadImage(image)
@@ -406,11 +413,20 @@ extension DetachedEditorWindowController: OverlayViewDelegate {
     }
 
     func overlayViewDidRequestFileSave() {
-        guard let raw = overlayView?.captureSelectedRegion() else { return }
+        guard let view = overlayView,
+              let raw = view.captureSelectedRegion() else { return }
         let image = applyPostProcessing(raw)
-        saveImageToDirectory(image)
-        playCopySound()
-        autoSaveToHistoryIfNeeded(compositedImage: image)
+        saveImageToDirectory(image) { [weak self] result in
+            guard let self = self else { return }
+            switch result {
+            case .success(let fileURL):
+                self.playCopySound()
+                view.showOverlayHint(String(format: L("Saved to %@"), fileURL.lastPathComponent))
+                self.autoSaveToHistoryIfNeeded(compositedImage: image)
+            case .failure:
+                view.showOverlayError(L("Save failed"))
+            }
+        }
     }
 
     /// Ensure the current editor content is in screenshot history.
@@ -430,7 +446,10 @@ extension DetachedEditorWindowController: OverlayViewDelegate {
         }
     }
 
-    private func saveImageToDirectory(_ image: NSImage) {
+    private func saveImageToDirectory(
+        _ image: NSImage,
+        completion: @escaping @MainActor (Result<URL, Error>) -> Void
+    ) {
         let dirURL = SaveDirectoryAccess.resolve()
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd 'at' HH.mm.ss"
@@ -438,9 +457,23 @@ extension DetachedEditorWindowController: OverlayViewDelegate {
         let fileURL = dirURL.appendingPathComponent(filename)
 
         DispatchQueue.global(qos: .userInitiated).async {
-            guard let imageData = ImageEncoder.encode(image) else { return }
-            try? imageData.write(to: fileURL)
-            SaveDirectoryAccess.stopAccessing(url: dirURL)
+            defer { SaveDirectoryAccess.stopAccessing(url: dirURL) }
+            guard let imageData = ImageEncoder.encode(image) else {
+                DispatchQueue.main.async {
+                    completion(.failure(NSError(domain: "macshot.save", code: 1)))
+                }
+                return
+            }
+            do {
+                try imageData.write(to: fileURL, options: .atomic)
+                DispatchQueue.main.async {
+                    completion(.success(fileURL))
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    completion(.failure(error))
+                }
+            }
         }
     }
     func overlayViewDidRequestUpload() {

@@ -79,6 +79,7 @@
 "Measure" = "测量";
 "Measure (px)" = "测量 (px)";
 "Magnify (Loupe)" = "放大镜";
+"Color Sampler" = "取色器";
 "Color Picker" = "取色";
 "Select & Edit" = "选择";
 "Color" = "颜色";
@@ -134,9 +135,9 @@
 "On" = "开";
 "Text Only" = "仅文字";
 "All Text" = "全部文字";
-"PII" = "PII";
-"Faces" = "面部";
-"People" = "人物";
+"PII" = "遮挡隐私";
+"Faces" = "遮挡人脸";
+"People" = "遮挡人物";
 "Confirm before upload" = "上传前确认";
 "Flip" = "翻转";
 "Smooth" = "平滑";
@@ -149,6 +150,8 @@
 
 /* Overlay / Canvas */
 "Click a window  ·  Drag for custom area  ·  F for full screen" = "点按窗口  ·  拖拽自定义区域  ·  F 全屏";
+"  (Tab to toggle)" = "  (Tab 切换)";
+"Window snap: " = "窗口吸附：";
 "Drag to select  ·  Click for full screen" = "拖拽选择  ·  点按全屏捕获";
 "Release to annotate and edit" = "松开以标注和编辑";
 "Window snap:" = "窗口吸附：";
@@ -253,6 +256,9 @@
 "Clear shortcut" = "清除快捷键";
 "Press keys..." = "按下按键...";
 "Waiting..." = "等待中...";
+"Shortcut Conflict" = "快捷键冲突";
+"Shortcut conflict message" = "快捷键“%@”已分配给“%@”。是否改为分配给“%@”？";
+"Replace" = "替换";
 
 /* Preferences - Tools */
 "Annotation Tools" = "标注工具";
@@ -511,9 +517,11 @@
 "Pause" = "暂停";
 "Resume" = "继续";
 "Engine:" = "引擎:";
-"Google Translate" = "Google Translate";
-"Apple (on-device)" = "Apple（设备端）";
-"Apple translation is faster and works offline. Google Translate supports more languages." = "Apple 翻译更快且支持离线使用。Google Translate 支持更多语言。";
+"Google Translate" = "谷歌翻译";
+"Apple (on-device)" = "苹果（内置）";
+"Apple translation is faster and works offline." = "苹果翻译更快且支持离线使用。";
+"Google Translate supports more languages." = "谷歌翻译支持更多语言。";
+"Apple translation is faster and works offline. Google Translate supports more languages." = "苹果翻译更快且支持离线使用。谷歌翻译支持更多语言。";
 "Download language packs in System Settings…" = "在系统设置中下载语言包…";
 "Configure S3 in Settings" = "在偏好设置中配置 S3";
 "Sign in to Google Drive in Settings" = "在偏好设置中登录 Google Drive";

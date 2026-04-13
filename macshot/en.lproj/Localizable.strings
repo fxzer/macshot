@@ -108,6 +108,7 @@
 "Record" = "Record";
 "Record screen" = "Record screen";
 "Translate" = "Translate";
+"Auto-Redact" = "Auto-Redact";
 "Auto-Redact sensitive data" = "Auto-Redact sensitive data";
 "Move Selection" = "Move Selection";
 
@@ -149,9 +150,9 @@
 "On" = "On";
 "Text Only" = "Text Only";
 "All Text" = "All Text";
-"PII" = "PII";
-"Faces" = "Faces";
-"People" = "People";
+"PII" = "Redact Privacy";
+"Faces" = "Redact Faces";
+"People" = "Redact People";
 "Confirm before upload" = "Confirm before upload";
 "Flip" = "Flip";
 "Smooth" = "Smooth";
@@ -167,9 +168,11 @@
 "Drag to select  ·  Click for full screen" = "Drag to select  ·  Click for full screen";
 "Release to annotate and edit" = "Release to annotate and edit";
 "Window snap: " = "Window snap: ";
+"Window snap:" = "Window snap:";
 "ON" = "ON";
 "OFF" = "OFF";
 "  (Tab to toggle)" = "  (Tab to toggle)";
+"Tab to toggle" = "Tab to toggle";
 "Lock aspect ratio: 1=1:1  2=2:3  3=3:4  4=4:5  5=5:7  6=9:16  (R to invert  0 to cancel)" = "Lock aspect ratio: 1=1:1  2=2:3  3=3:4  4=4:5  5=5:7  6=9:16  (R to invert  0 to cancel)";
 "Aspect ratio lock cleared" = "Aspect ratio lock cleared";
 "Aspect ratio locked: " = "Aspect ratio locked: ";
@@ -179,6 +182,11 @@
 "Set color %@" = "Set color %@";
 "Draw something first to use the move tool." = "Draw something first to use the move tool.";
 "Drag to reposition" = "Drag to reposition";
+"Fullscreen" = "Fullscreen";
+"Invert" = "Invert";
+"Click window" = "Click window";
+"Drag to select" = "Drag to select";
+"Ratio:" = "Ratio:";
 
 /* Overlay - Popovers */
 "Format:" = "Format:";
@@ -193,6 +201,8 @@
 "General" = "General";
 "Interface" = "Interface";
 "Interface Options" = "Interface Options";
+"Window" = "Window";
+"Application" = "Application";
 "Tools" = "Tools";
 "Recording" = "Recording";
 "About" = "About";
@@ -200,11 +210,14 @@
 "Uploads" = "Uploads";
 "Language" = "Language";
 "Language:" = "Language:";
+"Language packs" = "Language packs";
+"Download" = "Download";
 "Changes take effect immediately." = "Changes take effect immediately.";
 "Capture" = "Capture";
 "Quick Actions" = "Quick Actions";
 "Capture Options" = "Capture Options";
 "Play sound on capture" = "Play sound on capture";
+"Play sound on copy" = "Play sound on copy";
 "Remember last selection area" = "Remember last selection area";
 "Remember last selected tool" = "Remember last selected tool";
 "Show floating thumbnail after capture" = "Show floating thumbnail after capture";
@@ -241,6 +254,7 @@
 "Window" = "Window";
 "Accent color:" = "Accent color:";
 "Icon color:" = "Icon color:";
+"Background color" = "Background color";
 "Background color:" = "Background color:";
 "Reset" = "Reset";
 "OCR Capture:" = "OCR Capture:";
@@ -254,10 +268,15 @@
 
 /* Preferences - Shortcuts */
 "Keyboard Shortcuts" = "Keyboard Shortcuts";
+"Global Keyboard Shortcuts" = "Global Keyboard Shortcuts";
+"In-App Shortcuts" = "In-App Shortcuts";
 "Hotkeys" = "Hotkeys";
 "Clear shortcut" = "Clear shortcut";
 "Press keys..." = "Press keys...";
 "Waiting..." = "Waiting...";
+"Shortcut Conflict" = "Shortcut Conflict";
+"Shortcut conflict message" = "Shortcut “%@” is already assigned to “%@”. Replace it with “%@”?";
+"Replace" = "Replace";
 
 /* Preferences - Tools */
 "Annotation Tools" = "Annotation Tools";
@@ -268,6 +287,14 @@
 "Editor Actions" = "Editor Actions";
 "Right Toolbar Actions" = "Right Toolbar Actions";
 "Hidden actions are removed from the right toolbar." = "Hidden actions are removed from the right toolbar.";
+"Hidden tools are removed from the toolbar." = "Hidden tools are removed from the toolbar.";
+
+/* Tool Categories */
+"Drawing" = "Drawing";
+"Shapes" = "Shapes";
+"Annotation" = "Annotation";
+"Effects" = "Effects";
+"Other" = "Other";
 
 /* Preferences - Recording */
 "Frame rate:" = "Frame rate:";
@@ -491,6 +518,8 @@
 "Engine:" = "Engine:";
 "Google Translate" = "Google Translate";
 "Apple (on-device)" = "Apple (on-device)";
+"Apple translation is faster and works offline." = "Apple translation is faster and works offline.";
+"Google Translate supports more languages." = "Google Translate supports more languages.";
 "Apple translation is faster and works offline. Google Translate supports more languages." = "Apple translation is faster and works offline. Google Translate supports more languages.";
 "Download language packs in System Settings…" = "Download language packs in System Settings…";
 "Configure S3 in Settings" = "Configure S3 in Settings";

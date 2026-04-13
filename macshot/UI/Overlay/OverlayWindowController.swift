@@ -767,7 +767,8 @@ extension OverlayWindowController: OverlayViewDelegate {
     }
 
     func overlayViewDidRequestFileSave() {
-        // Snapshot post-processing config before dismissing
+        // Snapshot post-processing config before saving. Keep the overlay alive
+        // until the centered hint has been shown, otherwise the user never sees it.
         let hasEffects = overlayView?.effectsActive ?? false
         let effectsCfg = overlayView?.effectsConfig ?? ImageEffectsConfig()
         let hasBeautify = overlayView?.beautifyEnabled ?? false
@@ -782,8 +783,6 @@ extension OverlayWindowController: OverlayViewDelegate {
             return
         }
 
-        dismiss()
-
         // Apply post-processing
         var image = rawImage
         if hasEffects { image = ImageEffects.apply(to: image, config: effectsCfg) }
@@ -794,17 +793,32 @@ extension OverlayWindowController: OverlayViewDelegate {
             image = BeautifyRenderer.render(image: beautifyInput, config: beautifyCfg)
         }
 
-        overlayDelegate?.overlayDidConfirm(
-            self,
-            capturedImage: image,
-            annotationData: nil,
-            context: .manualSave,
-            windowTitle: capturedWindowTitle
-        )
-        saveImageToDirectory(image)
+        saveImageToDirectory(image) { [weak self] result in
+            guard let self = self else { return }
+            switch result {
+            case .success(let fileURL):
+                self.playCopySound()
+                self.overlayView?.showOverlayHint(
+                    String(format: L("Saved to %@"), fileURL.lastPathComponent))
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
+                    self.overlayDelegate?.overlayDidConfirm(
+                        self,
+                        capturedImage: image,
+                        annotationData: nil,
+                        context: .manualSave,
+                        windowTitle: self.capturedWindowTitle
+                    )
+                }
+            case .failure:
+                self.overlayView?.showOverlayError(L("Save failed"))
+            }
+        }
     }
 
-    private func saveImageToDirectory(_ image: NSImage) {
+    private func saveImageToDirectory(
+        _ image: NSImage,
+        completion: @escaping @MainActor (Result<URL, Error>) -> Void
+    ) {
         let dirURL = SaveDirectoryAccess.resolve()
 
         let formatter = DateFormatter()
@@ -822,9 +836,23 @@ extension OverlayWindowController: OverlayViewDelegate {
         let fileURL = dirURL.appendingPathComponent(filename)
 
         DispatchQueue.global(qos: .userInitiated).async {
-            guard let imageData = ImageEncoder.encode(image) else { return }
-            try? imageData.write(to: fileURL)
-            SaveDirectoryAccess.stopAccessing(url: dirURL)
+            defer { SaveDirectoryAccess.stopAccessing(url: dirURL) }
+            guard let imageData = ImageEncoder.encode(image) else {
+                DispatchQueue.main.async {
+                    completion(.failure(NSError(domain: "macshot.save", code: 1)))
+                }
+                return
+            }
+            do {
+                try imageData.write(to: fileURL, options: .atomic)
+                DispatchQueue.main.async {
+                    completion(.success(fileURL))
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    completion(.failure(error))
+                }
+            }
         }
     }
 

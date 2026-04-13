@@ -62,6 +62,7 @@ struct CodableAnnotation: Codable {
     // Misc
     var measureInPoints: Bool = false
     var censorMode: Int = 0
+    var censorDrawScope: Int = 0
     var groupID: String?  // UUID string
 }
 
@@ -135,6 +136,7 @@ extension Annotation {
         // Misc
         c.measureInPoints = measureInPoints
         c.censorMode = censorMode.rawValue
+        c.censorDrawScope = censorDrawScope.rawValue
         if let gid = groupID { c.groupID = gid.uuidString }
 
         return c
@@ -216,6 +218,7 @@ extension Annotation {
         // Misc
         ann.measureInPoints = c.measureInPoints
         ann.censorMode = CensorMode(rawValue: c.censorMode) ?? .pixelate
+        ann.censorDrawScope = CensorDrawScope(rawValue: c.censorDrawScope) ?? .all
         if let gidStr = c.groupID { ann.groupID = UUID(uuidString: gidStr) }
 
         return ann

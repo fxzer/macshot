@@ -1031,7 +1031,8 @@ class ToolOptionsRowView: NSView {
         addSubview(drawLabel)
         curX += drawLabel.frame.width + 4
 
-        let textOnly = UserDefaults.standard.bool(forKey: "censorTextOnly")
+        let textOnly = (editingAnnotation?.censorDrawScope == .textOnly)
+            || (editingAnnotation == nil && UserDefaults.standard.bool(forKey: "censorTextOnly"))
         let drawSeg = NSSegmentedControl(labels: [L("All"), L("Text Only")], trackingMode: .selectOne,
                                           target: self, action: #selector(drawModeChanged(_:)))
         drawSeg.selectedSegment = textOnly ? 1 : 0
@@ -1337,8 +1338,26 @@ class ToolOptionsRowView: NSView {
     }
 
     @objc private func censorModeChanged(_ sender: NSSegmentedControl) {
-        guard let mode = CensorMode(rawValue: sender.selectedSegment) else { return }
+        guard let ov = overlayView,
+              let mode = CensorMode(rawValue: sender.selectedSegment) else { return }
         UserDefaults.standard.set(mode.rawValue, forKey: "censorMode")
+        guard let ann = editingAnnotation,
+              ann.tool == .pixelate || ann.tool == .blur
+        else {
+            ov.needsDisplay = true
+            return
+        }
+
+        ensureSnapshot()
+        ann.censorMode = mode
+        if mode != .solid {
+            ann.sourceImage = ann.sourceImage ?? ov.screenshotImage
+            ann.sourceImageBounds = ov.captureDrawRect
+        }
+        ann.bakedBlurNSImage = nil
+        ann.bakePixelate()
+        ov.cachedCompositedImage = nil
+        ov.needsDisplay = true
     }
 
     @objc private func numberFormatChanged(_ sender: NSSegmentedControl) {
@@ -1404,7 +1423,26 @@ class ToolOptionsRowView: NSView {
     }
 
     @objc private func drawModeChanged(_ sender: NSSegmentedControl) {
-        UserDefaults.standard.set(sender.selectedSegment == 1, forKey: "censorTextOnly")
+        guard let ov = overlayView else { return }
+        let textOnly = sender.selectedSegment == 1
+        UserDefaults.standard.set(textOnly, forKey: "censorTextOnly")
+        guard let ann = editingAnnotation,
+              ann.tool == .pixelate || ann.tool == .blur
+        else {
+            ov.needsDisplay = true
+            return
+        }
+
+        ensureSnapshot()
+        ann.censorDrawScope = textOnly ? .textOnly : .all
+        if ann.censorMode != .solid {
+            ann.sourceImage = ann.sourceImage ?? ov.screenshotImage
+            ann.sourceImageBounds = ov.captureDrawRect
+        }
+        ann.bakedBlurNSImage = nil
+        ann.bakePixelate()
+        ov.cachedCompositedImage = nil
+        ov.needsDisplay = true
     }
 
     @objc private func pencilSmoothModeChanged(_ sender: NSSegmentedControl) {
