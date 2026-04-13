@@ -1034,9 +1034,13 @@ private final class VideoEditorView: NSView {
             saveVideoAs()
             return
         }
-        let ext = exportAsGIF ? "gif" : videoURL.pathExtension
-        let name = videoURL.deletingPathExtension().lastPathComponent + ".\(ext)"
-        let destURL = dirURL.appendingPathComponent(name)
+        let kind: FilenameOutputKind = exportAsGIF || isGIF ? .gif : .recording
+        let ext = kind == .gif ? "gif" : videoURL.pathExtension
+        let destURL = FilenameTemplateEngine.uniqueDestinationURL(
+            in: dirURL,
+            baseName: FilenameTemplateEngine.makeBaseName(kind: kind),
+            fileExtension: ext
+        )
         if exportAsGIF && !isGIF {
             convertToGIF(destURL: destURL)
         } else {
@@ -1048,8 +1052,9 @@ private final class VideoEditorView: NSView {
         let panel = NSSavePanel()
         let saveAsGIF = exportAsGIF && !isGIF
         panel.allowedContentTypes = saveAsGIF ? [.gif] : (isGIF ? [.gif] : [.mpeg4Movie])
-        let ext = saveAsGIF ? "gif" : videoURL.pathExtension
-        panel.nameFieldStringValue = videoURL.deletingPathExtension().lastPathComponent + ".\(ext)"
+        let kind: FilenameOutputKind = saveAsGIF || isGIF ? .gif : .recording
+        let ext = kind == .gif ? "gif" : videoURL.pathExtension
+        panel.nameFieldStringValue = FilenameTemplateEngine.makeFilename(kind: kind, fileExtension: ext)
         panel.directoryURL = SaveDirectoryAccess.recordingDirectoryHint()
         panel.level = .statusBar + 3
         panel.begin { [weak self] response in

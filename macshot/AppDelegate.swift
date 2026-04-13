@@ -531,7 +531,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         let frontmostApp = NSWorkspace.shared.frontmostApplication
         previousApp = frontmostApp
         capturedWindowTitle = nil
-        beginCapturedWindowTitleLookup(for: frontmostApp)
 
         dismissOverlays()
 
@@ -686,38 +685,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         }
     }
 
-    private func beginCapturedWindowTitleLookup(for app: NSRunningApplication?) {
-        guard UserDefaults.standard.bool(forKey: "useWindowTitleInFilename"),
-              let app = app,
-              app.bundleIdentifier != Bundle.main.bundleIdentifier else { return }
-
-        let pid = app.processIdentifier
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            let title = Self.focusedWindowTitle(forPID: pid)
-            DispatchQueue.main.async {
-                guard let self = self,
-                      self.previousApp?.processIdentifier == pid else { return }
-                self.capturedWindowTitle = title
-                for controller in self.overlayControllers where controller.capturedWindowTitle == nil {
-                    controller.capturedWindowTitle = title
-                }
-            }
-        }
-    }
-
-    /// Returns the title of the frontmost window for a given PID via CGWindowList.
-    /// Runs on a background queue so capture startup stays responsive.
-    nonisolated private static func focusedWindowTitle(forPID pid: pid_t) -> String? {
-        guard let windowList = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] else { return nil }
-        for info in windowList {
-            guard let layer = info[kCGWindowLayer as String] as? Int, layer == 0,
-                  let ownerPID = info[kCGWindowOwnerPID as String] as? pid_t, ownerPID == pid,
-                  let name = info[kCGWindowName as String] as? String, !name.isEmpty else { continue }
-            return name
-        }
-        return nil
-    }
-
     private func restoreLastSelectionIfNeeded(controllers: [OverlayWindowController]) {
         guard UserDefaults.standard.bool(forKey: "rememberLastSelection") else { return }
         guard let rectStr = UserDefaults.standard.string(forKey: "lastSelectionRect"),
@@ -844,15 +811,19 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
 
         panel.begin { [weak self] response in
             guard response == .OK, let dirURL = panel.url else { return }
-            let formatter = DateFormatter()
-            formatter.dateFormat = "yyyy-MM-dd 'at' HH.mm.ss"
 
             DispatchQueue.global(qos: .userInitiated).async {
-                for (i, image) in images.enumerated() {
+                for image in images {
                     guard let data = ImageEncoder.encode(image) else { continue }
-                    let timestamp = formatter.string(from: Date())
-                    let filename = "Screenshot \(timestamp)-\(i + 1).\(ImageEncoder.fileExtension)"
-                    let fileURL = dirURL.appendingPathComponent(filename)
+                    let baseName = FilenameTemplateEngine.makeBaseName(
+                        kind: .screenshot,
+                        date: Date()
+                    )
+                    let fileURL = FilenameTemplateEngine.uniqueDestinationURL(
+                        in: dirURL,
+                        baseName: baseName,
+                        fileExtension: ImageEncoder.fileExtension
+                    )
                     try? data.write(to: fileURL)
                 }
                 DispatchQueue.main.async {
@@ -979,21 +950,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
 
     private func saveImageToDefaultDirectory(_ image: NSImage, windowTitle: String?) {
         let dirURL = SaveDirectoryAccess.resolve()
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd 'at' HH.mm.ss"
-        let timestamp = formatter.string(from: Date())
-        let useWindowTitle = UserDefaults.standard.bool(forKey: "useWindowTitleInFilename")
-        let baseName: String
-        if useWindowTitle, let windowTitle, !windowTitle.isEmpty {
-            let safeTitle = windowTitle
-                .replacingOccurrences(of: "/", with: "-")
-                .replacingOccurrences(of: ":", with: "-")
-            baseName = "Screenshot \(timestamp) — \(safeTitle)"
-        } else {
-            baseName = "Screenshot \(timestamp)"
-        }
+        let baseName = FilenameTemplateEngine.makeBaseName(kind: .screenshot)
 
-        let fileURL = uniqueDestinationURL(
+        let fileURL = FilenameTemplateEngine.uniqueDestinationURL(
             in: dirURL,
             baseName: baseName,
             fileExtension: ImageEncoder.fileExtension
@@ -1011,10 +970,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
 
     private func saveRecordingToDefaultDirectory(_ sourceURL: URL) {
         let dirURL = SaveDirectoryAccess.resolveRecordingDirectory()
-        let baseName = sourceURL.deletingPathExtension().lastPathComponent
-        let destinationURL = uniqueDestinationURL(
+        let kind: FilenameOutputKind = sourceURL.pathExtension.lowercased() == "gif" ? .gif : .recording
+        let destinationURL = FilenameTemplateEngine.uniqueDestinationURL(
             in: dirURL,
-            baseName: baseName,
+            baseName: FilenameTemplateEngine.makeBaseName(kind: kind),
             fileExtension: sourceURL.pathExtension
         )
 
@@ -1074,24 +1033,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         }
     }
 
-    private func uniqueDestinationURL(in directoryURL: URL, baseName: String, fileExtension: String) -> URL {
-        let sanitizedExtension = fileExtension.isEmpty ? "" : ".\(fileExtension)"
-        var candidate = directoryURL.appendingPathComponent(baseName + sanitizedExtension)
-        var suffix = 2
-
-        while FileManager.default.fileExists(atPath: candidate.path) {
-            candidate = directoryURL.appendingPathComponent("\(baseName) \(suffix)\(sanitizedExtension)")
-            suffix += 1
-        }
-
-        return candidate
-    }
-
     private func saveImageToFile(_ image: NSImage) {
         guard let imageData = ImageEncoder.encode(image) else { return }
         let savePanel = NSSavePanel()
         savePanel.allowedContentTypes = [ImageEncoder.utType]
-        savePanel.nameFieldStringValue = "macshot_\(OverlayWindowController.formattedTimestamp()).\(ImageEncoder.fileExtension)"
+        savePanel.nameFieldStringValue = FilenameTemplateEngine.makeFilename(
+            kind: .screenshot,
+            fileExtension: ImageEncoder.fileExtension
+        )
         savePanel.directoryURL = SaveDirectoryAccess.directoryHint()
         savePanel.begin { response in
             if response == .OK, let url = savePanel.url {

@@ -30,6 +30,7 @@
 "Open Image..." = "Open Image...";
 "Open from Clipboard" = "Open from Clipboard";
 "Settings..." = "Settings...";
+"Settings…" = "Settings…";
 "Check for Updates..." = "Check for Updates...";
 "Quit macshot" = "Quit macshot";
 "No recent captures" = "No recent captures";
@@ -220,11 +221,20 @@
 "Play sound on copy" = "Play sound on copy";
 "Remember last selection area" = "Remember last selection area";
 "Remember last selected tool" = "Remember last selected tool";
+"Selection size snapping" = "Selection size snapping";
+"Off" = "Off";
+"Locked aspect ratio only" = "Locked aspect ratio only";
+"All selections" = "All selections";
 "Show floating thumbnail after capture" = "Show floating thumbnail after capture";
 "Launch at login" = "Launch at login";
 "Show snap alignment guides" = "Show snap alignment guides";
 "Capture mouse cursor in screenshot" = "Capture mouse cursor in screenshot";
 "Use window title in saved filename" = "Use window title in saved filename";
+"Color Sampler" = "Color Sampler";
+"Color format" = "Color format";
+"Color space" = "Color space";
+"Native" = "Native";
+"Generic RGB" = "Generic RGB";
 "Hide menu bar icon" = "Hide menu bar icon";
 "Show menu bar icon" = "Show menu bar icon";
 "Hotkeys still work. To show the icon again, re-launch macshot." = "Hotkeys still work. To show the icon again, re-launch macshot.";
@@ -261,6 +271,8 @@
 "Second" = "Second";
 "Preview" = "Preview";
 "Filename Format" = "Filename Format";
+"Insert variable" = "Insert variable";
+"Remove" = "Remove";
 "Appearance" = "Appearance";
 "Window" = "Window";
 "Accent color:" = "Accent color:";
@@ -331,6 +343,7 @@
 "120 fps" = "120 fps";
 "MP4 (H.264)" = "MP4 (H.264)";
 "GIF" = "GIF";
+"GIF uses the recording folder." = "GIF uses the recording folder.";
 
 /* Preferences - Upload */
 "Upload Service" = "Upload Service";
@@ -648,3 +661,12 @@
 "Aspect ratio locked: %@. Press the same shortcut again to clear." = "Aspect ratio locked: %@. Press the same shortcut again to clear.";
 "Aspect ratio locked: %@. Press the same shortcut again to clear, %@ to invert." = "Aspect ratio locked: %@. Press the same shortcut again to clear, %@ to invert.";
 "Dismiss" = "Dismiss";
+"Prefix" = "Prefix";
+"Type" = "Type";
+"Date" = "Date";
+"Time" = "Time";
+"Timestamp" = "Timestamp";
+"Short code" = "Short code";
+"Filename" = "Filename";
+"Remove special characters" = "Remove special characters";
+"Replace spaces and illegal characters with underscores" = "Replace spaces and illegal characters with underscores";

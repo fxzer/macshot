@@ -192,11 +192,20 @@
 "Play sound on copy" = "拷貝時播放音效";
 "Remember last selection area" = "記住上次的選取區域";
 "Remember last selected tool" = "記住上次選取的工具";
+"Selection size snapping" = "選取尺寸吸附";
+"Off" = "關閉";
+"Locked aspect ratio only" = "僅比例鎖定";
+"All selections" = "所有選區";
 "Show floating thumbnail after capture" = "擷取後顯示浮動縮圖";
 "Launch at login" = "登入時啟動";
 "Show snap alignment guides" = "顯示對齊輔助線";
 "Capture mouse cursor in screenshot" = "在螢幕截圖中擷取滑鼠游標";
 "Use window title in saved filename" = "在儲存的檔案名稱中使用視窗標題";
+"Color Sampler" = "取色器";
+"Color format" = "色值格式";
+"Color space" = "色彩空間";
+"Native" = "原生";
+"Generic RGB" = "普通 RGB";
 "Hide menu bar icon" = "隱藏選單列圖像";
 "Show menu bar icon" = "顯示選單列圖像";
 "Hotkeys still work. To show the icon again, re-launch macshot." = "快捷鍵仍可使用。若要再次顯示圖像，請重新啟動 macshot。";
@@ -233,6 +242,8 @@
 "Second" = "秒";
 "Preview" = "預覽";
 "Filename Format" = "檔名格式";
+"Insert variable" = "插入變數";
+"Remove" = "移除";
 "Appearance" = "外觀";
 "Accent color:" = "強調色：";
 "Icon color:" = "圖像顏色：";
@@ -288,6 +299,7 @@
 "120 fps" = "120 fps";
 "MP4 (H.264)" = "MP4 (H.264)";
 "GIF" = "GIF";
+"GIF uses the recording folder." = "GIF 使用錄製的儲存位置。";
 
 /* Preferences - Upload */
 "Upload Service" = "上傳服務";
@@ -463,6 +475,7 @@
 
 /* New Strings */
 "Settings..." = "設定...";
+"Settings…" = "設定⋯";
 "macshot Settings" = "macshot 設定";
 "Also open in Editor" = "同時在編輯器中開啟";
 "Hide controls" = "隱藏控制";
@@ -588,3 +601,12 @@
 "Works best in China with a personal API token. Images only (no video support)." = "更適合中國大陸網路環境，建議使用您自己的 API Token。僅支援影像，不支援影片。";
 "Enter your SM.MS token in Settings" = "請先在設定中填寫 SM.MS Token";
 "S3 / R2 / MinIO" = "S3 / R2 / MinIO";
+"Prefix" = "前綴";
+"Type" = "類型";
+"Date" = "日期";
+"Time" = "時間";
+"Timestamp" = "時間戳";
+"Short code" = "短碼";
+"Filename" = "檔案名稱";
+"Remove special characters" = "移除特殊字元";
+"Replace spaces and illegal characters with underscores" = "將空格和非法字元替換為底線";

@@ -454,9 +454,8 @@ final class RecordingEngine: NSObject {
         // Save to temp directory — always writable in sandbox.
         // The video editor handles final export to the user's chosen location.
         let dir = FileManager.default.temporaryDirectory
-        let timestamp = FilenameFormat.recordingFormat.formatTimestamp()
-        let name = "macshot-\(timestamp).mp4"
-        return dir.appendingPathComponent(name)
+        let baseName = FilenameTemplateEngine.makeBaseName(kind: .recording)
+        return FilenameTemplateEngine.uniqueDestinationURL(in: dir, baseName: baseName, fileExtension: "mp4")
     }
 
     // MARK: - Helpers

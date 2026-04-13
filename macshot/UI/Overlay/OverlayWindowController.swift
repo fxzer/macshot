@@ -302,7 +302,7 @@ class OverlayWindowController {
     }
 
     static func formattedTimestamp() -> String {
-        return FilenameFormat.screenshotFormat.formatTimestamp()
+        return FilenameTemplateEngine.makeBaseName(kind: .screenshot)
     }
 }
 
@@ -448,9 +448,11 @@ extension OverlayWindowController: OverlayViewDelegate {
         guard var image = captureRegion() else { return }
         image = applyBeautifyIfNeeded(image) ?? image
         guard let imageData = ImageEncoder.encode(image) else { return }
-        let tempURL = URL(fileURLWithPath: NSTemporaryDirectory())
-            .appendingPathComponent(
-                "macshot_\(Self.formattedTimestamp()).\(ImageEncoder.fileExtension)")
+        let tempURL = FilenameTemplateEngine.uniqueDestinationURL(
+            in: URL(fileURLWithPath: NSTemporaryDirectory()),
+            baseName: FilenameTemplateEngine.makeBaseName(kind: .screenshot),
+            fileExtension: ImageEncoder.fileExtension
+        )
         try? imageData.write(to: tempURL)
 
         // Get the screen position of the share button
@@ -818,20 +820,11 @@ extension OverlayWindowController: OverlayViewDelegate {
         completion: @escaping @MainActor (Result<URL, Error>) -> Void
     ) {
         let dirURL = SaveDirectoryAccess.resolve()
-
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd 'at' HH.mm.ss"
-        let timestamp = formatter.string(from: Date())
-        let useWindowTitle = UserDefaults.standard.bool(forKey: "useWindowTitleInFilename")
-        let filename: String
-        if useWindowTitle, let title = capturedWindowTitle {
-            let safe = title.replacingOccurrences(of: "/", with: "-")
-                .replacingOccurrences(of: ":", with: "-")
-            filename = "Screenshot \(timestamp) — \(safe).\(ImageEncoder.fileExtension)"
-        } else {
-            filename = "Screenshot \(timestamp).\(ImageEncoder.fileExtension)"
-        }
-        let fileURL = dirURL.appendingPathComponent(filename)
+        let fileURL = FilenameTemplateEngine.uniqueDestinationURL(
+            in: dirURL,
+            baseName: FilenameTemplateEngine.makeBaseName(kind: .screenshot),
+            fileExtension: ImageEncoder.fileExtension
+        )
 
         DispatchQueue.global(qos: .userInitiated).async {
             defer { SaveDirectoryAccess.stopAccessing(url: dirURL) }
@@ -861,8 +854,10 @@ extension OverlayWindowController: OverlayViewDelegate {
 
         let savePanel = NSSavePanel()
         savePanel.allowedContentTypes = [ImageEncoder.utType]
-        savePanel.nameFieldStringValue =
-            "macshot_\(Self.formattedTimestamp()).\(ImageEncoder.fileExtension)"
+        savePanel.nameFieldStringValue = FilenameTemplateEngine.makeFilename(
+            kind: .screenshot,
+            fileExtension: ImageEncoder.fileExtension
+        )
         savePanel.level = NSWindow.Level(258)
 
         savePanel.directoryURL = SaveDirectoryAccess.directoryHint()

@@ -8,10 +8,12 @@ struct OutputSettingsView: View {
     @AppStorage("imageFormat") private var imageFormat = "png"
     @AppStorage("imageQuality") private var imageQuality = 0.85
     @AppStorage("downscaleRetina") private var downscaleRetina = false
-    @AppStorage("embedColorProfile") private var embedColorProfile = false
+    @AppStorage("embedColorProfile") private var embedColorProfile = true
 
     // Filename format
-    @State private var screenshotFilenameFormat = FilenameFormat.screenshotFormat
+    @State private var sharedFilenameFormat = TokenFilenameFormat.sharedFormat
+    @AppStorage(TokenFilenameFormat.sanitizeSpecialCharactersKey) private var sanitizeSpecialCharacters = false
+    @State private var previewKind: FilenameOutputKind = .screenshot
 
     // History
     @AppStorage("historySize") private var historySize = 10
@@ -21,28 +23,30 @@ struct OutputSettingsView: View {
 
     var body: some View {
         Form {
-            // MARK: - Save
             Section {
-                HStack {
-                    Text(L("Save folder"))
-                    Spacer()
-                    Text(savePath)
-                        .foregroundColor(.secondary)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                    Button(L("Browse…")) {
-                        browseSavePath()
+                SaveLocationSettingsRow(
+                    screenshotPath: savePath,
+                    recordingPath: recordingSavePath,
+                    onBrowseScreenshot: browseSavePath,
+                    onBrowseRecording: browseRecordingSavePath,
+                    onClearRecording: {
+                        SaveDirectoryAccess.clearRecordingDirectory()
+                        recordingSavePath = SaveDirectoryAccess.recordingDisplayPath
                     }
-                }
-
-                FilenameFormatSettingsButton(
-                    format: $screenshotFilenameFormat,
-                    fileExtension: ImageEncoder.fileExtension,
-                    title: L("Filename format")
                 )
-                .onChange(of: screenshotFilenameFormat) { newFormat in
-                    FilenameFormat.screenshotFormat = newFormat
+
+                FilenameFormatSettingsRow(
+                    format: $sharedFilenameFormat,
+                    previewKind: $previewKind,
+                    sanitizeSpecialCharacters: $sanitizeSpecialCharacters,
+                    screenshotExtension: ImageEncoder.fileExtension
+                )
+                .onChange(of: sharedFilenameFormat) { newFormat in
+                    TokenFilenameFormat.sharedFormat = newFormat
                 }
+            }
+
+            Section {
                 Picker(L("Image format"), selection: $imageFormat) {
                     Text("PNG").tag("png")
                     Text("JPEG").tag("jpeg")
@@ -81,28 +85,7 @@ struct OutputSettingsView: View {
                     ScreenshotHistory.shared.pruneToMax()
                 }
             } header: {
-                Text(L("Save"))
-            }
-
-            // MARK: - Recording
-            Section {
-                HStack {
-                    Text(L("Save folder"))
-                    Spacer()
-                    Text(recordingSavePath)
-                        .foregroundColor(.secondary)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                    Button(L("Browse…")) {
-                        browseRecordingSavePath()
-                    }
-                    Button(L("Clear")) {
-                        SaveDirectoryAccess.clearRecordingDirectory()
-                        recordingSavePath = SaveDirectoryAccess.recordingDisplayPath
-                    }
-                }
-            } header: {
-                Text(L("Recording"))
+                Text(L("Screenshot"))
             }
 
             // MARK: - Translation
@@ -154,6 +137,8 @@ struct OutputSettingsView: View {
     }
 
     private func normalizePickerSelections() {
+        TokenFilenameFormat.migrateIfNeeded()
+        sharedFilenameFormat = TokenFilenameFormat.sharedFormat
         imageFormat = normalized(imageFormat, allowed: ["png", "jpeg", "heic", "webp"], fallback: "png")
         historySize = normalized(historySize, allowed: [999, 10, 25, 50, 100], fallback: 10)
 
