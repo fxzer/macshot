@@ -222,6 +222,17 @@
 "Save Directory" = "儲存目錄";
 "Save folder:" = "儲存檔案夾：";
 "Browse…" = "瀏覽⋯";
+"Filename format" = "檔名格式";
+"Format…" = "格式…";
+"Select components to include in the filename:" = "選擇要包含在檔名中的元件：";
+"Year" = "年";
+"Month" = "月";
+"Day" = "日";
+"Hour" = "時";
+"Minute" = "分";
+"Second" = "秒";
+"Preview" = "預覽";
+"Filename Format" = "檔名格式";
 "Appearance" = "外觀";
 "Accent color:" = "強調色：";
 "Icon color:" = "圖像顏色：";

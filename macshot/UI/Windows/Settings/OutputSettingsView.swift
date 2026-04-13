@@ -10,6 +10,9 @@ struct OutputSettingsView: View {
     @AppStorage("downscaleRetina") private var downscaleRetina = false
     @AppStorage("embedColorProfile") private var embedColorProfile = false
 
+    // Filename format
+    @State private var screenshotFilenameFormat = FilenameFormat.screenshotFormat
+
     // History
     @AppStorage("historySize") private var historySize = 10
 
@@ -30,6 +33,15 @@ struct OutputSettingsView: View {
                     Button(L("Browse…")) {
                         browseSavePath()
                     }
+                }
+
+                FilenameFormatSettingsButton(
+                    format: $screenshotFilenameFormat,
+                    fileExtension: ImageEncoder.fileExtension,
+                    title: L("Filename format")
+                )
+                .onChange(of: screenshotFilenameFormat) { newFormat in
+                    FilenameFormat.screenshotFormat = newFormat
                 }
                 Picker(L("Image format"), selection: $imageFormat) {
                     Text("PNG").tag("png")

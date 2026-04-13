@@ -22,6 +22,9 @@ struct RecordingSettingsView: View {
     // Quality
     @AppStorage("recordingFPS") private var recordingFPS = 30
 
+    // Filename format
+    @State private var recordingFilenameFormat = FilenameFormat.recordingFormat
+
     // Behavior
     @AppStorage("recordingControlsMode") private var recordingControlsModeRaw = ""
 
@@ -46,6 +49,16 @@ struct RecordingSettingsView: View {
                     Text(L("30 fps")).tag(30)
                     Text(L("60 fps")).tag(60)
                     Text(L("120 fps")).tag(120)
+                }
+
+                // Filename format settings for recordings
+                FilenameFormatSettingsButton(
+                    format: $recordingFilenameFormat,
+                    fileExtension: "mp4",
+                    title: L("Filename format")
+                )
+                .onChange(of: recordingFilenameFormat) { newFormat in
+                    FilenameFormat.recordingFormat = newFormat
                 }
             } header: {
                 Text(L("Quality"))

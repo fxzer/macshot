@@ -250,6 +250,17 @@
 "Save Directory" = "Save Directory";
 "Save folder:" = "Save folder:";
 "Browse…" = "Browse…";
+"Filename format" = "Filename format";
+"Format…" = "Format…";
+"Select components to include in the filename:" = "Select components to include in the filename:";
+"Year" = "Year";
+"Month" = "Month";
+"Day" = "Day";
+"Hour" = "Hour";
+"Minute" = "Minute";
+"Second" = "Second";
+"Preview" = "Preview";
+"Filename Format" = "Filename Format";
 "Appearance" = "Appearance";
 "Window" = "Window";
 "Accent color:" = "Accent color:";

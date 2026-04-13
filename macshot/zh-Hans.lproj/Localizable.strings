@@ -235,6 +235,17 @@
 "Save Directory" = "存储目录";
 "Save folder:" = "存储文件夹:";
 "Browse…" = "浏览…";
+"Filename format" = "文件名格式";
+"Format…" = "格式…";
+"Select components to include in the filename:" = "选择要包含在文件名中的组件：";
+"Year" = "年";
+"Month" = "月";
+"Day" = "日";
+"Hour" = "时";
+"Minute" = "分";
+"Second" = "秒";
+"Preview" = "预览";
+"Filename Format" = "文件名格式";
 "Appearance" = "外观";
 "Accent color:" = "强调色:";
 "Icon color:" = "图标颜色:";

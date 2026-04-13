@@ -302,9 +302,7 @@ class OverlayWindowController {
     }
 
     static func formattedTimestamp() -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd_HH-mm-ss"
-        return formatter.string(from: Date())
+        return FilenameFormat.screenshotFormat.formatTimestamp()
     }
 }
 

@@ -454,9 +454,8 @@ final class RecordingEngine: NSObject {
         // Save to temp directory — always writable in sandbox.
         // The video editor handles final export to the user's chosen location.
         let dir = FileManager.default.temporaryDirectory
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd HH.mm.ss"
-        let name = "Recording \(formatter.string(from: Date())).mp4"
+        let timestamp = FilenameFormat.recordingFormat.formatTimestamp()
+        let name = "macshot-\(timestamp).mp4"
         return dir.appendingPathComponent(name)
     }
 
