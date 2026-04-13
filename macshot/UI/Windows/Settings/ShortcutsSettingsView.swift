@@ -374,6 +374,15 @@ struct ShortcutsSettingsView: View {
                 } else {
                     ForEach(aspectRatios, id: \.id) { ratio in
                         HStack {
+                            // 删除按钮
+                            Button(action: { removeRatio(ratio) }) {
+                                Image(systemName: "minus.circle.fill")
+                                    .foregroundColor(.red)
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(aspectRatios.count <= 1)
+                            .help(L("Remove this ratio"))
+
                             // 比例名称
                             Text(ratio.displayName)
                                 .frame(width: 50, alignment: .leading)
@@ -411,15 +420,6 @@ struct ShortcutsSettingsView: View {
                                 }
                             )
                             .frame(maxWidth: 120)
-
-                            // 删除按钮
-                            Button(action: { removeRatio(ratio) }) {
-                                Image(systemName: "minus.circle.fill")
-                                    .foregroundColor(.red)
-                            }
-                            .buttonStyle(.plain)
-                            .disabled(aspectRatios.count <= 1)
-                            .help(L("Remove this ratio"))
                         }
                         .padding(.vertical, 2)
                     }
