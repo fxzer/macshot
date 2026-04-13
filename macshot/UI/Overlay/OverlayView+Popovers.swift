@@ -232,12 +232,12 @@ extension OverlayView {
         if let anchor = anchorView {
             PopoverHelper.show(
                 picker, size: picker.preferredSize, relativeTo: anchor.bounds, of: anchor,
-                preferredEdge: .minY)
+                preferredEdge: .maxY)
         } else {
             PopoverHelper.showAtPoint(
                 picker, size: picker.preferredSize,
                 at: NSPoint(x: anchorRect.midX, y: anchorRect.midY),
-                in: self, preferredEdge: .minY)
+                in: self, preferredEdge: .maxY)
         }
     }
 
