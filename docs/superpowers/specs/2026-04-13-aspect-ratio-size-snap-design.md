@@ -18,7 +18,7 @@ The interaction will use adaptive snap steps:
 - Smaller selections snap to multiples of `50`
 - Larger selections snap to multiples of `100`
 
-The feedback will stay minimal: the size label will visually emphasize the snapped state, without introducing extra guide lines or heavy editor-like overlays.
+The feedback will stay light but explicit: the size label will visually emphasize the snapped state, and temporary snap guide lines will appear while a snap target is engaged.
 
 ## Goals
 
@@ -31,7 +31,7 @@ The feedback will stay minimal: the size label will visually emphasize the snapp
 
 - No snapping when aspect ratio lock is off
 - No snapping for annotation resize, text boxes, or other editor objects
-- No Figma-style ruler/guideline system
+- No persistent ruler system or full design-tool overlay
 - No new settings toggle in this iteration
 
 ## User Experience
@@ -90,8 +90,15 @@ Feedback should stay subtle:
 - Reuse the existing size label
 - When snap is active, render the size label in an emphasized style
 - When snap is not active, keep the current default appearance
+- When snap is active, show temporary guide lines that make the snapped width/height feel intentional
 
-No extra flashing, sound, or guideline overlays in this version.
+Guide line behavior:
+
+- Only show while the drag is currently snapped
+- Disappear immediately when the drag exits the snap threshold
+- Use a light-weight visual style, closer to a temporary canvas aid than a persistent measurement tool
+- Prefer one or two clean guide lines over a dense overlay
+No extra flashing or sound in this version.
 
 ## Interaction Details
 
@@ -161,6 +168,9 @@ For handle-based resize, the same principle applies: preserve the current handle
 Add transient state for snapped feedback:
 
 - A boolean such as `selectionSizeSnapActive`
+- Optional temporary snap guide positions, such as:
+  - snapped width guide x-position
+  - snapped height guide y-position
 
 This state should:
 
@@ -169,6 +179,7 @@ This state should:
 - Reset when aspect ratio lock is cleared
 
 The existing size label rendering should read this state and switch to the emphasized appearance when true.
+The drawing layer should also read the transient guide positions and render the temporary snap lines only while snapping is active.
 
 ## Edge Cases
 
@@ -179,6 +190,14 @@ Snap must never produce a size smaller than the current minimum allowed selectio
 ### Tiny Locked Regions
 
 If the selection is very small, snapping should not make the interaction feel sticky near the minimum size. The snap helper must clamp after computing the target and only snap if the final result remains valid.
+
+### Guide Line Clarity
+
+Temporary guide lines must not be confused with annotation alignment guides or window snap guides. They should:
+
+- use a distinct visual style
+- only appear during locked-ratio size snapping
+- be scoped to the active selection interaction
 
 ### Cross-Screen Remote Selection
 
@@ -198,6 +217,7 @@ No special handling is needed beyond the existing `aspectRatioLock.ratio`. Once 
 4. Drag beyond the threshold after snapping, and confirm the selection releases naturally.
 5. Turn aspect ratio lock off, and confirm no snap behavior occurs.
 6. Confirm the size label visibly indicates when snapping is active.
+7. Confirm temporary guide lines appear only while snapped and disappear immediately when released.
 
 ### Regression Checks
 
@@ -220,6 +240,6 @@ Implement the adaptive snapping with:
 - `50` step below a `400` short-edge threshold
 - `100` step at or above that threshold
 - `10 px` snap threshold
-- size-label emphasis as the only user-visible feedback
+- size-label emphasis plus temporary snap guide lines as the user-visible feedback
 
 This is the best balance of usability, simplicity, and visual restraint for macshot.
