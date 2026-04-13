@@ -1,18 +1,5 @@
-/* 繁體中文 — macshot localization
- *
- * To add a new language:
- * 1. Create a new folder: macshot/<lang-code>.lproj/
- * 2. Copy this file into that folder
- * 3. Translate all values (right side of = sign)
- * 4. Add the language to LanguageManager.availableLanguages in Services/LanguageManager.swift
- * 5. Add the language code to knownRegions in macshot.xcodeproj/project.pbxproj
- * 6. Submit a pull request!
- *
- * Keys use the English text. Values should be the translation.
- * Format strings use %@ for strings, %d for integers.
- * Keep keyboard shortcuts (like ⌘C) untranslated.
- * Keep brand names (macshot, Google Drive, imgbb, S3) untranslated.
- */
+/* Localization file synchronized with English base */
+/* Missing keys are marked with English value - please translate */
 
 /* Menu Bar */
 "Capture Area" = "擷取區域";
@@ -35,7 +22,6 @@
 "About MacShot" = "關於 MacShot";
 "No recent captures" = "沒有最近的擷取";
 "Clear History" = "清除歷史記錄";
-
 /* History Panel */
 "Copy" = "拷貝";
 "Save As..." = "另存新檔⋯";
@@ -48,12 +34,10 @@
 "GIFs" = "GIFs";
 "Click to copy · Drag to app" = "點按以拷貝 · 拖移至 App";
 "No captures yet" = "尚無擷取";
-
 /* Floating Thumbnail */
 "Close All" = "全部關閉";
 "Save All to Folder…" = "全部儲存至檔案夾⋯";
 "Save" = "儲存";
-
 /* Editor Top Bar */
 "Zoom In" = "放大";
 "Zoom Out" = "縮小";
@@ -62,7 +46,6 @@
 "Flip Horizontal" = "水平翻轉";
 "Flip Vertical" = "垂直翻轉";
 "Add Capture" = "加入擷取";
-
 /* Toolbar - Tools */
 "Arrow" = "箭頭";
 "Line" = "線條";
@@ -84,7 +67,6 @@
 "Color Picker" = "顏色選取器";
 "Select & Edit" = "選取與編輯";
 "Color" = "顏色";
-
 /* Toolbar - Actions */
 "Copy to Clipboard" = "拷貝至剪貼簿";
 "Save to File" = "儲存至檔案";
@@ -111,7 +93,6 @@
 "Translate" = "翻譯";
 "Auto-Redact sensitive data" = "自動遮蔽敏感資料";
 "Move Selection" = "移動選取範圍";
-
 /* Toolbar - Recording */
 "Start Recording" = "開始錄製";
 "Cancel Recording" = "取消錄製";
@@ -119,7 +100,6 @@
 "Record System Audio" = "錄製系統音訊";
 "Record Microphone" = "錄製麥克風";
 "Recording Settings" = "錄製設定";
-
 /* Tool Options */
 "Size" = "大小";
 "Stroke" = "筆畫";
@@ -147,7 +127,6 @@
 "Shadow" = "陰影";
 "Right-click to add points" = "右鍵點按以加入控制點";
 "Hold 1 auto-vertical  ·  Hold 2 auto-horizontal" = "按住 1 自動垂直  ·  按住 2 自動水平";
-
 /* Overlay / Canvas */
 "Click a window  ·  Drag for custom area  ·  F for full screen" = "點按視窗  ·  拖移以自訂區域  ·  F 全螢幕";
 "Drag to select  ·  Click for full screen" = "拖移以選取  ·  點按以全螢幕";
@@ -165,7 +144,6 @@
 "Aspect ratio lock cleared" = "已取消比例鎖定";
 "Aspect ratio locked: " = "已鎖定比例：";
 " (press the same number again to clear, R to invert)" = "（再次按相同數字取消，R 鍵反轉）";
-
 /* Overlay - Popovers */
 "Format:" = "格式：";
 "FPS:" = "FPS：";
@@ -173,7 +151,6 @@
 "Open editor" = "開啟編輯器";
 "Show in Finder" = "在 Finder 中顯示";
 "Copy to clipboard" = "拷貝至剪貼簿";
-
 /* Preferences - General */
 "macshot Preferences" = "MacShot 偏好設定";
 "General" = "一般";
@@ -258,14 +235,12 @@
 "Save to file" = "儲存至檔案";
 "Save + copy to clipboard" = "儲存 + 拷貝至剪貼簿";
 "OCR Action" = "OCR 動作";
-
 /* Preferences - Shortcuts */
 "Keyboard Shortcuts" = "鍵盤快捷鍵";
 "Hotkeys" = "快捷鍵";
 "Clear shortcut" = "清除快捷鍵";
 "Press keys..." = "請按下按鍵⋯";
 "Waiting..." = "等候中⋯";
-
 /* Preferences - Tools */
 "Annotation Tools" = "標註工具";
 "Hidden tools are removed from the bottom toolbar." = "隱藏的工具會從底部工具列中移除。";
@@ -275,7 +250,6 @@
 "Editor Actions" = "編輯器動作";
 "Right Toolbar Actions" = "右側工具列動作";
 "Hidden actions are removed from the right toolbar." = "隱藏的動作會從右側工具列中移除。";
-
 /* Preferences - Recording */
 "Frame rate:" = "影格率：";
 "After recording:" = "錄製後：";
@@ -301,7 +275,6 @@
 "MP4 (H.264)" = "MP4 (H.264)";
 "GIF" = "GIF";
 "GIF uses the recording folder." = "GIF 使用錄製的儲存位置。";
-
 /* Preferences - Upload */
 "Upload Service" = "上傳服務";
 "Upload Provider" = "上傳供應商";
@@ -339,14 +312,12 @@
 "Configure S3 in Preferences" = "在偏好設定中設定 S3";
 "Sign in to Google Drive in Preferences" = "在偏好設定中登入 Google Drive";
 "Video upload requires Google Drive or S3" = "影片上傳需要 Google Drive 或 S3";
-
 /* Preferences - About */
 "macshot" = "MacShot";
 "Version %@ (%@)" = "版本 %@（%@）";
 "Made by" = "開發者";
 "Licensed under the GPLv3" = "以 GPLv3 授權";
 "A free, open-source screenshot & screen recording tool for macOS.\nFully native — built with Swift and AppKit." = "免費、開放原始碼的 macOS 螢幕截圖與錄製工具。\n完全原生 — 以 Swift 和 AppKit 打造。";
-
 /* Alerts */
 "No Image on Clipboard" = "剪貼簿中沒有影像";
 "Copy an image to the clipboard first, then try again." = "請先將影像拷貝到剪貼簿，然後再試一次。";
@@ -362,7 +333,6 @@
 "Upload to S3?" = "上傳至 S3？";
 "Upload to imgbb.com?" = "上傳至 imgbb.com？";
 "Your screenshot will be uploaded." = "您的螢幕截圖將被上傳。";
-
 /* Permission Onboarding */
 "Welcome to macshot" = "歡迎使用 MacShot";
 "macshot needs one permission" = "MacShot 需要一項權限";
@@ -371,7 +341,6 @@
 "Enable macshot, then try taking a screenshot" = "啟用 MacShot，然後試試擷取螢幕截圖";
 "Open Screen Recording Settings" = "打開螢幕錄製設定";
 "Continue" = "繼續";
-
 /* OCR Window */
 "Text Recognition" = "文字辨識";
 "Translate to:" = "翻譯為：";
@@ -382,7 +351,6 @@
 "Translation Failed" = "翻譯失敗";
 "Translation" = "翻譯";
 "(No text detected in the selected area)" = "（在選取區域中未偵測到文字）";
-
 /* Upload Toast */
 "URL copied to the clipboard" = "URL 已拷貝至剪貼簿";
 "Uploading... %d%%" = "上傳中⋯ %d%%";
@@ -390,13 +358,11 @@
 "Uploaded! Link copied." = "上傳完成！連結已拷貝。";
 "Uploading to %@... %d%%" = "上傳至 %@⋯ %d%%";
 "Open" = "開啟";
-
 /* Recording Toast */
 "Recording saved" = "錄製已儲存";
 "%@ • Recording saved" = "%@ · 錄製已儲存";
 "Copy Path" = "拷貝路徑";
 "Path copied!" = "路徑已拷貝！";
-
 /* Video Editor */
 "macshot Video Editor" = "MacShot 影片編輯器";
 "%@ selected" = "已選取 %@";
@@ -404,20 +370,14 @@
 "Export failed" = "輸出失敗";
 "Saved to %@" = "已儲存至 %@";
 "Save failed" = "儲存失敗";
-
-/* Barcode Detector */
-/* "Open" and "Copy" are shared with other sections */
-
 /* Save Panel */
 "Save As..." = "另存新檔⋯";
 "Choose a folder" = "選擇檔案夾";
 "Save All to Folder…" = "全部儲存至檔案夾⋯";
-
 /* Scroll Capture HUD */
 "Auto Scroll" = "自動捲動";
 "Stop" = "停止";
 "Scrolling..." = "捲動中⋯";
-
 /* Effects Picker (Adjust popover) */
 "Presets" = "預設";
 "Adjustments" = "調整";
@@ -425,38 +385,27 @@
 "Contrast" = "對比";
 "Saturation" = "飽和度";
 "Sharpness" = "銳利度";
-
 /* Time Ago */
 "just now" = "剛剛";
 "%ds ago" = "%d 秒前";
 "%dm ago" = "%d 分鐘前";
 "%dh ago" = "%d 小時前";
-
 /* Hotkey Labels */
 "History" = "歷史記錄";
-
-/* Preferences - Shortcuts note */
-"Click \"Record\" and press a key combination with at least one modifier (⌘, ⌥, ⌃, ⇧) to set a shortcut." = "點按 \"錄製\" 並按下包含至少一個修飾鍵（⌘、⌥、⌃、⇧）的組合鍵來設定快捷鍵。";
-
 /* Recording — GIF Processing */
 "Processing GIF…" = "正在處理 GIF…";
-
 /* Recording — Input Monitoring Permission */
 "Input Monitoring Required" = "需要輸入監控權限";
 "macshot needs Input Monitoring permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "MacShot 需要「輸入監控」權限才能在錄製時顯示按鍵。請在 System Settings 中授予權限，然後再試一次。";
 "macshot needs Accessibility permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "MacShot 需要「輔助使用」權限才能在錄製時顯示按鍵。請在 System Settings 中授予權限，然後再試一次。";
-
 /* Recording — Keystroke Overlay */
 "Show Keystrokes" = "顯示按鍵";
 "Shortcuts Only" = "僅快捷鍵";
 "All Keystrokes" = "所有按鍵";
-
 /* Recording — Settings Popover */
 "Delay:" = "延遲：";
-
 /* Video Editor */
 "Copied to clipboard!" = "已拷貝至剪貼簿！";
-
 /* Webcam Overlay */
 "Webcam Overlay" = "網路攝影機疊加";
 "Camera Access Required" = "需要攝影機權限";
@@ -473,7 +422,6 @@
 "Cam pos:" = "攝影機位置：";
 "Cam size:" = "攝影機大小：";
 "Cam shape:" = "攝影機形狀：";
-
 /* New Strings */
 "Settings..." = "設定...";
 "Settings…" = "設定⋯";
@@ -506,7 +454,6 @@
 "Loupe" = "放大鏡";
 "Stamp" = "圖章";
 "Unlimited" = "不限";
-
 /* Save Confirmation / Recording / Translation / Upload / Inspector */
 "Save changes?" = "儲存更改？";
 "Your annotations will be lost if you close without saving." = "如果不儲存就關閉，您的標註將會遺失。";
@@ -525,18 +472,13 @@
 "Position:" = "位置：";
 "Size:" = "大小：";
 "Shape:" = "形狀：";
-
 "Same as screenshots" = "與截圖相同";
 "  Preview size:" = "  預覽大小:";
 "(0 = off)" = "(0 = 關閉)";
 "Clear All" = "清除全部";
 "Clear History?" = "清除歷史記錄？";
 "This will permanently delete all screenshots from history." = "這將從歷史記錄中永久刪除所有截圖。";
-"Click \"Set\" and press a key combination with at least one modifier (⌘, ⌥, ⌃, ⇧) to set a shortcut." = "點擊\"設定\"，然後按下包含至少一個修飾鍵（⌘、⌥、⌃、⇧）的組合鍵來設定快捷鍵。";
-"Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private — nothing is shared publicly." = "檔案將上傳至您 Google Drive 中的\"macshot\"資料夾。所有內容均保持私密——不會公開分享任何內容。";
-
 "Pressure" = "壓感";
-
 // Settings (colon-free aliases)
 "Accent color" = "強調色";
 "Access Key" = "存取金鑰";
@@ -562,7 +504,6 @@
 "Secret Key" = "秘密金鑰";
 "Shape" = "形狀";
 "When done" = "完成後";
-
 // New settings strings
 "Auto-dismiss: 0 = never" = "自動關閉：0 = 永不";
 "Click to record shortcut. Esc to cancel, ⌫ to clear. Right-click to reset." = "點擊錄製快捷鍵。Esc 取消，⌫ 清除。右鍵點擊可重置。";
@@ -611,3 +552,67 @@
 "Filename" = "檔案名稱";
 "Remove special characters" = "移除特殊字元";
 "Replace spaces and illegal characters with underscores" = "將空格和非法字元替換為底線";
+
+/* === MISSING KEYS (Need Translation) === */
+"Add New Ratio" = "Add New Ratio";
+"Add new aspect ratio" = "Add new aspect ratio";
+"Annotation" = "Annotation";
+"Apple translation is faster and works offline." = "Apple translation is faster and works offline.";
+"Application" = "Application";
+"Aspect Ratio Shortcuts" = "Capture Aspect Ratios";
+/* Aspect Ratios */
+"Aspect Ratios" = "Aspect Ratios";
+"Aspect ratio locked: %@. Press the same shortcut again to clear, %@ to invert." = "Aspect ratio locked: %@. Press the same shortcut again to clear, %@ to invert.";
+"Aspect ratio locked: %@. Press the same shortcut again to clear." = "Aspect ratio locked: %@. Press the same shortcut again to clear.";
+"Aspect ratio shortcuts: %@" = "Aspect ratio shortcuts: %@";
+"At least one aspect ratio must remain." = "At least one aspect ratio must remain.";
+"Auto-Redact" = "Auto-Redact";
+"Auto-dismiss after" = "Auto-dismiss after";
+"Background color" = "Background color";
+"Capture Options" = "Capture Options";
+"Changes take effect immediately." = "Changes take effect immediately.";
+"Click window" = "Click window";
+"Customize aspect ratios for screenshot selection." = "Customize aspect ratios for screenshot selection.";
+"Dismiss" = "Dismiss";
+"Download" = "Download";
+"Drag to select" = "Drag to select";
+/* Tool Categories */
+"Drawing" = "Drawing";
+"Effects" = "Effects";
+"Failed to add ratio." = "Failed to add ratio.";
+"Fullscreen" = "Fullscreen";
+"Global Keyboard Shortcuts" = "Global Keyboard Shortcuts";
+"Google Translate supports more languages." = "Google Translate supports more languages.";
+"Height" = "Height";
+"Hidden tools are removed from the toolbar." = "Hidden tools are removed from the toolbar.";
+"In-App Shortcuts" = "In-App Shortcuts";
+"Invalid ratio. Width and height must be between 1 and 100." = "Invalid ratio. Width and height must be between 1 and 100.";
+"Invert" = "Invert";
+"Keep" = "Keep";
+"Language packs" = "Language packs";
+"Never" = "Never";
+"No aspect ratios configured." = "No aspect ratios configured.";
+"Other" = "Other";
+"Press a single key to assign. These work when selecting a screenshot area." = "Press a single key to assign. These work when selecting a screenshot area.";
+"Quick Actions" = "Quick Actions";
+"R → %@" = "R → %@";
+"Ratio %@ already exists." = "Ratio %@ already exists.";
+"Ratio %@ already exists. Press R to invert it to %@." = "Ratio %@ already exists. Press R to invert it to %@.";
+"Ratio:" = "Ratio:";
+"Remove this ratio" = "Remove this ratio";
+"Replace" = "Replace";
+"Reset to Defaults" = "Reset to Defaults";
+"Shapes" = "Shapes";
+"Shortcut %@ is reserved for clearing the aspect ratio lock." = "Shortcut %@ is reserved for clearing the aspect ratio lock.";
+"Shortcut %@ is reserved for inverting the aspect ratio." = "Shortcut %@ is reserved for inverting the aspect ratio.";
+"Shortcut Conflict" = "Shortcut Conflict";
+"Shortcut Unavailable" = "Shortcut Unavailable";
+"Shortcut conflict message" = "Shortcut “%@” is already assigned to “%@”. Replace it with “%@”?";
+"Tab to toggle" = "Tab to toggle";
+"This ratio already exists." = "This ratio already exists.";
+"Width" = "Width";
+"Window snap:" = "Window snap:";
+"later" = "later";
+"minute" = "minute";
+"minutes" = "minutes";
+"screenshots" = "screenshots";

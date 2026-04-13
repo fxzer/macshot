@@ -1,18 +1,5 @@
-/* Magyar — macshot lokalizáció
- *
- * To add a new language:
- * 1. Create a new folder: macshot/<lang-code>.lproj/
- * 2. Copy this file into that folder
- * 3. Translate all values (right side of = sign)
- * 4. Add the language to LanguageManager.availableLanguages in Services/LanguageManager.swift
- * 5. Add the language code to knownRegions in macshot.xcodeproj/project.pbxproj
- * 6. Submit a pull request!
- *
- * Keys use the English text. Values should be the translation.
- * Format strings use %@ for strings, %d for integers.
- * Keep keyboard shortcuts (like ⌘C) untranslated.
- * Keep brand names (macshot, Google Drive, imgbb, S3) untranslated.
- */
+/* Localization file synchronized with English base */
+/* Missing keys are marked with English value - please translate */
 
 /* Menu Bar */
 "Capture Area" = "Terület rögzítése";
@@ -35,7 +22,6 @@
 "About MacShot" = "About MacShot";
 "No recent captures" = "Nincsenek legutóbbi rögzítések";
 "Clear History" = "Előzmények törlése";
-
 /* History Panel */
 "Copy" = "Másolás";
 "Save As..." = "Mentés másként...";
@@ -48,12 +34,10 @@
 "GIFs" = "GIF-ek";
 "Click to copy · Drag to app" = "Kattints a másoláshoz · Húzd az alkalmazásba";
 "No captures yet" = "Még nincsenek rögzítések";
-
 /* Floating Thumbnail */
 "Close All" = "Összes bezárása";
 "Save All to Folder…" = "Összes mentése mappába…";
 "Save" = "Mentés";
-
 /* Editor Top Bar */
 "Zoom In" = "Nagyítás";
 "Zoom Out" = "Kicsinyítés";
@@ -62,7 +46,6 @@
 "Flip Horizontal" = "Vízszintes tükrözés";
 "Flip Vertical" = "Függőleges tükrözés";
 "Add Capture" = "Rögzítés hozzáadása";
-
 /* Toolbar - Tools */
 "Arrow" = "Nyíl";
 "Line" = "Vonal";
@@ -84,7 +67,6 @@
 "Color Picker" = "Színválasztó";
 "Select & Edit" = "Kiválasztás és szerkesztés";
 "Color" = "Szín";
-
 /* Toolbar - Actions */
 "Copy to Clipboard" = "Másolás a vágólapra";
 "Save to File" = "Mentés fájlba";
@@ -111,7 +93,6 @@
 "Translate" = "Fordítás";
 "Auto-Redact sensitive data" = "Érzékeny adatok automatikus kitakarása";
 "Move Selection" = "Kiválasztás mozgatása";
-
 /* Toolbar - Recording */
 "Start Recording" = "Felvétel indítása";
 "Cancel Recording" = "Felvétel megszakítása";
@@ -119,7 +100,6 @@
 "Record System Audio" = "Rendszerhang felvétele";
 "Record Microphone" = "Mikrofon felvétele";
 "Recording Settings" = "Felvételi beállítások";
-
 /* Tool Options */
 "Size" = "Méret";
 "Stroke" = "Vonalvastagság";
@@ -147,7 +127,6 @@
 "Shadow" = "Árnyék";
 "Right-click to add points" = "Jobb kattintás pontok hozzáadásához";
 "Hold 1 auto-vertical  ·  Hold 2 auto-horizontal" = "Tartsd az 1-et automatikus függőlegeshez  ·  Tartsd a 2-t automatikus vízszinteshez";
-
 /* Overlay / Canvas */
 "Click a window  ·  Drag for custom area  ·  F for full screen" = "Kattints egy ablakra  ·  Húzd az egyéni területhez  ·  F a teljes képernyőhöz";
 "Drag to select  ·  Click for full screen" = "Húzd a kiválasztáshoz  ·  Kattints a teljes képernyőhöz";
@@ -161,7 +140,6 @@
 "Set color %@" = "Szín beállítva: %@";
 "Draw something first to use the move tool." = "Rajzolj valamit előbb az áthelyező eszköz használatához.";
 "Drag to reposition" = "Húzd az áthelyezéshez";
-
 /* Overlay - Popovers */
 "Format:" = "Formátum:";
 "FPS:" = "FPS:";
@@ -169,7 +147,6 @@
 "Open editor" = "Szerkesztő megnyitása";
 "Show in Finder" = "Megjelenítés a Finder-ben";
 "Copy to clipboard" = "Másolás a vágólapra";
-
 /* Preferences - General */
 "macshot Preferences" = "MacShot beállítások";
 "General" = "Általános";
@@ -231,14 +208,12 @@
 "Save to file" = "Mentés fájlba";
 "Save + copy to clipboard" = "Mentés + másolás a vágólapra";
 "OCR Action" = "OCR művelet";
-
 /* Preferences - Shortcuts */
 "Keyboard Shortcuts" = "Gyorsbillentyűk";
 "Hotkeys" = "Gyorsbillentyűk";
 "Clear shortcut" = "Gyorsbillentyű törlése";
 "Press keys..." = "Nyomj billentyűket...";
 "Waiting..." = "Várakozás...";
-
 /* Preferences - Tools */
 "Annotation Tools" = "Jegyzetelési eszközök";
 "Hidden tools are removed from the bottom toolbar." = "A rejtett eszközök eltávolításra kerülnek az alsó eszközsorból.";
@@ -248,7 +223,6 @@
 "Editor Actions" = "Szerkesztői műveletek";
 "Right Toolbar Actions" = "Jobb eszközsor műveletei";
 "Hidden actions are removed from the right toolbar." = "A rejtett műveletek eltávolításra kerülnek a jobb eszközsorból.";
-
 /* Preferences - Recording */
 "Frame rate:" = "Képkockaszám:";
 "After recording:" = "Felvétel után:";
@@ -273,7 +247,6 @@
 "120 fps" = "120 fps";
 "MP4 (H.264)" = "MP4 (H.264)";
 "GIF" = "GIF";
-
 /* Preferences - Upload */
 "Upload Service" = "Feltöltési szolgáltatás";
 "Upload Provider" = "Feltöltési szolgáltató";
@@ -309,14 +282,12 @@
 "Configure S3 in Preferences" = "S3 beállítása a Beállításokban";
 "Sign in to Google Drive in Preferences" = "Jelentkezz be a Google Drive-ba a Beállításokban";
 "Video upload requires Google Drive or S3" = "A videó feltöltéshez Google Drive vagy S3 szükséges";
-
 /* Preferences - About */
 "macshot" = "MacShot";
 "Version %@ (%@)" = "Verzió %@ (%@)";
 "Made by" = "Készítette";
 "Licensed under the GPLv3" = "GPLv3 licenc alatt";
 "A free, open-source screenshot & screen recording tool for macOS.\nFully native — built with Swift and AppKit." = "Egy ingyenes, nyílt forráskódú képernyőkép- és képernyőfelvétel-eszköz macOS-re.\nTeljesen natív — Swift-tel és AppKit-tel építve.";
-
 /* Alerts */
 "No Image on Clipboard" = "Nincs kép a vágólapon";
 "Copy an image to the clipboard first, then try again." = "Előbb másolj egy képet a vágólapra, majd próbáld újra.";
@@ -332,7 +303,6 @@
 "Upload to S3?" = "Feltöltés az S3-ra?";
 "Upload to imgbb.com?" = "Feltöltés az imgbb.com-ra?";
 "Your screenshot will be uploaded." = "A képernyőkép feltöltésre kerül.";
-
 /* Permission Onboarding */
 "Welcome to macshot" = "Üdvözöl a MacShot";
 "macshot needs one permission" = "A MacShot-nak egy engedélyre van szüksége";
@@ -341,7 +311,6 @@
 "Enable macshot, then try taking a screenshot" = "Engedélyezd a MacShot-ot, majd próbálj képernyőképet készíteni";
 "Open Screen Recording Settings" = "Képernyőfelvétel beállításainak megnyitása";
 "Continue" = "Tovább";
-
 /* OCR Window */
 "Text Recognition" = "Szövegfelismerés";
 "Translate to:" = "Fordítás erre:";
@@ -352,7 +321,6 @@
 "Translation Failed" = "Fordítás sikertelen";
 "Translation" = "Fordítás";
 "(No text detected in the selected area)" = "(Nem található szöveg a kiválasztott területen)";
-
 /* Upload Toast */
 "URL copied to the clipboard" = "URL másolva a vágólapra";
 "Uploading... %d%%" = "Feltöltés... %d%%";
@@ -360,13 +328,11 @@
 "Uploaded! Link copied." = "Feltöltve! Link másolva.";
 "Uploading to %@... %d%%" = "Feltöltés ide: %@... %d%%";
 "Open" = "Megnyitás";
-
 /* Recording Toast */
 "Recording saved" = "Felvétel mentve";
 "%@ • Recording saved" = "%@ • Felvétel mentve";
 "Copy Path" = "Útvonal másolása";
 "Path copied!" = "Útvonal másolva!";
-
 /* Video Editor */
 "macshot Video Editor" = "MacShot videószerkesztő";
 "%@ selected" = "%@ kiválasztva";
@@ -374,20 +340,14 @@
 "Export failed" = "Exportálás sikertelen";
 "Saved to %@" = "Mentve ide: %@";
 "Save failed" = "Mentés sikertelen";
-
-/* Barcode Detector */
-/* "Open" and "Copy" are shared with other sections */
-
 /* Save Panel */
 "Save As..." = "Mentés másként...";
 "Choose a folder" = "Válassz mappát";
 "Save All to Folder…" = "Összes mentése mappába…";
-
 /* Scroll Capture HUD */
 "Auto Scroll" = "Automatikus görgetés";
 "Stop" = "Megállítás";
 "Scrolling..." = "Görgetés...";
-
 /* Effects Picker (Adjust popover) */
 "Presets" = "Előre beállítottak";
 "Adjustments" = "Módosítások";
@@ -395,38 +355,27 @@
 "Contrast" = "Kontraszt";
 "Saturation" = "Telítettség";
 "Sharpness" = "Élesség";
-
 /* Time Ago */
 "just now" = "éppen most";
 "%ds ago" = "%d mp-vel ezelőtt";
 "%dm ago" = "%d perccel ezelőtt";
 "%dh ago" = "%d órával ezelőtt";
-
 /* Hotkey Labels */
 "History" = "Előzmények";
-
-/* Preferences - Shortcuts note */
-"Click \"Record\" and press a key combination with at least one modifier (⌘, ⌥, ⌃, ⇧) to set a shortcut." = "Kattints a \"Felvétel\" gombra, és nyomj meg egy billentyűkombinációt legalább egy módosítóval (⌘, ⌥, ⌃, ⇧) a gyorsbillentyű beállításához.";
-
 /* Recording — GIF Processing */
 "Processing GIF…" = "GIF feldolgozása…";
-
 /* Recording — Input Monitoring Permission */
 "Input Monitoring Required" = "Bevitelfigyelés szükséges";
 "macshot needs Input Monitoring permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "A MacShot-nak Bevitelfigyelés engedélyre van szüksége a billentyűleütések megjelenítéséhez felvétel közben. Kérlek, adj hozzáférést a System Settings-ben, majd próbáld újra.";
 "macshot needs Accessibility permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "A MacShot-nak Akadálymentesítési engedélyre van szüksége a billentyűleütések megjelenítéséhez felvétel közben. Kérlek, adj hozzáférést a System Settings-ben, majd próbáld újra.";
-
 /* Recording — Keystroke Overlay */
 "Show Keystrokes" = "Billentyűleütések megjelenítése";
 "Shortcuts Only" = "Csak gyorsbillentyűk";
 "All Keystrokes" = "Összes billentyűleütés";
-
 /* Recording — Settings Popover */
 "Delay:" = "Késleltetés:";
-
 /* Video Editor */
 "Copied to clipboard!" = "Vágólapra másolva!";
-
 /* Webcam Overlay */
 "Webcam Overlay" = "Webkamera átfedés";
 "Camera Access Required" = "Kamera hozzáférés szükséges";
@@ -443,7 +392,6 @@
 "Cam pos:" = "Kam. poz.:";
 "Cam size:" = "Kam. méret:";
 "Cam shape:" = "Kam. alak:";
-
 /* New Strings */
 "Settings..." = "Beállítások...";
 "macshot Settings" = "MacShot beállítások";
@@ -488,18 +436,13 @@
 "Position:" = "Pozíció:";
 "Size:" = "Méret:";
 "Shape:" = "Alakzat:";
-
 "Same as screenshots" = "Megegyezik a képernyőképekkel";
 "  Preview size:" = "  Előnézet mérete:";
 "(0 = off)" = "(0 = ki)";
 "Clear All" = "Összes törlése";
 "Clear History?" = "Törli az előzményeket?";
 "This will permanently delete all screenshots from history." = "Ez véglegesen törli az összes képernyőképet az előzményekből.";
-"Click \"Set\" and press a key combination with at least one modifier (⌘, ⌥, ⌃, ⇧) to set a shortcut." = "Kattintson a \"Beállítás\" gombra, majd nyomjon meg egy billentyűkombinációt legalább egy módosítóbillentyűvel (⌘, ⌥, ⌃, ⇧) a gyorsbillentyű beállításához.";
-"Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private — nothing is shared publicly." = "A fájlok a Google Drive-on lévő \"MacShot\" mappába töltődnek fel. Minden privát marad — semmi nem kerül nyilvános megosztásra.";
-
 "Pressure" = "Nyomás";
-
 // Settings (colon-free aliases)
 "Accent color" = "Kiemelőszín";
 "Access Key" = "Hozzáférési kulcs";
@@ -525,3 +468,148 @@
 "Secret Key" = "Titkos kulcs";
 "Shape" = "Alakzat";
 "When done" = "Befejezéskor";
+
+/* === MISSING KEYS (Need Translation) === */
+" (press the same number again to clear, R to invert)" = " (press the same number again to clear, R to invert)";
+"Action" = "Action";
+"Add New Ratio" = "Add New Ratio";
+"Add new aspect ratio" = "Add new aspect ratio";
+"After Capture" = "After Capture";
+"All selections" = "All selections";
+"Annotation" = "Annotation";
+"Apple translation is faster and works offline." = "Apple translation is faster and works offline.";
+"Application" = "Application";
+"Aspect Ratio Shortcuts" = "Capture Aspect Ratios";
+/* Aspect Ratios */
+"Aspect Ratios" = "Aspect Ratios";
+"Aspect ratio lock cleared" = "Aspect ratio lock cleared";
+"Aspect ratio locked: " = "Aspect ratio locked: ";
+"Aspect ratio locked: %@. Press the same shortcut again to clear, %@ to invert." = "Aspect ratio locked: %@. Press the same shortcut again to clear, %@ to invert.";
+"Aspect ratio locked: %@. Press the same shortcut again to clear." = "Aspect ratio locked: %@. Press the same shortcut again to clear.";
+"Aspect ratio shortcuts: %@" = "Aspect ratio shortcuts: %@";
+"At least one aspect ratio must remain." = "At least one aspect ratio must remain.";
+"Auto-Redact" = "Auto-Redact";
+"Auto-dismiss after" = "Auto-dismiss after";
+// New settings strings
+"Auto-dismiss: 0 = never" = "Auto-dismiss: 0 = never";
+"Background color" = "Background color";
+"Capture Options" = "Capture Options";
+"Changes take effect immediately." = "Changes take effect immediately.";
+"Check Now" = "Check Now";
+"Check for Updates Now" = "Check for Updates Now";
+"Click to record shortcut. Esc to cancel, ⌫ to clear. Right-click to reset." = "Click to record shortcut. Esc to cancel, ⌫ to clear. Right-click to reset.";
+"Click window" = "Click window";
+"Color format" = "Color format";
+"Color space" = "Color space";
+"Confirm before uploading" = "Confirm before uploading";
+"Connection Test" = "Connection Test";
+"Controls:" = "Controls:";
+"Copy file to clipboard" = "Copy file to clipboard";
+"Customize aspect ratios for screenshot selection." = "Customize aspect ratios for screenshot selection.";
+"Date" = "Date";
+"Day" = "Day";
+"Dismiss" = "Dismiss";
+"Dismiss after" = "Dismiss after";
+"Download" = "Download";
+"Drag to select" = "Drag to select";
+/* Tool Categories */
+"Drawing" = "Drawing";
+"Effects" = "Effects";
+"Enter your SM.MS token in Settings" = "Enter your SM.MS token in Settings";
+"Failed to add ratio." = "Failed to add ratio.";
+"Filename" = "Filename";
+"Filename Format" = "Filename Format";
+"Filename format" = "Filename format";
+"Floating HUD" = "Floating HUD";
+"Format…" = "Format…";
+"Fullscreen" = "Fullscreen";
+"GIF uses the recording folder." = "GIF uses the recording folder.";
+"Generic RGB" = "Generic RGB";
+"Global Keyboard Shortcuts" = "Global Keyboard Shortcuts";
+"Google Drive Configuration" = "Google Drive Configuration";
+"Google Translate supports more languages." = "Google Translate supports more languages.";
+"Height" = "Height";
+"Hidden tools are removed from the toolbar." = "Hidden tools are removed from the toolbar.";
+"Hour" = "Hour";
+"In-App Shortcuts" = "In-App Shortcuts";
+"Include pre-release versions in update checks." = "Include pre-release versions in update checks.";
+"Insert variable" = "Insert variable";
+"Invalid ratio. Width and height must be between 1 and 100." = "Invalid ratio. Width and height must be between 1 and 100.";
+"Invert" = "Invert";
+"Keep" = "Keep";
+"Language packs" = "Language packs";
+"Lock aspect ratio: 1=1:1  2=2:3  3=3:4  4=4:5  5=5:7  6=9:16  (R to invert  0 to cancel)" = "Lock aspect ratio: 1=1:1  2=2:3  3=3:4  4=4:5  5=5:7  6=9:16  (R to invert  0 to cancel)";
+"Locked aspect ratio only" = "Locked aspect ratio only";
+"Max height: 0 = unlimited" = "Max height: 0 = unlimited";
+"Menu Bar" = "Menu Bar";
+"Minute" = "Minute";
+"Month" = "Month";
+"Multiple previews" = "Multiple previews";
+"Native" = "Native";
+"Never" = "Never";
+"No aspect ratios configured." = "No aspect ratios configured.";
+"Off" = "Off";
+"Open screenshot editor" = "Open screenshot editor";
+"Open video editor" = "Open video editor";
+"Other" = "Other";
+"Paste your API token" = "Paste your API token";
+"Pin to screen" = "Pin to screen";
+"Prefix" = "Prefix";
+"Press a single key to assign. These work when selecting a screenshot area." = "Press a single key to assign. These work when selecting a screenshot area.";
+"Press a single key to assign. These work when the overlay or editor is active." = "Press a single key to assign. These work when the overlay or editor is active.";
+"Preview" = "Preview";
+"Preview size" = "Preview size";
+"Quick Actions" = "Quick Actions";
+"R → %@" = "R → %@";
+"Ratio %@ already exists." = "Ratio %@ already exists.";
+"Ratio %@ already exists. Press R to invert it to %@." = "Ratio %@ already exists. Press R to invert it to %@.";
+"Ratio:" = "Ratio:";
+"Recording controls" = "Recording controls";
+"Remove" = "Remove";
+"Remove special characters" = "Remove special characters";
+"Remove this ratio" = "Remove this ratio";
+"Replace" = "Replace";
+"Replace spaces and illegal characters with underscores" = "Replace spaces and illegal characters with underscores";
+"Reset to Defaults" = "Reset to Defaults";
+"S3 / R2 / MinIO" = "S3 / R2 / MinIO";
+"S3-Compatible" = "S3-Compatible";
+"SM.MS Configuration" = "SM.MS Configuration";
+"SM.MS token" = "SM.MS token";
+"Screenshot" = "Screenshot";
+"Second" = "Second";
+"Select components to include in the filename:" = "Select components to include in the filename:";
+"Selection size snapping" = "Selection size snapping";
+"Set to 0 to disable history" = "Set to 0 to disable history";
+"Settings…" = "Settings…";
+"Shapes" = "Shapes";
+"Short code" = "Short code";
+"Shortcut %@ is reserved for clearing the aspect ratio lock." = "Shortcut %@ is reserved for clearing the aspect ratio lock.";
+"Shortcut %@ is reserved for inverting the aspect ratio." = "Shortcut %@ is reserved for inverting the aspect ratio.";
+"Shortcut Conflict" = "Shortcut Conflict";
+"Shortcut Unavailable" = "Shortcut Unavailable";
+"Shortcut conflict message" = "Shortcut “%@” is already assigned to “%@”. Replace it with “%@”?";
+"Show menu bar icon" = "Show menu bar icon";
+"Show quick access overlay" = "Show quick access overlay";
+"Tab to toggle" = "Tab to toggle";
+"Test" = "Test";
+"This ratio already exists." = "This ratio already exists.";
+"Time" = "Time";
+"Timestamp" = "Timestamp";
+"Type" = "Type";
+"Type shortcut…" = "Type shortcut…";
+"Updates" = "Updates";
+"Upload and copy link" = "Upload and copy link";
+"Upload provider" = "Upload provider";
+"Upload to SM.MS?" = "Upload to SM.MS?";
+"When snapping to a window, its title is used in the filename." = "When snapping to a window, its title is used in the filename.";
+"Width" = "Width";
+"Window snap:" = "Window snap:";
+"Works best in China with a personal API token. Images only (no video support)." = "Works best in China with a personal API token. Images only (no video support).";
+"Works with AWS S3, Cloudflare R2, MinIO, DigitalOcean Spaces, Backblaze B2, and other S3-compatible services." = "Works with AWS S3, Cloudflare R2, MinIO, DigitalOcean Spaces, Backblaze B2, and other S3-compatible services.";
+"Year" = "Year";
+"imgbb Configuration" = "imgbb Configuration";
+"later" = "later";
+"minute" = "minute";
+"minutes" = "minutes";
+"screenshots" = "screenshots";
+"seconds" = "seconds";

@@ -1,18 +1,5 @@
-/* Ελληνικά — macshot localization
- *
- * To add a new language:
- * 1. Create a new folder: macshot/<lang-code>.lproj/
- * 2. Copy this file into that folder
- * 3. Translate all values (right side of = sign)
- * 4. Add the language to LanguageManager.availableLanguages in Services/LanguageManager.swift
- * 5. Add the language code to knownRegions in macshot.xcodeproj/project.pbxproj
- * 6. Submit a pull request!
- *
- * Keys use the English text. Values should be the translation.
- * Format strings use %@ for strings, %d for integers.
- * Keep keyboard shortcuts (like ⌘C) untranslated.
- * Keep brand names (macshot, Google Drive, imgbb, S3) untranslated.
- */
+/* Localization file synchronized with English base */
+/* Missing keys are marked with English value - please translate */
 
 /* Menu Bar */
 "Capture Area" = "Λήψη περιοχής";
@@ -35,7 +22,6 @@
 "About MacShot" = "About MacShot";
 "No recent captures" = "Δεν υπάρχουν πρόσφατες λήψεις";
 "Clear History" = "Εκκαθάριση ιστορικού";
-
 /* History Panel */
 "Copy" = "Αντιγραφή";
 "Save As..." = "Αποθήκευση ως...";
@@ -48,12 +34,10 @@
 "GIFs" = "GIFs";
 "Click to copy · Drag to app" = "Κλικ για αντιγραφή · Σύρσιμο σε εφαρμογή";
 "No captures yet" = "Δεν υπάρχουν λήψεις ακόμα";
-
 /* Floating Thumbnail */
 "Close All" = "Κλείσιμο όλων";
 "Save All to Folder…" = "Αποθήκευση όλων σε φάκελο…";
 "Save" = "Αποθήκευση";
-
 /* Editor Top Bar */
 "Zoom In" = "Μεγέθυνση";
 "Zoom Out" = "Σμίκρυνση";
@@ -62,7 +46,6 @@
 "Flip Horizontal" = "Αναστροφή οριζόντια";
 "Flip Vertical" = "Αναστροφή κατακόρυφα";
 "Add Capture" = "Προσθήκη λήψης";
-
 /* Toolbar - Tools */
 "Arrow" = "Βέλος";
 "Line" = "Γραμμή";
@@ -84,7 +67,6 @@
 "Color Picker" = "Επιλογέας χρώματος";
 "Select & Edit" = "Επιλογή & Επεξεργασία";
 "Color" = "Χρώμα";
-
 /* Toolbar - Actions */
 "Copy to Clipboard" = "Αντιγραφή στο πρόχειρο";
 "Save to File" = "Αποθήκευση σε αρχείο";
@@ -111,7 +93,6 @@
 "Translate" = "Μετάφραση";
 "Auto-Redact sensitive data" = "Αυτόματη απόκρυψη ευαίσθητων δεδομένων";
 "Move Selection" = "Μετακίνηση επιλογής";
-
 /* Toolbar - Recording */
 "Start Recording" = "Έναρξη εγγραφής";
 "Cancel Recording" = "Ακύρωση εγγραφής";
@@ -119,7 +100,6 @@
 "Record System Audio" = "Εγγραφή ήχου συστήματος";
 "Record Microphone" = "Εγγραφή μικροφώνου";
 "Recording Settings" = "Ρυθμίσεις εγγραφής";
-
 /* Tool Options */
 "Size" = "Μέγεθος";
 "Stroke" = "Πάχος γραμμής";
@@ -147,7 +127,6 @@
 "Shadow" = "Σκιά";
 "Right-click to add points" = "Δεξί κλικ για προσθήκη σημείων";
 "Hold 1 auto-vertical  ·  Hold 2 auto-horizontal" = "Κρατήστε 1 αυτόματα κατακόρυφα  ·  Κρατήστε 2 αυτόματα οριζόντια";
-
 /* Overlay / Canvas */
 "Click a window  ·  Drag for custom area  ·  F for full screen" = "Κλικ σε παράθυρο  ·  Σύρσιμο για προσαρμοσμένη περιοχή  ·  F για πλήρη οθόνη";
 "Drag to select  ·  Click for full screen" = "Σύρετε για επιλογή  ·  Κλικ για πλήρη οθόνη";
@@ -161,7 +140,6 @@
 "Set color %@" = "Ορισμός χρώματος %@";
 "Draw something first to use the move tool." = "Σχεδιάστε κάτι πρώτα για να χρησιμοποιήσετε το εργαλείο μετακίνησης.";
 "Drag to reposition" = "Σύρετε για επανατοποθέτηση";
-
 /* Overlay - Popovers */
 "Format:" = "Μορφή:";
 "FPS:" = "FPS:";
@@ -169,7 +147,6 @@
 "Open editor" = "Άνοιγμα επεξεργαστή";
 "Show in Finder" = "Εμφάνιση στο Finder";
 "Copy to clipboard" = "Αντιγραφή στο πρόχειρο";
-
 /* Preferences - General */
 "macshot Preferences" = "Προτιμήσεις MacShot";
 "General" = "Γενικά";
@@ -231,14 +208,12 @@
 "Save to file" = "Αποθήκευση σε αρχείο";
 "Save + copy to clipboard" = "Αποθήκευση + αντιγραφή στο πρόχειρο";
 "OCR Action" = "Ενέργεια OCR";
-
 /* Preferences - Shortcuts */
 "Keyboard Shortcuts" = "Συντομεύσεις πληκτρολογίου";
 "Hotkeys" = "Πλήκτρα συντόμευσης";
 "Clear shortcut" = "Εκκαθάριση συντόμευσης";
 "Press keys..." = "Πατήστε πλήκτρα...";
 "Waiting..." = "Αναμονή...";
-
 /* Preferences - Tools */
 "Annotation Tools" = "Εργαλεία σχολιασμού";
 "Hidden tools are removed from the bottom toolbar." = "Τα κρυφά εργαλεία αφαιρούνται από την κάτω γραμμή εργαλείων.";
@@ -248,7 +223,6 @@
 "Editor Actions" = "Ενέργειες επεξεργαστή";
 "Right Toolbar Actions" = "Ενέργειες δεξιάς γραμμής εργαλείων";
 "Hidden actions are removed from the right toolbar." = "Οι κρυφές ενέργειες αφαιρούνται από τη δεξιά γραμμή εργαλείων.";
-
 /* Preferences - Recording */
 "Frame rate:" = "Ρυθμός καρέ:";
 "After recording:" = "Μετά την εγγραφή:";
@@ -273,7 +247,6 @@
 "120 fps" = "120 fps";
 "MP4 (H.264)" = "MP4 (H.264)";
 "GIF" = "GIF";
-
 /* Preferences - Upload */
 "Upload Service" = "Υπηρεσία μεταφόρτωσης";
 "Upload Provider" = "Πάροχος μεταφόρτωσης";
@@ -309,14 +282,12 @@
 "Configure S3 in Preferences" = "Ρύθμιση S3 στις Προτιμήσεις";
 "Sign in to Google Drive in Preferences" = "Σύνδεση στο Google Drive στις Προτιμήσεις";
 "Video upload requires Google Drive or S3" = "Η μεταφόρτωση βίντεο απαιτεί Google Drive ή S3";
-
 /* Preferences - About */
 "macshot" = "MacShot";
 "Version %@ (%@)" = "Έκδοση %@ (%@)";
 "Made by" = "Δημιουργήθηκε από";
 "Licensed under the GPLv3" = "Με άδεια GPLv3";
 "A free, open-source screenshot & screen recording tool for macOS.\nFully native — built with Swift and AppKit." = "Ένα δωρεάν εργαλείο στιγμιοτύπων και εγγραφής οθόνης ανοιχτού κώδικα για macOS.\nΠλήρως εγγενές — κατασκευασμένο με Swift και AppKit.";
-
 /* Alerts */
 "No Image on Clipboard" = "Δεν υπάρχει εικόνα στο πρόχειρο";
 "Copy an image to the clipboard first, then try again." = "Αντιγράψτε πρώτα μια εικόνα στο πρόχειρο και δοκιμάστε ξανά.";
@@ -332,7 +303,6 @@
 "Upload to S3?" = "Μεταφόρτωση στο S3;";
 "Upload to imgbb.com?" = "Μεταφόρτωση στο imgbb.com;";
 "Your screenshot will be uploaded." = "Το στιγμιότυπό σας θα μεταφορτωθεί.";
-
 /* Permission Onboarding */
 "Welcome to macshot" = "Καλώς ήρθατε στο MacShot";
 "macshot needs one permission" = "Το MacShot χρειάζεται μία άδεια";
@@ -341,7 +311,6 @@
 "Enable macshot, then try taking a screenshot" = "Ενεργοποιήστε το MacShot και δοκιμάστε να τραβήξετε στιγμιότυπο";
 "Open Screen Recording Settings" = "Άνοιγμα ρυθμίσεων εγγραφής οθόνης";
 "Continue" = "Συνέχεια";
-
 /* OCR Window */
 "Text Recognition" = "Αναγνώριση κειμένου";
 "Translate to:" = "Μετάφραση σε:";
@@ -352,7 +321,6 @@
 "Translation Failed" = "Η μετάφραση απέτυχε";
 "Translation" = "Μετάφραση";
 "(No text detected in the selected area)" = "(Δεν ανιχνεύθηκε κείμενο στην επιλεγμένη περιοχή)";
-
 /* Upload Toast */
 "URL copied to the clipboard" = "Το URL αντιγράφηκε στο πρόχειρο";
 "Uploading... %d%%" = "Μεταφόρτωση... %d%%";
@@ -360,13 +328,11 @@
 "Uploaded! Link copied." = "Μεταφορτώθηκε! Ο σύνδεσμος αντιγράφηκε.";
 "Uploading to %@... %d%%" = "Μεταφόρτωση στο %@... %d%%";
 "Open" = "Άνοιγμα";
-
 /* Recording Toast */
 "Recording saved" = "Η εγγραφή αποθηκεύτηκε";
 "%@ • Recording saved" = "%@ • Η εγγραφή αποθηκεύτηκε";
 "Copy Path" = "Αντιγραφή διαδρομής";
 "Path copied!" = "Η διαδρομή αντιγράφηκε!";
-
 /* Video Editor */
 "macshot Video Editor" = "Επεξεργαστής βίντεο MacShot";
 "%@ selected" = "%@ επιλεγμένο";
@@ -374,20 +340,14 @@
 "Export failed" = "Αποτυχία εξαγωγής";
 "Saved to %@" = "Αποθηκεύτηκε στο %@";
 "Save failed" = "Αποτυχία αποθήκευσης";
-
-/* Barcode Detector */
-/* "Open" and "Copy" are shared with other sections */
-
 /* Save Panel */
 "Save As..." = "Αποθήκευση ως...";
 "Choose a folder" = "Επιλέξτε φάκελο";
 "Save All to Folder…" = "Αποθήκευση όλων σε φάκελο…";
-
 /* Scroll Capture HUD */
 "Auto Scroll" = "Αυτόματη κύλιση";
 "Stop" = "Διακοπή";
 "Scrolling..." = "Κύλιση...";
-
 /* Effects Picker (Adjust popover) */
 "Presets" = "Προεπιλογές";
 "Adjustments" = "Ρυθμίσεις";
@@ -395,38 +355,27 @@
 "Contrast" = "Αντίθεση";
 "Saturation" = "Κορεσμός";
 "Sharpness" = "Ευκρίνεια";
-
 /* Time Ago */
 "just now" = "μόλις τώρα";
 "%ds ago" = "%ds πριν";
 "%dm ago" = "%dm πριν";
 "%dh ago" = "%dh πριν";
-
 /* Hotkey Labels */
 "History" = "Ιστορικό";
-
-/* Preferences - Shortcuts note */
-"Click \"Record\" and press a key combination with at least one modifier (⌘, ⌥, ⌃, ⇧) to set a shortcut." = "Κάντε κλικ στο \"Record\" και πατήστε έναν συνδυασμό πλήκτρων με τουλάχιστον ένα τροποποιητικό (⌘, ⌥, ⌃, ⇧) για να ορίσετε συντόμευση.";
-
 /* Recording — GIF Processing */
 "Processing GIF…" = "Επεξεργασία GIF…";
-
 /* Recording — Input Monitoring Permission */
 "Input Monitoring Required" = "Απαιτείται παρακολούθηση εισόδου";
 "macshot needs Input Monitoring permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "Το MacShot χρειάζεται άδεια παρακολούθησης εισόδου για να εμφανίζει τα πλήκτρα κατά την εγγραφή. Παραχωρήστε πρόσβαση στις System Settings και δοκιμάστε ξανά.";
 "macshot needs Accessibility permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "Το MacShot χρειάζεται άδεια προσβασιμότητας για να εμφανίζει τα πλήκτρα κατά την εγγραφή. Παραχωρήστε πρόσβαση στις System Settings και δοκιμάστε ξανά.";
-
 /* Recording — Keystroke Overlay */
 "Show Keystrokes" = "Εμφάνιση πλήκτρων";
 "Shortcuts Only" = "Μόνο συντομεύσεις";
 "All Keystrokes" = "Όλα τα πλήκτρα";
-
 /* Recording — Settings Popover */
 "Delay:" = "Καθυστέρηση:";
-
 /* Video Editor */
 "Copied to clipboard!" = "Αντιγράφηκε στο πρόχειρο!";
-
 /* Webcam Overlay */
 "Webcam Overlay" = "Επικάλυψη κάμερας";
 "Camera Access Required" = "Απαιτείται πρόσβαση κάμερας";
@@ -443,7 +392,6 @@
 "Cam pos:" = "Θέση κάμ.:";
 "Cam size:" = "Μέγ. κάμ.:";
 "Cam shape:" = "Σχήμα κάμ.:";
-
 /* Settings */
 "Settings..." = "Ρυθμίσεις...";
 "macshot Settings" = "Ρυθμίσεις MacShot";
@@ -471,7 +419,6 @@
 "Loupe" = "Φακός";
 "Stamp" = "Σφραγίδα";
 "Unlimited" = "Απεριόριστο";
-
 /* Save/Discard, Recording, Translation Engine, Upload, Inspector */
 "Save changes?" = "Αποθήκευση αλλαγών;";
 "Your annotations will be lost if you close without saving." = "Οι σημειώσεις σας θα χαθούν αν κλείσετε χωρίς αποθήκευση.";
@@ -490,18 +437,13 @@
 "Position:" = "Θέση:";
 "Size:" = "Μέγεθος:";
 "Shape:" = "Σχήμα:";
-
 "Same as screenshots" = "Ίδιο με τα στιγμιότυπα";
 "  Preview size:" = "  Μέγεθος προεπισκόπησης:";
 "(0 = off)" = "(0 = απενεργοποίηση)";
 "Clear All" = "Εκκαθάριση όλων";
 "Clear History?" = "Εκκαθάριση ιστορικού;";
 "This will permanently delete all screenshots from history." = "Αυτό θα διαγράψει μόνιμα όλα τα στιγμιότυπα από το ιστορικό.";
-"Click \"Set\" and press a key combination with at least one modifier (⌘, ⌥, ⌃, ⇧) to set a shortcut." = "Κάνε κλικ στο \"Ορισμός\" και πάτησε έναν συνδυασμό πλήκτρων με τουλάχιστον έναν τροποποιητή (⌘, ⌥, ⌃, ⇧) για να ορίσεις μια συντόμευση.";
-"Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private — nothing is shared publicly." = "Τα αρχεία ανεβαίνουν σε έναν φάκελο \"MacShot\" στο Google Drive σου. Όλα παραμένουν ιδιωτικά — τίποτα δεν κοινοποιείται δημόσια.";
-
 "Pressure" = "Πίεση";
-
 // Settings (colon-free aliases)
 "Accent color" = "Χρώμα τονισμού";
 "Access Key" = "Κλειδί πρόσβασης";
@@ -527,3 +469,148 @@
 "Secret Key" = "Μυστικό κλειδί";
 "Shape" = "Σχήμα";
 "When done" = "Μετά την ολοκλήρωση";
+
+/* === MISSING KEYS (Need Translation) === */
+" (press the same number again to clear, R to invert)" = " (press the same number again to clear, R to invert)";
+"Action" = "Action";
+"Add New Ratio" = "Add New Ratio";
+"Add new aspect ratio" = "Add new aspect ratio";
+"After Capture" = "After Capture";
+"All selections" = "All selections";
+"Annotation" = "Annotation";
+"Apple translation is faster and works offline." = "Apple translation is faster and works offline.";
+"Application" = "Application";
+"Aspect Ratio Shortcuts" = "Capture Aspect Ratios";
+/* Aspect Ratios */
+"Aspect Ratios" = "Aspect Ratios";
+"Aspect ratio lock cleared" = "Aspect ratio lock cleared";
+"Aspect ratio locked: " = "Aspect ratio locked: ";
+"Aspect ratio locked: %@. Press the same shortcut again to clear, %@ to invert." = "Aspect ratio locked: %@. Press the same shortcut again to clear, %@ to invert.";
+"Aspect ratio locked: %@. Press the same shortcut again to clear." = "Aspect ratio locked: %@. Press the same shortcut again to clear.";
+"Aspect ratio shortcuts: %@" = "Aspect ratio shortcuts: %@";
+"At least one aspect ratio must remain." = "At least one aspect ratio must remain.";
+"Auto-Redact" = "Auto-Redact";
+"Auto-dismiss after" = "Auto-dismiss after";
+// New settings strings
+"Auto-dismiss: 0 = never" = "Auto-dismiss: 0 = never";
+"Background color" = "Background color";
+"Capture Options" = "Capture Options";
+"Changes take effect immediately." = "Changes take effect immediately.";
+"Check Now" = "Check Now";
+"Check for Updates Now" = "Check for Updates Now";
+"Click to record shortcut. Esc to cancel, ⌫ to clear. Right-click to reset." = "Click to record shortcut. Esc to cancel, ⌫ to clear. Right-click to reset.";
+"Click window" = "Click window";
+"Color format" = "Color format";
+"Color space" = "Color space";
+"Confirm before uploading" = "Confirm before uploading";
+"Connection Test" = "Connection Test";
+"Controls:" = "Controls:";
+"Copy file to clipboard" = "Copy file to clipboard";
+"Customize aspect ratios for screenshot selection." = "Customize aspect ratios for screenshot selection.";
+"Date" = "Date";
+"Day" = "Day";
+"Dismiss" = "Dismiss";
+"Dismiss after" = "Dismiss after";
+"Download" = "Download";
+"Drag to select" = "Drag to select";
+/* Tool Categories */
+"Drawing" = "Drawing";
+"Effects" = "Effects";
+"Enter your SM.MS token in Settings" = "Enter your SM.MS token in Settings";
+"Failed to add ratio." = "Failed to add ratio.";
+"Filename" = "Filename";
+"Filename Format" = "Filename Format";
+"Filename format" = "Filename format";
+"Floating HUD" = "Floating HUD";
+"Format…" = "Format…";
+"Fullscreen" = "Fullscreen";
+"GIF uses the recording folder." = "GIF uses the recording folder.";
+"Generic RGB" = "Generic RGB";
+"Global Keyboard Shortcuts" = "Global Keyboard Shortcuts";
+"Google Drive Configuration" = "Google Drive Configuration";
+"Google Translate supports more languages." = "Google Translate supports more languages.";
+"Height" = "Height";
+"Hidden tools are removed from the toolbar." = "Hidden tools are removed from the toolbar.";
+"Hour" = "Hour";
+"In-App Shortcuts" = "In-App Shortcuts";
+"Include pre-release versions in update checks." = "Include pre-release versions in update checks.";
+"Insert variable" = "Insert variable";
+"Invalid ratio. Width and height must be between 1 and 100." = "Invalid ratio. Width and height must be between 1 and 100.";
+"Invert" = "Invert";
+"Keep" = "Keep";
+"Language packs" = "Language packs";
+"Lock aspect ratio: 1=1:1  2=2:3  3=3:4  4=4:5  5=5:7  6=9:16  (R to invert  0 to cancel)" = "Lock aspect ratio: 1=1:1  2=2:3  3=3:4  4=4:5  5=5:7  6=9:16  (R to invert  0 to cancel)";
+"Locked aspect ratio only" = "Locked aspect ratio only";
+"Max height: 0 = unlimited" = "Max height: 0 = unlimited";
+"Menu Bar" = "Menu Bar";
+"Minute" = "Minute";
+"Month" = "Month";
+"Multiple previews" = "Multiple previews";
+"Native" = "Native";
+"Never" = "Never";
+"No aspect ratios configured." = "No aspect ratios configured.";
+"Off" = "Off";
+"Open screenshot editor" = "Open screenshot editor";
+"Open video editor" = "Open video editor";
+"Other" = "Other";
+"Paste your API token" = "Paste your API token";
+"Pin to screen" = "Pin to screen";
+"Prefix" = "Prefix";
+"Press a single key to assign. These work when selecting a screenshot area." = "Press a single key to assign. These work when selecting a screenshot area.";
+"Press a single key to assign. These work when the overlay or editor is active." = "Press a single key to assign. These work when the overlay or editor is active.";
+"Preview" = "Preview";
+"Preview size" = "Preview size";
+"Quick Actions" = "Quick Actions";
+"R → %@" = "R → %@";
+"Ratio %@ already exists." = "Ratio %@ already exists.";
+"Ratio %@ already exists. Press R to invert it to %@." = "Ratio %@ already exists. Press R to invert it to %@.";
+"Ratio:" = "Ratio:";
+"Recording controls" = "Recording controls";
+"Remove" = "Remove";
+"Remove special characters" = "Remove special characters";
+"Remove this ratio" = "Remove this ratio";
+"Replace" = "Replace";
+"Replace spaces and illegal characters with underscores" = "Replace spaces and illegal characters with underscores";
+"Reset to Defaults" = "Reset to Defaults";
+"S3 / R2 / MinIO" = "S3 / R2 / MinIO";
+"S3-Compatible" = "S3-Compatible";
+"SM.MS Configuration" = "SM.MS Configuration";
+"SM.MS token" = "SM.MS token";
+"Screenshot" = "Screenshot";
+"Second" = "Second";
+"Select components to include in the filename:" = "Select components to include in the filename:";
+"Selection size snapping" = "Selection size snapping";
+"Set to 0 to disable history" = "Set to 0 to disable history";
+"Settings…" = "Settings…";
+"Shapes" = "Shapes";
+"Short code" = "Short code";
+"Shortcut %@ is reserved for clearing the aspect ratio lock." = "Shortcut %@ is reserved for clearing the aspect ratio lock.";
+"Shortcut %@ is reserved for inverting the aspect ratio." = "Shortcut %@ is reserved for inverting the aspect ratio.";
+"Shortcut Conflict" = "Shortcut Conflict";
+"Shortcut Unavailable" = "Shortcut Unavailable";
+"Shortcut conflict message" = "Shortcut “%@” is already assigned to “%@”. Replace it with “%@”?";
+"Show menu bar icon" = "Show menu bar icon";
+"Show quick access overlay" = "Show quick access overlay";
+"Tab to toggle" = "Tab to toggle";
+"Test" = "Test";
+"This ratio already exists." = "This ratio already exists.";
+"Time" = "Time";
+"Timestamp" = "Timestamp";
+"Type" = "Type";
+"Type shortcut…" = "Type shortcut…";
+"Updates" = "Updates";
+"Upload and copy link" = "Upload and copy link";
+"Upload provider" = "Upload provider";
+"Upload to SM.MS?" = "Upload to SM.MS?";
+"When snapping to a window, its title is used in the filename." = "When snapping to a window, its title is used in the filename.";
+"Width" = "Width";
+"Window snap:" = "Window snap:";
+"Works best in China with a personal API token. Images only (no video support)." = "Works best in China with a personal API token. Images only (no video support).";
+"Works with AWS S3, Cloudflare R2, MinIO, DigitalOcean Spaces, Backblaze B2, and other S3-compatible services." = "Works with AWS S3, Cloudflare R2, MinIO, DigitalOcean Spaces, Backblaze B2, and other S3-compatible services.";
+"Year" = "Year";
+"imgbb Configuration" = "imgbb Configuration";
+"later" = "later";
+"minute" = "minute";
+"minutes" = "minutes";
+"screenshots" = "screenshots";
+"seconds" = "seconds";

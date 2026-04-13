@@ -1,18 +1,5 @@
-/* Tiếng Việt — macshot localization
- *
- * To add a new language:
- * 1. Create a new folder: macshot/<lang-code>.lproj/
- * 2. Copy this file into that folder
- * 3. Translate all values (right side of = sign)
- * 4. Add the language to LanguageManager.availableLanguages in Services/LanguageManager.swift
- * 5. Add the language code to knownRegions in macshot.xcodeproj/project.pbxproj
- * 6. Submit a pull request!
- *
- * Keys use the English text. Values should be the translation.
- * Format strings use %@ for strings, %d for integers.
- * Keep keyboard shortcuts (like ⌘C) untranslated.
- * Keep brand names (macshot, Google Drive, imgbb, S3) untranslated.
- */
+/* Localization file synchronized with English base */
+/* Missing keys are marked with English value - please translate */
 
 /* Menu Bar */
 "Capture Area" = "Chụp vùng chọn";
@@ -35,7 +22,6 @@
 "About MacShot" = "About MacShot";
 "No recent captures" = "Không có ảnh chụp gần đây";
 "Clear History" = "Xóa lịch sử";
-
 /* History Panel */
 "Copy" = "Sao chép";
 "Save As..." = "Lưu thành...";
@@ -48,12 +34,10 @@
 "GIFs" = "GIFs";
 "Click to copy · Drag to app" = "Nhấp để sao chép · Kéo vào ứng dụng";
 "No captures yet" = "Chưa có ảnh chụp nào";
-
 /* Floating Thumbnail */
 "Close All" = "Đóng tất cả";
 "Save All to Folder…" = "Lưu tất cả vào thư mục…";
 "Save" = "Lưu";
-
 /* Editor Top Bar */
 "Zoom In" = "Phóng to";
 "Zoom Out" = "Thu nhỏ";
@@ -62,7 +46,6 @@
 "Flip Horizontal" = "Lật ngang";
 "Flip Vertical" = "Lật dọc";
 "Add Capture" = "Thêm ảnh chụp";
-
 /* Toolbar - Tools */
 "Arrow" = "Mũi tên";
 "Line" = "Đường thẳng";
@@ -84,7 +67,6 @@
 "Color Picker" = "Bộ chọn màu";
 "Select & Edit" = "Chọn & Chỉnh sửa";
 "Color" = "Màu";
-
 /* Toolbar - Actions */
 "Copy to Clipboard" = "Sao chép vào bộ nhớ tạm";
 "Save to File" = "Lưu vào tệp";
@@ -111,7 +93,6 @@
 "Translate" = "Dịch";
 "Auto-Redact sensitive data" = "Tự động che dữ liệu nhạy cảm";
 "Move Selection" = "Di chuyển vùng chọn";
-
 /* Toolbar - Recording */
 "Start Recording" = "Bắt đầu quay";
 "Cancel Recording" = "Hủy quay";
@@ -119,7 +100,6 @@
 "Record System Audio" = "Ghi âm thanh hệ thống";
 "Record Microphone" = "Ghi micro";
 "Recording Settings" = "Cài đặt quay";
-
 /* Tool Options */
 "Size" = "Kích thước";
 "Stroke" = "Nét";
@@ -147,7 +127,6 @@
 "Shadow" = "Bóng";
 "Right-click to add points" = "Nhấp chuột phải để thêm điểm";
 "Hold 1 auto-vertical  ·  Hold 2 auto-horizontal" = "Giữ 1 tự động dọc  ·  Giữ 2 tự động ngang";
-
 /* Overlay / Canvas */
 "Click a window  ·  Drag for custom area  ·  F for full screen" = "Nhấp vào cửa sổ  ·  Kéo để chọn vùng  ·  F để toàn màn hình";
 "Drag to select  ·  Click for full screen" = "Kéo để chọn  ·  Nhấp để toàn màn hình";
@@ -161,7 +140,6 @@
 "Set color %@" = "Đặt màu %@";
 "Draw something first to use the move tool." = "Hãy vẽ gì đó trước khi dùng công cụ di chuyển.";
 "Drag to reposition" = "Kéo để thay đổi vị trí";
-
 /* Overlay - Popovers */
 "Format:" = "Định dạng:";
 "FPS:" = "FPS:";
@@ -169,7 +147,6 @@
 "Open editor" = "Mở trình chỉnh sửa";
 "Show in Finder" = "Hiển thị trong Finder";
 "Copy to clipboard" = "Sao chép vào bộ nhớ tạm";
-
 /* Preferences - General */
 "macshot Preferences" = "Tùy chọn MacShot";
 "General" = "Chung";
@@ -231,14 +208,12 @@
 "Save to file" = "Lưu vào tệp";
 "Save + copy to clipboard" = "Lưu + sao chép vào bộ nhớ tạm";
 "OCR Action" = "Hành động OCR";
-
 /* Preferences - Shortcuts */
 "Keyboard Shortcuts" = "Phím tắt bàn phím";
 "Hotkeys" = "Phím nóng";
 "Clear shortcut" = "Xóa phím tắt";
 "Press keys..." = "Nhấn phím...";
 "Waiting..." = "Đang chờ...";
-
 /* Preferences - Tools */
 "Annotation Tools" = "Công cụ chú thích";
 "Hidden tools are removed from the bottom toolbar." = "Công cụ bị ẩn sẽ bị xóa khỏi thanh công cụ dưới.";
@@ -248,7 +223,6 @@
 "Editor Actions" = "Hành động trình chỉnh sửa";
 "Right Toolbar Actions" = "Hành động thanh công cụ phải";
 "Hidden actions are removed from the right toolbar." = "Hành động bị ẩn sẽ bị xóa khỏi thanh công cụ phải.";
-
 /* Preferences - Recording */
 "Frame rate:" = "Tốc độ khung hình:";
 "After recording:" = "Sau khi quay:";
@@ -273,7 +247,6 @@
 "120 fps" = "120 fps";
 "MP4 (H.264)" = "MP4 (H.264)";
 "GIF" = "GIF";
-
 /* Preferences - Upload */
 "Upload Service" = "Dịch vụ tải lên";
 "Upload Provider" = "Nhà cung cấp tải lên";
@@ -309,14 +282,12 @@
 "Configure S3 in Preferences" = "Cấu hình S3 trong Tùy chọn";
 "Sign in to Google Drive in Preferences" = "Đăng nhập Google Drive trong Tùy chọn";
 "Video upload requires Google Drive or S3" = "Tải video lên yêu cầu Google Drive hoặc S3";
-
 /* Preferences - About */
 "macshot" = "MacShot";
 "Version %@ (%@)" = "Phiên bản %@ (%@)";
 "Made by" = "Được tạo bởi";
 "Licensed under the GPLv3" = "Được cấp phép theo GPLv3";
 "A free, open-source screenshot & screen recording tool for macOS.\nFully native — built with Swift and AppKit." = "Công cụ chụp ảnh và quay màn hình mã nguồn mở, miễn phí cho macOS.\nHoàn toàn gốc — được xây dựng bằng Swift và AppKit.";
-
 /* Alerts */
 "No Image on Clipboard" = "Không có ảnh trong bộ nhớ tạm";
 "Copy an image to the clipboard first, then try again." = "Sao chép ảnh vào bộ nhớ tạm trước, rồi thử lại.";
@@ -332,7 +303,6 @@
 "Upload to S3?" = "Tải lên S3?";
 "Upload to imgbb.com?" = "Tải lên imgbb.com?";
 "Your screenshot will be uploaded." = "Ảnh chụp của bạn sẽ được tải lên.";
-
 /* Permission Onboarding */
 "Welcome to macshot" = "Chào mừng đến với MacShot";
 "macshot needs one permission" = "MacShot cần một quyền";
@@ -341,7 +311,6 @@
 "Enable macshot, then try taking a screenshot" = "Bật MacShot, rồi thử chụp ảnh màn hình";
 "Open Screen Recording Settings" = "Mở Cài đặt Quay màn hình";
 "Continue" = "Tiếp tục";
-
 /* OCR Window */
 "Text Recognition" = "Nhận dạng văn bản";
 "Translate to:" = "Dịch sang:";
@@ -352,7 +321,6 @@
 "Translation Failed" = "Dịch thất bại";
 "Translation" = "Bản dịch";
 "(No text detected in the selected area)" = "(Không phát hiện văn bản trong vùng đã chọn)";
-
 /* Upload Toast */
 "URL copied to the clipboard" = "Đã sao chép URL vào bộ nhớ tạm";
 "Uploading... %d%%" = "Đang tải lên... %d%%";
@@ -360,13 +328,11 @@
 "Uploaded! Link copied." = "Đã tải lên! Đã sao chép liên kết.";
 "Uploading to %@... %d%%" = "Đang tải lên %@... %d%%";
 "Open" = "Mở";
-
 /* Recording Toast */
 "Recording saved" = "Đã lưu bản quay";
 "%@ • Recording saved" = "%@ • Đã lưu bản quay";
 "Copy Path" = "Sao chép đường dẫn";
 "Path copied!" = "Đã sao chép đường dẫn!";
-
 /* Video Editor */
 "macshot Video Editor" = "Trình chỉnh sửa video MacShot";
 "%@ selected" = "%@ đã chọn";
@@ -374,20 +340,14 @@
 "Export failed" = "Xuất thất bại";
 "Saved to %@" = "Đã lưu vào %@";
 "Save failed" = "Lưu thất bại";
-
-/* Barcode Detector */
-/* "Open" and "Copy" are shared with other sections */
-
 /* Save Panel */
 "Save As..." = "Lưu thành...";
 "Choose a folder" = "Chọn thư mục";
 "Save All to Folder…" = "Lưu tất cả vào thư mục…";
-
 /* Scroll Capture HUD */
 "Auto Scroll" = "Tự động cuộn";
 "Stop" = "Dừng";
 "Scrolling..." = "Đang cuộn...";
-
 /* Effects Picker (Adjust popover) */
 "Presets" = "Cài sẵn";
 "Adjustments" = "Điều chỉnh";
@@ -395,38 +355,27 @@
 "Contrast" = "Độ tương phản";
 "Saturation" = "Độ bão hòa";
 "Sharpness" = "Độ sắc nét";
-
 /* Time Ago */
 "just now" = "vừa xong";
 "%ds ago" = "%d giây trước";
 "%dm ago" = "%d phút trước";
 "%dh ago" = "%d giờ trước";
-
 /* Hotkey Labels */
 "History" = "Lịch sử";
-
-/* Preferences - Shortcuts note */
-"Click \"Record\" and press a key combination with at least one modifier (⌘, ⌥, ⌃, ⇧) to set a shortcut." = "Nhấp \"Quay\" và nhấn tổ hợp phím với ít nhất một phím bổ trợ (⌘, ⌥, ⌃, ⇧) để đặt phím tắt.";
-
 /* Recording — GIF Processing */
 "Processing GIF…" = "Đang xử lý GIF…";
-
 /* Recording — Input Monitoring Permission */
 "Input Monitoring Required" = "Yêu cầu quyền Giám sát đầu vào";
 "macshot needs Input Monitoring permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "MacShot cần quyền Giám sát đầu vào để hiển thị phím bấm trong khi quay. Vui lòng cấp quyền trong System Settings, rồi thử lại.";
 "macshot needs Accessibility permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "MacShot cần quyền Trợ năng để hiển thị phím bấm trong khi quay. Vui lòng cấp quyền trong System Settings, rồi thử lại.";
-
 /* Recording — Keystroke Overlay */
 "Show Keystrokes" = "Hiển thị phím bấm";
 "Shortcuts Only" = "Chỉ phím tắt";
 "All Keystrokes" = "Tất cả phím bấm";
-
 /* Recording — Settings Popover */
 "Delay:" = "Trì hoãn:";
-
 /* Video Editor */
 "Copied to clipboard!" = "Đã sao chép vào bộ nhớ tạm!";
-
 /* Webcam Overlay */
 "Webcam Overlay" = "Lớp phủ webcam";
 "Camera Access Required" = "Yêu cầu quyền Camera";
@@ -443,7 +392,6 @@
 "Cam pos:" = "Vị trí cam:";
 "Cam size:" = "Kích thước cam:";
 "Cam shape:" = "Hình dạng cam:";
-
 /* New Strings */
 "Settings..." = "Cài đặt...";
 "macshot Settings" = "Cài đặt MacShot";
@@ -488,18 +436,13 @@
 "Position:" = "Vị trí:";
 "Size:" = "Kích thước:";
 "Shape:" = "Hình dạng:";
-
 "Same as screenshots" = "Giống như ảnh chụp màn hình";
 "  Preview size:" = "  Kích thước xem trước:";
 "(0 = off)" = "(0 = tắt)";
 "Clear All" = "Xóa tất cả";
 "Clear History?" = "Xóa lịch sử?";
 "This will permanently delete all screenshots from history." = "Thao tác này sẽ xóa vĩnh viễn tất cả ảnh chụp màn hình khỏi lịch sử.";
-"Click \"Set\" and press a key combination with at least one modifier (⌘, ⌥, ⌃, ⇧) to set a shortcut." = "Nhấp vào \"Đặt\" và nhấn tổ hợp phím có ít nhất một phím bổ trợ (⌘, ⌥, ⌃, ⇧) để đặt phím tắt.";
-"Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private — nothing is shared publicly." = "Các tệp được tải lên thư mục \"MacShot\" trong Google Drive của bạn. Mọi thứ đều được giữ bí mật — không có gì được chia sẻ công khai.";
-
 "Pressure" = "Lực nhấn";
-
 // Settings (colon-free aliases)
 "Accent color" = "Màu nhấn";
 "Access Key" = "Khóa truy cập";
@@ -525,3 +468,148 @@
 "Secret Key" = "Khóa bí mật";
 "Shape" = "Hình dạng";
 "When done" = "Khi xong";
+
+/* === MISSING KEYS (Need Translation) === */
+" (press the same number again to clear, R to invert)" = " (press the same number again to clear, R to invert)";
+"Action" = "Action";
+"Add New Ratio" = "Add New Ratio";
+"Add new aspect ratio" = "Add new aspect ratio";
+"After Capture" = "After Capture";
+"All selections" = "All selections";
+"Annotation" = "Annotation";
+"Apple translation is faster and works offline." = "Apple translation is faster and works offline.";
+"Application" = "Application";
+"Aspect Ratio Shortcuts" = "Capture Aspect Ratios";
+/* Aspect Ratios */
+"Aspect Ratios" = "Aspect Ratios";
+"Aspect ratio lock cleared" = "Aspect ratio lock cleared";
+"Aspect ratio locked: " = "Aspect ratio locked: ";
+"Aspect ratio locked: %@. Press the same shortcut again to clear, %@ to invert." = "Aspect ratio locked: %@. Press the same shortcut again to clear, %@ to invert.";
+"Aspect ratio locked: %@. Press the same shortcut again to clear." = "Aspect ratio locked: %@. Press the same shortcut again to clear.";
+"Aspect ratio shortcuts: %@" = "Aspect ratio shortcuts: %@";
+"At least one aspect ratio must remain." = "At least one aspect ratio must remain.";
+"Auto-Redact" = "Auto-Redact";
+"Auto-dismiss after" = "Auto-dismiss after";
+// New settings strings
+"Auto-dismiss: 0 = never" = "Auto-dismiss: 0 = never";
+"Background color" = "Background color";
+"Capture Options" = "Capture Options";
+"Changes take effect immediately." = "Changes take effect immediately.";
+"Check Now" = "Check Now";
+"Check for Updates Now" = "Check for Updates Now";
+"Click to record shortcut. Esc to cancel, ⌫ to clear. Right-click to reset." = "Click to record shortcut. Esc to cancel, ⌫ to clear. Right-click to reset.";
+"Click window" = "Click window";
+"Color format" = "Color format";
+"Color space" = "Color space";
+"Confirm before uploading" = "Confirm before uploading";
+"Connection Test" = "Connection Test";
+"Controls:" = "Controls:";
+"Copy file to clipboard" = "Copy file to clipboard";
+"Customize aspect ratios for screenshot selection." = "Customize aspect ratios for screenshot selection.";
+"Date" = "Date";
+"Day" = "Day";
+"Dismiss" = "Dismiss";
+"Dismiss after" = "Dismiss after";
+"Download" = "Download";
+"Drag to select" = "Drag to select";
+/* Tool Categories */
+"Drawing" = "Drawing";
+"Effects" = "Effects";
+"Enter your SM.MS token in Settings" = "Enter your SM.MS token in Settings";
+"Failed to add ratio." = "Failed to add ratio.";
+"Filename" = "Filename";
+"Filename Format" = "Filename Format";
+"Filename format" = "Filename format";
+"Floating HUD" = "Floating HUD";
+"Format…" = "Format…";
+"Fullscreen" = "Fullscreen";
+"GIF uses the recording folder." = "GIF uses the recording folder.";
+"Generic RGB" = "Generic RGB";
+"Global Keyboard Shortcuts" = "Global Keyboard Shortcuts";
+"Google Drive Configuration" = "Google Drive Configuration";
+"Google Translate supports more languages." = "Google Translate supports more languages.";
+"Height" = "Height";
+"Hidden tools are removed from the toolbar." = "Hidden tools are removed from the toolbar.";
+"Hour" = "Hour";
+"In-App Shortcuts" = "In-App Shortcuts";
+"Include pre-release versions in update checks." = "Include pre-release versions in update checks.";
+"Insert variable" = "Insert variable";
+"Invalid ratio. Width and height must be between 1 and 100." = "Invalid ratio. Width and height must be between 1 and 100.";
+"Invert" = "Invert";
+"Keep" = "Keep";
+"Language packs" = "Language packs";
+"Lock aspect ratio: 1=1:1  2=2:3  3=3:4  4=4:5  5=5:7  6=9:16  (R to invert  0 to cancel)" = "Lock aspect ratio: 1=1:1  2=2:3  3=3:4  4=4:5  5=5:7  6=9:16  (R to invert  0 to cancel)";
+"Locked aspect ratio only" = "Locked aspect ratio only";
+"Max height: 0 = unlimited" = "Max height: 0 = unlimited";
+"Menu Bar" = "Menu Bar";
+"Minute" = "Minute";
+"Month" = "Month";
+"Multiple previews" = "Multiple previews";
+"Native" = "Native";
+"Never" = "Never";
+"No aspect ratios configured." = "No aspect ratios configured.";
+"Off" = "Off";
+"Open screenshot editor" = "Open screenshot editor";
+"Open video editor" = "Open video editor";
+"Other" = "Other";
+"Paste your API token" = "Paste your API token";
+"Pin to screen" = "Pin to screen";
+"Prefix" = "Prefix";
+"Press a single key to assign. These work when selecting a screenshot area." = "Press a single key to assign. These work when selecting a screenshot area.";
+"Press a single key to assign. These work when the overlay or editor is active." = "Press a single key to assign. These work when the overlay or editor is active.";
+"Preview" = "Preview";
+"Preview size" = "Preview size";
+"Quick Actions" = "Quick Actions";
+"R → %@" = "R → %@";
+"Ratio %@ already exists." = "Ratio %@ already exists.";
+"Ratio %@ already exists. Press R to invert it to %@." = "Ratio %@ already exists. Press R to invert it to %@.";
+"Ratio:" = "Ratio:";
+"Recording controls" = "Recording controls";
+"Remove" = "Remove";
+"Remove special characters" = "Remove special characters";
+"Remove this ratio" = "Remove this ratio";
+"Replace" = "Replace";
+"Replace spaces and illegal characters with underscores" = "Replace spaces and illegal characters with underscores";
+"Reset to Defaults" = "Reset to Defaults";
+"S3 / R2 / MinIO" = "S3 / R2 / MinIO";
+"S3-Compatible" = "S3-Compatible";
+"SM.MS Configuration" = "SM.MS Configuration";
+"SM.MS token" = "SM.MS token";
+"Screenshot" = "Screenshot";
+"Second" = "Second";
+"Select components to include in the filename:" = "Select components to include in the filename:";
+"Selection size snapping" = "Selection size snapping";
+"Set to 0 to disable history" = "Set to 0 to disable history";
+"Settings…" = "Settings…";
+"Shapes" = "Shapes";
+"Short code" = "Short code";
+"Shortcut %@ is reserved for clearing the aspect ratio lock." = "Shortcut %@ is reserved for clearing the aspect ratio lock.";
+"Shortcut %@ is reserved for inverting the aspect ratio." = "Shortcut %@ is reserved for inverting the aspect ratio.";
+"Shortcut Conflict" = "Shortcut Conflict";
+"Shortcut Unavailable" = "Shortcut Unavailable";
+"Shortcut conflict message" = "Shortcut “%@” is already assigned to “%@”. Replace it with “%@”?";
+"Show menu bar icon" = "Show menu bar icon";
+"Show quick access overlay" = "Show quick access overlay";
+"Tab to toggle" = "Tab to toggle";
+"Test" = "Test";
+"This ratio already exists." = "This ratio already exists.";
+"Time" = "Time";
+"Timestamp" = "Timestamp";
+"Type" = "Type";
+"Type shortcut…" = "Type shortcut…";
+"Updates" = "Updates";
+"Upload and copy link" = "Upload and copy link";
+"Upload provider" = "Upload provider";
+"Upload to SM.MS?" = "Upload to SM.MS?";
+"When snapping to a window, its title is used in the filename." = "When snapping to a window, its title is used in the filename.";
+"Width" = "Width";
+"Window snap:" = "Window snap:";
+"Works best in China with a personal API token. Images only (no video support)." = "Works best in China with a personal API token. Images only (no video support).";
+"Works with AWS S3, Cloudflare R2, MinIO, DigitalOcean Spaces, Backblaze B2, and other S3-compatible services." = "Works with AWS S3, Cloudflare R2, MinIO, DigitalOcean Spaces, Backblaze B2, and other S3-compatible services.";
+"Year" = "Year";
+"imgbb Configuration" = "imgbb Configuration";
+"later" = "later";
+"minute" = "minute";
+"minutes" = "minutes";
+"screenshots" = "screenshots";
+"seconds" = "seconds";

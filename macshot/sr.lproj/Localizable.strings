@@ -1,18 +1,5 @@
-/* Српски — macshot localization
- *
- * To add a new language:
- * 1. Create a new folder: macshot/<lang-code>.lproj/
- * 2. Copy this file into that folder
- * 3. Translate all values (right side of = sign)
- * 4. Add the language to LanguageManager.availableLanguages in Services/LanguageManager.swift
- * 5. Add the language code to knownRegions in macshot.xcodeproj/project.pbxproj
- * 6. Submit a pull request!
- *
- * Keys use the English text. Values should be the translation.
- * Format strings use %@ for strings, %d for integers.
- * Keep keyboard shortcuts (like ⌘C) untranslated.
- * Keep brand names (macshot, Google Drive, imgbb, S3) untranslated.
- */
+/* Localization file synchronized with English base */
+/* Missing keys are marked with English value - please translate */
 
 /* Menu Bar */
 "Capture Area" = "Сними област";
@@ -35,7 +22,6 @@
 "About MacShot" = "About MacShot";
 "No recent captures" = "Нема недавних снимања";
 "Clear History" = "Обриши историју";
-
 /* History Panel */
 "Copy" = "Копирај";
 "Save As..." = "Сачувај као...";
@@ -48,12 +34,10 @@
 "GIFs" = "GIFs";
 "Click to copy · Drag to app" = "Кликни за копирање · Превуци у апликацију";
 "No captures yet" = "Још нема снимања";
-
 /* Floating Thumbnail */
 "Close All" = "Затвори све";
 "Save All to Folder…" = "Сачувај све у фасциклу…";
 "Save" = "Сачувај";
-
 /* Editor Top Bar */
 "Zoom In" = "Увећај";
 "Zoom Out" = "Умањи";
@@ -62,7 +46,6 @@
 "Flip Horizontal" = "Обрни хоризонтално";
 "Flip Vertical" = "Обрни вертикално";
 "Add Capture" = "Додај снимак";
-
 /* Toolbar - Tools */
 "Arrow" = "Стрелица";
 "Line" = "Линија";
@@ -84,7 +67,6 @@
 "Color Picker" = "Бирач боја";
 "Select & Edit" = "Изабери и уреди";
 "Color" = "Боја";
-
 /* Toolbar - Actions */
 "Copy to Clipboard" = "Копирај у оставу";
 "Save to File" = "Сачувај у датотеку";
@@ -111,7 +93,6 @@
 "Translate" = "Преведи";
 "Auto-Redact sensitive data" = "Аутоматски уклони осетљиве податке";
 "Move Selection" = "Помери селекцију";
-
 /* Toolbar - Recording */
 "Start Recording" = "Започни снимање";
 "Cancel Recording" = "Откажи снимање";
@@ -119,7 +100,6 @@
 "Record System Audio" = "Сними системски звук";
 "Record Microphone" = "Сними микрофон";
 "Recording Settings" = "Подешавања снимања";
-
 /* Tool Options */
 "Size" = "Величина";
 "Stroke" = "Потез";
@@ -147,7 +127,6 @@
 "Shadow" = "Сенка";
 "Right-click to add points" = "Десни клик за додавање тачака";
 "Hold 1 auto-vertical  ·  Hold 2 auto-horizontal" = "Држи 1 ауто-вертикално  ·  Држи 2 ауто-хоризонтално";
-
 /* Overlay / Canvas */
 "Click a window  ·  Drag for custom area  ·  F for full screen" = "Кликни на прозор  ·  Превуци за произвољну област  ·  F за цео екран";
 "Drag to select  ·  Click for full screen" = "Превуци за селекцију  ·  Кликни за цео екран";
@@ -161,7 +140,6 @@
 "Set color %@" = "Постави боју %@";
 "Draw something first to use the move tool." = "Прво нацртајте нешто да бисте користили алат за померање.";
 "Drag to reposition" = "Превуци за премештање";
-
 /* Overlay - Popovers */
 "Format:" = "Формат:";
 "FPS:" = "FPS:";
@@ -169,7 +147,6 @@
 "Open editor" = "Отвори уређивач";
 "Show in Finder" = "Прикажи у Finder";
 "Copy to clipboard" = "Копирај у оставу";
-
 /* Preferences - General */
 "macshot Preferences" = "MacShot подешавања";
 "General" = "Опште";
@@ -231,14 +208,12 @@
 "Save to file" = "Сачувај у датотеку";
 "Save + copy to clipboard" = "Сачувај + копирај у оставу";
 "OCR Action" = "OCR радња";
-
 /* Preferences - Shortcuts */
 "Keyboard Shortcuts" = "Пречице на тастатури";
 "Hotkeys" = "Пречице";
 "Clear shortcut" = "Обриши пречицу";
 "Press keys..." = "Притисните тастере...";
 "Waiting..." = "Чекање...";
-
 /* Preferences - Tools */
 "Annotation Tools" = "Алати за означавање";
 "Hidden tools are removed from the bottom toolbar." = "Скривени алати су уклоњени из доње траке алата.";
@@ -248,7 +223,6 @@
 "Editor Actions" = "Радње уређивача";
 "Right Toolbar Actions" = "Радње десне траке алата";
 "Hidden actions are removed from the right toolbar." = "Скривене радње су уклоњене из десне траке алата.";
-
 /* Preferences - Recording */
 "Frame rate:" = "Брзина кадрова:";
 "After recording:" = "После снимања:";
@@ -273,7 +247,6 @@
 "120 fps" = "120 fps";
 "MP4 (H.264)" = "MP4 (H.264)";
 "GIF" = "GIF";
-
 /* Preferences - Upload */
 "Upload Service" = "Сервис за отпремање";
 "Upload Provider" = "Провајдер за отпремање";
@@ -309,14 +282,12 @@
 "Configure S3 in Preferences" = "Подесите S3 у подешавањима";
 "Sign in to Google Drive in Preferences" = "Пријавите се на Google Drive у подешавањима";
 "Video upload requires Google Drive or S3" = "Отпремање видеа захтева Google Drive или S3";
-
 /* Preferences - About */
 "macshot" = "MacShot";
 "Version %@ (%@)" = "Верзија %@ (%@)";
 "Made by" = "Направио";
 "Licensed under the GPLv3" = "Лиценцирано под GPLv3";
 "A free, open-source screenshot & screen recording tool for macOS.\nFully native — built with Swift and AppKit." = "Бесплатан алат отвореног кода за снимање екрана и снимање видеа на macOS.\nПотпуно нативан — направљен у Swift и AppKit.";
-
 /* Alerts */
 "No Image on Clipboard" = "Нема слике у остави";
 "Copy an image to the clipboard first, then try again." = "Прво копирајте слику у оставу, па покушајте поново.";
@@ -332,7 +303,6 @@
 "Upload to S3?" = "Отпреми на S3?";
 "Upload to imgbb.com?" = "Отпреми на imgbb.com?";
 "Your screenshot will be uploaded." = "Ваш снимак екрана ће бити отпремљен.";
-
 /* Permission Onboarding */
 "Welcome to macshot" = "Добродошли у MacShot";
 "macshot needs one permission" = "MacShot захтева једну дозволу";
@@ -341,7 +311,6 @@
 "Enable macshot, then try taking a screenshot" = "Омогућите MacShot, па покушајте да направите снимак екрана";
 "Open Screen Recording Settings" = "Отвори подешавања снимања екрана";
 "Continue" = "Настави";
-
 /* OCR Window */
 "Text Recognition" = "Препознавање текста";
 "Translate to:" = "Преведи на:";
@@ -352,7 +321,6 @@
 "Translation Failed" = "Превод није успео";
 "Translation" = "Превод";
 "(No text detected in the selected area)" = "(Текст није откривен у изабраној области)";
-
 /* Upload Toast */
 "URL copied to the clipboard" = "URL копиран у оставу";
 "Uploading... %d%%" = "Отпремање... %d%%";
@@ -360,13 +328,11 @@
 "Uploaded! Link copied." = "Отпремљено! Линк копиран.";
 "Uploading to %@... %d%%" = "Отпремање на %@... %d%%";
 "Open" = "Отвори";
-
 /* Recording Toast */
 "Recording saved" = "Снимак сачуван";
 "%@ • Recording saved" = "%@ • Снимак сачуван";
 "Copy Path" = "Копирај путању";
 "Path copied!" = "Путања копирана!";
-
 /* Video Editor */
 "macshot Video Editor" = "MacShot видео уређивач";
 "%@ selected" = "%@ изабрано";
@@ -374,20 +340,14 @@
 "Export failed" = "Извоз неуспешан";
 "Saved to %@" = "Сачувано у %@";
 "Save failed" = "Чување неуспешно";
-
-/* Barcode Detector */
-/* "Open" and "Copy" are shared with other sections */
-
 /* Save Panel */
 "Save As..." = "Сачувај као...";
 "Choose a folder" = "Изаберите фасциклу";
 "Save All to Folder…" = "Сачувај све у фасциклу…";
-
 /* Scroll Capture HUD */
 "Auto Scroll" = "Аутоматско скроловање";
 "Stop" = "Заустави";
 "Scrolling..." = "Скроловање...";
-
 /* Effects Picker (Adjust popover) */
 "Presets" = "Предефинисано";
 "Adjustments" = "Подешавања";
@@ -395,38 +355,27 @@
 "Contrast" = "Контраст";
 "Saturation" = "Засићеност";
 "Sharpness" = "Оштрина";
-
 /* Time Ago */
 "just now" = "управо сада";
 "%ds ago" = "пре %ds";
 "%dm ago" = "пре %dm";
 "%dh ago" = "пре %dh";
-
 /* Hotkey Labels */
 "History" = "Историја";
-
-/* Preferences - Shortcuts note */
-"Click \"Record\" and press a key combination with at least one modifier (⌘, ⌥, ⌃, ⇧) to set a shortcut." = "Кликните \"Сними\" и притисните комбинацију тастера са најмање једним модификатором (⌘, ⌥, ⌃, ⇧) да бисте поставили пречицу.";
-
 /* Recording — GIF Processing */
 "Processing GIF…" = "Обрада GIF…";
-
 /* Recording — Input Monitoring Permission */
 "Input Monitoring Required" = "Потребно праћење уноса";
 "macshot needs Input Monitoring permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "MacShot захтева дозволу за праћење уноса да би приказивао притиске тастера током снимања. Одобрите приступ у System Settings, па покушајте поново.";
 "macshot needs Accessibility permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "MacShot захтева дозволу приступачности да би приказивао притиске тастера током снимања. Одобрите приступ у System Settings, па покушајте поново.";
-
 /* Recording — Keystroke Overlay */
 "Show Keystrokes" = "Прикажи притиске тастера";
 "Shortcuts Only" = "Само пречице";
 "All Keystrokes" = "Сви притисци тастера";
-
 /* Recording — Settings Popover */
 "Delay:" = "Одлагање:";
-
 /* Video Editor */
 "Copied to clipboard!" = "Копирано у оставу!";
-
 /* Webcam Overlay */
 "Webcam Overlay" = "Преклапање веб-камере";
 "Camera Access Required" = "Потребан приступ камери";
@@ -443,7 +392,6 @@
 "Cam pos:" = "Поз. кам.:";
 "Cam size:" = "Вел. кам.:";
 "Cam shape:" = "Облик кам.:";
-
 /* Settings */
 "Settings..." = "Подешавања...";
 "macshot Settings" = "MacShot подешавања";
@@ -471,7 +419,6 @@
 "Loupe" = "Лупа";
 "Stamp" = "Печат";
 "Unlimited" = "Неограничено";
-
 /* Save/Discard, Recording, Translation Engine, Upload, Inspector */
 "Save changes?" = "Сачувати измене?";
 "Your annotations will be lost if you close without saving." = "Ваше ознаке ће бити изгубљене ако затворите без чувања.";
@@ -490,18 +437,13 @@
 "Position:" = "Позиција:";
 "Size:" = "Величина:";
 "Shape:" = "Облик:";
-
 "Same as screenshots" = "Isto kao snimci ekrana";
 "  Preview size:" = "  Veličina pregleda:";
 "(0 = off)" = "(0 = isključeno)";
 "Clear All" = "Obriši sve";
 "Clear History?" = "Obrisati istoriju?";
 "This will permanently delete all screenshots from history." = "Ovo će trajno obrisati sve snimke ekrana iz istorije.";
-"Click \"Set\" and press a key combination with at least one modifier (⌘, ⌥, ⌃, ⇧) to set a shortcut." = "Kliknite \"Postavi\" i pritisnite kombinaciju tastera sa barem jednim modifikatorom (⌘, ⌥, ⌃, ⇧) da biste postavili prečicu.";
-"Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private — nothing is shared publicly." = "Fajlovi se otpremaju u fasciklu \"MacShot\" na vašem Google disku. Sve ostaje privatno — ništa se ne deli javno.";
-
 "Pressure" = "Pritisak";
-
 // Settings (colon-free aliases)
 "Accent color" = "Боја акцента";
 "Access Key" = "Приступни кључ";
@@ -527,3 +469,148 @@
 "Secret Key" = "Тајни кључ";
 "Shape" = "Облик";
 "When done" = "По завршетку";
+
+/* === MISSING KEYS (Need Translation) === */
+" (press the same number again to clear, R to invert)" = " (press the same number again to clear, R to invert)";
+"Action" = "Action";
+"Add New Ratio" = "Add New Ratio";
+"Add new aspect ratio" = "Add new aspect ratio";
+"After Capture" = "After Capture";
+"All selections" = "All selections";
+"Annotation" = "Annotation";
+"Apple translation is faster and works offline." = "Apple translation is faster and works offline.";
+"Application" = "Application";
+"Aspect Ratio Shortcuts" = "Capture Aspect Ratios";
+/* Aspect Ratios */
+"Aspect Ratios" = "Aspect Ratios";
+"Aspect ratio lock cleared" = "Aspect ratio lock cleared";
+"Aspect ratio locked: " = "Aspect ratio locked: ";
+"Aspect ratio locked: %@. Press the same shortcut again to clear, %@ to invert." = "Aspect ratio locked: %@. Press the same shortcut again to clear, %@ to invert.";
+"Aspect ratio locked: %@. Press the same shortcut again to clear." = "Aspect ratio locked: %@. Press the same shortcut again to clear.";
+"Aspect ratio shortcuts: %@" = "Aspect ratio shortcuts: %@";
+"At least one aspect ratio must remain." = "At least one aspect ratio must remain.";
+"Auto-Redact" = "Auto-Redact";
+"Auto-dismiss after" = "Auto-dismiss after";
+// New settings strings
+"Auto-dismiss: 0 = never" = "Auto-dismiss: 0 = never";
+"Background color" = "Background color";
+"Capture Options" = "Capture Options";
+"Changes take effect immediately." = "Changes take effect immediately.";
+"Check Now" = "Check Now";
+"Check for Updates Now" = "Check for Updates Now";
+"Click to record shortcut. Esc to cancel, ⌫ to clear. Right-click to reset." = "Click to record shortcut. Esc to cancel, ⌫ to clear. Right-click to reset.";
+"Click window" = "Click window";
+"Color format" = "Color format";
+"Color space" = "Color space";
+"Confirm before uploading" = "Confirm before uploading";
+"Connection Test" = "Connection Test";
+"Controls:" = "Controls:";
+"Copy file to clipboard" = "Copy file to clipboard";
+"Customize aspect ratios for screenshot selection." = "Customize aspect ratios for screenshot selection.";
+"Date" = "Date";
+"Day" = "Day";
+"Dismiss" = "Dismiss";
+"Dismiss after" = "Dismiss after";
+"Download" = "Download";
+"Drag to select" = "Drag to select";
+/* Tool Categories */
+"Drawing" = "Drawing";
+"Effects" = "Effects";
+"Enter your SM.MS token in Settings" = "Enter your SM.MS token in Settings";
+"Failed to add ratio." = "Failed to add ratio.";
+"Filename" = "Filename";
+"Filename Format" = "Filename Format";
+"Filename format" = "Filename format";
+"Floating HUD" = "Floating HUD";
+"Format…" = "Format…";
+"Fullscreen" = "Fullscreen";
+"GIF uses the recording folder." = "GIF uses the recording folder.";
+"Generic RGB" = "Generic RGB";
+"Global Keyboard Shortcuts" = "Global Keyboard Shortcuts";
+"Google Drive Configuration" = "Google Drive Configuration";
+"Google Translate supports more languages." = "Google Translate supports more languages.";
+"Height" = "Height";
+"Hidden tools are removed from the toolbar." = "Hidden tools are removed from the toolbar.";
+"Hour" = "Hour";
+"In-App Shortcuts" = "In-App Shortcuts";
+"Include pre-release versions in update checks." = "Include pre-release versions in update checks.";
+"Insert variable" = "Insert variable";
+"Invalid ratio. Width and height must be between 1 and 100." = "Invalid ratio. Width and height must be between 1 and 100.";
+"Invert" = "Invert";
+"Keep" = "Keep";
+"Language packs" = "Language packs";
+"Lock aspect ratio: 1=1:1  2=2:3  3=3:4  4=4:5  5=5:7  6=9:16  (R to invert  0 to cancel)" = "Lock aspect ratio: 1=1:1  2=2:3  3=3:4  4=4:5  5=5:7  6=9:16  (R to invert  0 to cancel)";
+"Locked aspect ratio only" = "Locked aspect ratio only";
+"Max height: 0 = unlimited" = "Max height: 0 = unlimited";
+"Menu Bar" = "Menu Bar";
+"Minute" = "Minute";
+"Month" = "Month";
+"Multiple previews" = "Multiple previews";
+"Native" = "Native";
+"Never" = "Never";
+"No aspect ratios configured." = "No aspect ratios configured.";
+"Off" = "Off";
+"Open screenshot editor" = "Open screenshot editor";
+"Open video editor" = "Open video editor";
+"Other" = "Other";
+"Paste your API token" = "Paste your API token";
+"Pin to screen" = "Pin to screen";
+"Prefix" = "Prefix";
+"Press a single key to assign. These work when selecting a screenshot area." = "Press a single key to assign. These work when selecting a screenshot area.";
+"Press a single key to assign. These work when the overlay or editor is active." = "Press a single key to assign. These work when the overlay or editor is active.";
+"Preview" = "Preview";
+"Preview size" = "Preview size";
+"Quick Actions" = "Quick Actions";
+"R → %@" = "R → %@";
+"Ratio %@ already exists." = "Ratio %@ already exists.";
+"Ratio %@ already exists. Press R to invert it to %@." = "Ratio %@ already exists. Press R to invert it to %@.";
+"Ratio:" = "Ratio:";
+"Recording controls" = "Recording controls";
+"Remove" = "Remove";
+"Remove special characters" = "Remove special characters";
+"Remove this ratio" = "Remove this ratio";
+"Replace" = "Replace";
+"Replace spaces and illegal characters with underscores" = "Replace spaces and illegal characters with underscores";
+"Reset to Defaults" = "Reset to Defaults";
+"S3 / R2 / MinIO" = "S3 / R2 / MinIO";
+"S3-Compatible" = "S3-Compatible";
+"SM.MS Configuration" = "SM.MS Configuration";
+"SM.MS token" = "SM.MS token";
+"Screenshot" = "Screenshot";
+"Second" = "Second";
+"Select components to include in the filename:" = "Select components to include in the filename:";
+"Selection size snapping" = "Selection size snapping";
+"Set to 0 to disable history" = "Set to 0 to disable history";
+"Settings…" = "Settings…";
+"Shapes" = "Shapes";
+"Short code" = "Short code";
+"Shortcut %@ is reserved for clearing the aspect ratio lock." = "Shortcut %@ is reserved for clearing the aspect ratio lock.";
+"Shortcut %@ is reserved for inverting the aspect ratio." = "Shortcut %@ is reserved for inverting the aspect ratio.";
+"Shortcut Conflict" = "Shortcut Conflict";
+"Shortcut Unavailable" = "Shortcut Unavailable";
+"Shortcut conflict message" = "Shortcut “%@” is already assigned to “%@”. Replace it with “%@”?";
+"Show menu bar icon" = "Show menu bar icon";
+"Show quick access overlay" = "Show quick access overlay";
+"Tab to toggle" = "Tab to toggle";
+"Test" = "Test";
+"This ratio already exists." = "This ratio already exists.";
+"Time" = "Time";
+"Timestamp" = "Timestamp";
+"Type" = "Type";
+"Type shortcut…" = "Type shortcut…";
+"Updates" = "Updates";
+"Upload and copy link" = "Upload and copy link";
+"Upload provider" = "Upload provider";
+"Upload to SM.MS?" = "Upload to SM.MS?";
+"When snapping to a window, its title is used in the filename." = "When snapping to a window, its title is used in the filename.";
+"Width" = "Width";
+"Window snap:" = "Window snap:";
+"Works best in China with a personal API token. Images only (no video support)." = "Works best in China with a personal API token. Images only (no video support).";
+"Works with AWS S3, Cloudflare R2, MinIO, DigitalOcean Spaces, Backblaze B2, and other S3-compatible services." = "Works with AWS S3, Cloudflare R2, MinIO, DigitalOcean Spaces, Backblaze B2, and other S3-compatible services.";
+"Year" = "Year";
+"imgbb Configuration" = "imgbb Configuration";
+"later" = "later";
+"minute" = "minute";
+"minutes" = "minutes";
+"screenshots" = "screenshots";
+"seconds" = "seconds";
