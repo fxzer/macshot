@@ -8180,11 +8180,14 @@ class OverlayView: NSView {
 
         // Forward Cmd shortcuts to the text view when editing — the main menu
         // intercepts these before keyDown reaches the overlay window.
-        if event.modifierFlags.contains(.command), let char = event.charactersIgnoringModifiers {
+        // Use keyCode (hardware-based) instead of charactersIgnoringModifiers
+        // so shortcuts work regardless of keyboard layout (e.g. Russian, Arabic).
+        if event.modifierFlags.contains(.command) {
+            let key = event.keyCode
             // Text editing: forward to NSTextView (only when text is actively selected)
             if let tv = textEditView {
-                switch char {
-                case "c":
+                switch key {
+                case 8:  // C
                     if tv.selectedRange().length > 0 {
                         tv.copy(nil)
                     } else {
@@ -8199,7 +8202,7 @@ class OverlayView: NSView {
                         needsDisplay = true
                     }
                     return true
-                case "v":
+                case 9:  // V
                     if NSPasteboard.general.data(forType: Self.annotationPasteboardType) != nil {
                         commitTextFieldIfNeeded()
                         pasteAnnotations()
@@ -8209,9 +8212,9 @@ class OverlayView: NSView {
                         tv.paste(nil)
                     }
                     return true
-                case "x": tv.cut(nil); return true
-                case "a": tv.selectAll(nil); return true
-                case "z":
+                case 7: tv.cut(nil); return true  // X
+                case 0: tv.selectAll(nil); return true  // A
+                case 6:  // Z
                     if event.modifierFlags.contains(.shift) { tv.undoManager?.redo() }
                     else { tv.undoManager?.undo() }
                     return true
@@ -8221,15 +8224,15 @@ class OverlayView: NSView {
 
             // Annotation copy/paste (no text editing active)
             if state == .selected {
-                switch char {
-                case "c":
+                switch key {
+                case 8:  // C
                     if !selectedAnnotations.isEmpty {
                         copySelectedAnnotations()
                     } else {
                         overlayDelegate?.overlayViewDidConfirm()
                     }
                     return true
-                case "v":
+                case 9:  // V
                     if NSPasteboard.general.data(forType: Self.annotationPasteboardType) != nil {
                         pasteAnnotations()
                         return true
@@ -8240,12 +8243,12 @@ class OverlayView: NSView {
 
             // Canvas undo/redo — intercept before main menu consumes the event
             if state == .selected {
-                switch char {
-                case "z":
+                switch key {
+                case 6:  // Z
                     if event.modifierFlags.contains(.shift) { redo() }
                     else { undo() }
                     return true
-                case "y":
+                case 16:  // Y
                     redo()
                     return true
                 default: break
@@ -8459,7 +8462,8 @@ class OverlayView: NSView {
             if event.modifierFlags.contains(.command) {
                 // Cmd+C, Cmd+V, Cmd+X, Cmd+A, Cmd+Z are handled in performKeyEquivalent.
                 // Only Cmd+S and zoom shortcuts remain here.
-                if event.charactersIgnoringModifiers == "s" {
+                // Use keyCode for letters so shortcuts work with any keyboard layout.
+                if event.keyCode == 1 {  // S
                     if state == .selected {
                         overlayDelegate?.overlayViewDidRequestSave()
                     }
