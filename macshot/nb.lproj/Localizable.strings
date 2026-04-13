@@ -31,7 +31,8 @@
 "Open from Clipboard" = "\U00C5pne fra utklippstavlen";
 "Preferences..." = "Innstillinger\U2026";
 "Check for Updates..." = "Se etter oppdateringer\U2026";
-"Quit macshot" = "Avslutt macshot";
+"Quit macshot" = "Avslutt MacShot";
+"About MacShot" = "About MacShot";
 "No recent captures" = "Ingen nylige opptak";
 "Clear History" = "T\U00F8m historikk";
 
@@ -170,7 +171,7 @@
 "Copy to clipboard" = "Kopier til utklippstavlen";
 
 /* Preferences - General */
-"macshot Preferences" = "macshot-innstillinger";
+"macshot Preferences" = "MacShot-innstillinger";
 "General" = "Generelt";
 "Interface" = "Interface";
 "Interface Options" = "Interface Options";
@@ -194,7 +195,7 @@
 "Capture mouse cursor in screenshot" = "Ta med musepeker i skjermbilde";
 "Use window title in saved filename" = "Bruk vindustittel i lagret filnavn";
 "Hide menu bar icon" = "Skjul menylinje-ikon";
-"Hotkeys still work. To show the icon again, re-launch macshot." = "Hurtigtastene fungerer fortsatt. For \U00E5 vise ikonet igjen, start macshot p\U00E5 nytt.";
+"Hotkeys still work. To show the icon again, re-launch macshot." = "Hurtigtastene fungerer fortsatt. For \U00E5 vise ikonet igjen, start MacShot p\U00E5 nytt.";
 "Check for updates automatically" = "Se etter oppdateringer automatisk";
 "Check for beta updates" = "Se etter betaoppdateringer";
 "Thumbnail" = "Miniatyrbilde";
@@ -310,7 +311,7 @@
 "Video upload requires Google Drive or S3" = "Videoopplasting krever Google Drive eller S3";
 
 /* Preferences - About */
-"macshot" = "macshot";
+"macshot" = "MacShot";
 "Version %@ (%@)" = "Versjon %@ (%@)";
 "Made by" = "Laget av";
 "Licensed under the GPLv3" = "Lisensiert under GPLv3";
@@ -321,23 +322,23 @@
 "Copy an image to the clipboard first, then try again." = "Kopier et bilde til utklippstavlen f\U00F8rst, og pr\U00F8v igjen.";
 "OK" = "OK";
 "Accessibility Access Required" = "Tilgjengelighetstilgang p\U00E5krevd";
-"macshot needs Accessibility permission to auto-scroll other apps. Please grant access in System Settings, then try again." = "macshot trenger tilgjengelighetstillatelse for \U00E5 autorulling i andre apper. Gi tilgang i Systeminnstillinger, og pr\U00F8v igjen.";
-"macshot needs Accessibility permission for scroll capture. Please grant access in System Settings, then try again." = "macshot trenger tilgjengelighets­tillatelse for rullefangst. Gi tilgang i Systeminnstillinger og prøv igjen.";
+"macshot needs Accessibility permission to auto-scroll other apps. Please grant access in System Settings, then try again." = "MacShot trenger tilgjengelighetstillatelse for \U00E5 autorulling i andre apper. Gi tilgang i Systeminnstillinger, og pr\U00F8v igjen.";
+"macshot needs Accessibility permission for scroll capture. Please grant access in System Settings, then try again." = "MacShot trenger tilgjengelighets­tillatelse for rullefangst. Gi tilgang i Systeminnstillinger og prøv igjen.";
 "Open Settings" = "\U00C5pne innstillinger";
 "Cancel" = "Avbryt";
 "Microphone Access Required" = "Mikrofontilgang p\U00E5krevd";
-"macshot needs microphone permission to record voice audio. Open System Settings to grant access." = "macshot trenger mikrofontillatelse for \U00E5 ta opp lyd. \U00C5pne Systeminnstillinger for \U00E5 gi tilgang.";
+"macshot needs microphone permission to record voice audio. Open System Settings to grant access." = "MacShot trenger mikrofontillatelse for \U00E5 ta opp lyd. \U00C5pne Systeminnstillinger for \U00E5 gi tilgang.";
 "Upload to Google Drive?" = "Laste opp til Google Drive?";
 "Upload to S3?" = "Laste opp til S3?";
 "Upload to imgbb.com?" = "Laste opp til imgbb.com?";
 "Your screenshot will be uploaded." = "Skjermbildet ditt vil bli lastet opp.";
 
 /* Permission Onboarding */
-"Welcome to macshot" = "Velkommen til macshot";
-"macshot needs one permission" = "macshot trenger \U00E9n tillatelse";
+"Welcome to macshot" = "Velkommen til MacShot";
+"macshot needs one permission" = "MacShot trenger \U00E9n tillatelse";
 "Screen Recording not yet granted" = "Skjermopptak er ikke gitt enn\U00E5";
 "Screen Recording granted!" = "Skjermopptak er gitt!";
-"Enable macshot, then try taking a screenshot" = "Aktiver macshot, og pr\U00F8v \U00E5 ta et skjermbilde";
+"Enable macshot, then try taking a screenshot" = "Aktiver MacShot, og pr\U00F8v \U00E5 ta et skjermbilde";
 "Open Screen Recording Settings" = "\U00C5pne innstillinger for skjermopptak";
 "Continue" = "Fortsett";
 
@@ -367,7 +368,7 @@
 "Path copied!" = "Sti kopiert!";
 
 /* Video Editor */
-"macshot Video Editor" = "macshot Videoredigering";
+"macshot Video Editor" = "MacShot Videoredigering";
 "%@ selected" = "%@ valgt";
 "Exporting..." = "Eksporterer\U2026";
 "Export failed" = "Eksport mislyktes";
@@ -412,8 +413,8 @@
 
 /* Recording — Input Monitoring Permission */
 "Input Monitoring Required" = "Inngangsoverv\U00E5king p\U00E5krevd";
-"macshot needs Input Monitoring permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "macshot trenger tillatelse for inngangsoverv\U00E5king for \U00E5 vise tastetrykk under opptak. Gi tilgang i System Settings, og pr\U00F8v igjen.";
-"macshot needs Accessibility permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "macshot trenger tilgjengelighetstillatelse for \U00E5 vise tastetrykk under opptak. Gi tilgang i System Settings, og pr\U00F8v igjen.";
+"macshot needs Input Monitoring permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "MacShot trenger tillatelse for inngangsoverv\U00E5king for \U00E5 vise tastetrykk under opptak. Gi tilgang i System Settings, og pr\U00F8v igjen.";
+"macshot needs Accessibility permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "MacShot trenger tilgjengelighetstillatelse for \U00E5 vise tastetrykk under opptak. Gi tilgang i System Settings, og pr\U00F8v igjen.";
 
 /* Recording — Keystroke Overlay */
 "Show Keystrokes" = "Vis tastetrykk";
@@ -429,7 +430,7 @@
 /* Webcam Overlay */
 "Webcam Overlay" = "Webkameraoverlegg";
 "Camera Access Required" = "Kameratilgang p\U00E5krevd";
-"macshot needs camera permission for the webcam overlay. Open System Settings to grant access." = "macshot trenger kameratillatelse for webkameraoverlegget. \U00C5pne Systeminnstillinger for \U00E5 gi tilgang.";
+"macshot needs camera permission for the webcam overlay. Open System Settings to grant access." = "MacShot trenger kameratillatelse for webkameraoverlegget. \U00C5pne Systeminnstillinger for \U00E5 gi tilgang.";
 "Webcam" = "Webkamera";
 "Bottom Right" = "Nederst til h\U00F8yre";
 "Bottom Left" = "Nederst til venstre";
@@ -445,7 +446,7 @@
 
 /* New Strings */
 "Settings..." = "Innstillinger...";
-"macshot Settings" = "macshot-innstillinger";
+"macshot Settings" = "MacShot-innstillinger";
 "Also open in Editor" = "\U00C5pne ogs\U00E5 i redigering";
 "Hide controls" = "Skjul kontroller";
 "Hide recording controls" = "Skjul opptakskontroller";
@@ -497,7 +498,7 @@
 "Clear History?" = "Tøm historikk?";
 "This will permanently delete all screenshots from history." = "Dette vil slette alle skjermbilder fra historikken permanent.";
 "Click \"Set\" and press a key combination with at least one modifier (⌘, ⌥, ⌃, ⇧) to set a shortcut." = "Klikk \"Angi\" og trykk en tastekombinasjon med minst én modifikatortast (⌘, ⌥, ⌃, ⇧) for å angi en snarvei.";
-"Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private — nothing is shared publicly." = "Filer lastes opp til en \"macshot\"-mappe i Google Disk. Alt forblir privat — ingenting deles offentlig.";
+"Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private — nothing is shared publicly." = "Filer lastes opp til en \"MacShot\"-mappe i Google Disk. Alt forblir privat — ingenting deles offentlig.";
 
 "Pressure" = "Trykk";
 

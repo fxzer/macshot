@@ -177,9 +177,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         mainMenu.addItem(appMenuItem)
 
         let appMenu = NSMenu()
-        appMenu.addItem(withTitle: "About macshot", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
+        appMenu.addItem(withTitle: L("About MacShot"), action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
         appMenu.addItem(NSMenuItem.separator())
-        appMenu.addItem(withTitle: "Quit macshot", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        appMenu.addItem(withTitle: L("Quit MacShot"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         appMenuItem.submenu = appMenu
 
         NSApp.mainMenu = mainMenu
@@ -200,7 +200,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
                 img.size = NSSize(width: 18, height: 18)
                 button.image = img
             } else {
-                button.title = "macshot"
+                button.title = "MacShot"
             }
             // Use custom click handler so we can dismiss modals before showing the menu
             button.target = self

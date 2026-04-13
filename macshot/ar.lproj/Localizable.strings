@@ -31,7 +31,8 @@
 "Open from Clipboard" = "فتح من الحافظة";
 "Preferences..." = "التفضيلات...";
 "Check for Updates..." = "التحقق من التحديثات...";
-"Quit macshot" = "إنهاء macshot";
+"Quit macshot" = "إنهاء MacShot";
+"About MacShot" = "About MacShot";
 "No recent captures" = "لا توجد التقاطات حديثة";
 "Clear History" = "مسح السجل";
 
@@ -170,7 +171,7 @@
 "Copy to clipboard" = "نسخ إلى الحافظة";
 
 /* Preferences - General */
-"macshot Preferences" = "تفضيلات macshot";
+"macshot Preferences" = "تفضيلات MacShot";
 "General" = "عام";
 "Interface" = "Interface";
 "Interface Options" = "Interface Options";
@@ -194,7 +195,7 @@
 "Capture mouse cursor in screenshot" = "التقاط مؤشر الفأرة في لقطة الشاشة";
 "Use window title in saved filename" = "استخدام عنوان النافذة في اسم الملف المحفوظ";
 "Hide menu bar icon" = "إخفاء أيقونة شريط القوائم";
-"Hotkeys still work. To show the icon again, re-launch macshot." = "الاختصارات لا تزال تعمل. لإظهار الأيقونة مجددًا، أعد تشغيل macshot.";
+"Hotkeys still work. To show the icon again, re-launch macshot." = "الاختصارات لا تزال تعمل. لإظهار الأيقونة مجددًا، أعد تشغيل MacShot.";
 "Check for updates automatically" = "التحقق من التحديثات تلقائيًا";
 "Check for beta updates" = "التحقق من التحديثات التجريبية";
 "Thumbnail" = "صورة مصغرة";
@@ -310,7 +311,7 @@
 "Video upload requires Google Drive or S3" = "رفع الفيديو يتطلب Google Drive أو S3";
 
 /* Preferences - About */
-"macshot" = "macshot";
+"macshot" = "MacShot";
 "Version %@ (%@)" = "الإصدار %@ (%@)";
 "Made by" = "من تطوير";
 "Licensed under the GPLv3" = "مرخّص بموجب GPLv3";
@@ -321,23 +322,23 @@
 "Copy an image to the clipboard first, then try again." = "انسخ صورة إلى الحافظة أولًا، ثم حاول مجددًا.";
 "OK" = "موافق";
 "Accessibility Access Required" = "مطلوب إذن الوصول";
-"macshot needs Accessibility permission to auto-scroll other apps. Please grant access in System Settings, then try again." = "يحتاج macshot إلى إذن تسهيلات الاستخدام للتمرير التلقائي في التطبيقات الأخرى. يرجى منح الإذن في إعدادات النظام، ثم المحاولة مجددًا.";
-"macshot needs Accessibility permission for scroll capture. Please grant access in System Settings, then try again." = "يحتاج macshot إلى إذن إمكانية الوصول لالتقاط التمرير. يرجى منح الوصول في إعدادات النظام، ثم حاول مرة أخرى.";
+"macshot needs Accessibility permission to auto-scroll other apps. Please grant access in System Settings, then try again." = "يحتاج MacShot إلى إذن تسهيلات الاستخدام للتمرير التلقائي في التطبيقات الأخرى. يرجى منح الإذن في إعدادات النظام، ثم المحاولة مجددًا.";
+"macshot needs Accessibility permission for scroll capture. Please grant access in System Settings, then try again." = "يحتاج MacShot إلى إذن إمكانية الوصول لالتقاط التمرير. يرجى منح الوصول في إعدادات النظام، ثم حاول مرة أخرى.";
 "Open Settings" = "فتح الإعدادات";
 "Cancel" = "إلغاء";
 "Microphone Access Required" = "مطلوب إذن الميكروفون";
-"macshot needs microphone permission to record voice audio. Open System Settings to grant access." = "يحتاج macshot إلى إذن الميكروفون لتسجيل الصوت. افتح إعدادات النظام لمنح الإذن.";
+"macshot needs microphone permission to record voice audio. Open System Settings to grant access." = "يحتاج MacShot إلى إذن الميكروفون لتسجيل الصوت. افتح إعدادات النظام لمنح الإذن.";
 "Upload to Google Drive?" = "الرفع إلى Google Drive؟";
 "Upload to S3?" = "الرفع إلى S3؟";
 "Upload to imgbb.com?" = "الرفع إلى imgbb.com؟";
 "Your screenshot will be uploaded." = "سيتم رفع لقطة الشاشة.";
 
 /* Permission Onboarding */
-"Welcome to macshot" = "مرحبًا بك في macshot";
-"macshot needs one permission" = "يحتاج macshot إلى إذن واحد";
+"Welcome to macshot" = "مرحبًا بك في MacShot";
+"macshot needs one permission" = "يحتاج MacShot إلى إذن واحد";
 "Screen Recording not yet granted" = "لم يتم منح إذن تسجيل الشاشة بعد";
 "Screen Recording granted!" = "تم منح إذن تسجيل الشاشة!";
-"Enable macshot, then try taking a screenshot" = "فعّل macshot، ثم حاول التقاط الشاشة";
+"Enable macshot, then try taking a screenshot" = "فعّل MacShot، ثم حاول التقاط الشاشة";
 "Open Screen Recording Settings" = "فتح إعدادات تسجيل الشاشة";
 "Continue" = "متابعة";
 
@@ -367,7 +368,7 @@
 "Path copied!" = "تم نسخ المسار!";
 
 /* Video Editor */
-"macshot Video Editor" = "محرر فيديو macshot";
+"macshot Video Editor" = "محرر فيديو MacShot";
 "%@ selected" = "%@ محدد";
 "Exporting..." = "جارٍ التصدير...";
 "Export failed" = "فشل التصدير";
@@ -412,8 +413,8 @@
 
 /* Recording — Input Monitoring Permission */
 "Input Monitoring Required" = "مطلوب إذن مراقبة الإدخال";
-"macshot needs Input Monitoring permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "يحتاج macshot إلى إذن مراقبة الإدخال لعرض ضغطات المفاتيح أثناء التسجيل. يرجى منح الإذن في System Settings، ثم المحاولة مجددًا.";
-"macshot needs Accessibility permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "يحتاج macshot إلى إذن تسهيلات الاستخدام لعرض ضغطات المفاتيح أثناء التسجيل. يرجى منح الإذن في System Settings، ثم المحاولة مجددًا.";
+"macshot needs Input Monitoring permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "يحتاج MacShot إلى إذن مراقبة الإدخال لعرض ضغطات المفاتيح أثناء التسجيل. يرجى منح الإذن في System Settings، ثم المحاولة مجددًا.";
+"macshot needs Accessibility permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "يحتاج MacShot إلى إذن تسهيلات الاستخدام لعرض ضغطات المفاتيح أثناء التسجيل. يرجى منح الإذن في System Settings، ثم المحاولة مجددًا.";
 
 /* Recording — Keystroke Overlay */
 "Show Keystrokes" = "عرض ضغطات المفاتيح";
@@ -429,7 +430,7 @@
 /* Webcam Overlay */
 "Webcam Overlay" = "طبقة كاميرا الويب";
 "Camera Access Required" = "مطلوب إذن الكاميرا";
-"macshot needs camera permission for the webcam overlay. Open System Settings to grant access." = "يحتاج macshot إلى إذن الكاميرا لطبقة كاميرا الويب. افتح إعدادات النظام لمنح الإذن.";
+"macshot needs camera permission for the webcam overlay. Open System Settings to grant access." = "يحتاج MacShot إلى إذن الكاميرا لطبقة كاميرا الويب. افتح إعدادات النظام لمنح الإذن.";
 "Webcam" = "كاميرا الويب";
 "Bottom Right" = "أسفل اليمين";
 "Bottom Left" = "أسفل اليسار";
@@ -445,7 +446,7 @@
 
 /* New Strings */
 "Settings..." = "الإعدادات...";
-"macshot Settings" = "إعدادات macshot";
+"macshot Settings" = "إعدادات MacShot";
 "Also open in Editor" = "فتح في المحرر أيضًا";
 "Hide controls" = "إخفاء عناصر التحكم";
 "Hide recording controls" = "إخفاء عناصر تحكم التسجيل";
@@ -497,7 +498,7 @@
 "Clear History?" = "مسح السجل؟";
 "This will permanently delete all screenshots from history." = "سيؤدي هذا إلى حذف جميع لقطات الشاشة من السجل نهائيًا.";
 "Click \"Set\" and press a key combination with at least one modifier (⌘, ⌥, ⌃, ⇧) to set a shortcut." = "انقر على \"تعيين\" واضغط على مجموعة مفاتيح تحتوي على معدِّل واحد على الأقل (⌘, ⌥, ⌃, ⇧) لتعيين اختصار.";
-"Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private — nothing is shared publicly." = "يتم تحميل الملفات إلى مجلد \"macshot\" في Google Drive الخاص بك. كل شيء يبقى خاصًا — لا يُشارك أي شيء بشكل عام.";
+"Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private — nothing is shared publicly." = "يتم تحميل الملفات إلى مجلد \"MacShot\" في Google Drive الخاص بك. كل شيء يبقى خاصًا — لا يُشارك أي شيء بشكل عام.";
 
 "Pressure" = "الضغط";
 

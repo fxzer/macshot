@@ -32,7 +32,8 @@
 "Settings..." = "Settings...";
 "Settings…" = "Settings…";
 "Check for Updates..." = "Check for Updates...";
-"Quit macshot" = "Quit macshot";
+"Quit macshot" = "Quit MacShot";
+"About MacShot" = "About MacShot";
 "No recent captures" = "No recent captures";
 "Clear History" = "Clear History";
 
@@ -121,7 +122,7 @@
 "Record Microphone" = "Record Microphone";
 "Webcam Overlay" = "Webcam Overlay";
 "Camera Access Required" = "Camera Access Required";
-"macshot needs camera permission for the webcam overlay. Open System Settings to grant access." = "macshot needs camera permission for the webcam overlay. Open System Settings to grant access.";
+"macshot needs camera permission for the webcam overlay. Open System Settings to grant access." = "MacShot needs camera permission for the webcam overlay. Open System Settings to grant access.";
 "Recording Settings" = "Recording Settings";
 "Webcam" = "Webcam";
 "Bottom Right" = "Bottom Right";
@@ -198,7 +199,7 @@
 "Copy to clipboard" = "Copy to clipboard";
 
 /* Preferences - General */
-"macshot Preferences" = "macshot Preferences";
+"macshot Preferences" = "MacShot Preferences";
 "General" = "General";
 "Interface" = "Interface";
 "Interface Options" = "Interface Options";
@@ -237,7 +238,7 @@
 "Generic RGB" = "Generic RGB";
 "Hide menu bar icon" = "Hide menu bar icon";
 "Show menu bar icon" = "Show menu bar icon";
-"Hotkeys still work. To show the icon again, re-launch macshot." = "Hotkeys still work. To show the icon again, re-launch macshot.";
+"Hotkeys still work. To show the icon again, re-launch macshot." = "Hotkeys still work. To show the icon again, re-launch MacShot.";
 "Check for updates automatically" = "Check for updates automatically";
 "Check for beta updates" = "Check for beta updates";
 "Thumbnail" = "Thumbnail";
@@ -384,7 +385,7 @@
 "Video upload requires Google Drive or S3" = "Video upload requires Google Drive or S3";
 
 /* Preferences - About */
-"macshot" = "macshot";
+"macshot" = "MacShot";
 "Version %@ (%@)" = "Version %@ (%@)";
 "Made by" = "Made by";
 "Licensed under the GPLv3" = "Licensed under the GPLv3";
@@ -395,23 +396,23 @@
 "Copy an image to the clipboard first, then try again." = "Copy an image to the clipboard first, then try again.";
 "OK" = "OK";
 "Accessibility Access Required" = "Accessibility Access Required";
-"macshot needs Accessibility permission to auto-scroll other apps. Please grant access in System Settings, then try again." = "macshot needs Accessibility permission to auto-scroll other apps. Please grant access in System Settings, then try again.";
-"macshot needs Accessibility permission for scroll capture. Please grant access in System Settings, then try again." = "macshot needs Accessibility permission for scroll capture. Please grant access in System Settings, then try again.";
+"macshot needs Accessibility permission to auto-scroll other apps. Please grant access in System Settings, then try again." = "MacShot needs Accessibility permission to auto-scroll other apps. Please grant access in System Settings, then try again.";
+"macshot needs Accessibility permission for scroll capture. Please grant access in System Settings, then try again." = "MacShot needs Accessibility permission for scroll capture. Please grant access in System Settings, then try again.";
 "Open Settings" = "Open Settings";
 "Cancel" = "Cancel";
 "Microphone Access Required" = "Microphone Access Required";
-"macshot needs microphone permission to record voice audio. Open System Settings to grant access." = "macshot needs microphone permission to record voice audio. Open System Settings to grant access.";
+"macshot needs microphone permission to record voice audio. Open System Settings to grant access." = "MacShot needs microphone permission to record voice audio. Open System Settings to grant access.";
 "Upload to Google Drive?" = "Upload to Google Drive?";
 "Upload to S3?" = "Upload to S3?";
 "Upload to imgbb.com?" = "Upload to imgbb.com?";
 "Your screenshot will be uploaded." = "Your screenshot will be uploaded.";
 
 /* Permission Onboarding */
-"Welcome to macshot" = "Welcome to macshot";
-"macshot needs one permission" = "macshot needs one permission";
+"Welcome to macshot" = "Welcome to MacShot";
+"macshot needs one permission" = "MacShot needs one permission";
 "Screen Recording not yet granted" = "Screen Recording not yet granted";
 "Screen Recording granted!" = "Screen Recording granted!";
-"Enable macshot, then try taking a screenshot" = "Enable macshot, then try taking a screenshot";
+"Enable macshot, then try taking a screenshot" = "Enable MacShot, then try taking a screenshot";
 "Open Screen Recording Settings" = "Open Screen Recording Settings";
 "Continue" = "Continue";
 
@@ -441,7 +442,7 @@
 "Path copied!" = "Path copied!";
 
 /* Video Editor */
-"macshot Video Editor" = "macshot Video Editor";
+"macshot Video Editor" = "MacShot Video Editor";
 "%@ selected" = "%@ selected";
 "Exporting..." = "Exporting...";
 "Export failed" = "Export failed";
@@ -486,8 +487,8 @@
 
 /* Recording — Input Monitoring Permission */
 "Input Monitoring Required" = "Input Monitoring Required";
-"macshot needs Input Monitoring permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "macshot needs Input Monitoring permission to show keystrokes during recording. Please grant access in System Settings, then try again.";
-"macshot needs Accessibility permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "macshot needs Accessibility permission to show keystrokes during recording. Please grant access in System Settings, then try again.";
+"macshot needs Input Monitoring permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "MacShot needs Input Monitoring permission to show keystrokes during recording. Please grant access in System Settings, then try again.";
+"macshot needs Accessibility permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "MacShot needs Accessibility permission to show keystrokes during recording. Please grant access in System Settings, then try again.";
 
 /* Recording — Keystroke Overlay */
 "Show Keystrokes" = "Show Keystrokes";
@@ -501,7 +502,7 @@
 "Copied to clipboard!" = "Copied to clipboard!";
 
 /* Recently added strings */
-"macshot Settings" = "macshot Settings";
+"macshot Settings" = "MacShot Settings";
 "Also open in Editor" = "Also open in Editor";
 "Hide controls" = "Hide controls";
 "Hide recording controls" = "Hide recording controls";

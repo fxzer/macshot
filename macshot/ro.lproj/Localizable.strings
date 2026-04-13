@@ -31,7 +31,8 @@
 "Open from Clipboard" = "Deschide din clipboard";
 "Preferences..." = "Preferinte...";
 "Check for Updates..." = "Verifica actualizari...";
-"Quit macshot" = "Inchide macshot";
+"Quit macshot" = "Inchide MacShot";
+"About MacShot" = "About MacShot";
 "No recent captures" = "Nicio captura recenta";
 "Clear History" = "Sterge istoricul";
 
@@ -170,7 +171,7 @@
 "Copy to clipboard" = "Copiaza in clipboard";
 
 /* Preferences - General */
-"macshot Preferences" = "Preferinte macshot";
+"macshot Preferences" = "Preferinte MacShot";
 "General" = "General";
 "Interface" = "Interface";
 "Interface Options" = "Interface Options";
@@ -194,7 +195,7 @@
 "Capture mouse cursor in screenshot" = "Captura cursorul mouse-ului in captura de ecran";
 "Use window title in saved filename" = "Foloseste titlul ferestrei in numele fisierului salvat";
 "Hide menu bar icon" = "Ascunde pictograma din bara de meniu";
-"Hotkeys still work. To show the icon again, re-launch macshot." = "Scurtaturile functioneaza in continuare. Pentru a afisa din nou pictograma, reporneste macshot.";
+"Hotkeys still work. To show the icon again, re-launch macshot." = "Scurtaturile functioneaza in continuare. Pentru a afisa din nou pictograma, reporneste MacShot.";
 "Check for updates automatically" = "Verifica actualizarile automat";
 "Check for beta updates" = "Verifica actualizarile beta";
 "Thumbnail" = "Miniatura";
@@ -310,7 +311,7 @@
 "Video upload requires Google Drive or S3" = "Incarcarea video necesita Google Drive sau S3";
 
 /* Preferences - About */
-"macshot" = "macshot";
+"macshot" = "MacShot";
 "Version %@ (%@)" = "Versiunea %@ (%@)";
 "Made by" = "Creat de";
 "Licensed under the GPLv3" = "Licenta GPLv3";
@@ -321,23 +322,23 @@
 "Copy an image to the clipboard first, then try again." = "Copiaza mai intai o imagine in clipboard, apoi incearca din nou.";
 "OK" = "OK";
 "Accessibility Access Required" = "Acces de accesibilitate necesar";
-"macshot needs Accessibility permission to auto-scroll other apps. Please grant access in System Settings, then try again." = "macshot are nevoie de permisiunea de accesibilitate pentru a derula automat alte aplicatii. Acorda acces din Setarile sistemului, apoi incearca din nou.";
-"macshot needs Accessibility permission for scroll capture. Please grant access in System Settings, then try again." = "macshot are nevoie de permisiunea Accesibilitate pentru captura cu derulare. Acordați acces în Setările Sistemului și încercați din nou.";
+"macshot needs Accessibility permission to auto-scroll other apps. Please grant access in System Settings, then try again." = "MacShot are nevoie de permisiunea de accesibilitate pentru a derula automat alte aplicatii. Acorda acces din Setarile sistemului, apoi incearca din nou.";
+"macshot needs Accessibility permission for scroll capture. Please grant access in System Settings, then try again." = "MacShot are nevoie de permisiunea Accesibilitate pentru captura cu derulare. Acordați acces în Setările Sistemului și încercați din nou.";
 "Open Settings" = "Deschide setarile";
 "Cancel" = "Anuleaza";
 "Microphone Access Required" = "Acces la microfon necesar";
-"macshot needs microphone permission to record voice audio. Open System Settings to grant access." = "macshot are nevoie de permisiunea microfonului pentru a inregistra audio vocal. Deschide Setarile sistemului pentru a acorda acces.";
+"macshot needs microphone permission to record voice audio. Open System Settings to grant access." = "MacShot are nevoie de permisiunea microfonului pentru a inregistra audio vocal. Deschide Setarile sistemului pentru a acorda acces.";
 "Upload to Google Drive?" = "Incarca pe Google Drive?";
 "Upload to S3?" = "Incarca pe S3?";
 "Upload to imgbb.com?" = "Incarca pe imgbb.com?";
 "Your screenshot will be uploaded." = "Captura ta de ecran va fi incarcata.";
 
 /* Permission Onboarding */
-"Welcome to macshot" = "Bun venit in macshot";
-"macshot needs one permission" = "macshot are nevoie de o permisiune";
+"Welcome to macshot" = "Bun venit in MacShot";
+"macshot needs one permission" = "MacShot are nevoie de o permisiune";
 "Screen Recording not yet granted" = "Inregistrarea ecranului nu a fost inca acordata";
 "Screen Recording granted!" = "Inregistrarea ecranului a fost acordata!";
-"Enable macshot, then try taking a screenshot" = "Activeaza macshot, apoi incearca sa faci o captura de ecran";
+"Enable macshot, then try taking a screenshot" = "Activeaza MacShot, apoi incearca sa faci o captura de ecran";
 "Open Screen Recording Settings" = "Deschide setarile de inregistrare a ecranului";
 "Continue" = "Continua";
 
@@ -367,7 +368,7 @@
 "Path copied!" = "Cale copiata!";
 
 /* Video Editor */
-"macshot Video Editor" = "macshot Editor Video";
+"macshot Video Editor" = "MacShot Editor Video";
 "%@ selected" = "%@ selectat";
 "Exporting..." = "Se exporta...";
 "Export failed" = "Exportul a esuat";
@@ -412,8 +413,8 @@
 
 /* Recording — Input Monitoring Permission */
 "Input Monitoring Required" = "Monitorizarea tastaturii este necesara";
-"macshot needs Input Monitoring permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "macshot are nevoie de permisiunea Monitorizare intrare pentru a afisa apasarile de taste in timpul inregistrarii. Acorda acces din System Settings, apoi incearca din nou.";
-"macshot needs Accessibility permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "macshot are nevoie de permisiunea de accesibilitate pentru a afisa apasarile de taste in timpul inregistrarii. Acorda acces din System Settings, apoi incearca din nou.";
+"macshot needs Input Monitoring permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "MacShot are nevoie de permisiunea Monitorizare intrare pentru a afisa apasarile de taste in timpul inregistrarii. Acorda acces din System Settings, apoi incearca din nou.";
+"macshot needs Accessibility permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "MacShot are nevoie de permisiunea de accesibilitate pentru a afisa apasarile de taste in timpul inregistrarii. Acorda acces din System Settings, apoi incearca din nou.";
 
 /* Recording — Keystroke Overlay */
 "Show Keystrokes" = "Afiseaza apasarile de taste";
@@ -429,7 +430,7 @@
 /* Webcam Overlay */
 "Webcam Overlay" = "Suprapunere webcam";
 "Camera Access Required" = "Acces la camera necesar";
-"macshot needs camera permission for the webcam overlay. Open System Settings to grant access." = "macshot are nevoie de permisiunea camerei pentru suprapunerea webcam. Deschide Setarile sistemului pentru a acorda acces.";
+"macshot needs camera permission for the webcam overlay. Open System Settings to grant access." = "MacShot are nevoie de permisiunea camerei pentru suprapunerea webcam. Deschide Setarile sistemului pentru a acorda acces.";
 "Webcam" = "Webcam";
 "Bottom Right" = "Dreapta jos";
 "Bottom Left" = "Stanga jos";
@@ -445,7 +446,7 @@
 
 /* New Strings */
 "Settings..." = "Setari...";
-"macshot Settings" = "Setari macshot";
+"macshot Settings" = "Setari MacShot";
 "Also open in Editor" = "Deschide si in editor";
 "Hide controls" = "Ascunde controalele";
 "Hide recording controls" = "Ascunde controalele de inregistrare";
@@ -495,7 +496,7 @@
 "Clear History?" = "Ștergi istoricul?";
 "This will permanently delete all screenshots from history." = "Aceasta va șterge definitiv toate capturile de ecran din istoric.";
 "Click \"Set\" and press a key combination with at least one modifier (⌘, ⌥, ⌃, ⇧) to set a shortcut." = "Apasă \"Setează\" și tastează o combinație de taste cu cel puțin un modificator (⌘, ⌥, ⌃, ⇧) pentru a seta o scurtătură.";
-"Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private — nothing is shared publicly." = "Fișierele sunt încărcate într-un folder \"macshot\" din Google Drive-ul tău. Totul rămâne privat — nimic nu este distribuit public.";
+"Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private — nothing is shared publicly." = "Fișierele sunt încărcate într-un folder \"MacShot\" din Google Drive-ul tău. Totul rămâne privat — nimic nu este distribuit public.";
 
 "Pressure" = "Presiune";
 

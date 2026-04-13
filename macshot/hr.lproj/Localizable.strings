@@ -31,7 +31,8 @@
 "Open from Clipboard" = "Otvori iz meduspremnika";
 "Preferences..." = "Postavke...";
 "Check for Updates..." = "Provjeri azuriranja...";
-"Quit macshot" = "Zatvori macshot";
+"Quit macshot" = "Zatvori MacShot";
+"About MacShot" = "About MacShot";
 "No recent captures" = "Nema nedavnih snimanja";
 "Clear History" = "Ocisti povijest";
 
@@ -170,7 +171,7 @@
 "Copy to clipboard" = "Kopiraj u meduspremnik";
 
 /* Preferences - General */
-"macshot Preferences" = "macshot Postavke";
+"macshot Preferences" = "MacShot Postavke";
 "General" = "Opcenito";
 "Interface" = "Interface";
 "Interface Options" = "Interface Options";
@@ -194,7 +195,7 @@
 "Capture mouse cursor in screenshot" = "Snimi kursor misa na snimci zaslona";
 "Use window title in saved filename" = "Koristi naslov prozora u nazivu datoteke";
 "Hide menu bar icon" = "Sakrij ikonu u traci izbornika";
-"Hotkeys still work. To show the icon again, re-launch macshot." = "Tipkovni precaci i dalje rade. Za ponovni prikaz ikone ponovno pokrenite macshot.";
+"Hotkeys still work. To show the icon again, re-launch macshot." = "Tipkovni precaci i dalje rade. Za ponovni prikaz ikone ponovno pokrenite MacShot.";
 "Check for updates automatically" = "Automatski provjeravaj azuriranja";
 "Check for beta updates" = "Provjeri beta ažuriranja";
 "Thumbnail" = "Minijatura";
@@ -310,7 +311,7 @@
 "Video upload requires Google Drive or S3" = "Ucitavanje videa zahtijeva Google Drive ili S3";
 
 /* Preferences - About */
-"macshot" = "macshot";
+"macshot" = "MacShot";
 "Version %@ (%@)" = "Verzija %@ (%@)";
 "Made by" = "Izradio";
 "Licensed under the GPLv3" = "Licencirano pod GPLv3";
@@ -321,23 +322,23 @@
 "Copy an image to the clipboard first, then try again." = "Najprije kopirajte sliku u meduspremnik, zatim pokusajte ponovo.";
 "OK" = "U redu";
 "Accessibility Access Required" = "Potreban pristup pristupacnosti";
-"macshot needs Accessibility permission to auto-scroll other apps. Please grant access in System Settings, then try again." = "macshot treba dozvolu pristupacnosti za automatsko pomicanje drugih aplikacija. Odobrite pristup u Postavkama sustava, zatim pokusajte ponovo.";
-"macshot needs Accessibility permission for scroll capture. Please grant access in System Settings, then try again." = "macshot treba dozvolu pristupačnosti za snimanje pomicanjem. Odobrite pristup u Postavkama sustava i pokušajte ponovno.";
+"macshot needs Accessibility permission to auto-scroll other apps. Please grant access in System Settings, then try again." = "MacShot treba dozvolu pristupacnosti za automatsko pomicanje drugih aplikacija. Odobrite pristup u Postavkama sustava, zatim pokusajte ponovo.";
+"macshot needs Accessibility permission for scroll capture. Please grant access in System Settings, then try again." = "MacShot treba dozvolu pristupačnosti za snimanje pomicanjem. Odobrite pristup u Postavkama sustava i pokušajte ponovno.";
 "Open Settings" = "Otvori postavke";
 "Cancel" = "Odustani";
 "Microphone Access Required" = "Potreban pristup mikrofonu";
-"macshot needs microphone permission to record voice audio. Open System Settings to grant access." = "macshot treba dozvolu mikrofona za snimanje glasa. Otvorite Postavke sustava za odobravanje pristupa.";
+"macshot needs microphone permission to record voice audio. Open System Settings to grant access." = "MacShot treba dozvolu mikrofona za snimanje glasa. Otvorite Postavke sustava za odobravanje pristupa.";
 "Upload to Google Drive?" = "Ucitaj na Google Drive?";
 "Upload to S3?" = "Ucitaj na S3?";
 "Upload to imgbb.com?" = "Ucitaj na imgbb.com?";
 "Your screenshot will be uploaded." = "Vasa snimka zaslona ce biti ucitana.";
 
 /* Permission Onboarding */
-"Welcome to macshot" = "Dobrodosli u macshot";
-"macshot needs one permission" = "macshot treba jednu dozvolu";
+"Welcome to macshot" = "Dobrodosli u MacShot";
+"macshot needs one permission" = "MacShot treba jednu dozvolu";
 "Screen Recording not yet granted" = "Snimanje zaslona jos nije odobreno";
 "Screen Recording granted!" = "Snimanje zaslona odobreno!";
-"Enable macshot, then try taking a screenshot" = "Omogucite macshot, zatim pokusajte snimiti zaslon";
+"Enable macshot, then try taking a screenshot" = "Omogucite MacShot, zatim pokusajte snimiti zaslon";
 "Open Screen Recording Settings" = "Otvori postavke snimanja zaslona";
 "Continue" = "Nastavi";
 
@@ -367,7 +368,7 @@
 "Path copied!" = "Putanja kopirana!";
 
 /* Video Editor */
-"macshot Video Editor" = "macshot Video uredivack";
+"macshot Video Editor" = "MacShot Video uredivack";
 "%@ selected" = "%@ odabrano";
 "Exporting..." = "Izvoz...";
 "Export failed" = "Izvoz neuspjeo";
@@ -412,8 +413,8 @@
 
 /* Recording — Input Monitoring Permission */
 "Input Monitoring Required" = "Potrebno pracenje unosa";
-"macshot needs Input Monitoring permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "macshot treba dozvolu pracenja unosa za prikaz pritisaka tipki tijekom snimanja. Odobrite pristup u System Settings, zatim pokusajte ponovo.";
-"macshot needs Accessibility permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "macshot treba dozvolu pristupacnosti za prikaz pritisaka tipki tijekom snimanja. Odobrite pristup u System Settings, zatim pokusajte ponovo.";
+"macshot needs Input Monitoring permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "MacShot treba dozvolu pracenja unosa za prikaz pritisaka tipki tijekom snimanja. Odobrite pristup u System Settings, zatim pokusajte ponovo.";
+"macshot needs Accessibility permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "MacShot treba dozvolu pristupacnosti za prikaz pritisaka tipki tijekom snimanja. Odobrite pristup u System Settings, zatim pokusajte ponovo.";
 
 /* Recording — Keystroke Overlay */
 "Show Keystrokes" = "Prikazi pritiske tipki";
@@ -429,7 +430,7 @@
 /* Webcam Overlay */
 "Webcam Overlay" = "Preklapanje web-kamere";
 "Camera Access Required" = "Potreban pristup kameri";
-"macshot needs camera permission for the webcam overlay. Open System Settings to grant access." = "macshot treba dozvolu kamere za preklapanje web-kamere. Otvorite Postavke sustava za odobravanje pristupa.";
+"macshot needs camera permission for the webcam overlay. Open System Settings to grant access." = "MacShot treba dozvolu kamere za preklapanje web-kamere. Otvorite Postavke sustava za odobravanje pristupa.";
 "Webcam" = "Web-kamera";
 "Bottom Right" = "Dolje desno";
 "Bottom Left" = "Dolje lijevo";
@@ -445,7 +446,7 @@
 
 /* New Strings */
 "Settings..." = "Postavke...";
-"macshot Settings" = "macshot Postavke";
+"macshot Settings" = "MacShot Postavke";
 "Also open in Editor" = "Otvori i u uredivacku";
 "Hide controls" = "Sakrij kontrole";
 "Hide recording controls" = "Sakrij kontrole snimanja";
@@ -495,7 +496,7 @@
 "Clear History?" = "Obrisati povijest?";
 "This will permanently delete all screenshots from history." = "Ovo će trajno izbrisati sve snimke zaslona iz povijesti.";
 "Click \"Set\" and press a key combination with at least one modifier (⌘, ⌥, ⌃, ⇧) to set a shortcut." = "Kliknite \"Postavi\" i pritisnite kombinaciju tipki s barem jednim modifikatorom (⌘, ⌥, ⌃, ⇧) za postavljanje prečaca.";
-"Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private — nothing is shared publicly." = "Datoteke se učitavaju u mapu \"macshot\" na vašem Google Disku. Sve ostaje privatno — ništa se ne dijeli javno.";
+"Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private — nothing is shared publicly." = "Datoteke se učitavaju u mapu \"MacShot\" na vašem Google Disku. Sve ostaje privatno — ništa se ne dijeli javno.";
 
 "Pressure" = "Pritisak";
 

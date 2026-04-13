@@ -31,7 +31,8 @@
 "Open from Clipboard" = "ஒட்டுப்பலகையிலிருந்து திற";
 "Preferences..." = "விருப்பங்கள்...";
 "Check for Updates..." = "புதுப்பிப்புகளைச் சரிபார்...";
-"Quit macshot" = "macshot-ஐ நிறுத்து";
+"Quit macshot" = "MacShot-ஐ நிறுத்து";
+"About MacShot" = "About MacShot";
 "No recent captures" = "சமீபத்திய பிடிப்புகள் இல்லை";
 "Clear History" = "வரலாற்றை அழி";
 
@@ -170,7 +171,7 @@
 "Copy to clipboard" = "ஒட்டுப்பலகையில் நகலெடு";
 
 /* Preferences - General */
-"macshot Preferences" = "macshot விருப்பங்கள்";
+"macshot Preferences" = "MacShot விருப்பங்கள்";
 "General" = "பொது";
 "Interface" = "Interface";
 "Interface Options" = "Interface Options";
@@ -194,7 +195,7 @@
 "Capture mouse cursor in screenshot" = "திரைப்பிடிப்பில் சுட்டியைப் பிடி";
 "Use window title in saved filename" = "சேமிக்கும் கோப்புப் பெயரில் சாளரத் தலைப்பைப் பயன்படுத்து";
 "Hide menu bar icon" = "பட்டிப்பட்டை ஐகானை மறை";
-"Hotkeys still work. To show the icon again, re-launch macshot." = "விரைவு விசைகள் செயல்படும். ஐகானை மீண்டும் காட்ட, macshot-ஐ மறுதொடக்கம் செய்யுங்கள்.";
+"Hotkeys still work. To show the icon again, re-launch macshot." = "விரைவு விசைகள் செயல்படும். ஐகானை மீண்டும் காட்ட, MacShot-ஐ மறுதொடக்கம் செய்யுங்கள்.";
 "Check for updates automatically" = "புதுப்பிப்புகளைத் தானாகச் சரிபார்";
 "Check for beta updates" = "பீட்டா புதுப்பிப்புகளைச் சரிபார்";
 "Thumbnail" = "சிறுபடம்";
@@ -310,7 +311,7 @@
 "Video upload requires Google Drive or S3" = "காணொளி பதிவேற்றத்திற்கு Google Drive அல்லது S3 தேவை";
 
 /* Preferences - About */
-"macshot" = "macshot";
+"macshot" = "MacShot";
 "Version %@ (%@)" = "பதிப்பு %@ (%@)";
 "Made by" = "உருவாக்கியவர்";
 "Licensed under the GPLv3" = "GPLv3 உரிமத்தின் கீழ் வழங்கப்பட்டது";
@@ -321,23 +322,23 @@
 "Copy an image to the clipboard first, then try again." = "முதலில் ஒட்டுப்பலகையில் ஒரு படத்தை நகலெடுத்து, பின்னர் மீண்டும் முயற்சிக்கவும்.";
 "OK" = "சரி";
 "Accessibility Access Required" = "அணுகல்தன்மை அனுமதி தேவை";
-"macshot needs Accessibility permission to auto-scroll other apps. Please grant access in System Settings, then try again." = "macshot பிற பயன்பாடுகளை தானாக உருட்ட அணுகல்தன்மை அனுமதி தேவை. கணினி அமைப்புகளில் அணுகலை வழங்கி, மீண்டும் முயற்சிக்கவும்.";
-"macshot needs Accessibility permission for scroll capture. Please grant access in System Settings, then try again." = "ஸ்க்ரோல் கேப்சருக்கு macshot-க்கு அணுகல்தன்மை அனுமதி தேவை. கணினி அமைப்புகளில் அணுகலை வழங்கி, மீண்டும் முயற்சிக்கவும்.";
+"macshot needs Accessibility permission to auto-scroll other apps. Please grant access in System Settings, then try again." = "MacShot பிற பயன்பாடுகளை தானாக உருட்ட அணுகல்தன்மை அனுமதி தேவை. கணினி அமைப்புகளில் அணுகலை வழங்கி, மீண்டும் முயற்சிக்கவும்.";
+"macshot needs Accessibility permission for scroll capture. Please grant access in System Settings, then try again." = "ஸ்க்ரோல் கேப்சருக்கு MacShot-க்கு அணுகல்தன்மை அனுமதி தேவை. கணினி அமைப்புகளில் அணுகலை வழங்கி, மீண்டும் முயற்சிக்கவும்.";
 "Open Settings" = "அமைப்புகளைத் திற";
 "Cancel" = "ரத்துசெய்";
 "Microphone Access Required" = "ஒலிவாங்கி அணுகல் தேவை";
-"macshot needs microphone permission to record voice audio. Open System Settings to grant access." = "macshot குரல் ஒலியைப் பதிவு செய்ய ஒலிவாங்கி அனுமதி தேவை. அணுகலை வழங்க கணினி அமைப்புகளைத் திறக்கவும்.";
+"macshot needs microphone permission to record voice audio. Open System Settings to grant access." = "MacShot குரல் ஒலியைப் பதிவு செய்ய ஒலிவாங்கி அனுமதி தேவை. அணுகலை வழங்க கணினி அமைப்புகளைத் திறக்கவும்.";
 "Upload to Google Drive?" = "Google Drive இல் பதிவேற்றவா?";
 "Upload to S3?" = "S3 இல் பதிவேற்றவா?";
 "Upload to imgbb.com?" = "imgbb.com இல் பதிவேற்றவா?";
 "Your screenshot will be uploaded." = "உங்கள் திரைப்பிடிப்பு பதிவேற்றப்படும்.";
 
 /* Permission Onboarding */
-"Welcome to macshot" = "macshot க்கு வரவேற்கிறோம்";
-"macshot needs one permission" = "macshot க்கு ஒரு அனுமதி தேவை";
+"Welcome to macshot" = "MacShot க்கு வரவேற்கிறோம்";
+"macshot needs one permission" = "MacShot க்கு ஒரு அனுமதி தேவை";
 "Screen Recording not yet granted" = "திரைப் பதிவு இன்னும் வழங்கப்படவில்லை";
 "Screen Recording granted!" = "திரைப் பதிவு வழங்கப்பட்டது!";
-"Enable macshot, then try taking a screenshot" = "macshot ஐ இயக்கி, திரைப்பிடிப்பு எடுக்க முயற்சிக்கவும்";
+"Enable macshot, then try taking a screenshot" = "MacShot ஐ இயக்கி, திரைப்பிடிப்பு எடுக்க முயற்சிக்கவும்";
 "Open Screen Recording Settings" = "திரைப் பதிவு அமைப்புகளைத் திற";
 "Continue" = "தொடரவும்";
 
@@ -367,7 +368,7 @@
 "Path copied!" = "பாதை நகலெடுக்கப்பட்டது!";
 
 /* Video Editor */
-"macshot Video Editor" = "macshot காணொளி திருத்தி";
+"macshot Video Editor" = "MacShot காணொளி திருத்தி";
 "%@ selected" = "%@ தேர்ந்தெடுக்கப்பட்டது";
 "Exporting..." = "ஏற்றுமதி செய்கிறது...";
 "Export failed" = "ஏற்றுமதி தோல்வி";
@@ -412,8 +413,8 @@
 
 /* Recording — Input Monitoring Permission */
 "Input Monitoring Required" = "உள்ளீட்டு கண்காணிப்பு தேவை";
-"macshot needs Input Monitoring permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "பதிவின் போது விசை அழுத்தங்களைக் காட்ட macshot க்கு உள்ளீட்டு கண்காணிப்பு அனுமதி தேவை. System Settings இல் அணுகலை வழங்கி, மீண்டும் முயற்சிக்கவும்.";
-"macshot needs Accessibility permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "பதிவின் போது விசை அழுத்தங்களைக் காட்ட macshot க்கு அணுகல்தன்மை அனுமதி தேவை. System Settings இல் அணுகலை வழங்கி, மீண்டும் முயற்சிக்கவும்.";
+"macshot needs Input Monitoring permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "பதிவின் போது விசை அழுத்தங்களைக் காட்ட MacShot க்கு உள்ளீட்டு கண்காணிப்பு அனுமதி தேவை. System Settings இல் அணுகலை வழங்கி, மீண்டும் முயற்சிக்கவும்.";
+"macshot needs Accessibility permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "பதிவின் போது விசை அழுத்தங்களைக் காட்ட MacShot க்கு அணுகல்தன்மை அனுமதி தேவை. System Settings இல் அணுகலை வழங்கி, மீண்டும் முயற்சிக்கவும்.";
 
 /* Recording — Keystroke Overlay */
 "Show Keystrokes" = "விசை அழுத்தங்களைக் காட்டு";
@@ -429,7 +430,7 @@
 /* Webcam Overlay */
 "Webcam Overlay" = "வெப்கேம் மேலடுக்கு";
 "Camera Access Required" = "கேமரா அணுகல் தேவை";
-"macshot needs camera permission for the webcam overlay. Open System Settings to grant access." = "வெப்கேம் மேலடுக்குக்கு macshot க்கு கேமரா அனுமதி தேவை. அணுகலை வழங்க System Settings ஐ திறக்கவும்.";
+"macshot needs camera permission for the webcam overlay. Open System Settings to grant access." = "வெப்கேம் மேலடுக்குக்கு MacShot க்கு கேமரா அனுமதி தேவை. அணுகலை வழங்க System Settings ஐ திறக்கவும்.";
 "Webcam" = "வெப்கேம்";
 "Bottom Right" = "கீழ் வலது";
 "Bottom Left" = "கீழ் இடது";
@@ -445,7 +446,7 @@
 
 /* Settings */
 "Settings..." = "அமைப்புகள்...";
-"macshot Settings" = "macshot அமைப்புகள்";
+"macshot Settings" = "MacShot அமைப்புகள்";
 "Also open in Editor" = "எடிட்டரிலும் திற";
 "Hide controls" = "கட்டுப்பாடுகளை மறை";
 "Hide recording controls" = "பதிவு கட்டுப்பாடுகளை மறை";
@@ -497,7 +498,7 @@
 "Clear History?" = "வரலாற்றை அழிக்கவா?";
 "This will permanently delete all screenshots from history." = "இது வரலாற்றில் உள்ள அனைத்து ஸ்கிரீன்ஷாட்களையும் நிரந்தரமாக நீக்கும்.";
 "Click \"Set\" and press a key combination with at least one modifier (⌘, ⌥, ⌃, ⇧) to set a shortcut." = "\"அமை\" என்பதை கிளிக் செய்து, குறுக்குவழியை அமைக்க குறைந்தது ஒரு மாற்றி (⌘, ⌥, ⌃, ⇧) கொண்ட விசை சேர்க்கையை அழுத்தவும்.";
-"Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private — nothing is shared publicly." = "கோப்புகள் உங்கள் Google Drive-ல் உள்ள \"macshot\" கோப்புறையில் பதிவேற்றப்படும். அனைத்தும் தனிப்பட்டதாக இருக்கும் — எதுவும் பொதுவில் பகிரப்படாது.";
+"Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private — nothing is shared publicly." = "கோப்புகள் உங்கள் Google Drive-ல் உள்ள \"MacShot\" கோப்புறையில் பதிவேற்றப்படும். அனைத்தும் தனிப்பட்டதாக இருக்கும் — எதுவும் பொதுவில் பகிரப்படாது.";
 
 "Pressure" = "அழுத்தம்";
 

@@ -31,7 +31,8 @@
 "Open from Clipboard" = "クリップボードから開く";
 "Preferences..." = "環境設定...";
 "Check for Updates..." = "アップデートを確認...";
-"Quit macshot" = "macshot を終了";
+"Quit macshot" = "MacShot を終了";
+"About MacShot" = "About MacShot";
 "No recent captures" = "最近のキャプチャはありません";
 "Clear History" = "履歴を消去";
 
@@ -170,14 +171,14 @@
 "Copy to clipboard" = "クリップボードにコピー";
 
 /* Preferences - General */
-"macshot Preferences" = "macshot 環境設定";
+"macshot Preferences" = "MacShot 環境設定";
 "General" = "一般";
 "Interface" = "Interface";
 "Interface Options" = "Interface Options";
 "Window" = "Window";
 "Tools" = "ツール";
 "Recording" = "録画";
-"About" = "macshot について";
+"About" = "MacShot について";
 "Shortcuts" = "ショートカット";
 "Uploads" = "アップロード";
 "Language" = "言語";
@@ -194,7 +195,7 @@
 "Capture mouse cursor in screenshot" = "スクリーンショットにマウスカーソルを含める";
 "Use window title in saved filename" = "保存ファイル名にウインドウタイトルを使用";
 "Hide menu bar icon" = "メニューバーアイコンを隠す";
-"Hotkeys still work. To show the icon again, re-launch macshot." = "ホットキーは引き続き使用できます。アイコンを再表示するには、macshot を再起動してください。";
+"Hotkeys still work. To show the icon again, re-launch macshot." = "ホットキーは引き続き使用できます。アイコンを再表示するには、MacShot を再起動してください。";
 "Check for updates automatically" = "自動的にアップデートを確認";
 "Check for beta updates" = "ベータアップデートを確認";
 "Thumbnail" = "サムネイル";
@@ -310,7 +311,7 @@
 "Video upload requires Google Drive or S3" = "動画のアップロードには Google Drive または S3 が必要です";
 
 /* Preferences - About */
-"macshot" = "macshot";
+"macshot" = "MacShot";
 "Version %@ (%@)" = "バージョン %@ (%@)";
 "Made by" = "作者";
 "Licensed under the GPLv3" = "GPLv3 ライセンス";
@@ -321,23 +322,23 @@
 "Copy an image to the clipboard first, then try again." = "先にクリップボードに画像をコピーしてから、もう一度お試しください。";
 "OK" = "OK";
 "Accessibility Access Required" = "アクセシビリティの許可が必要です";
-"macshot needs Accessibility permission to auto-scroll other apps. Please grant access in System Settings, then try again." = "macshot が他のアプリを自動スクロールするには、アクセシビリティの許可が必要です。システム設定でアクセスを許可してから、もう一度お試しください。";
+"macshot needs Accessibility permission to auto-scroll other apps. Please grant access in System Settings, then try again." = "MacShot が他のアプリを自動スクロールするには、アクセシビリティの許可が必要です。システム設定でアクセスを許可してから、もう一度お試しください。";
 "macshot needs Accessibility permission for scroll capture. Please grant access in System Settings, then try again." = "スクロールキャプチャにはアクセシビリティの許可が必要です。システム設定でアクセスを許可してから、もう一度お試しください。";
 "Open Settings" = "設定を開く";
 "Cancel" = "キャンセル";
 "Microphone Access Required" = "マイクのアクセスが必要です";
-"macshot needs microphone permission to record voice audio. Open System Settings to grant access." = "macshot が音声を録音するには、マイクの許可が必要です。システム設定を開いてアクセスを許可してください。";
+"macshot needs microphone permission to record voice audio. Open System Settings to grant access." = "MacShot が音声を録音するには、マイクの許可が必要です。システム設定を開いてアクセスを許可してください。";
 "Upload to Google Drive?" = "Google Drive にアップロードしますか?";
 "Upload to S3?" = "S3 にアップロードしますか?";
 "Upload to imgbb.com?" = "imgbb.com にアップロードしますか?";
 "Your screenshot will be uploaded." = "スクリーンショットがアップロードされます。";
 
 /* Permission Onboarding */
-"Welcome to macshot" = "macshot へようこそ";
-"macshot needs one permission" = "macshot には1つの許可が必要です";
+"Welcome to macshot" = "MacShot へようこそ";
+"macshot needs one permission" = "MacShot には1つの許可が必要です";
 "Screen Recording not yet granted" = "画面収録がまだ許可されていません";
 "Screen Recording granted!" = "画面収録が許可されました!";
-"Enable macshot, then try taking a screenshot" = "macshot を有効にして、スクリーンショットを撮ってみてください";
+"Enable macshot, then try taking a screenshot" = "MacShot を有効にして、スクリーンショットを撮ってみてください";
 "Open Screen Recording Settings" = "画面収録の設定を開く";
 "Continue" = "続ける";
 
@@ -367,7 +368,7 @@
 "Path copied!" = "パスをコピーしました!";
 
 /* Video Editor */
-"macshot Video Editor" = "macshot ビデオエディタ";
+"macshot Video Editor" = "MacShot ビデオエディタ";
 "%@ selected" = "%@ を選択中";
 "Exporting..." = "書き出し中...";
 "Export failed" = "書き出しに失敗しました";
@@ -412,8 +413,8 @@
 
 /* Recording — Input Monitoring Permission */
 "Input Monitoring Required" = "入力監視の許可が必要です";
-"macshot needs Input Monitoring permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "macshot が録画中にキー入力を表示するには、入力監視の許可が必要です。システム設定でアクセスを許可してから、もう一度お試しください。";
-"macshot needs Accessibility permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "macshot が録画中にキー入力を表示するには、アクセシビリティの許可が必要です。システム設定でアクセスを許可してから、もう一度お試しください。";
+"macshot needs Input Monitoring permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "MacShot が録画中にキー入力を表示するには、入力監視の許可が必要です。システム設定でアクセスを許可してから、もう一度お試しください。";
+"macshot needs Accessibility permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "MacShot が録画中にキー入力を表示するには、アクセシビリティの許可が必要です。システム設定でアクセスを許可してから、もう一度お試しください。";
 
 /* Recording — Keystroke Overlay */
 "Show Keystrokes" = "キー入力を表示";
@@ -429,7 +430,7 @@
 /* Webcam Overlay */
 "Webcam Overlay" = "ウェブカメラオーバーレイ";
 "Camera Access Required" = "カメラのアクセスが必要です";
-"macshot needs camera permission for the webcam overlay. Open System Settings to grant access." = "macshot がウェブカメラオーバーレイを使用するには、カメラの許可が必要です。システム設定を開いてアクセスを許可してください。";
+"macshot needs camera permission for the webcam overlay. Open System Settings to grant access." = "MacShot がウェブカメラオーバーレイを使用するには、カメラの許可が必要です。システム設定を開いてアクセスを許可してください。";
 "Webcam" = "ウェブカメラ";
 "Bottom Right" = "右下";
 "Bottom Left" = "左下";
@@ -445,7 +446,7 @@
 
 /* New strings */
 "Settings..." = "設定...";
-"macshot Settings" = "macshot 設定";
+"macshot Settings" = "MacShot 設定";
 "Also open in Editor" = "エディタでも開く";
 "Hide controls" = "コントロールを隠す";
 "Hide recording controls" = "録画コントロールを隠す";
@@ -495,7 +496,7 @@
 "Clear History?" = "履歴をクリアしますか？";
 "This will permanently delete all screenshots from history." = "履歴からすべてのスクリーンショットが完全に削除されます。";
 "Click \"Set\" and press a key combination with at least one modifier (⌘, ⌥, ⌃, ⇧) to set a shortcut." = "\"設定\" をクリックし、少なくとも1つの修飾キー (⌘, ⌥, ⌃, ⇧) を含むキーの組み合わせを押してショートカットを設定してください。";
-"Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private — nothing is shared publicly." = "ファイルはGoogle Driveの \"macshot\" フォルダにアップロードされます。すべてプライベートに保たれ、公開されることはありません。";
+"Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private — nothing is shared publicly." = "ファイルはGoogle Driveの \"MacShot\" フォルダにアップロードされます。すべてプライベートに保たれ、公開されることはありません。";
 
 "Pressure" = "筆圧";
 

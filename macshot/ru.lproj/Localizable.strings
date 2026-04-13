@@ -31,7 +31,8 @@
 "Open from Clipboard" = "Открыть из буфера обмена";
 "Preferences..." = "Настройки...";
 "Check for Updates..." = "Проверить обновления...";
-"Quit macshot" = "Завершить macshot";
+"Quit macshot" = "Завершить MacShot";
+"About MacShot" = "About MacShot";
 "No recent captures" = "Нет недавних снимков";
 "Clear History" = "Очистить историю";
 
@@ -170,7 +171,7 @@
 "Copy to clipboard" = "Копировать в буфер обмена";
 
 /* Preferences - General */
-"macshot Preferences" = "Настройки macshot";
+"macshot Preferences" = "Настройки MacShot";
 "General" = "Основные";
 "Interface" = "Interface";
 "Interface Options" = "Interface Options";
@@ -194,7 +195,7 @@
 "Capture mouse cursor in screenshot" = "Захватывать курсор мыши на снимке экрана";
 "Use window title in saved filename" = "Использовать заголовок окна в имени файла";
 "Hide menu bar icon" = "Скрыть значок в строке меню";
-"Hotkeys still work. To show the icon again, re-launch macshot." = "Горячие клавиши по-прежнему работают. Чтобы вернуть значок, перезапустите macshot.";
+"Hotkeys still work. To show the icon again, re-launch macshot." = "Горячие клавиши по-прежнему работают. Чтобы вернуть значок, перезапустите MacShot.";
 "Check for updates automatically" = "Автоматически проверять обновления";
 "Check for beta updates" = "Проверять бета-обновления";
 "Thumbnail" = "Миниатюра";
@@ -310,7 +311,7 @@
 "Video upload requires Google Drive or S3" = "Загрузка видео требует Google Drive или S3";
 
 /* Preferences - About */
-"macshot" = "macshot";
+"macshot" = "MacShot";
 "Version %@ (%@)" = "Версия %@ (%@)";
 "Made by" = "Разработал";
 "Licensed under the GPLv3" = "Лицензия GPLv3";
@@ -321,23 +322,23 @@
 "Copy an image to the clipboard first, then try again." = "Сначала скопируйте изображение в буфер обмена, затем попробуйте снова.";
 "OK" = "ОК";
 "Accessibility Access Required" = "Требуется доступ к Универсальному доступу";
-"macshot needs Accessibility permission to auto-scroll other apps. Please grant access in System Settings, then try again." = "macshot требуется разрешение Универсального доступа для авто-прокрутки других приложений. Предоставьте доступ в Системных настройках и попробуйте снова.";
-"macshot needs Accessibility permission for scroll capture. Please grant access in System Settings, then try again." = "macshot требуется разрешение Универсального доступа для захвата с прокруткой. Предоставьте доступ в Системных настройках и повторите попытку.";
+"macshot needs Accessibility permission to auto-scroll other apps. Please grant access in System Settings, then try again." = "MacShot требуется разрешение Универсального доступа для авто-прокрутки других приложений. Предоставьте доступ в Системных настройках и попробуйте снова.";
+"macshot needs Accessibility permission for scroll capture. Please grant access in System Settings, then try again." = "MacShot требуется разрешение Универсального доступа для захвата с прокруткой. Предоставьте доступ в Системных настройках и повторите попытку.";
 "Open Settings" = "Открыть Настройки";
 "Cancel" = "Отменить";
 "Microphone Access Required" = "Требуется доступ к микрофону";
-"macshot needs microphone permission to record voice audio. Open System Settings to grant access." = "macshot требуется разрешение на использование микрофона для записи голоса. Откройте Системные настройки для предоставления доступа.";
+"macshot needs microphone permission to record voice audio. Open System Settings to grant access." = "MacShot требуется разрешение на использование микрофона для записи голоса. Откройте Системные настройки для предоставления доступа.";
 "Upload to Google Drive?" = "Загрузить на Google Drive?";
 "Upload to S3?" = "Загрузить на S3?";
 "Upload to imgbb.com?" = "Загрузить на imgbb.com?";
 "Your screenshot will be uploaded." = "Ваш снимок экрана будет загружен.";
 
 /* Permission Onboarding */
-"Welcome to macshot" = "Добро пожаловать в macshot";
-"macshot needs one permission" = "macshot требуется одно разрешение";
+"Welcome to macshot" = "Добро пожаловать в MacShot";
+"macshot needs one permission" = "MacShot требуется одно разрешение";
 "Screen Recording not yet granted" = "Разрешение на запись экрана не предоставлено";
 "Screen Recording granted!" = "Разрешение на запись экрана получено!";
-"Enable macshot, then try taking a screenshot" = "Включите macshot, затем попробуйте сделать снимок экрана";
+"Enable macshot, then try taking a screenshot" = "Включите MacShot, затем попробуйте сделать снимок экрана";
 "Open Screen Recording Settings" = "Открыть настройки записи экрана";
 "Continue" = "Продолжить";
 
@@ -367,7 +368,7 @@
 "Path copied!" = "Путь скопирован!";
 
 /* Video Editor */
-"macshot Video Editor" = "Видеоредактор macshot";
+"macshot Video Editor" = "Видеоредактор MacShot";
 "%@ selected" = "%@ выбрано";
 "Exporting..." = "Экспорт...";
 "Export failed" = "Ошибка экспорта";
@@ -412,8 +413,8 @@
 
 /* Recording — Input Monitoring Permission */
 "Input Monitoring Required" = "Требуется мониторинг ввода";
-"macshot needs Input Monitoring permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "macshot требуется разрешение на мониторинг ввода для отображения нажатий клавиш во время записи. Предоставьте доступ в System Settings и попробуйте снова.";
-"macshot needs Accessibility permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "macshot требуется разрешение Универсального доступа для отображения нажатий клавиш во время записи. Предоставьте доступ в System Settings и попробуйте снова.";
+"macshot needs Input Monitoring permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "MacShot требуется разрешение на мониторинг ввода для отображения нажатий клавиш во время записи. Предоставьте доступ в System Settings и попробуйте снова.";
+"macshot needs Accessibility permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "MacShot требуется разрешение Универсального доступа для отображения нажатий клавиш во время записи. Предоставьте доступ в System Settings и попробуйте снова.";
 
 /* Recording — Keystroke Overlay */
 "Show Keystrokes" = "Показывать нажатия клавиш";
@@ -429,7 +430,7 @@
 /* Webcam Overlay */
 "Webcam Overlay" = "Наложение веб-камеры";
 "Camera Access Required" = "Требуется доступ к камере";
-"macshot needs camera permission for the webcam overlay. Open System Settings to grant access." = "macshot требуется разрешение на использование камеры для наложения веб-камеры. Откройте Системные настройки для предоставления доступа.";
+"macshot needs camera permission for the webcam overlay. Open System Settings to grant access." = "MacShot требуется разрешение на использование камеры для наложения веб-камеры. Откройте Системные настройки для предоставления доступа.";
 "Webcam" = "Веб-камера";
 "Bottom Right" = "Внизу справа";
 "Bottom Left" = "Внизу слева";
@@ -445,7 +446,7 @@
 
 /* New strings */
 "Settings..." = "Настройки...";
-"macshot Settings" = "Настройки macshot";
+"macshot Settings" = "Настройки MacShot";
 "Also open in Editor" = "Также открыть в редакторе";
 "Hide controls" = "Скрыть элементы управления";
 "Hide recording controls" = "Скрыть элементы управления записью";
@@ -495,7 +496,7 @@
 "Clear History?" = "Очистить историю?";
 "This will permanently delete all screenshots from history." = "Это безвозвратно удалит все скриншоты из истории.";
 "Click \"Set\" and press a key combination with at least one modifier (⌘, ⌥, ⌃, ⇧) to set a shortcut." = "Нажмите \"Задать\" и введите комбинацию клавиш с хотя бы одним модификатором (⌘, ⌥, ⌃, ⇧), чтобы установить сочетание.";
-"Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private — nothing is shared publicly." = "Файлы загружаются в папку \"macshot\" на вашем Google Drive. Всё остаётся приватным — ничего не публикуется в открытый доступ.";
+"Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private — nothing is shared publicly." = "Файлы загружаются в папку \"MacShot\" на вашем Google Drive. Всё остаётся приватным — ничего не публикуется в открытый доступ.";
 
 "Pressure" = "Нажим";
 

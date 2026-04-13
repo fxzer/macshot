@@ -31,7 +31,8 @@
 "Open from Clipboard" = "Panodan Aç";
 "Preferences..." = "Tercihler...";
 "Check for Updates..." = "Güncellemeleri Denetle...";
-"Quit macshot" = "macshot'tan Çık";
+"Quit macshot" = "MacShot'tan Çık";
+"About MacShot" = "About MacShot";
 "No recent captures" = "Son yakalama yok";
 "Clear History" = "Geçmişi Temizle";
 
@@ -170,7 +171,7 @@
 "Copy to clipboard" = "Panoya kopyala";
 
 /* Preferences - General */
-"macshot Preferences" = "macshot Tercihleri";
+"macshot Preferences" = "MacShot Tercihleri";
 "General" = "Genel";
 "Interface" = "Interface";
 "Interface Options" = "Interface Options";
@@ -194,7 +195,7 @@
 "Capture mouse cursor in screenshot" = "Ekran görüntüsünde fare imlecini yakala";
 "Use window title in saved filename" = "Kaydedilen dosya adında pencere başlığını kullan";
 "Hide menu bar icon" = "Menü çubuğu simgesini gizle";
-"Hotkeys still work. To show the icon again, re-launch macshot." = "Kısayol tuşları çalışmaya devam eder. Simgeyi tekrar göstermek için macshot'u yeniden başlatın.";
+"Hotkeys still work. To show the icon again, re-launch macshot." = "Kısayol tuşları çalışmaya devam eder. Simgeyi tekrar göstermek için MacShot'u yeniden başlatın.";
 "Check for updates automatically" = "Güncellemeleri otomatik denetle";
 "Check for beta updates" = "Beta güncellemelerini denetle";
 "Thumbnail" = "Küçük Resim";
@@ -310,7 +311,7 @@
 "Video upload requires Google Drive or S3" = "Video yüklemek için Google Drive veya S3 gereklidir";
 
 /* Preferences - About */
-"macshot" = "macshot";
+"macshot" = "MacShot";
 "Version %@ (%@)" = "Sürüm %@ (%@)";
 "Made by" = "Yapımcı";
 "Licensed under the GPLv3" = "GPLv3 lisansı altında";
@@ -321,23 +322,23 @@
 "Copy an image to the clipboard first, then try again." = "Önce panoya bir görsel kopyalayın, ardından tekrar deneyin.";
 "OK" = "Tamam";
 "Accessibility Access Required" = "Erişilebilirlik İzni Gerekli";
-"macshot needs Accessibility permission to auto-scroll other apps. Please grant access in System Settings, then try again." = "macshot, diğer uygulamaları otomatik kaydırmak için Erişilebilirlik iznine ihtiyaç duyar. Lütfen Sistem Ayarları'ndan izin verin ve tekrar deneyin.";
-"macshot needs Accessibility permission for scroll capture. Please grant access in System Settings, then try again." = "macshot, kaydırmalı yakalama için Erişilebilirlik iznine ihtiyaç duyuyor. Lütfen Sistem Ayarları'ndan erişim verin ve tekrar deneyin.";
+"macshot needs Accessibility permission to auto-scroll other apps. Please grant access in System Settings, then try again." = "MacShot, diğer uygulamaları otomatik kaydırmak için Erişilebilirlik iznine ihtiyaç duyar. Lütfen Sistem Ayarları'ndan izin verin ve tekrar deneyin.";
+"macshot needs Accessibility permission for scroll capture. Please grant access in System Settings, then try again." = "MacShot, kaydırmalı yakalama için Erişilebilirlik iznine ihtiyaç duyuyor. Lütfen Sistem Ayarları'ndan erişim verin ve tekrar deneyin.";
 "Open Settings" = "Ayarları Aç";
 "Cancel" = "İptal";
 "Microphone Access Required" = "Mikrofon Erişimi Gerekli";
-"macshot needs microphone permission to record voice audio. Open System Settings to grant access." = "macshot, ses kaydetmek için mikrofon iznine ihtiyaç duyar. İzin vermek için Sistem Ayarları'nı açın.";
+"macshot needs microphone permission to record voice audio. Open System Settings to grant access." = "MacShot, ses kaydetmek için mikrofon iznine ihtiyaç duyar. İzin vermek için Sistem Ayarları'nı açın.";
 "Upload to Google Drive?" = "Google Drive'a yüklensin mi?";
 "Upload to S3?" = "S3'e yüklensin mi?";
 "Upload to imgbb.com?" = "imgbb.com'a yüklensin mi?";
 "Your screenshot will be uploaded." = "Ekran görüntünüz yüklenecek.";
 
 /* Permission Onboarding */
-"Welcome to macshot" = "macshot'a Hoş Geldiniz";
-"macshot needs one permission" = "macshot bir izne ihtiyaç duyar";
+"Welcome to macshot" = "MacShot'a Hoş Geldiniz";
+"macshot needs one permission" = "MacShot bir izne ihtiyaç duyar";
 "Screen Recording not yet granted" = "Ekran Kaydı izni henüz verilmedi";
 "Screen Recording granted!" = "Ekran Kaydı izni verildi!";
-"Enable macshot, then try taking a screenshot" = "macshot'u etkinleştirin, ardından ekran görüntüsü almayı deneyin";
+"Enable macshot, then try taking a screenshot" = "MacShot'u etkinleştirin, ardından ekran görüntüsü almayı deneyin";
 "Open Screen Recording Settings" = "Ekran Kaydı Ayarlarını Aç";
 "Continue" = "Devam";
 
@@ -367,7 +368,7 @@
 "Path copied!" = "Yol kopyalandı!";
 
 /* Video Editor */
-"macshot Video Editor" = "macshot Video Düzenleyici";
+"macshot Video Editor" = "MacShot Video Düzenleyici";
 "%@ selected" = "%@ seçili";
 "Exporting..." = "Dışa aktarılıyor...";
 "Export failed" = "Dışa aktarma başarısız";
@@ -412,8 +413,8 @@
 
 /* Recording — Input Monitoring Permission */
 "Input Monitoring Required" = "Giriş İzleme Gerekli";
-"macshot needs Input Monitoring permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "macshot, kayıt sırasında tuş vuruşlarını göstermek için Giriş İzleme iznine ihtiyaç duyar. Lütfen System Settings'ten izin verin ve tekrar deneyin.";
-"macshot needs Accessibility permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "macshot, kayıt sırasında tuş vuruşlarını göstermek için Erişilebilirlik iznine ihtiyaç duyar. Lütfen System Settings'ten izin verin ve tekrar deneyin.";
+"macshot needs Input Monitoring permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "MacShot, kayıt sırasında tuş vuruşlarını göstermek için Giriş İzleme iznine ihtiyaç duyar. Lütfen System Settings'ten izin verin ve tekrar deneyin.";
+"macshot needs Accessibility permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "MacShot, kayıt sırasında tuş vuruşlarını göstermek için Erişilebilirlik iznine ihtiyaç duyar. Lütfen System Settings'ten izin verin ve tekrar deneyin.";
 
 /* Recording — Keystroke Overlay */
 "Show Keystrokes" = "Tuş Vuruşlarını Göster";
@@ -429,7 +430,7 @@
 /* Webcam Overlay */
 "Webcam Overlay" = "Web Kamerası Katmanı";
 "Camera Access Required" = "Kamera Erişimi Gerekli";
-"macshot needs camera permission for the webcam overlay. Open System Settings to grant access." = "macshot, web kamerası katmanı için kamera iznine ihtiyaç duyar. İzin vermek için Sistem Ayarları'nı açın.";
+"macshot needs camera permission for the webcam overlay. Open System Settings to grant access." = "MacShot, web kamerası katmanı için kamera iznine ihtiyaç duyar. İzin vermek için Sistem Ayarları'nı açın.";
 "Webcam" = "Web Kamerası";
 "Bottom Right" = "Sağ Alt";
 "Bottom Left" = "Sol Alt";
@@ -445,7 +446,7 @@
 
 /* New Strings */
 "Settings..." = "Ayarlar...";
-"macshot Settings" = "macshot Ayarları";
+"macshot Settings" = "MacShot Ayarları";
 "Also open in Editor" = "Düzenleyicide de aç";
 "Hide controls" = "Kontrolleri gizle";
 "Hide recording controls" = "Kayıt kontrollerini gizle";
@@ -497,7 +498,7 @@
 "Clear History?" = "Geçmiş Temizlensin mi?";
 "This will permanently delete all screenshots from history." = "Bu işlem, geçmişteki tüm ekran görüntülerini kalıcı olarak siler.";
 "Click \"Set\" and press a key combination with at least one modifier (⌘, ⌥, ⌃, ⇧) to set a shortcut." = "\"Ayarla\"ya tıklayın ve kısayol atamak için en az bir değiştirici tuş (⌘, ⌥, ⌃, ⇧) içeren bir tuş kombinasyonuna basın.";
-"Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private — nothing is shared publicly." = "Dosyalar, Google Drive'ınızdaki \"macshot\" klasörüne yüklenir. Her şey gizli kalır — hiçbir şey herkesle paylaşılmaz.";
+"Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private — nothing is shared publicly." = "Dosyalar, Google Drive'ınızdaki \"MacShot\" klasörüne yüklenir. Her şey gizli kalır — hiçbir şey herkesle paylaşılmaz.";
 
 "Pressure" = "Basınç";
 

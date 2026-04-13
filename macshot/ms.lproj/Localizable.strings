@@ -31,7 +31,8 @@
 "Open from Clipboard" = "Buka dari Papan Keratan";
 "Preferences..." = "Keutamaan...";
 "Check for Updates..." = "Semak Kemas Kini...";
-"Quit macshot" = "Keluar macshot";
+"Quit macshot" = "Keluar MacShot";
+"About MacShot" = "About MacShot";
 "No recent captures" = "Tiada tangkapan terkini";
 "Clear History" = "Padam Sejarah";
 
@@ -170,7 +171,7 @@
 "Copy to clipboard" = "Salin ke papan keratan";
 
 /* Preferences - General */
-"macshot Preferences" = "Keutamaan macshot";
+"macshot Preferences" = "Keutamaan MacShot";
 "General" = "Umum";
 "Interface" = "Interface";
 "Interface Options" = "Interface Options";
@@ -194,7 +195,7 @@
 "Capture mouse cursor in screenshot" = "Tangkap kursor tetikus dalam tangkapan skrin";
 "Use window title in saved filename" = "Guna tajuk tetingkap dalam nama fail yang disimpan";
 "Hide menu bar icon" = "Sembunyikan ikon bar menu";
-"Hotkeys still work. To show the icon again, re-launch macshot." = "Kekunci panas masih berfungsi. Untuk menunjukkan ikon semula, lancar semula macshot.";
+"Hotkeys still work. To show the icon again, re-launch macshot." = "Kekunci panas masih berfungsi. Untuk menunjukkan ikon semula, lancar semula MacShot.";
 "Check for updates automatically" = "Semak kemas kini secara automatik";
 "Check for beta updates" = "Semak kemas kini beta";
 "Thumbnail" = "Lakaran Kecil";
@@ -310,7 +311,7 @@
 "Video upload requires Google Drive or S3" = "Muat naik video memerlukan Google Drive atau S3";
 
 /* Preferences - About */
-"macshot" = "macshot";
+"macshot" = "MacShot";
 "Version %@ (%@)" = "Versi %@ (%@)";
 "Made by" = "Dibuat oleh";
 "Licensed under the GPLv3" = "Dilesenkan di bawah GPLv3";
@@ -321,23 +322,23 @@
 "Copy an image to the clipboard first, then try again." = "Salin imej ke papan keratan dahulu, kemudian cuba lagi.";
 "OK" = "OK";
 "Accessibility Access Required" = "Akses Kebolehcapaian Diperlukan";
-"macshot needs Accessibility permission to auto-scroll other apps. Please grant access in System Settings, then try again." = "macshot memerlukan kebenaran Kebolehcapaian untuk auto-tatal aplikasi lain. Sila berikan akses dalam Tetapan Sistem, kemudian cuba lagi.";
-"macshot needs Accessibility permission for scroll capture. Please grant access in System Settings, then try again." = "macshot memerlukan kebenaran Kebolehcapaian untuk tangkapan tatal. Sila berikan akses dalam Tetapan Sistem, kemudian cuba lagi.";
+"macshot needs Accessibility permission to auto-scroll other apps. Please grant access in System Settings, then try again." = "MacShot memerlukan kebenaran Kebolehcapaian untuk auto-tatal aplikasi lain. Sila berikan akses dalam Tetapan Sistem, kemudian cuba lagi.";
+"macshot needs Accessibility permission for scroll capture. Please grant access in System Settings, then try again." = "MacShot memerlukan kebenaran Kebolehcapaian untuk tangkapan tatal. Sila berikan akses dalam Tetapan Sistem, kemudian cuba lagi.";
 "Open Settings" = "Buka Tetapan";
 "Cancel" = "Batal";
 "Microphone Access Required" = "Akses Mikrofon Diperlukan";
-"macshot needs microphone permission to record voice audio. Open System Settings to grant access." = "macshot memerlukan kebenaran mikrofon untuk merakam audio suara. Buka Tetapan Sistem untuk memberikan akses.";
+"macshot needs microphone permission to record voice audio. Open System Settings to grant access." = "MacShot memerlukan kebenaran mikrofon untuk merakam audio suara. Buka Tetapan Sistem untuk memberikan akses.";
 "Upload to Google Drive?" = "Muat naik ke Google Drive?";
 "Upload to S3?" = "Muat naik ke S3?";
 "Upload to imgbb.com?" = "Muat naik ke imgbb.com?";
 "Your screenshot will be uploaded." = "Tangkapan skrin anda akan dimuat naik.";
 
 /* Permission Onboarding */
-"Welcome to macshot" = "Selamat datang ke macshot";
-"macshot needs one permission" = "macshot memerlukan satu kebenaran";
+"Welcome to macshot" = "Selamat datang ke MacShot";
+"macshot needs one permission" = "MacShot memerlukan satu kebenaran";
 "Screen Recording not yet granted" = "Rakaman Skrin belum diberikan";
 "Screen Recording granted!" = "Rakaman Skrin diberikan!";
-"Enable macshot, then try taking a screenshot" = "Dayakan macshot, kemudian cuba ambil tangkapan skrin";
+"Enable macshot, then try taking a screenshot" = "Dayakan MacShot, kemudian cuba ambil tangkapan skrin";
 "Open Screen Recording Settings" = "Buka Tetapan Rakaman Skrin";
 "Continue" = "Teruskan";
 
@@ -367,7 +368,7 @@
 "Path copied!" = "Laluan disalin!";
 
 /* Video Editor */
-"macshot Video Editor" = "Editor Video macshot";
+"macshot Video Editor" = "Editor Video MacShot";
 "%@ selected" = "%@ dipilih";
 "Exporting..." = "Mengeksport...";
 "Export failed" = "Eksport gagal";
@@ -412,8 +413,8 @@
 
 /* Recording — Input Monitoring Permission */
 "Input Monitoring Required" = "Pemantauan Input Diperlukan";
-"macshot needs Input Monitoring permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "macshot memerlukan kebenaran Pemantauan Input untuk menunjukkan ketukan kekunci semasa rakaman. Sila berikan akses dalam System Settings, kemudian cuba lagi.";
-"macshot needs Accessibility permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "macshot memerlukan kebenaran Kebolehcapaian untuk menunjukkan ketukan kekunci semasa rakaman. Sila berikan akses dalam System Settings, kemudian cuba lagi.";
+"macshot needs Input Monitoring permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "MacShot memerlukan kebenaran Pemantauan Input untuk menunjukkan ketukan kekunci semasa rakaman. Sila berikan akses dalam System Settings, kemudian cuba lagi.";
+"macshot needs Accessibility permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "MacShot memerlukan kebenaran Kebolehcapaian untuk menunjukkan ketukan kekunci semasa rakaman. Sila berikan akses dalam System Settings, kemudian cuba lagi.";
 
 /* Recording — Keystroke Overlay */
 "Show Keystrokes" = "Tunjuk Ketukan Kekunci";
@@ -429,7 +430,7 @@
 /* Webcam Overlay */
 "Webcam Overlay" = "Tindanan Webcam";
 "Camera Access Required" = "Akses Kamera Diperlukan";
-"macshot needs camera permission for the webcam overlay. Open System Settings to grant access." = "macshot memerlukan kebenaran kamera untuk tindanan webcam. Buka Tetapan Sistem untuk memberikan akses.";
+"macshot needs camera permission for the webcam overlay. Open System Settings to grant access." = "MacShot memerlukan kebenaran kamera untuk tindanan webcam. Buka Tetapan Sistem untuk memberikan akses.";
 "Webcam" = "Webcam";
 "Bottom Right" = "Kanan Bawah";
 "Bottom Left" = "Kiri Bawah";
@@ -445,7 +446,7 @@
 
 /* Settings */
 "Settings..." = "Tetapan...";
-"macshot Settings" = "Tetapan macshot";
+"macshot Settings" = "Tetapan MacShot";
 "Also open in Editor" = "Buka juga dalam Editor";
 "Hide controls" = "Sembunyikan kawalan";
 "Hide recording controls" = "Sembunyikan kawalan rakaman";
@@ -497,7 +498,7 @@
 "Clear History?" = "Kosongkan Sejarah?";
 "This will permanently delete all screenshots from history." = "Ini akan memadamkan semua tangkapan skrin daripada sejarah secara kekal.";
 "Click \"Set\" and press a key combination with at least one modifier (⌘, ⌥, ⌃, ⇧) to set a shortcut." = "Klik \"Tetapkan\" dan tekan kombinasi kekunci dengan sekurang-kurangnya satu pengubah suai (⌘, ⌥, ⌃, ⇧) untuk menetapkan pintasan.";
-"Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private — nothing is shared publicly." = "Fail dimuat naik ke folder \"macshot\" dalam Google Drive anda. Semua maklumat kekal peribadi — tiada apa yang dikongsi secara awam.";
+"Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private — nothing is shared publicly." = "Fail dimuat naik ke folder \"MacShot\" dalam Google Drive anda. Semua maklumat kekal peribadi — tiada apa yang dikongsi secara awam.";
 
 "Pressure" = "Tekanan";
 

@@ -31,7 +31,8 @@
 "Open from Clipboard" = "Buksan mula sa Clipboard";
 "Preferences..." = "Mga Kagustuhan...";
 "Check for Updates..." = "Tingnan ang mga Update...";
-"Quit macshot" = "Isara ang macshot";
+"Quit macshot" = "Isara ang MacShot";
+"About MacShot" = "About MacShot";
 "No recent captures" = "Walang kamakailang pagkuha";
 "Clear History" = "Burahin ang Kasaysayan";
 
@@ -170,7 +171,7 @@
 "Copy to clipboard" = "Kopyahin sa clipboard";
 
 /* Preferences - General */
-"macshot Preferences" = "Mga Kagustuhan ng macshot";
+"macshot Preferences" = "Mga Kagustuhan ng MacShot";
 "General" = "Pangkalahatan";
 "Interface" = "Interface";
 "Interface Options" = "Interface Options";
@@ -194,7 +195,7 @@
 "Capture mouse cursor in screenshot" = "Isama ang cursor ng mouse sa screenshot";
 "Use window title in saved filename" = "Gamitin ang pamagat ng window sa na-save na filename";
 "Hide menu bar icon" = "Itago ang icon sa menu bar";
-"Hotkeys still work. To show the icon again, re-launch macshot." = "Gumagana pa rin ang mga hotkey. Upang ipakita muli ang icon, i-restart ang macshot.";
+"Hotkeys still work. To show the icon again, re-launch macshot." = "Gumagana pa rin ang mga hotkey. Upang ipakita muli ang icon, i-restart ang MacShot.";
 "Check for updates automatically" = "Awtomatikong tingnan ang mga update";
 "Check for beta updates" = "Tingnan ang mga beta update";
 "Thumbnail" = "Thumbnail";
@@ -310,7 +311,7 @@
 "Video upload requires Google Drive or S3" = "Ang pag-upload ng video ay nangangailangan ng Google Drive o S3";
 
 /* Preferences - About */
-"macshot" = "macshot";
+"macshot" = "MacShot";
 "Version %@ (%@)" = "Bersyon %@ (%@)";
 "Made by" = "Ginawa ni";
 "Licensed under the GPLv3" = "Lisensiyado sa ilalim ng GPLv3";
@@ -321,23 +322,23 @@
 "Copy an image to the clipboard first, then try again." = "Kopyahin muna ang isang larawan sa clipboard, pagkatapos ay subukang muli.";
 "OK" = "OK";
 "Accessibility Access Required" = "Kinakailangan ang Accessibility Access";
-"macshot needs Accessibility permission to auto-scroll other apps. Please grant access in System Settings, then try again." = "Kailangan ng macshot ang Accessibility permission upang mag-auto-scroll sa ibang app. Pakibigyan ng access sa System Settings, pagkatapos ay subukang muli.";
-"macshot needs Accessibility permission for scroll capture. Please grant access in System Settings, then try again." = "Kailangan ng macshot ang Accessibility permission para sa scroll capture. Mangyaring bigyan ng access sa System Settings, pagkatapos subukan muli.";
+"macshot needs Accessibility permission to auto-scroll other apps. Please grant access in System Settings, then try again." = "Kailangan ng MacShot ang Accessibility permission upang mag-auto-scroll sa ibang app. Pakibigyan ng access sa System Settings, pagkatapos ay subukang muli.";
+"macshot needs Accessibility permission for scroll capture. Please grant access in System Settings, then try again." = "Kailangan ng MacShot ang Accessibility permission para sa scroll capture. Mangyaring bigyan ng access sa System Settings, pagkatapos subukan muli.";
 "Open Settings" = "Buksan ang Settings";
 "Cancel" = "Kanselahin";
 "Microphone Access Required" = "Kinakailangan ang Access sa Mikropono";
-"macshot needs microphone permission to record voice audio. Open System Settings to grant access." = "Kailangan ng macshot ang microphone permission upang mag-record ng boses. Buksan ang System Settings upang bigyan ng access.";
+"macshot needs microphone permission to record voice audio. Open System Settings to grant access." = "Kailangan ng MacShot ang microphone permission upang mag-record ng boses. Buksan ang System Settings upang bigyan ng access.";
 "Upload to Google Drive?" = "I-upload sa Google Drive?";
 "Upload to S3?" = "I-upload sa S3?";
 "Upload to imgbb.com?" = "I-upload sa imgbb.com?";
 "Your screenshot will be uploaded." = "Ia-upload ang iyong screenshot.";
 
 /* Permission Onboarding */
-"Welcome to macshot" = "Maligayang pagdating sa macshot";
-"macshot needs one permission" = "Kailangan ng macshot ang isang permission";
+"Welcome to macshot" = "Maligayang pagdating sa MacShot";
+"macshot needs one permission" = "Kailangan ng MacShot ang isang permission";
 "Screen Recording not yet granted" = "Hindi pa naibibigay ang Screen Recording";
 "Screen Recording granted!" = "Naibigay na ang Screen Recording!";
-"Enable macshot, then try taking a screenshot" = "I-enable ang macshot, pagkatapos ay subukang kumuha ng screenshot";
+"Enable macshot, then try taking a screenshot" = "I-enable ang MacShot, pagkatapos ay subukang kumuha ng screenshot";
 "Open Screen Recording Settings" = "Buksan ang Screen Recording Settings";
 "Continue" = "Magpatuloy";
 
@@ -367,7 +368,7 @@
 "Path copied!" = "Nakopya ang path!";
 
 /* Video Editor */
-"macshot Video Editor" = "macshot Video Editor";
+"macshot Video Editor" = "MacShot Video Editor";
 "%@ selected" = "%@ ang napili";
 "Exporting..." = "Ini-export...";
 "Export failed" = "Nabigo ang pag-export";
@@ -412,8 +413,8 @@
 
 /* Recording — Input Monitoring Permission */
 "Input Monitoring Required" = "Kinakailangan ang Input Monitoring";
-"macshot needs Input Monitoring permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "Kailangan ng macshot ang Input Monitoring permission upang ipakita ang mga keystroke habang nagre-record. Pakibigyan ng access sa System Settings, pagkatapos ay subukang muli.";
-"macshot needs Accessibility permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "Kailangan ng macshot ang Accessibility permission upang ipakita ang mga keystroke habang nagre-record. Pakibigyan ng access sa System Settings, pagkatapos ay subukang muli.";
+"macshot needs Input Monitoring permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "Kailangan ng MacShot ang Input Monitoring permission upang ipakita ang mga keystroke habang nagre-record. Pakibigyan ng access sa System Settings, pagkatapos ay subukang muli.";
+"macshot needs Accessibility permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "Kailangan ng MacShot ang Accessibility permission upang ipakita ang mga keystroke habang nagre-record. Pakibigyan ng access sa System Settings, pagkatapos ay subukang muli.";
 
 /* Recording — Keystroke Overlay */
 "Show Keystrokes" = "Ipakita ang mga Keystroke";
@@ -429,7 +430,7 @@
 /* Webcam Overlay */
 "Webcam Overlay" = "Webcam Overlay";
 "Camera Access Required" = "Kinakailangan ang Access sa Camera";
-"macshot needs camera permission for the webcam overlay. Open System Settings to grant access." = "Kailangan ng macshot ang camera permission para sa webcam overlay. Buksan ang System Settings upang bigyan ng access.";
+"macshot needs camera permission for the webcam overlay. Open System Settings to grant access." = "Kailangan ng MacShot ang camera permission para sa webcam overlay. Buksan ang System Settings upang bigyan ng access.";
 "Webcam" = "Webcam";
 "Bottom Right" = "Ibaba Kanan";
 "Bottom Left" = "Ibaba Kaliwa";
@@ -445,7 +446,7 @@
 
 /* Settings */
 "Settings..." = "Mga Setting...";
-"macshot Settings" = "Mga Setting ng macshot";
+"macshot Settings" = "Mga Setting ng MacShot";
 "Also open in Editor" = "Buksan din sa Editor";
 "Hide controls" = "Itago ang mga kontrol";
 "Hide recording controls" = "Itago ang mga kontrol sa pag-record";
@@ -497,7 +498,7 @@
 "Clear History?" = "I-clear ang History?";
 "This will permanently delete all screenshots from history." = "Permanenteng mabubura ang lahat ng screenshot mula sa history.";
 "Click \"Set\" and press a key combination with at least one modifier (⌘, ⌥, ⌃, ⇧) to set a shortcut." = "I-click ang \"Set\" at pindutin ang kombinasyon ng key na may kahit isang modifier (⌘, ⌥, ⌃, ⇧) upang magtakda ng shortcut.";
-"Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private — nothing is shared publicly." = "Ina-upload ang mga file sa isang \"macshot\" na folder sa iyong Google Drive. Nananatiling pribado ang lahat — walang ibinabahagi nang publiko.";
+"Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private — nothing is shared publicly." = "Ina-upload ang mga file sa isang \"MacShot\" na folder sa iyong Google Drive. Nananatiling pribado ang lahat — walang ibinabahagi nang publiko.";
 
 "Pressure" = "Pressure";
 

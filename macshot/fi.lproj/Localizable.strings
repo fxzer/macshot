@@ -31,7 +31,8 @@
 "Open from Clipboard" = "Avaa leikepoydalsta";
 "Preferences..." = "Asetukset...";
 "Check for Updates..." = "Tarkista paivitykset...";
-"Quit macshot" = "Lopeta macshot";
+"Quit macshot" = "Lopeta MacShot";
+"About MacShot" = "About MacShot";
 "No recent captures" = "Ei viimeaikaisia kaappauksia";
 "Clear History" = "Tyhjenna historia";
 
@@ -170,7 +171,7 @@
 "Copy to clipboard" = "Kopioi leikepoydale";
 
 /* Preferences - General */
-"macshot Preferences" = "macshot-asetukset";
+"macshot Preferences" = "MacShot-asetukset";
 "General" = "Yleiset";
 "Interface" = "Interface";
 "Interface Options" = "Interface Options";
@@ -194,7 +195,7 @@
 "Capture mouse cursor in screenshot" = "Kaappaa hiiren osoitin kuvakaappaukseen";
 "Use window title in saved filename" = "Kayta ikkunan otsikkoa tiedostonimessa";
 "Hide menu bar icon" = "Piilota valikkopalkin kuvake";
-"Hotkeys still work. To show the icon again, re-launch macshot." = "Pikanappaimet toimivat edelleen. Nayta kuvake uudelleen kaynnistamalla macshot.";
+"Hotkeys still work. To show the icon again, re-launch macshot." = "Pikanappaimet toimivat edelleen. Nayta kuvake uudelleen kaynnistamalla MacShot.";
 "Check for updates automatically" = "Tarkista paivitykset automaattisesti";
 "Check for beta updates" = "Tarkista beetapäivitykset";
 "Thumbnail" = "Pienoiskuva";
@@ -310,7 +311,7 @@
 "Video upload requires Google Drive or S3" = "Videon lataus vaatii Google Driven tai S3:n";
 
 /* Preferences - About */
-"macshot" = "macshot";
+"macshot" = "MacShot";
 "Version %@ (%@)" = "Versio %@ (%@)";
 "Made by" = "Tekija";
 "Licensed under the GPLv3" = "Lisensoitu GPLv3-lisenssilla";
@@ -321,23 +322,23 @@
 "Copy an image to the clipboard first, then try again." = "Kopioi ensin kuva leikepoydale ja yrita sitten uudelleen.";
 "OK" = "OK";
 "Accessibility Access Required" = "Esteettomyysoikeus vaaditaan";
-"macshot needs Accessibility permission to auto-scroll other apps. Please grant access in System Settings, then try again." = "macshot tarvitsee esteettomyysoikeuden vierittaakseen muita sovelluksia automaattisesti. Myonna oikeus jarjestelman asetuksissa ja yrita uudelleen.";
-"macshot needs Accessibility permission for scroll capture. Please grant access in System Settings, then try again." = "macshot tarvitsee Esteettömyys-luvan vierityskaappausta varten. Myönnä käyttöoikeus Järjestelmäasetuksista ja yritä uudelleen.";
+"macshot needs Accessibility permission to auto-scroll other apps. Please grant access in System Settings, then try again." = "MacShot tarvitsee esteettomyysoikeuden vierittaakseen muita sovelluksia automaattisesti. Myonna oikeus jarjestelman asetuksissa ja yrita uudelleen.";
+"macshot needs Accessibility permission for scroll capture. Please grant access in System Settings, then try again." = "MacShot tarvitsee Esteettömyys-luvan vierityskaappausta varten. Myönnä käyttöoikeus Järjestelmäasetuksista ja yritä uudelleen.";
 "Open Settings" = "Avaa asetukset";
 "Cancel" = "Peruuta";
 "Microphone Access Required" = "Mikrofonin kayttoikeus vaaditaan";
-"macshot needs microphone permission to record voice audio. Open System Settings to grant access." = "macshot tarvitsee mikrofonin kayttooikeuden äanittaakseen puhetta. Avaa jarjestelman asetukset myontaaksesi kayttooikeuden.";
+"macshot needs microphone permission to record voice audio. Open System Settings to grant access." = "MacShot tarvitsee mikrofonin kayttooikeuden äanittaakseen puhetta. Avaa jarjestelman asetukset myontaaksesi kayttooikeuden.";
 "Upload to Google Drive?" = "Ladataanko Google Driveen?";
 "Upload to S3?" = "Ladataanko S3:een?";
 "Upload to imgbb.com?" = "Ladataanko imgbb.com-palveluun?";
 "Your screenshot will be uploaded." = "Kuvakaappauksesi ladataan.";
 
 /* Permission Onboarding */
-"Welcome to macshot" = "Tervetuloa macshot-sovellukseen";
-"macshot needs one permission" = "macshot tarvitsee yhden luvan";
+"Welcome to macshot" = "Tervetuloa MacShot-sovellukseen";
+"macshot needs one permission" = "MacShot tarvitsee yhden luvan";
 "Screen Recording not yet granted" = "Ruudun nauhoituslupaa ei ole viela myonnetty";
 "Screen Recording granted!" = "Ruudun nauhoituslupa myonnetty!";
-"Enable macshot, then try taking a screenshot" = "Ota macshot kayttoon ja kokeile kuvakaappausta";
+"Enable macshot, then try taking a screenshot" = "Ota MacShot kayttoon ja kokeile kuvakaappausta";
 "Open Screen Recording Settings" = "Avaa ruudun nauhoitusasetukset";
 "Continue" = "Jatka";
 
@@ -367,7 +368,7 @@
 "Path copied!" = "Polku kopioitu!";
 
 /* Video Editor */
-"macshot Video Editor" = "macshot-videoeditori";
+"macshot Video Editor" = "MacShot-videoeditori";
 "%@ selected" = "%@ valittu";
 "Exporting..." = "Viedaan...";
 "Export failed" = "Vienti epaonnistui";
@@ -412,8 +413,8 @@
 
 /* Recording — Input Monitoring Permission */
 "Input Monitoring Required" = "Syötön seuranta vaaditaan";
-"macshot needs Input Monitoring permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "macshot tarvitsee syötön seurannan luvan näyttääkseen näppäinpainallukset nauhoituksen aikana. Myönnä käyttöoikeus System Settings -asetuksista ja yritä uudelleen.";
-"macshot needs Accessibility permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "macshot tarvitsee esteettömyysoikeuden näyttääkseen näppäinpainallukset nauhoituksen aikana. Myönnä käyttöoikeus System Settings -asetuksista ja yritä uudelleen.";
+"macshot needs Input Monitoring permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "MacShot tarvitsee syötön seurannan luvan näyttääkseen näppäinpainallukset nauhoituksen aikana. Myönnä käyttöoikeus System Settings -asetuksista ja yritä uudelleen.";
+"macshot needs Accessibility permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "MacShot tarvitsee esteettömyysoikeuden näyttääkseen näppäinpainallukset nauhoituksen aikana. Myönnä käyttöoikeus System Settings -asetuksista ja yritä uudelleen.";
 
 /* Recording — Keystroke Overlay */
 "Show Keystrokes" = "Näytä näppäinpainallukset";
@@ -429,7 +430,7 @@
 /* Webcam Overlay */
 "Webcam Overlay" = "Webkameran peittokuva";
 "Camera Access Required" = "Kameran kayttooikeus vaaditaan";
-"macshot needs camera permission for the webcam overlay. Open System Settings to grant access." = "macshot tarvitsee kameran kayttooikeuden webkameran peittokuvaa varten. Avaa jarjestelman asetukset myontaaksesi kayttooikeuden.";
+"macshot needs camera permission for the webcam overlay. Open System Settings to grant access." = "MacShot tarvitsee kameran kayttooikeuden webkameran peittokuvaa varten. Avaa jarjestelman asetukset myontaaksesi kayttooikeuden.";
 "Webcam" = "Webkamera";
 "Bottom Right" = "Oikea alakulma";
 "Bottom Left" = "Vasen alakulma";
@@ -445,7 +446,7 @@
 
 /* New Strings */
 "Settings..." = "Asetukset...";
-"macshot Settings" = "macshot-asetukset";
+"macshot Settings" = "MacShot-asetukset";
 "Also open in Editor" = "Avaa my\U00F6s editorissa";
 "Hide controls" = "Piilota ohjaimet";
 "Hide recording controls" = "Piilota nauhoitusohjaimet";
@@ -497,7 +498,7 @@
 "Clear History?" = "Tyhjennetäänkö historia?";
 "This will permanently delete all screenshots from history." = "Tämä poistaa kaikki kuvakaappaukset historiasta pysyvästi.";
 "Click \"Set\" and press a key combination with at least one modifier (⌘, ⌥, ⌃, ⇧) to set a shortcut." = "Napsauta \"Aseta\" ja paina näppäinyhdistelmää, jossa on vähintään yksi muokkausnäppäin (⌘, ⌥, ⌃, ⇧) asettaaksesi pikakuvakkeen.";
-"Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private — nothing is shared publicly." = "Tiedostot ladataan \"macshot\"-kansioon Google Drivessasi. Kaikki pysyy yksityisenä — mitään ei jaeta julkisesti.";
+"Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private — nothing is shared publicly." = "Tiedostot ladataan \"MacShot\"-kansioon Google Drivessasi. Kaikki pysyy yksityisenä — mitään ei jaeta julkisesti.";
 
 "Pressure" = "Paine";
 

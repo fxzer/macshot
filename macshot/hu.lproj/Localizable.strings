@@ -31,7 +31,8 @@
 "Open from Clipboard" = "Megnyitás vágólapról";
 "Preferences..." = "Beállítások...";
 "Check for Updates..." = "Frissítések keresése...";
-"Quit macshot" = "Kilépés a macshot-ból";
+"Quit macshot" = "Kilépés a MacShot-ból";
+"About MacShot" = "About MacShot";
 "No recent captures" = "Nincsenek legutóbbi rögzítések";
 "Clear History" = "Előzmények törlése";
 
@@ -170,7 +171,7 @@
 "Copy to clipboard" = "Másolás a vágólapra";
 
 /* Preferences - General */
-"macshot Preferences" = "macshot beállítások";
+"macshot Preferences" = "MacShot beállítások";
 "General" = "Általános";
 "Interface" = "Interface";
 "Interface Options" = "Interface Options";
@@ -194,7 +195,7 @@
 "Capture mouse cursor in screenshot" = "Egérmutató rögzítése a képernyőképen";
 "Use window title in saved filename" = "Ablakcím használata a mentett fájlnévben";
 "Hide menu bar icon" = "Menüsor ikon elrejtése";
-"Hotkeys still work. To show the icon again, re-launch macshot." = "A gyorsbillentyűk továbbra is működnek. Az ikon újbóli megjelenítéséhez indítsd újra a macshot-ot.";
+"Hotkeys still work. To show the icon again, re-launch macshot." = "A gyorsbillentyűk továbbra is működnek. Az ikon újbóli megjelenítéséhez indítsd újra a MacShot-ot.";
 "Check for updates automatically" = "Frissítések automatikus keresése";
 "Check for beta updates" = "Béta frissítések keresése";
 "Thumbnail" = "Bélyegkép";
@@ -310,7 +311,7 @@
 "Video upload requires Google Drive or S3" = "A videó feltöltéshez Google Drive vagy S3 szükséges";
 
 /* Preferences - About */
-"macshot" = "macshot";
+"macshot" = "MacShot";
 "Version %@ (%@)" = "Verzió %@ (%@)";
 "Made by" = "Készítette";
 "Licensed under the GPLv3" = "GPLv3 licenc alatt";
@@ -321,23 +322,23 @@
 "Copy an image to the clipboard first, then try again." = "Előbb másolj egy képet a vágólapra, majd próbáld újra.";
 "OK" = "OK";
 "Accessibility Access Required" = "Akadálymentesítési hozzáférés szükséges";
-"macshot needs Accessibility permission to auto-scroll other apps. Please grant access in System Settings, then try again." = "A macshot-nak Akadálymentesítési engedélyre van szüksége más alkalmazások automatikus görgetéséhez. Kérlek, adj hozzáférést a Rendszerbeállításokban, majd próbáld újra.";
-"macshot needs Accessibility permission for scroll capture. Please grant access in System Settings, then try again." = "A macshot Kisegítő lehetőségek engedélyre van szüksége a görgetéses rögzítéshez. Kérjük, engedélyezze a hozzáférést a Rendszerbeállításokban, majd próbálja újra.";
+"macshot needs Accessibility permission to auto-scroll other apps. Please grant access in System Settings, then try again." = "A MacShot-nak Akadálymentesítési engedélyre van szüksége más alkalmazások automatikus görgetéséhez. Kérlek, adj hozzáférést a Rendszerbeállításokban, majd próbáld újra.";
+"macshot needs Accessibility permission for scroll capture. Please grant access in System Settings, then try again." = "A MacShot Kisegítő lehetőségek engedélyre van szüksége a görgetéses rögzítéshez. Kérjük, engedélyezze a hozzáférést a Rendszerbeállításokban, majd próbálja újra.";
 "Open Settings" = "Beállítások megnyitása";
 "Cancel" = "Mégse";
 "Microphone Access Required" = "Mikrofon hozzáférés szükséges";
-"macshot needs microphone permission to record voice audio. Open System Settings to grant access." = "A macshot-nak mikrofon engedélyre van szüksége a hangfelvételhez. Nyisd meg a Rendszerbeállításokat a hozzáférés megadásához.";
+"macshot needs microphone permission to record voice audio. Open System Settings to grant access." = "A MacShot-nak mikrofon engedélyre van szüksége a hangfelvételhez. Nyisd meg a Rendszerbeállításokat a hozzáférés megadásához.";
 "Upload to Google Drive?" = "Feltöltés a Google Drive-ra?";
 "Upload to S3?" = "Feltöltés az S3-ra?";
 "Upload to imgbb.com?" = "Feltöltés az imgbb.com-ra?";
 "Your screenshot will be uploaded." = "A képernyőkép feltöltésre kerül.";
 
 /* Permission Onboarding */
-"Welcome to macshot" = "Üdvözöl a macshot";
-"macshot needs one permission" = "A macshot-nak egy engedélyre van szüksége";
+"Welcome to macshot" = "Üdvözöl a MacShot";
+"macshot needs one permission" = "A MacShot-nak egy engedélyre van szüksége";
 "Screen Recording not yet granted" = "Képernyőfelvétel engedélye még nem adott";
 "Screen Recording granted!" = "Képernyőfelvétel engedélyezve!";
-"Enable macshot, then try taking a screenshot" = "Engedélyezd a macshot-ot, majd próbálj képernyőképet készíteni";
+"Enable macshot, then try taking a screenshot" = "Engedélyezd a MacShot-ot, majd próbálj képernyőképet készíteni";
 "Open Screen Recording Settings" = "Képernyőfelvétel beállításainak megnyitása";
 "Continue" = "Tovább";
 
@@ -367,7 +368,7 @@
 "Path copied!" = "Útvonal másolva!";
 
 /* Video Editor */
-"macshot Video Editor" = "macshot videószerkesztő";
+"macshot Video Editor" = "MacShot videószerkesztő";
 "%@ selected" = "%@ kiválasztva";
 "Exporting..." = "Exportálás...";
 "Export failed" = "Exportálás sikertelen";
@@ -412,8 +413,8 @@
 
 /* Recording — Input Monitoring Permission */
 "Input Monitoring Required" = "Bevitelfigyelés szükséges";
-"macshot needs Input Monitoring permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "A macshot-nak Bevitelfigyelés engedélyre van szüksége a billentyűleütések megjelenítéséhez felvétel közben. Kérlek, adj hozzáférést a System Settings-ben, majd próbáld újra.";
-"macshot needs Accessibility permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "A macshot-nak Akadálymentesítési engedélyre van szüksége a billentyűleütések megjelenítéséhez felvétel közben. Kérlek, adj hozzáférést a System Settings-ben, majd próbáld újra.";
+"macshot needs Input Monitoring permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "A MacShot-nak Bevitelfigyelés engedélyre van szüksége a billentyűleütések megjelenítéséhez felvétel közben. Kérlek, adj hozzáférést a System Settings-ben, majd próbáld újra.";
+"macshot needs Accessibility permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "A MacShot-nak Akadálymentesítési engedélyre van szüksége a billentyűleütések megjelenítéséhez felvétel közben. Kérlek, adj hozzáférést a System Settings-ben, majd próbáld újra.";
 
 /* Recording — Keystroke Overlay */
 "Show Keystrokes" = "Billentyűleütések megjelenítése";
@@ -429,7 +430,7 @@
 /* Webcam Overlay */
 "Webcam Overlay" = "Webkamera átfedés";
 "Camera Access Required" = "Kamera hozzáférés szükséges";
-"macshot needs camera permission for the webcam overlay. Open System Settings to grant access." = "A macshot-nak kamera engedélyre van szüksége a webkamera átfedéshez. Nyisd meg a Rendszerbeállításokat a hozzáférés megadásához.";
+"macshot needs camera permission for the webcam overlay. Open System Settings to grant access." = "A MacShot-nak kamera engedélyre van szüksége a webkamera átfedéshez. Nyisd meg a Rendszerbeállításokat a hozzáférés megadásához.";
 "Webcam" = "Webkamera";
 "Bottom Right" = "Jobb alsó";
 "Bottom Left" = "Bal alsó";
@@ -445,7 +446,7 @@
 
 /* New Strings */
 "Settings..." = "Beállítások...";
-"macshot Settings" = "macshot beállítások";
+"macshot Settings" = "MacShot beállítások";
 "Also open in Editor" = "Megnyitás a szerkesztőben is";
 "Hide controls" = "Vezérlők elrejtése";
 "Hide recording controls" = "Felvételi vezérlők elrejtése";
@@ -495,7 +496,7 @@
 "Clear History?" = "Törli az előzményeket?";
 "This will permanently delete all screenshots from history." = "Ez véglegesen törli az összes képernyőképet az előzményekből.";
 "Click \"Set\" and press a key combination with at least one modifier (⌘, ⌥, ⌃, ⇧) to set a shortcut." = "Kattintson a \"Beállítás\" gombra, majd nyomjon meg egy billentyűkombinációt legalább egy módosítóbillentyűvel (⌘, ⌥, ⌃, ⇧) a gyorsbillentyű beállításához.";
-"Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private — nothing is shared publicly." = "A fájlok a Google Drive-on lévő \"macshot\" mappába töltődnek fel. Minden privát marad — semmi nem kerül nyilvános megosztásra.";
+"Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private — nothing is shared publicly." = "A fájlok a Google Drive-on lévő \"MacShot\" mappába töltődnek fel. Minden privát marad — semmi nem kerül nyilvános megosztásra.";
 
 "Pressure" = "Nyomás";
 

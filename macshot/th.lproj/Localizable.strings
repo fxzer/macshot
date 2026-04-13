@@ -31,7 +31,8 @@
 "Open from Clipboard" = "เปิดจากคลิปบอร์ด";
 "Preferences..." = "การตั้งค่า...";
 "Check for Updates..." = "ตรวจสอบอัปเดต...";
-"Quit macshot" = "ออกจาก macshot";
+"Quit macshot" = "ออกจาก MacShot";
+"About MacShot" = "About MacShot";
 "No recent captures" = "ไม่มีภาพที่จับล่าสุด";
 "Clear History" = "ล้างประวัติ";
 
@@ -170,7 +171,7 @@
 "Copy to clipboard" = "คัดลอกไปยังคลิปบอร์ด";
 
 /* Preferences - General */
-"macshot Preferences" = "การตั้งค่า macshot";
+"macshot Preferences" = "การตั้งค่า MacShot";
 "General" = "ทั่วไป";
 "Interface" = "Interface";
 "Interface Options" = "Interface Options";
@@ -194,7 +195,7 @@
 "Capture mouse cursor in screenshot" = "จับภาพเคอร์เซอร์เมาส์ในภาพหน้าจอ";
 "Use window title in saved filename" = "ใช้ชื่อหน้าต่างในชื่อไฟล์ที่บันทึก";
 "Hide menu bar icon" = "ซ่อนไอคอนแถบเมนู";
-"Hotkeys still work. To show the icon again, re-launch macshot." = "ปุ่มลัดยังใช้งานได้ เปิด macshot ใหม่เพื่อแสดงไอคอนอีกครั้ง";
+"Hotkeys still work. To show the icon again, re-launch macshot." = "ปุ่มลัดยังใช้งานได้ เปิด MacShot ใหม่เพื่อแสดงไอคอนอีกครั้ง";
 "Check for updates automatically" = "ตรวจสอบอัปเดตอัตโนมัติ";
 "Check for beta updates" = "ตรวจสอบอัปเดตเบต้า";
 "Thumbnail" = "ภาพขนาดย่อ";
@@ -310,7 +311,7 @@
 "Video upload requires Google Drive or S3" = "การอัปโหลดวิดีโอต้องใช้ Google Drive หรือ S3";
 
 /* Preferences - About */
-"macshot" = "macshot";
+"macshot" = "MacShot";
 "Version %@ (%@)" = "เวอร์ชัน %@ (%@)";
 "Made by" = "สร้างโดย";
 "Licensed under the GPLv3" = "อนุญาตภายใต้ GPLv3";
@@ -321,23 +322,23 @@
 "Copy an image to the clipboard first, then try again." = "คัดลอกรูปภาพไปยังคลิปบอร์ดก่อน แล้วลองอีกครั้ง";
 "OK" = "ตกลง";
 "Accessibility Access Required" = "ต้องการสิทธิ์การเข้าถึง";
-"macshot needs Accessibility permission to auto-scroll other apps. Please grant access in System Settings, then try again." = "macshot ต้องการสิทธิ์การเข้าถึงเพื่อเลื่อนแอปอื่นอัตโนมัติ กรุณาอนุญาตในการตั้งค่าระบบ แล้วลองอีกครั้ง";
-"macshot needs Accessibility permission for scroll capture. Please grant access in System Settings, then try again." = "macshot ต้องการสิทธิ์การช่วยการเข้าถึงสำหรับการจับภาพแบบเลื่อน กรุณาให้สิทธิ์ในการตั้งค่าระบบ แล้วลองอีกครั้ง";
+"macshot needs Accessibility permission to auto-scroll other apps. Please grant access in System Settings, then try again." = "MacShot ต้องการสิทธิ์การเข้าถึงเพื่อเลื่อนแอปอื่นอัตโนมัติ กรุณาอนุญาตในการตั้งค่าระบบ แล้วลองอีกครั้ง";
+"macshot needs Accessibility permission for scroll capture. Please grant access in System Settings, then try again." = "MacShot ต้องการสิทธิ์การช่วยการเข้าถึงสำหรับการจับภาพแบบเลื่อน กรุณาให้สิทธิ์ในการตั้งค่าระบบ แล้วลองอีกครั้ง";
 "Open Settings" = "เปิดการตั้งค่า";
 "Cancel" = "ยกเลิก";
 "Microphone Access Required" = "ต้องการสิทธิ์ไมโครโฟน";
-"macshot needs microphone permission to record voice audio. Open System Settings to grant access." = "macshot ต้องการสิทธิ์ไมโครโฟนเพื่อบันทึกเสียง เปิดการตั้งค่าระบบเพื่ออนุญาต";
+"macshot needs microphone permission to record voice audio. Open System Settings to grant access." = "MacShot ต้องการสิทธิ์ไมโครโฟนเพื่อบันทึกเสียง เปิดการตั้งค่าระบบเพื่ออนุญาต";
 "Upload to Google Drive?" = "อัปโหลดไปยัง Google Drive?";
 "Upload to S3?" = "อัปโหลดไปยัง S3?";
 "Upload to imgbb.com?" = "อัปโหลดไปยัง imgbb.com?";
 "Your screenshot will be uploaded." = "ภาพหน้าจอของคุณจะถูกอัปโหลด";
 
 /* Permission Onboarding */
-"Welcome to macshot" = "ยินดีต้อนรับสู่ macshot";
-"macshot needs one permission" = "macshot ต้องการสิทธิ์หนึ่งอย่าง";
+"Welcome to macshot" = "ยินดีต้อนรับสู่ MacShot";
+"macshot needs one permission" = "MacShot ต้องการสิทธิ์หนึ่งอย่าง";
 "Screen Recording not yet granted" = "ยังไม่ได้อนุญาตการบันทึกหน้าจอ";
 "Screen Recording granted!" = "อนุญาตการบันทึกหน้าจอแล้ว!";
-"Enable macshot, then try taking a screenshot" = "เปิดใช้งาน macshot แล้วลองจับภาพหน้าจอ";
+"Enable macshot, then try taking a screenshot" = "เปิดใช้งาน MacShot แล้วลองจับภาพหน้าจอ";
 "Open Screen Recording Settings" = "เปิดการตั้งค่าการบันทึกหน้าจอ";
 "Continue" = "ดำเนินการต่อ";
 
@@ -367,7 +368,7 @@
 "Path copied!" = "คัดลอกเส้นทางแล้ว!";
 
 /* Video Editor */
-"macshot Video Editor" = "ตัวแก้ไขวิดีโอ macshot";
+"macshot Video Editor" = "ตัวแก้ไขวิดีโอ MacShot";
 "%@ selected" = "เลือก %@ แล้ว";
 "Exporting..." = "กำลังส่งออก...";
 "Export failed" = "ส่งออกล้มเหลว";
@@ -412,8 +413,8 @@
 
 /* Recording — Input Monitoring Permission */
 "Input Monitoring Required" = "ต้องการสิทธิ์การตรวจสอบอินพุต";
-"macshot needs Input Monitoring permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "macshot ต้องการสิทธิ์การตรวจสอบอินพุตเพื่อแสดงการกดปุ่มขณะบันทึก กรุณาอนุญาตใน System Settings แล้วลองอีกครั้ง";
-"macshot needs Accessibility permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "macshot ต้องการสิทธิ์การช่วยการเข้าถึงเพื่อแสดงการกดปุ่มขณะบันทึก กรุณาอนุญาตใน System Settings แล้วลองอีกครั้ง";
+"macshot needs Input Monitoring permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "MacShot ต้องการสิทธิ์การตรวจสอบอินพุตเพื่อแสดงการกดปุ่มขณะบันทึก กรุณาอนุญาตใน System Settings แล้วลองอีกครั้ง";
+"macshot needs Accessibility permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "MacShot ต้องการสิทธิ์การช่วยการเข้าถึงเพื่อแสดงการกดปุ่มขณะบันทึก กรุณาอนุญาตใน System Settings แล้วลองอีกครั้ง";
 
 /* Recording — Keystroke Overlay */
 "Show Keystrokes" = "แสดงการกดปุ่ม";
@@ -429,7 +430,7 @@
 /* Webcam Overlay */
 "Webcam Overlay" = "ซ้อนทับเว็บแคม";
 "Camera Access Required" = "ต้องการสิทธิ์กล้อง";
-"macshot needs camera permission for the webcam overlay. Open System Settings to grant access." = "macshot ต้องการสิทธิ์กล้องสำหรับการซ้อนทับเว็บแคม เปิดการตั้งค่าระบบเพื่ออนุญาต";
+"macshot needs camera permission for the webcam overlay. Open System Settings to grant access." = "MacShot ต้องการสิทธิ์กล้องสำหรับการซ้อนทับเว็บแคม เปิดการตั้งค่าระบบเพื่ออนุญาต";
 "Webcam" = "เว็บแคม";
 "Bottom Right" = "ล่างขวา";
 "Bottom Left" = "ล่างซ้าย";
@@ -445,7 +446,7 @@
 
 /* New Strings */
 "Settings..." = "การตั้งค่า...";
-"macshot Settings" = "การตั้งค่า macshot";
+"macshot Settings" = "การตั้งค่า MacShot";
 "Also open in Editor" = "เปิดในตัวแก้ไขด้วย";
 "Hide controls" = "ซ่อนตัวควบคุม";
 "Hide recording controls" = "ซ่อนตัวควบคุมการบันทึก";
@@ -495,7 +496,7 @@
 "Clear History?" = "ล้างประวัติ?";
 "This will permanently delete all screenshots from history." = "การดำเนินการนี้จะลบภาพหน้าจอทั้งหมดออกจากประวัติอย่างถาวร";
 "Click \"Set\" and press a key combination with at least one modifier (⌘, ⌥, ⌃, ⇧) to set a shortcut." = "คลิก \"ตั้งค่า\" แล้วกดคีย์ผสมที่มีปุ่มตัวแก้ไขอย่างน้อยหนึ่งปุ่ม (⌘, ⌥, ⌃, ⇧) เพื่อตั้งค่าทางลัด";
-"Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private — nothing is shared publicly." = "ไฟล์จะถูกอัปโหลดไปยังโฟลเดอร์ \"macshot\" ใน Google Drive ของคุณ ทุกอย่างเป็นส่วนตัว — ไม่มีการแชร์สาธารณะ";
+"Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private — nothing is shared publicly." = "ไฟล์จะถูกอัปโหลดไปยังโฟลเดอร์ \"MacShot\" ใน Google Drive ของคุณ ทุกอย่างเป็นส่วนตัว — ไม่มีการแชร์สาธารณะ";
 
 "Pressure" = "แรงกด";
 

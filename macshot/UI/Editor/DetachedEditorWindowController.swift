@@ -77,7 +77,7 @@ class DetachedEditorWindowController: NSObject, NSWindowDelegate {
             backing: .buffered,
             defer: false
         )
-        win.title = "macshot Editor"
+        win.title = "MacShot Editor"
         win.minSize = NSSize(width: minW, height: minH)
         win.maxSize = NSSize(width: screenFrame.width, height: screenFrame.height)
         win.isReleasedWhenClosed = false

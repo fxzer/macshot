@@ -31,7 +31,8 @@
 "Open from Clipboard" = "Mở từ bộ nhớ tạm";
 "Preferences..." = "Tùy chọn...";
 "Check for Updates..." = "Kiểm tra cập nhật...";
-"Quit macshot" = "Thoát macshot";
+"Quit macshot" = "Thoát MacShot";
+"About MacShot" = "About MacShot";
 "No recent captures" = "Không có ảnh chụp gần đây";
 "Clear History" = "Xóa lịch sử";
 
@@ -170,7 +171,7 @@
 "Copy to clipboard" = "Sao chép vào bộ nhớ tạm";
 
 /* Preferences - General */
-"macshot Preferences" = "Tùy chọn macshot";
+"macshot Preferences" = "Tùy chọn MacShot";
 "General" = "Chung";
 "Interface" = "Interface";
 "Interface Options" = "Interface Options";
@@ -194,7 +195,7 @@
 "Capture mouse cursor in screenshot" = "Chụp con trỏ chuột trong ảnh";
 "Use window title in saved filename" = "Dùng tiêu đề cửa sổ trong tên tệp";
 "Hide menu bar icon" = "Ẩn biểu tượng thanh menu";
-"Hotkeys still work. To show the icon again, re-launch macshot." = "Phím tắt vẫn hoạt động. Để hiện lại biểu tượng, hãy khởi chạy lại macshot.";
+"Hotkeys still work. To show the icon again, re-launch macshot." = "Phím tắt vẫn hoạt động. Để hiện lại biểu tượng, hãy khởi chạy lại MacShot.";
 "Check for updates automatically" = "Tự động kiểm tra cập nhật";
 "Check for beta updates" = "Kiểm tra bản cập nhật beta";
 "Thumbnail" = "Ảnh thu nhỏ";
@@ -310,7 +311,7 @@
 "Video upload requires Google Drive or S3" = "Tải video lên yêu cầu Google Drive hoặc S3";
 
 /* Preferences - About */
-"macshot" = "macshot";
+"macshot" = "MacShot";
 "Version %@ (%@)" = "Phiên bản %@ (%@)";
 "Made by" = "Được tạo bởi";
 "Licensed under the GPLv3" = "Được cấp phép theo GPLv3";
@@ -321,23 +322,23 @@
 "Copy an image to the clipboard first, then try again." = "Sao chép ảnh vào bộ nhớ tạm trước, rồi thử lại.";
 "OK" = "OK";
 "Accessibility Access Required" = "Yêu cầu quyền Trợ năng";
-"macshot needs Accessibility permission to auto-scroll other apps. Please grant access in System Settings, then try again." = "macshot cần quyền Trợ năng để tự động cuộn các ứng dụng khác. Vui lòng cấp quyền trong Cài đặt hệ thống, rồi thử lại.";
-"macshot needs Accessibility permission for scroll capture. Please grant access in System Settings, then try again." = "macshot cần quyền Trợ năng để chụp cuộn. Vui lòng cấp quyền trong Cài đặt Hệ thống, rồi thử lại.";
+"macshot needs Accessibility permission to auto-scroll other apps. Please grant access in System Settings, then try again." = "MacShot cần quyền Trợ năng để tự động cuộn các ứng dụng khác. Vui lòng cấp quyền trong Cài đặt hệ thống, rồi thử lại.";
+"macshot needs Accessibility permission for scroll capture. Please grant access in System Settings, then try again." = "MacShot cần quyền Trợ năng để chụp cuộn. Vui lòng cấp quyền trong Cài đặt Hệ thống, rồi thử lại.";
 "Open Settings" = "Mở Cài đặt";
 "Cancel" = "Hủy";
 "Microphone Access Required" = "Yêu cầu quyền Micro";
-"macshot needs microphone permission to record voice audio. Open System Settings to grant access." = "macshot cần quyền micro để ghi âm giọng nói. Mở Cài đặt hệ thống để cấp quyền.";
+"macshot needs microphone permission to record voice audio. Open System Settings to grant access." = "MacShot cần quyền micro để ghi âm giọng nói. Mở Cài đặt hệ thống để cấp quyền.";
 "Upload to Google Drive?" = "Tải lên Google Drive?";
 "Upload to S3?" = "Tải lên S3?";
 "Upload to imgbb.com?" = "Tải lên imgbb.com?";
 "Your screenshot will be uploaded." = "Ảnh chụp của bạn sẽ được tải lên.";
 
 /* Permission Onboarding */
-"Welcome to macshot" = "Chào mừng đến với macshot";
-"macshot needs one permission" = "macshot cần một quyền";
+"Welcome to macshot" = "Chào mừng đến với MacShot";
+"macshot needs one permission" = "MacShot cần một quyền";
 "Screen Recording not yet granted" = "Chưa cấp quyền Quay màn hình";
 "Screen Recording granted!" = "Đã cấp quyền Quay màn hình!";
-"Enable macshot, then try taking a screenshot" = "Bật macshot, rồi thử chụp ảnh màn hình";
+"Enable macshot, then try taking a screenshot" = "Bật MacShot, rồi thử chụp ảnh màn hình";
 "Open Screen Recording Settings" = "Mở Cài đặt Quay màn hình";
 "Continue" = "Tiếp tục";
 
@@ -367,7 +368,7 @@
 "Path copied!" = "Đã sao chép đường dẫn!";
 
 /* Video Editor */
-"macshot Video Editor" = "Trình chỉnh sửa video macshot";
+"macshot Video Editor" = "Trình chỉnh sửa video MacShot";
 "%@ selected" = "%@ đã chọn";
 "Exporting..." = "Đang xuất...";
 "Export failed" = "Xuất thất bại";
@@ -412,8 +413,8 @@
 
 /* Recording — Input Monitoring Permission */
 "Input Monitoring Required" = "Yêu cầu quyền Giám sát đầu vào";
-"macshot needs Input Monitoring permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "macshot cần quyền Giám sát đầu vào để hiển thị phím bấm trong khi quay. Vui lòng cấp quyền trong System Settings, rồi thử lại.";
-"macshot needs Accessibility permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "macshot cần quyền Trợ năng để hiển thị phím bấm trong khi quay. Vui lòng cấp quyền trong System Settings, rồi thử lại.";
+"macshot needs Input Monitoring permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "MacShot cần quyền Giám sát đầu vào để hiển thị phím bấm trong khi quay. Vui lòng cấp quyền trong System Settings, rồi thử lại.";
+"macshot needs Accessibility permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "MacShot cần quyền Trợ năng để hiển thị phím bấm trong khi quay. Vui lòng cấp quyền trong System Settings, rồi thử lại.";
 
 /* Recording — Keystroke Overlay */
 "Show Keystrokes" = "Hiển thị phím bấm";
@@ -429,7 +430,7 @@
 /* Webcam Overlay */
 "Webcam Overlay" = "Lớp phủ webcam";
 "Camera Access Required" = "Yêu cầu quyền Camera";
-"macshot needs camera permission for the webcam overlay. Open System Settings to grant access." = "macshot cần quyền camera để sử dụng lớp phủ webcam. Mở Cài đặt hệ thống để cấp quyền.";
+"macshot needs camera permission for the webcam overlay. Open System Settings to grant access." = "MacShot cần quyền camera để sử dụng lớp phủ webcam. Mở Cài đặt hệ thống để cấp quyền.";
 "Webcam" = "Webcam";
 "Bottom Right" = "Dưới phải";
 "Bottom Left" = "Dưới trái";
@@ -445,7 +446,7 @@
 
 /* New Strings */
 "Settings..." = "Cài đặt...";
-"macshot Settings" = "Cài đặt macshot";
+"macshot Settings" = "Cài đặt MacShot";
 "Also open in Editor" = "Đồng thời mở trong trình chỉnh sửa";
 "Hide controls" = "Ẩn điều khiển";
 "Hide recording controls" = "Ẩn điều khiển quay";
@@ -495,7 +496,7 @@
 "Clear History?" = "Xóa lịch sử?";
 "This will permanently delete all screenshots from history." = "Thao tác này sẽ xóa vĩnh viễn tất cả ảnh chụp màn hình khỏi lịch sử.";
 "Click \"Set\" and press a key combination with at least one modifier (⌘, ⌥, ⌃, ⇧) to set a shortcut." = "Nhấp vào \"Đặt\" và nhấn tổ hợp phím có ít nhất một phím bổ trợ (⌘, ⌥, ⌃, ⇧) để đặt phím tắt.";
-"Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private — nothing is shared publicly." = "Các tệp được tải lên thư mục \"macshot\" trong Google Drive của bạn. Mọi thứ đều được giữ bí mật — không có gì được chia sẻ công khai.";
+"Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private — nothing is shared publicly." = "Các tệp được tải lên thư mục \"MacShot\" trong Google Drive của bạn. Mọi thứ đều được giữ bí mật — không có gì được chia sẻ công khai.";
 
 "Pressure" = "Lực nhấn";
 

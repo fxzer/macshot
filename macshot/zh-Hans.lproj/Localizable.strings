@@ -31,7 +31,8 @@
 "Open from Clipboard" = "从剪贴板打开";
 "Preferences..." = "偏好设置...";
 "Check for Updates..." = "检查更新...";
-"Quit macshot" = "退出 macshot";
+"Quit macshot" = "退出 MacShot";
+"About MacShot" = "关于 MacShot";
 "No recent captures" = "暂无最近捕获";
 "Clear History" = "清除历史";
 
@@ -182,7 +183,7 @@
 "Copy to clipboard" = "拷贝到剪贴板";
 
 /* Preferences - General */
-"macshot Preferences" = "macshot 偏好设置";
+"macshot Preferences" = "MacShot 偏好设置";
 "General" = "通用";
 "Interface" = "界面";
 "Interface Options" = "界面选项";
@@ -221,7 +222,7 @@
 "Generic RGB" = "普通 RGB";
 "Hide menu bar icon" = "隐藏菜单栏图标";
 "Show menu bar icon" = "显示菜单栏图标";
-"Hotkeys still work. To show the icon again, re-launch macshot." = "快捷键仍可使用。若要再次显示图标，请重新启动 macshot。";
+"Hotkeys still work. To show the icon again, re-launch macshot." = "快捷键仍可使用。若要再次显示图标，请重新启动 MacShot。";
 "Check for updates automatically" = "自动检查更新";
 "Check for beta updates" = "检查测试版更新";
 "Thumbnail" = "缩略图";
@@ -365,7 +366,7 @@
 "Video upload requires Google Drive or S3" = "视频上传需要 Google Drive 或 S3";
 
 /* Preferences - About */
-"macshot" = "macshot";
+"macshot" = "MacShot";
 "Version %@ (%@)" = "版本 %@（%@）";
 "Made by" = "开发者";
 "Licensed under the GPLv3" = "基于 GPLv3 许可协议";
@@ -376,23 +377,23 @@
 "Copy an image to the clipboard first, then try again." = "请先将图片拷贝到剪贴板，然后重试。";
 "OK" = "好";
 "Accessibility Access Required" = "需要辅助功能权限";
-"macshot needs Accessibility permission to auto-scroll other apps. Please grant access in System Settings, then try again." = "macshot 需要辅助功能权限才能自动滚动其他应用。请在系统设置中授予权限，然后重试。";
+"macshot needs Accessibility permission to auto-scroll other apps. Please grant access in System Settings, then try again." = "MacShot 需要辅助功能权限才能自动滚动其他应用。请在系统设置中授予权限，然后重试。";
 "macshot needs Accessibility permission for scroll capture. Please grant access in System Settings, then try again." = "macshot 需要辅助功能权限才能进行滚动截图。请在系统设置中授予访问权限，然后重试。";
 "Open Settings" = "打开设置";
 "Cancel" = "取消";
 "Microphone Access Required" = "需要麦克风权限";
-"macshot needs microphone permission to record voice audio. Open System Settings to grant access." = "macshot 需要麦克风权限来录制语音。请打开系统设置以授予权限。";
+"macshot needs microphone permission to record voice audio. Open System Settings to grant access." = "MacShot 需要麦克风权限来录制语音。请打开系统设置以授予权限。";
 "Upload to Google Drive?" = "上传到 Google Drive？";
 "Upload to S3?" = "上传到 S3？";
 "Upload to imgbb.com?" = "上传到 imgbb.com？";
 "Your screenshot will be uploaded." = "您的截图将被上传。";
 
 /* Permission Onboarding */
-"Welcome to macshot" = "欢迎使用 macshot";
-"macshot needs one permission" = "macshot 需要一项权限";
+"Welcome to macshot" = "欢迎使用 MacShot";
+"macshot needs one permission" = "MacShot 需要一项权限";
 "Screen Recording not yet granted" = "尚未授予屏幕录制权限";
 "Screen Recording granted!" = "屏幕录制权限已授予！";
-"Enable macshot, then try taking a screenshot" = "启用 macshot，然后尝试截图";
+"Enable macshot, then try taking a screenshot" = "启用 MacShot，然后尝试截图";
 "Open Screen Recording Settings" = "打开屏幕录制设置";
 "Continue" = "继续";
 
@@ -422,7 +423,7 @@
 "Path copied!" = "路径已拷贝！";
 
 /* Video Editor */
-"macshot Video Editor" = "macshot 视频编辑器";
+"macshot Video Editor" = "MacShot 视频编辑器";
 "%@ selected" = "已选择 %@";
 "Exporting..." = "导出中...";
 "Export failed" = "导出失败";
@@ -467,8 +468,8 @@
 
 /* Recording — Input Monitoring Permission */
 "Input Monitoring Required" = "需要输入监控权限";
-"macshot needs Input Monitoring permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "macshot 需要输入监控权限才能在录制时显示按键。请在 System Settings 中授予权限，然后重试。";
-"macshot needs Accessibility permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "macshot 需要辅助功能权限才能在录制时显示按键。请在 System Settings 中授予权限，然后重试。";
+"macshot needs Input Monitoring permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "MacShot 需要输入监控权限才能在录制时显示按键。请在 System Settings 中授予权限，然后重试。";
+"macshot needs Accessibility permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "MacShot 需要辅助功能权限才能在录制时显示按键。请在 System Settings 中授予权限，然后重试。";
 
 /* Recording — Keystroke Overlay */
 "Show Keystrokes" = "显示按键";
@@ -484,7 +485,7 @@
 /* Webcam Overlay */
 "Webcam Overlay" = "摄像头叠加";
 "Camera Access Required" = "需要摄像头权限";
-"macshot needs camera permission for the webcam overlay. Open System Settings to grant access." = "macshot 需要摄像头权限来使用摄像头叠加。请打开系统设置以授予权限。";
+"macshot needs camera permission for the webcam overlay. Open System Settings to grant access." = "MacShot 需要摄像头权限来使用摄像头叠加。请打开系统设置以授予权限。";
 "Webcam" = "摄像头";
 "Bottom Right" = "右下";
 "Bottom Left" = "左下";
@@ -501,7 +502,7 @@
 /* New Strings */
 "Settings..." = "偏好设置...";
 "Settings…" = "设置…";
-"macshot Settings" = "macshot 偏好设置";
+"macshot Settings" = "MacShot 偏好设置";
 "Also open in Editor" = "同时在编辑器中打开";
 "Hide controls" = "隐藏控制";
 "Hide recording controls" = "隐藏录制控制";

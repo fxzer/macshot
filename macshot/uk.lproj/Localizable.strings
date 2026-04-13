@@ -31,7 +31,8 @@
 "Open from Clipboard" = "Відкрити з буфера обміну";
 "Preferences..." = "Параметри...";
 "Check for Updates..." = "Перевірити оновлення...";
-"Quit macshot" = "Завершити macshot";
+"Quit macshot" = "Завершити MacShot";
+"About MacShot" = "About MacShot";
 "No recent captures" = "Немає останніх захоплень";
 "Clear History" = "Очистити історію";
 
@@ -170,7 +171,7 @@
 "Copy to clipboard" = "Копіювати до буфера обміну";
 
 /* Preferences - General */
-"macshot Preferences" = "Параметри macshot";
+"macshot Preferences" = "Параметри MacShot";
 "General" = "Загальні";
 "Interface" = "Interface";
 "Interface Options" = "Interface Options";
@@ -194,7 +195,7 @@
 "Capture mouse cursor in screenshot" = "Захоплювати курсор миші на знімку екрана";
 "Use window title in saved filename" = "Використовувати заголовок вікна у назві файлу";
 "Hide menu bar icon" = "Сховати іконку в смузі меню";
-"Hotkeys still work. To show the icon again, re-launch macshot." = "Гарячі клавіші продовжують працювати. Щоб знову показати іконку, перезапустіть macshot.";
+"Hotkeys still work. To show the icon again, re-launch macshot." = "Гарячі клавіші продовжують працювати. Щоб знову показати іконку, перезапустіть MacShot.";
 "Check for updates automatically" = "Перевіряти оновлення автоматично";
 "Check for beta updates" = "Перевіряти бета-оновлення";
 "Thumbnail" = "Мініатюра";
@@ -310,7 +311,7 @@
 "Video upload requires Google Drive or S3" = "Завантаження відео потребує Google Drive або S3";
 
 /* Preferences - About */
-"macshot" = "macshot";
+"macshot" = "MacShot";
 "Version %@ (%@)" = "Версія %@ (%@)";
 "Made by" = "Автор";
 "Licensed under the GPLv3" = "Ліцензія GPLv3";
@@ -321,23 +322,23 @@
 "Copy an image to the clipboard first, then try again." = "Спочатку скопіюйте зображення до буфера обміну, потім спробуйте знову.";
 "OK" = "OK";
 "Accessibility Access Required" = "Потрібен доступ до Універсального доступу";
-"macshot needs Accessibility permission to auto-scroll other apps. Please grant access in System Settings, then try again." = "macshot потребує дозволу Універсального доступу для автопрокрутки інших програм. Надайте доступ у Системних параметрах і спробуйте знову.";
-"macshot needs Accessibility permission for scroll capture. Please grant access in System Settings, then try again." = "macshot потребує дозволу Доступності для захоплення з прокруткою. Надайте доступ у Системних параметрах і спробуйте знову.";
+"macshot needs Accessibility permission to auto-scroll other apps. Please grant access in System Settings, then try again." = "MacShot потребує дозволу Універсального доступу для автопрокрутки інших програм. Надайте доступ у Системних параметрах і спробуйте знову.";
+"macshot needs Accessibility permission for scroll capture. Please grant access in System Settings, then try again." = "MacShot потребує дозволу Доступності для захоплення з прокруткою. Надайте доступ у Системних параметрах і спробуйте знову.";
 "Open Settings" = "Відкрити Параметри";
 "Cancel" = "Скасувати";
 "Microphone Access Required" = "Потрібен доступ до мікрофона";
-"macshot needs microphone permission to record voice audio. Open System Settings to grant access." = "macshot потребує дозволу мікрофона для запису голосового аудіо. Відкрийте Системні параметри, щоб надати доступ.";
+"macshot needs microphone permission to record voice audio. Open System Settings to grant access." = "MacShot потребує дозволу мікрофона для запису голосового аудіо. Відкрийте Системні параметри, щоб надати доступ.";
 "Upload to Google Drive?" = "Завантажити на Google Drive?";
 "Upload to S3?" = "Завантажити на S3?";
 "Upload to imgbb.com?" = "Завантажити на imgbb.com?";
 "Your screenshot will be uploaded." = "Ваш знімок екрана буде завантажено.";
 
 /* Permission Onboarding */
-"Welcome to macshot" = "Ласкаво просимо до macshot";
-"macshot needs one permission" = "macshot потребує один дозвіл";
+"Welcome to macshot" = "Ласкаво просимо до MacShot";
+"macshot needs one permission" = "MacShot потребує один дозвіл";
 "Screen Recording not yet granted" = "Запис екрана ще не дозволено";
 "Screen Recording granted!" = "Запис екрана дозволено!";
-"Enable macshot, then try taking a screenshot" = "Увімкніть macshot, а потім спробуйте зробити знімок екрана";
+"Enable macshot, then try taking a screenshot" = "Увімкніть MacShot, а потім спробуйте зробити знімок екрана";
 "Open Screen Recording Settings" = "Відкрити параметри запису екрана";
 "Continue" = "Продовжити";
 
@@ -367,7 +368,7 @@
 "Path copied!" = "Шлях скопійовано!";
 
 /* Video Editor */
-"macshot Video Editor" = "macshot Відеоредактор";
+"macshot Video Editor" = "MacShot Відеоредактор";
 "%@ selected" = "%@ вибрано";
 "Exporting..." = "Експортування...";
 "Export failed" = "Помилка експорту";
@@ -412,8 +413,8 @@
 
 /* Recording — Input Monitoring Permission */
 "Input Monitoring Required" = "Потрібен моніторинг введення";
-"macshot needs Input Monitoring permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "macshot потребує дозволу на моніторинг введення для відображення натискань клавіш під час запису. Надайте доступ у System Settings і спробуйте знову.";
-"macshot needs Accessibility permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "macshot потребує дозволу Універсального доступу для відображення натискань клавіш під час запису. Надайте доступ у System Settings і спробуйте знову.";
+"macshot needs Input Monitoring permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "MacShot потребує дозволу на моніторинг введення для відображення натискань клавіш під час запису. Надайте доступ у System Settings і спробуйте знову.";
+"macshot needs Accessibility permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "MacShot потребує дозволу Універсального доступу для відображення натискань клавіш під час запису. Надайте доступ у System Settings і спробуйте знову.";
 
 /* Recording — Keystroke Overlay */
 "Show Keystrokes" = "Показувати натискання клавіш";
@@ -429,7 +430,7 @@
 /* Webcam Overlay */
 "Webcam Overlay" = "Накладання вебкамери";
 "Camera Access Required" = "Потрібен доступ до камери";
-"macshot needs camera permission for the webcam overlay. Open System Settings to grant access." = "macshot потребує дозволу камери для накладання вебкамери. Відкрийте Системні параметри, щоб надати доступ.";
+"macshot needs camera permission for the webcam overlay. Open System Settings to grant access." = "MacShot потребує дозволу камери для накладання вебкамери. Відкрийте Системні параметри, щоб надати доступ.";
 "Webcam" = "Вебкамера";
 "Bottom Right" = "Внизу праворуч";
 "Bottom Left" = "Внизу ліворуч";
@@ -445,7 +446,7 @@
 
 /* New Strings */
 "Settings..." = "Налаштування...";
-"macshot Settings" = "Налаштування macshot";
+"macshot Settings" = "Налаштування MacShot";
 "Also open in Editor" = "Також відкрити в редакторі";
 "Hide controls" = "Сховати елементи керування";
 "Hide recording controls" = "Сховати елементи керування записом";
@@ -495,7 +496,7 @@
 "Clear History?" = "Очистити історію?";
 "This will permanently delete all screenshots from history." = "Це назавжди видалить усі знімки екрана з історії.";
 "Click \"Set\" and press a key combination with at least one modifier (⌘, ⌥, ⌃, ⇧) to set a shortcut." = "Натисніть \"Встановити\" та введіть комбінацію клавіш з принаймні одним модифікатором (⌘, ⌥, ⌃, ⇧), щоб призначити ярлик.";
-"Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private — nothing is shared publicly." = "Файли завантажуються до папки \"macshot\" на вашому Google Диску. Все залишається приватним — нічого не публікується у відкритому доступі.";
+"Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private — nothing is shared publicly." = "Файли завантажуються до папки \"MacShot\" на вашому Google Диску. Все залишається приватним — нічого не публікується у відкритому доступі.";
 
 "Pressure" = "Тиск";
 

@@ -31,7 +31,8 @@
 "Open from Clipboard" = "\U00D6ppna fr\U00E5n urklipp";
 "Preferences..." = "Inst\U00E4llningar...";
 "Check for Updates..." = "S\U00F6k efter uppdateringar...";
-"Quit macshot" = "Avsluta macshot";
+"Quit macshot" = "Avsluta MacShot";
+"About MacShot" = "About MacShot";
 "No recent captures" = "Inga senaste f\U00E5ngster";
 "Clear History" = "Rensa historik";
 
@@ -170,7 +171,7 @@
 "Copy to clipboard" = "Kopiera till urklipp";
 
 /* Preferences - General */
-"macshot Preferences" = "macshot-inst\U00E4llningar";
+"macshot Preferences" = "MacShot-inst\U00E4llningar";
 "General" = "Allm\U00E4nt";
 "Interface" = "Interface";
 "Interface Options" = "Interface Options";
@@ -194,7 +195,7 @@
 "Capture mouse cursor in screenshot" = "F\U00E5nga muspekaren i sk\U00E4rmbild";
 "Use window title in saved filename" = "Anv\U00E4nd f\U00F6nstertitel i filnamn";
 "Hide menu bar icon" = "D\U00F6lj menyradsikon";
-"Hotkeys still work. To show the icon again, re-launch macshot." = "Kortkommandon fungerar fortfarande. F\U00F6r att visa ikonen igen, starta om macshot.";
+"Hotkeys still work. To show the icon again, re-launch macshot." = "Kortkommandon fungerar fortfarande. F\U00F6r att visa ikonen igen, starta om MacShot.";
 "Check for updates automatically" = "S\U00F6k efter uppdateringar automatiskt";
 "Check for beta updates" = "S\U00F6k efter betauppdateringar";
 "Thumbnail" = "Miniatyrbild";
@@ -310,7 +311,7 @@
 "Video upload requires Google Drive or S3" = "Videouppladdning kr\U00E4ver Google Drive eller S3";
 
 /* Preferences - About */
-"macshot" = "macshot";
+"macshot" = "MacShot";
 "Version %@ (%@)" = "Version %@ (%@)";
 "Made by" = "Skapad av";
 "Licensed under the GPLv3" = "Licensierad under GPLv3";
@@ -321,23 +322,23 @@
 "Copy an image to the clipboard first, then try again." = "Kopiera en bild till urklipp f\U00F6rst och f\U00F6rs\U00F6k sedan igen.";
 "OK" = "OK";
 "Accessibility Access Required" = "Tillg\U00E4nglighets\U00E5tkomst kr\U00E4vs";
-"macshot needs Accessibility permission to auto-scroll other apps. Please grant access in System Settings, then try again." = "macshot beh\U00F6ver tillg\U00E4nglighetsbeh\U00F6righet f\U00F6r att auto-rulla andra appar. Ge \U00E5tkomst i Systeminst\U00E4llningar och f\U00F6rs\U00F6k sedan igen.";
-"macshot needs Accessibility permission for scroll capture. Please grant access in System Settings, then try again." = "macshot behöver behörighet för Tillgänglighet för rullningsfångst. Ge åtkomst i Systeminställningar och försök igen.";
+"macshot needs Accessibility permission to auto-scroll other apps. Please grant access in System Settings, then try again." = "MacShot beh\U00F6ver tillg\U00E4nglighetsbeh\U00F6righet f\U00F6r att auto-rulla andra appar. Ge \U00E5tkomst i Systeminst\U00E4llningar och f\U00F6rs\U00F6k sedan igen.";
+"macshot needs Accessibility permission for scroll capture. Please grant access in System Settings, then try again." = "MacShot behöver behörighet för Tillgänglighet för rullningsfångst. Ge åtkomst i Systeminställningar och försök igen.";
 "Open Settings" = "\U00D6ppna Inst\U00E4llningar";
 "Cancel" = "Avbryt";
 "Microphone Access Required" = "Mikrofon\U00E5tkomst kr\U00E4vs";
-"macshot needs microphone permission to record voice audio. Open System Settings to grant access." = "macshot beh\U00F6ver mikrofonbeh\U00F6righet f\U00F6r att spela in r\U00F6stljud. \U00D6ppna Systeminst\U00E4llningar f\U00F6r att ge \U00E5tkomst.";
+"macshot needs microphone permission to record voice audio. Open System Settings to grant access." = "MacShot beh\U00F6ver mikrofonbeh\U00F6righet f\U00F6r att spela in r\U00F6stljud. \U00D6ppna Systeminst\U00E4llningar f\U00F6r att ge \U00E5tkomst.";
 "Upload to Google Drive?" = "Ladda upp till Google Drive?";
 "Upload to S3?" = "Ladda upp till S3?";
 "Upload to imgbb.com?" = "Ladda upp till imgbb.com?";
 "Your screenshot will be uploaded." = "Din sk\U00E4rmbild kommer att laddas upp.";
 
 /* Permission Onboarding */
-"Welcome to macshot" = "V\U00E4lkommen till macshot";
-"macshot needs one permission" = "macshot beh\U00F6ver en beh\U00F6righet";
+"Welcome to macshot" = "V\U00E4lkommen till MacShot";
+"macshot needs one permission" = "MacShot beh\U00F6ver en beh\U00F6righet";
 "Screen Recording not yet granted" = "Sk\U00E4rminspelning \U00E4nnu inte beviljad";
 "Screen Recording granted!" = "Sk\U00E4rminspelning beviljad!";
-"Enable macshot, then try taking a screenshot" = "Aktivera macshot och ta sedan en sk\U00E4rmbild";
+"Enable macshot, then try taking a screenshot" = "Aktivera MacShot och ta sedan en sk\U00E4rmbild";
 "Open Screen Recording Settings" = "\U00D6ppna inst\U00E4llningar f\U00F6r sk\U00E4rminspelning";
 "Continue" = "Forts\U00E4tt";
 
@@ -367,7 +368,7 @@
 "Path copied!" = "S\U00F6kv\U00E4g kopierad!";
 
 /* Video Editor */
-"macshot Video Editor" = "macshot Videoredigerare";
+"macshot Video Editor" = "MacShot Videoredigerare";
 "%@ selected" = "%@ markerat";
 "Exporting..." = "Exporterar...";
 "Export failed" = "Export misslyckades";
@@ -412,8 +413,8 @@
 
 /* Recording \U2014 Input Monitoring Permission */
 "Input Monitoring Required" = "Inmatnings\U00F6vervakning kr\U00E4vs";
-"macshot needs Input Monitoring permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "macshot beh\U00F6ver beh\U00F6righet f\U00F6r inmatnings\U00F6vervakning f\U00F6r att visa tangenttryckningar under inspelning. Ge \U00E5tkomst i System Settings och f\U00F6rs\U00F6k sedan igen.";
-"macshot needs Accessibility permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "macshot beh\U00F6ver tillg\U00E4nglighetsbeh\U00F6righet f\U00F6r att visa tangenttryckningar under inspelning. Ge \U00E5tkomst i System Settings och f\U00F6rs\U00F6k sedan igen.";
+"macshot needs Input Monitoring permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "MacShot beh\U00F6ver beh\U00F6righet f\U00F6r inmatnings\U00F6vervakning f\U00F6r att visa tangenttryckningar under inspelning. Ge \U00E5tkomst i System Settings och f\U00F6rs\U00F6k sedan igen.";
+"macshot needs Accessibility permission to show keystrokes during recording. Please grant access in System Settings, then try again." = "MacShot beh\U00F6ver tillg\U00E4nglighetsbeh\U00F6righet f\U00F6r att visa tangenttryckningar under inspelning. Ge \U00E5tkomst i System Settings och f\U00F6rs\U00F6k sedan igen.";
 
 /* Recording \U2014 Keystroke Overlay */
 "Show Keystrokes" = "Visa tangenttryckningar";
@@ -429,7 +430,7 @@
 /* Webcam Overlay */
 "Webcam Overlay" = "Webbkamera\U00F6verlagring";
 "Camera Access Required" = "Kamera\U00E5tkomst kr\U00E4vs";
-"macshot needs camera permission for the webcam overlay. Open System Settings to grant access." = "macshot beh\U00F6ver kamerabeh\U00F6righet f\U00F6r webbkamera\U00F6verlagringen. \U00D6ppna Systeminst\U00E4llningar f\U00F6r att ge \U00E5tkomst.";
+"macshot needs camera permission for the webcam overlay. Open System Settings to grant access." = "MacShot beh\U00F6ver kamerabeh\U00F6righet f\U00F6r webbkamera\U00F6verlagringen. \U00D6ppna Systeminst\U00E4llningar f\U00F6r att ge \U00E5tkomst.";
 "Webcam" = "Webbkamera";
 "Bottom Right" = "Nedre h\U00F6ger";
 "Bottom Left" = "Nedre v\U00E4nster";
@@ -445,7 +446,7 @@
 
 /* New Strings */
 "Settings..." = "Inst\U00E4llningar...";
-"macshot Settings" = "macshot-inst\U00E4llningar";
+"macshot Settings" = "MacShot-inst\U00E4llningar";
 "Also open in Editor" = "\U00D6ppna \U00E4ven i redigeraren";
 "Hide controls" = "D\U00F6lj kontroller";
 "Hide recording controls" = "D\U00F6lj inspelningskontroller";
@@ -497,7 +498,7 @@
 "Clear History?" = "Rensa historik?";
 "This will permanently delete all screenshots from history." = "Detta kommer permanent att ta bort alla skärmdumpar från historiken.";
 "Click \"Set\" and press a key combination with at least one modifier (⌘, ⌥, ⌃, ⇧) to set a shortcut." = "Klicka på \"Ange\" och tryck på en tangentkombination med minst en modifierare (⌘, ⌥, ⌃, ⇧) för att ange en genväg.";
-"Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private — nothing is shared publicly." = "Filer laddas upp till en \"macshot\"-mapp i din Google Drive. Allt förblir privat — inget delas offentligt.";
+"Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private — nothing is shared publicly." = "Filer laddas upp till en \"MacShot\"-mapp i din Google Drive. Allt förblir privat — inget delas offentligt.";
 
 "Pressure" = "Tryck";
 
