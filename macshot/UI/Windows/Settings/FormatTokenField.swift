@@ -91,12 +91,11 @@ struct FilenameFormatSettingsRow: View {
 
     /// 外层一行展示规则摘要，用统一的 .EXT 占位表示扩展名。
     private var compactPreviewText: String {
-        let baseName = FilenameTemplateEngine.makeBaseName(
+        FilenameTemplateEngine.makeBaseName(
             format: format,
             kind: previewKind,
             sanitizeSpecialCharacters: sanitizeSpecialCharacters
         )
-        return "\(baseName).EXT"
     }
 }
 
