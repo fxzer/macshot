@@ -293,6 +293,8 @@
 "Not signed in" = "未登入";
 "Account:" = "帳號：";
 "Test Connection" = "測試連線";
+"Connection Test" = "連線測試";
+"Test" = "測試";
 "Fill in endpoint, bucket, and credentials first" = "請先填寫端點、儲存貯體及憑證";
 "Testing..." = "測試中⋯";
 "Connection successful!" = "連線成功！";
@@ -568,3 +570,10 @@
 "Open screenshot editor" = "開啟截圖編輯器";
 "Pin to screen" = "固定到螢幕";
 "Open video editor" = "開啟影片編輯器";
+"Upload to SM.MS?" = "上傳至 SM.MS？";
+"SM.MS Configuration" = "SM.MS 設定";
+"SM.MS token" = "SM.MS Token";
+"Paste your API token" = "貼上您的 API Token";
+"Works best in China with a personal API token. Images only (no video support)." = "更適合中國大陸網路環境，建議使用您自己的 API Token。僅支援影像，不支援影片。";
+"Enter your SM.MS token in Settings" = "請先在設定中填寫 SM.MS Token";
+"S3 / R2 / MinIO" = "S3 / R2 / MinIO";

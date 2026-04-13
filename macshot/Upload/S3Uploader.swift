@@ -7,6 +7,8 @@ import UniformTypeIdentifiers
 final class S3Uploader {
 
     static let shared = S3Uploader()
+    private let accessKeychainKey = "upload.s3.accessKeyID"
+    private let secretKeychainKey = "upload.s3.secretAccessKey"
 
     // MARK: - Configuration
 
@@ -30,8 +32,8 @@ final class S3Uploader {
             endpoint: ud.string(forKey: "s3Endpoint") ?? "",
             region: ud.string(forKey: "s3Region") ?? "auto",
             bucket: ud.string(forKey: "s3Bucket") ?? "",
-            accessKeyID: ud.string(forKey: "s3AccessKeyID") ?? "",
-            secretAccessKey: ud.string(forKey: "s3SecretAccessKey") ?? "",
+            accessKeyID: KeychainStore.string(forKey: accessKeychainKey, legacyUserDefaultsKey: "s3AccessKeyID") ?? "",
+            secretAccessKey: KeychainStore.string(forKey: secretKeychainKey, legacyUserDefaultsKey: "s3SecretAccessKey") ?? "",
             publicURLBase: ud.string(forKey: "s3PublicURLBase") ?? "",
             pathPrefix: ud.string(forKey: "s3PathPrefix") ?? ""
         )
@@ -58,10 +60,6 @@ final class S3Uploader {
     // MARK: - Upload Video
 
     func uploadVideo(url: URL, completion: @escaping (Result<String, Error>) -> Void) {
-        guard let data = try? Data(contentsOf: url) else {
-            completion(.failure(S3Error.fileReadFailed))
-            return
-        }
         let ext = url.pathExtension.lowercased()
         let contentType: String
         switch ext {
@@ -71,7 +69,15 @@ final class S3Uploader {
         case "webm": contentType = "video/webm"
         default: contentType = "application/octet-stream"
         }
-        upload(data: data, filename: url.lastPathComponent, contentType: contentType, completion: completion)
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let data = try? Data(contentsOf: url) else {
+                DispatchQueue.main.async {
+                    completion(.failure(S3Error.fileReadFailed))
+                }
+                return
+            }
+            self?.upload(data: data, filename: url.lastPathComponent, contentType: contentType, completion: completion)
+        }
     }
 
     // MARK: - Core Upload

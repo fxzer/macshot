@@ -312,6 +312,8 @@
 "Not signed in" = "未登录";
 "Account:" = "账户:";
 "Test Connection" = "测试连接";
+"Connection Test" = "连接测试";
+"Test" = "测试";
 "Fill in endpoint, bucket, and credentials first" = "请先填写端点、存储桶和凭证";
 "Testing..." = "测试中...";
 "Connection successful!" = "连接成功！";
@@ -596,3 +598,10 @@
 "Open screenshot editor" = "打开截图编辑器";
 "Pin to screen" = "固定到屏幕";
 "Open video editor" = "打开视频编辑器";
+"Upload to SM.MS?" = "上传到 SM.MS？";
+"SM.MS Configuration" = "SM.MS 配置";
+"SM.MS token" = "SM.MS Token";
+"Paste your API token" = "粘贴你的 API Token";
+"Works best in China with a personal API token. Images only (no video support)." = "更适合中国大陆网络环境，建议使用你自己的 API Token。仅支持图片，不支持视频。";
+"Enter your SM.MS token in Settings" = "请先在偏好设置里填写 SM.MS Token";
+"S3 / R2 / MinIO" = "S3 / R2 / MinIO";

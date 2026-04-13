@@ -878,6 +878,7 @@ class OverlayView: NSView {
     }
 
     // Window snapping
+    private static let initialWindowSnapDelay: TimeInterval = 0.06
     var windowSnapEnabled: Bool {
         get { UserDefaults.standard.object(forKey: "windowSnapEnabled") as? Bool ?? true }
         set { UserDefaults.standard.set(newValue, forKey: "windowSnapEnabled") }
@@ -972,7 +973,7 @@ class OverlayView: NSView {
         // Brief cooldown so the window server finishes compositing the overlay
         // before we query CGWindowListCopyWindowInfo.
         windowSnapCooldown = true
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) { [weak self] in
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.initialWindowSnapDelay) { [weak self] in
             guard let self = self else { return }
             self.windowSnapCooldown = false
             // Perform an initial snap query at the current mouse position so the
@@ -6726,6 +6727,7 @@ class OverlayView: NSView {
                 switch provider {
                 case "gdrive": title = L("Upload to Google Drive?")
                 case "s3": title = L("Upload to S3?")
+                case "smms": title = L("Upload to SM.MS?")
                 default: title = L("Upload to imgbb.com?")
                 }
                 let alert = NSAlert()

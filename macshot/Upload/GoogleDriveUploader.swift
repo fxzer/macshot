@@ -8,6 +8,7 @@ import AuthenticationServices
 final class GoogleDriveUploader: NSObject, ASWebAuthenticationPresentationContextProviding {
 
     static let shared = GoogleDriveUploader()
+    private let tokenKeychainKey = "upload.gdrive.tokens"
 
     // GCP OAuth iOS client — no secret needed for native apps using PKCE
     private let clientID = "92758256085-8gkpg2b9to7bu7to0vgh9c7af755hp5d.apps.googleusercontent.com"
@@ -136,14 +137,18 @@ final class GoogleDriveUploader: NSObject, ASWebAuthenticationPresentationContex
 
     /// Upload a video file from URL.
     func uploadVideo(url: URL, completion: @escaping (Result<String, Error>) -> Void) {
-        guard let data = try? Data(contentsOf: url) else {
-            completion(.failure(Self.error("Failed to read video file")))
-            return
-        }
         let ext = url.pathExtension.lowercased()
         let mime = ext == "gif" ? "image/gif" : "video/mp4"
         let filename = url.lastPathComponent
-        upload(data: data, filename: filename, mimeType: mime, completion: completion)
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let data = try? Data(contentsOf: url) else {
+                DispatchQueue.main.async {
+                    completion(.failure(Self.error("Failed to read video file")))
+                }
+                return
+            }
+            self?.upload(data: data, filename: filename, mimeType: mime, completion: completion)
+        }
     }
 
     // MARK: - OAuth Token Exchange
@@ -527,7 +532,7 @@ final class GoogleDriveUploader: NSObject, ASWebAuthenticationPresentationContex
             .replacingOccurrences(of: "=", with: "")
     }
 
-    // MARK: - Token Storage (file-based, avoids Keychain ACL prompts)
+    // MARK: - Token Storage
 
     private struct TokenData: Codable {
         var accessToken: String?
@@ -535,7 +540,7 @@ final class GoogleDriveUploader: NSObject, ASWebAuthenticationPresentationContex
         var expiry: Double?
     }
 
-    private var tokenFileURL: URL {
+    private var legacyTokenFileURL: URL {
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
         let dir = appSupport.appendingPathComponent("com.fxzer.macshot")
         if !FileManager.default.fileExists(atPath: dir.path) {
@@ -546,21 +551,28 @@ final class GoogleDriveUploader: NSObject, ASWebAuthenticationPresentationContex
     }
 
     private func loadTokens() -> TokenData {
-        guard let data = try? Data(contentsOf: tokenFileURL),
-              let tokens = try? JSONDecoder().decode(TokenData.self, from: data) else {
-            return TokenData()
+        if let data = KeychainStore.data(forKey: tokenKeychainKey),
+           let tokens = try? JSONDecoder().decode(TokenData.self, from: data) {
+            return tokens
         }
-        return tokens
+        if let data = try? Data(contentsOf: legacyTokenFileURL),
+           let tokens = try? JSONDecoder().decode(TokenData.self, from: data) {
+            KeychainStore.setData(data, forKey: tokenKeychainKey)
+            try? FileManager.default.removeItem(at: legacyTokenFileURL)
+            return tokens
+        }
+        return TokenData()
     }
 
     private func saveTokens(_ tokens: TokenData) {
         guard let data = try? JSONEncoder().encode(tokens) else { return }
-        FileManager.default.createFile(atPath: tokenFileURL.path, contents: data,
-                                        attributes: [.posixPermissions: 0o600])
+        KeychainStore.setData(data, forKey: tokenKeychainKey)
+        try? FileManager.default.removeItem(at: legacyTokenFileURL)
     }
 
     private func deleteTokens() {
-        try? FileManager.default.removeItem(at: tokenFileURL)
+        KeychainStore.deleteValue(forKey: tokenKeychainKey)
+        try? FileManager.default.removeItem(at: legacyTokenFileURL)
     }
 
     // Convenience accessors matching the old Keychain API
@@ -588,4 +600,3 @@ final class GoogleDriveUploader: NSObject, ASWebAuthenticationPresentationContex
         return f.string(from: Date())
     }
 }
-

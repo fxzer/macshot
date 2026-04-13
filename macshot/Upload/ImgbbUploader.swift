@@ -8,9 +8,11 @@ struct ImageUploadResult {
 enum ImageUploader {
 
     private static let defaultAPIKey = "c2c63d156c6baa11136a464dcd22a404"
+    private static let keychainKey = "upload.imgbb.apiKey"
 
     static var apiKey: String {
-        if let custom = UserDefaults.standard.string(forKey: "imgbbAPIKey"), !custom.isEmpty {
+        if let custom = KeychainStore.string(forKey: keychainKey, legacyUserDefaultsKey: "imgbbAPIKey"),
+           !custom.isEmpty {
             return custom
         }
         return defaultAPIKey

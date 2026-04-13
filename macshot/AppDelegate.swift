@@ -524,9 +524,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             UserDefaults.standard.set(false, forKey: "beautifyEnabled")
         }
 
-        // Grab focused app and window title before overlay steals focus
-        previousApp = NSWorkspace.shared.frontmostApplication
-        capturedWindowTitle = Self.focusedWindowTitle()
+        // Grab the focused app before the overlay steals focus. Window title lookup
+        // is intentionally moved off the hot path because CGWindowListCopyWindowInfo
+        // can stall the first overlay frame on busy desktops.
+        let frontmostApp = NSWorkspace.shared.frontmostApplication
+        previousApp = frontmostApp
+        capturedWindowTitle = nil
+        beginCapturedWindowTitleLookup(for: frontmostApp)
 
         dismissOverlays()
 
@@ -539,9 +543,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         if delay > 0 {
             showPreCaptureCountdown(seconds: delay)
         } else {
-            DispatchQueue.main.async { [weak self] in
-                self?.performCapture()
-            }
+            performCapture()
         }
     }
 
@@ -588,11 +590,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             remaining -= 1
             if remaining <= 0 {
                 timer.invalidate()
-                self?.delayTimer = nil
-                self?.delayCountdownWindow?.orderOut(nil)
-                self?.delayCountdownWindow = nil
-                self?.removeDelayEscMonitors()
-                self?.performCapture()
+                Task { @MainActor [weak self] in
+                    self?.delayTimer = nil
+                    self?.delayCountdownWindow?.orderOut(nil)
+                    self?.delayCountdownWindow = nil
+                    self?.removeDelayEscMonitors()
+                    self?.performCapture()
+                }
             } else {
                 countdownView.remaining = remaining
                 countdownView.needsDisplay = true
@@ -666,7 +670,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
                 self.overlayControllers.append(controller)
             }
 
-            CATransaction.flush()
             NSApp.activate(ignoringOtherApps: true)
 
             self.pendingRecordMode = false
@@ -682,10 +685,28 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         }
     }
 
-    /// Returns the title of the frontmost window via CGWindowList (requires Screen Recording permission).
-    private static func focusedWindowTitle() -> String? {
-        guard let app = NSWorkspace.shared.frontmostApplication else { return nil }
+    private func beginCapturedWindowTitleLookup(for app: NSRunningApplication?) {
+        guard UserDefaults.standard.bool(forKey: "useWindowTitleInFilename"),
+              let app = app,
+              app.bundleIdentifier != Bundle.main.bundleIdentifier else { return }
+
         let pid = app.processIdentifier
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let title = Self.focusedWindowTitle(forPID: pid)
+            DispatchQueue.main.async {
+                guard let self = self,
+                      self.previousApp?.processIdentifier == pid else { return }
+                self.capturedWindowTitle = title
+                for controller in self.overlayControllers where controller.capturedWindowTitle == nil {
+                    controller.capturedWindowTitle = title
+                }
+            }
+        }
+    }
+
+    /// Returns the title of the frontmost window for a given PID via CGWindowList.
+    /// Runs on a background queue so capture startup stays responsive.
+    nonisolated private static func focusedWindowTitle(forPID pid: pid_t) -> String? {
         guard let windowList = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] else { return nil }
         for info in windowList {
             guard let layer = info[kCGWindowLayer as String] as? Int, layer == 0,
@@ -1036,6 +1057,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             case .success(let link):
                 NSPasteboard.general.clearContents()
                 NSPasteboard.general.setString(link, forType: .string)
+                UploadHistoryStore.append(link: link, provider: provider)
                 toast.showSuccess(link: link, deleteURL: "")
             case .failure(let error):
                 toast.showError(message: error.localizedDescription)
@@ -1138,12 +1160,17 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         let provider = UserDefaults.standard.string(forKey: "uploadProvider") ?? "imgbb"
 
         if provider == "gdrive" && !GoogleDriveUploader.shared.isSignedIn {
-            toast.showError(message: "Google Drive not signed in")
+            toast.showError(message: L("Sign in to Google Drive in Settings"))
             return
         }
 
         if provider == "s3" && !S3Uploader.shared.isConfigured {
-            toast.showError(message: "S3 not configured — check Settings")
+            toast.showError(message: L("Configure S3 in Settings"))
+            return
+        }
+
+        if provider == "smms" && SMMSUploader.shared.apiToken.isEmpty {
+            toast.showError(message: L("Enter your SM.MS token in Settings"))
             return
         }
 
@@ -1154,6 +1181,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
                     let pasteboard = NSPasteboard.general
                     pasteboard.clearContents()
                     pasteboard.setString(link, forType: .string)
+                    UploadHistoryStore.append(link: link, provider: provider)
                     toast.showSuccess(link: link, deleteURL: "")
                 case .failure(let error):
                     toast.showError(message: error.localizedDescription)
@@ -1169,7 +1197,27 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
                     let pasteboard = NSPasteboard.general
                     pasteboard.clearContents()
                     pasteboard.setString(link, forType: .string)
+                    UploadHistoryStore.append(link: link, provider: provider)
                     toast.showSuccess(link: link, deleteURL: "")
+                case .failure(let error):
+                    toast.showError(message: error.localizedDescription)
+                }
+            }
+        } else if provider == "smms" {
+            SMMSUploader.shared.upload(image: image) { result in
+                switch result {
+                case .success(let uploadResult):
+                    let pasteboard = NSPasteboard.general
+                    pasteboard.clearContents()
+                    pasteboard.setString(uploadResult.link, forType: .string)
+
+                    UploadHistoryStore.append(
+                        link: uploadResult.link,
+                        deleteURL: uploadResult.deleteURL,
+                        provider: provider
+                    )
+
+                    toast.showSuccess(link: uploadResult.link, deleteURL: uploadResult.deleteURL)
                 case .failure(let error):
                     toast.showError(message: error.localizedDescription)
                 }
@@ -1182,12 +1230,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
                     pasteboard.clearContents()
                     pasteboard.setString(uploadResult.link, forType: .string)
 
-                    var uploads = UserDefaults.standard.array(forKey: "imgbbUploads") as? [[String: String]] ?? []
-                    uploads.append([
-                        "deleteURL": uploadResult.deleteURL,
-                        "link": uploadResult.link,
-                    ])
-                    UserDefaults.standard.set(uploads, forKey: "imgbbUploads")
+                    UploadHistoryStore.append(
+                        link: uploadResult.link,
+                        deleteURL: uploadResult.deleteURL,
+                        provider: provider
+                    )
 
                     toast.showSuccess(link: uploadResult.link, deleteURL: uploadResult.deleteURL)
                 case .failure(let error):
@@ -1524,19 +1571,28 @@ extension AppDelegate: OverlayWindowControllerDelegate {
         }
 
         var remaining = seconds
+        let recordingScreenID = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID
         delayTimer?.invalidate()
         delayTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] timer in
             remaining -= 1
             if remaining <= 0 {
                 timer.invalidate()
-                self?.delayTimer = nil
-                self?.delayCountdownWindow?.orderOut(nil)
-                self?.delayCountdownWindow = nil
-                self?.removeDelayEscMonitors()
-                self?.beginRecording(rect: rect, screen: screen,
-                                     fpsOverride: fpsOverride,
-                                     onStopOverride: onStopOverride,
-                                     controlsMode: controlsMode)
+                Task { @MainActor [weak self] in
+                    let resolvedScreen = recordingScreenID.flatMap { displayID in
+                        NSScreen.screens.first {
+                            ($0.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID) == displayID
+                        }
+                    } ?? NSScreen.main ?? NSScreen.screens.first
+                    guard let resolvedScreen else { return }
+                    self?.delayTimer = nil
+                    self?.delayCountdownWindow?.orderOut(nil)
+                    self?.delayCountdownWindow = nil
+                    self?.removeDelayEscMonitors()
+                    self?.beginRecording(rect: rect, screen: resolvedScreen,
+                                         fpsOverride: fpsOverride,
+                                         onStopOverride: onStopOverride,
+                                         controlsMode: controlsMode)
+                }
             } else {
                 countdownView.remaining = remaining
                 countdownView.needsDisplay = true

@@ -309,6 +309,8 @@
 "Not signed in" = "Not signed in";
 "Account:" = "Account:";
 "Test Connection" = "Test Connection";
+"Connection Test" = "Connection Test";
+"Test" = "Test";
 "Fill in endpoint, bucket, and credentials first" = "Fill in endpoint, bucket, and credentials first";
 "Testing..." = "Testing...";
 "Connection successful!" = "Connection successful!";
@@ -571,3 +573,10 @@
 "Open screenshot editor" = "Open screenshot editor";
 "Pin to screen" = "Pin to screen";
 "Open video editor" = "Open video editor";
+"Upload to SM.MS?" = "Upload to SM.MS?";
+"SM.MS Configuration" = "SM.MS Configuration";
+"SM.MS token" = "SM.MS token";
+"Paste your API token" = "Paste your API token";
+"Works best in China with a personal API token. Images only (no video support)." = "Works best in China with a personal API token. Images only (no video support).";
+"Enter your SM.MS token in Settings" = "Enter your SM.MS token in Settings";
+"S3 / R2 / MinIO" = "S3 / R2 / MinIO";
