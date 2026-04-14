@@ -72,8 +72,12 @@ extension OverlayView {
         let mouseLoc = convert(window!.mouseLocationOutsideOfEventStream, from: nil)
         let canvasPoint = viewToCanvas(mouseLoc)
 
-        // Sample color using OverlayView's accurate method
-        guard let sampled = getSampledColor(at: canvasPoint) else { return }
+        // Get color gamut setting from UserDefaults
+        let gamutRaw = UserDefaults.standard.integer(forKey: "colorSamplerGamut")
+        let gamut = ColorGamut(rawValue: gamutRaw) ?? .srgb
+
+        // Sample color using OverlayView's accurate method with gamut setting
+        guard let sampled = getSampledColor(at: canvasPoint, gamut: gamut) else { return }
         let hexColor = sampled.hex
 
         // Position magnifier at bottom-right of cursor (in view space for positioning)

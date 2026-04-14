@@ -21,6 +21,70 @@ extension NSColor {
     }
 }
 
+// MARK: - Color Gamut Enum
+
+/// Color gamut / color space options for color sampler display.
+enum ColorGamut: Int, CaseIterable {
+    case native = 0      // Display native values (Display P3 on modern Macs)
+    case p3 = 1          // Display P3
+    case srgb = 2        // Display sRGB
+    case displayRGB = 3  // Display generic RGB
+    case adobeRGB = 4    // Display Adobe RGB
+
+    var displayName: String {
+        switch self {
+        case .native: return L("Native")
+        case .p3: return "P3"
+        case .srgb: return "sRGB"
+        case .displayRGB: return L("Generic RGB")
+        case .adobeRGB: return "Adobe RGB"
+        }
+    }
+
+    /// Get the NSColorSpace for this gamut (safe, returns nil on failure).
+    private var nsColorSpace: NSColorSpace? {
+        switch self {
+        case .native, .p3:
+            // Native and P3 both use Display P3 (screenshots are captured in sRGB,
+            // so "native" means converting to the display's typical color space)
+            return CGColorSpace(name: CGColorSpace.displayP3).flatMap { NSColorSpace(cgColorSpace: $0) }
+        case .srgb:
+            return nil  // No conversion needed for sRGB
+        case .displayRGB:
+            return NSColorSpace.deviceRGB
+        case .adobeRGB:
+            return CGColorSpace(name: CGColorSpace.adobeRGB1998).flatMap { NSColorSpace(cgColorSpace: $0) }
+        }
+    }
+
+    /// Convert sRGB color values to this gamut's color space.
+    /// Returns the RGB values as 8-bit integers (0-255).
+    func convertFromSRGB(_ srgbR: UInt8, _ srgbG: UInt8, _ srgbB: UInt8) -> (r: UInt8, g: UInt8, b: UInt8) {
+        // For sRGB, no conversion needed
+        guard self != .srgb, let targetSpace = nsColorSpace else {
+            return (srgbR, srgbG, srgbB)
+        }
+
+        // Create sRGB color and convert to target space
+        let srgbColor = NSColor(
+            srgbRed: CGFloat(srgbR) / 255,
+            green: CGFloat(srgbG) / 255,
+            blue: CGFloat(srgbB) / 255,
+            alpha: 1
+        )
+
+        guard let converted = srgbColor.usingColorSpace(targetSpace) else {
+            return (srgbR, srgbG, srgbB)
+        }
+
+        return (
+            r: UInt8(round(converted.redComponent * 255)),
+            g: UInt8(round(converted.greenComponent * 255)),
+            b: UInt8(round(converted.blueComponent * 255))
+        )
+    }
+}
+
 /// Pixel-perfect magnifier view for color sampler.
 /// Shows a 15x15 pixel area magnified to 120x120 with nearest-neighbor interpolation,
 /// crosshair cursor, and color/coordinate HUD.
