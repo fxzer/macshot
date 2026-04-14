@@ -108,7 +108,6 @@ struct TokenFilenameFormat: Codable, Equatable {
     ])
 
     static let sharedKey = "sharedTokenFormat"
-    static let sanitizeSpecialCharactersKey = "filenameSanitizeSpecialCharacters"
     private static let migrationVersionKey = "sharedTokenFormatMigrationVersion"
     private static let currentMigrationVersion = 1
     private static let screenshotKey = "screenshotTokenFormat"
@@ -140,11 +139,6 @@ struct TokenFilenameFormat: Codable, Equatable {
             UserDefaults.standard.set(newValue.serializedString, forKey: sharedKey)
             UserDefaults.standard.set(currentMigrationVersion, forKey: migrationVersionKey)
         }
-    }
-
-    static var sanitizeSpecialCharacters: Bool {
-        get { UserDefaults.standard.bool(forKey: sanitizeSpecialCharactersKey) }
-        set { UserDefaults.standard.set(newValue, forKey: sanitizeSpecialCharactersKey) }
     }
 
     static func migrateIfNeeded() {
@@ -223,8 +217,7 @@ struct TokenFilenameFormat: Codable, Equatable {
         FilenameTemplateEngine.makeFilename(
             format: self,
             kind: kind,
-            fileExtension: fileExtension,
-            sanitizeSpecialCharacters: Self.sanitizeSpecialCharacters
+            fileExtension: fileExtension
         )
     }
 

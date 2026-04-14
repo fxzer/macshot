@@ -7,18 +7,24 @@ struct ImageUploadResult {
 
 enum ImageUploader {
 
-    private static let defaultAPIKey = "c2c63d156c6baa11136a464dcd22a404"
     private static let keychainKey = "upload.imgbb.apiKey"
 
-    static var apiKey: String {
-        if let custom = KeychainStore.string(forKey: keychainKey, legacyUserDefaultsKey: "imgbbAPIKey"),
-           !custom.isEmpty {
-            return custom
+    static var apiKey: String? {
+        guard let key = KeychainStore.string(forKey: keychainKey, legacyUserDefaultsKey: "imgbbAPIKey"),
+              !key.isEmpty else {
+            return nil
         }
-        return defaultAPIKey
+        return key
     }
 
     static func upload(image: NSImage, completion: @escaping (Result<ImageUploadResult, Error>) -> Void) {
+        guard let key = apiKey else {
+            DispatchQueue.main.async {
+                completion(.failure(NSError(domain: "ImageUploader", code: 5, userInfo: [NSLocalizedDescriptionKey: L("ImgBB API key not configured. Please add your API key in Settings.")])))
+            }
+            return
+        }
+
         guard let tiffData = image.tiffRepresentation,
               let bitmap = NSBitmapImageRep(data: tiffData),
               let pngData = bitmap.representation(using: .png, properties: [:]) else {
@@ -28,7 +34,7 @@ enum ImageUploader {
 
         let base64String = pngData.base64EncodedString()
 
-        let urlString = "https://api.imgbb.com/1/upload?key=\(apiKey)"
+        let urlString = "https://api.imgbb.com/1/upload?key=\(key)"
         guard let url = URL(string: urlString) else {
             completion(.failure(NSError(domain: "ImageUploader", code: 2, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"])))
             return

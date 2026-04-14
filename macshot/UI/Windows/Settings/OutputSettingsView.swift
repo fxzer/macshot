@@ -12,7 +12,6 @@ struct OutputSettingsView: View {
 
     // Filename format
     @State private var sharedFilenameFormat = TokenFilenameFormat.sharedFormat
-    @AppStorage(TokenFilenameFormat.sanitizeSpecialCharactersKey) private var sanitizeSpecialCharacters = false
     @State private var previewKind: FilenameOutputKind = .screenshot
 
     // History
@@ -38,7 +37,6 @@ struct OutputSettingsView: View {
                 FilenameFormatSettingsRow(
                     format: $sharedFilenameFormat,
                     previewKind: $previewKind,
-                    sanitizeSpecialCharacters: $sanitizeSpecialCharacters,
                     screenshotExtension: ImageEncoder.fileExtension
                 )
                 .onChange(of: sharedFilenameFormat) { newFormat in

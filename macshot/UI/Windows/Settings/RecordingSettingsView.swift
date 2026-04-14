@@ -87,7 +87,16 @@ struct RecordingSettingsView: View {
 
             // MARK: - Scroll Capture
             Section {
-                Toggle(L("Auto-scroll (sends synthetic scroll events)"), isOn: $scrollAutoScroll)
+                // Auto-scroll with description (shown when enabled)
+                VStack(alignment: .leading, spacing: 4) {
+                    Toggle(L("Auto-scroll"), isOn: $scrollAutoScroll)
+                    if scrollAutoScroll {
+                        Text(L("Sends synthetic scroll events to automatically scroll the page"))
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+                }
+
                 if scrollAutoScroll {
                     Picker(L("Scroll speed"), selection: $scrollSpeed) {
                         Text(L("Slow")).tag(1)
@@ -96,6 +105,7 @@ struct RecordingSettingsView: View {
                         Text(L("Very fast")).tag(4)
                     }
                 }
+
                 Picker(L("Max height"), selection: $scrollMaxHeight) {
                     Text(L("Unlimited")).tag(0)
                     Text("10,000 px").tag(10000)
@@ -103,7 +113,14 @@ struct RecordingSettingsView: View {
                     Text("50,000 px").tag(50000)
                     Text("100,000 px").tag(100000)
                 }
-                Toggle(L("Detect fixed/sticky headers"), isOn: $scrollFrozenDetection)
+
+                // Smart exclude fixed headers with description (always shown)
+                VStack(alignment: .leading, spacing: 4) {
+                    Toggle(L("Smart exclude fixed headers"), isOn: $scrollFrozenDetection)
+                    Text(L("Automatically detect and exclude sticky/fixed elements at the top of the page to avoid duplication when stitching"))
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
             } header: {
                 Text(L("Scroll Capture"))
             }

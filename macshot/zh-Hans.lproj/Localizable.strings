@@ -309,8 +309,10 @@
 "Max height:" = "最大高度:";
 "px (0 = unlimited)" = "px（0 = 无限制）";
 "Behavior" = "行为";
-"Auto-scroll (sends synthetic scroll events)" = "自动滚动（发送模拟滚动事件）";
-"Detect fixed/sticky headers" = "检测固定/粘性头部";
+"Auto-scroll" = "自动滚动";
+"Sends synthetic scroll events to automatically scroll the page" = "发送模拟滚动事件以自动滚动页面";
+"Smart exclude fixed headers" = "智能排除固定头部";
+"Automatically detect and exclude sticky/fixed elements at the top of the page to avoid duplication when stitching" = "自动检测并排除页面顶部的固定/粘性元素，避免在拼接时重复显示";
 "Scroll speed:" = "滚动速度:";
 "Slow" = "慢";
 "Medium" = "中";
@@ -353,14 +355,14 @@
 "Bucket:" = "存储桶:";
 "Access Key:" = "访问密钥:";
 "Secret Key:" = "私有密钥:";
-"Public URL:" = "公共 URL:";
+"Public URL:" = "基础访问链接:";
 "Path Prefix:" = "路径前缀:";
 "API key:" = "API 密钥:";
 "Upload History" = "上传历史";
 "No uploads yet." = "暂无上传记录。";
 "Base URL for public access. If empty, the S3 endpoint URL is used (may not be publicly accessible)." = "用于公共访问的基础 URL。留空时将使用 S3 端点 URL（可能无法公开访问）。";
 "A shared key is included — get your own free key at imgbb.com/api if you hit rate limits. Images only (no video support)." = "已内置共享密钥 - 如遇到频率限制，请在 imgbb.com/api 获取免费密钥。仅支持图片（不支持视频）。";
-"Works with AWS S3, Cloudflare R2, MinIO, DigitalOcean Spaces, Backblaze B2, and other S3-compatible services. Supports images and videos." = "兼容 AWS S3、Cloudflare R2、MinIO、DigitalOcean Spaces、Backblaze B2 及其他 S3 兼容服务。支持图片和视频。";
+"Works with AWS S3, Cloudflare R2, MinIO, DigitalOcean Spaces, Backblaze B2, and other S3-compatible services. (Images ✓, Videos ✓)" = "兼容 AWS S3、Cloudflare R2、MinIO、DigitalOcean Spaces、Backblaze B2 及其他 S3 兼容服务。（图片 ✓ 视频 ✓）";
 "Configure S3 in Preferences" = "在偏好设置中配置 S3";
 "Sign in to Google Drive in Preferences" = "在偏好设置中登录 Google Drive";
 "Video upload requires Google Drive or S3" = "视频上传需要 Google Drive 或 S3";
@@ -561,7 +563,7 @@
 "Clear History?" = "清除历史记录？";
 "This will permanently delete all screenshots from history." = "这将从历史记录中永久删除所有截图。";
 "Click \"Set\" and press a key combination with at least one modifier (⌘, ⌥, ⌃, ⇧) to set a shortcut." = "点击\"设置\"，然后按下包含至少一个修饰键（⌘、⌥、⌃、⇧）的组合键来设置快捷键。";
-"Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private — nothing is shared publicly." = "文件将上传到您 Google Drive 中的\"macshot\"文件夹。所有内容均保持私密——不会公开共享任何内容。";
+"Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private. (Images ✓, Videos ✓)" = "文件将上传到您 Google Drive 中的\"macshot\"文件夹。所有内容均保持私密。（图片 ✓ 视频 ✓）";
 
 "Pressure" = "压感";
 
@@ -583,7 +585,7 @@
 "OCR Capture" = "OCR 捕获";
 "Path Prefix" = "路径前缀";
 "Position" = "位置";
-"Public URL" = "公共 URL";
+"Public URL" = "基础访问链接";
 "Quality" = "质量";
 "Region" = "区域";
 "Save folder" = "存储位置";
@@ -603,7 +605,12 @@
 "Never" = "永不";
 "Dismiss after" = "自动关闭";
 "Google Drive Configuration" = "Google Drive 配置";
-"imgbb Configuration" = "imgbb 配置";
+"ImgBB Configuration" = "ImgBB 配置";
+"Get your free API key at imgbb.com/api. (Images ✓, Videos ✗)" = "在 imgbb.com/api 获取免费 API Key。（图片 ✓ 视频 ✗）";
+"Accessible in mainland China. Get your free API key at " = "中国大陆可访问。在 ";
+". (Images ✓, Videos ✗)" = " 获取免费 API Key。（图片 ✓ 视频 ✗）";
+"Paste your API key" = "粘贴您的 API Key";
+"ImgBB API key not configured. Please add your API key in Settings." = "ImgBB API Key 未配置，请在设置中添加您的 API Key。";
 "Max height: 0 = unlimited" = "最大高度：0 = 不限制";
 "Multiple previews" = "多个预览";
 "Play sound on capture" = "截图时播放声音";
@@ -618,7 +625,7 @@
 "Updates" = "更新";
 "Upload provider" = "上传服务商";
 "When snapping to a window, its title is used in the filename." = "吸附窗口时，文件名将使用该窗口的标题。";
-"Works with AWS S3, Cloudflare R2, MinIO, DigitalOcean Spaces, Backblaze B2, and other S3-compatible services." = "适用于 AWS S3、Cloudflare R2、MinIO、DigitalOcean Spaces、Backblaze B2 及其他 S3 兼容服务。";
+"Works with AWS S3, Cloudflare R2, MinIO, DigitalOcean Spaces, Backblaze B2, and other S3-compatible services." = "适用于 AWS S3、Cloudflare R2、MinIO、DigitalOcean Spaces、Backblaze B2 及其他 S3 兼容服务。（图片 ✓ 视频 ✓）";
 "Include pre-release versions in update checks." = "更新检查时包含预发布版本。";
 "Check for Updates Now" = "立即检查更新";
 "Check Now" = "立即检查";
@@ -635,7 +642,9 @@
 "SM.MS Configuration" = "SM.MS 配置";
 "SM.MS token" = "SM.MS Token";
 "Paste your API token" = "粘贴你的 API Token";
-"Works best in China with a personal API token. Images only (no video support)." = "更适合中国大陆网络环境，建议使用你自己的 API Token。仅支持图片，不支持视频。";
+"Works best in China with a personal API token. (Images ✓, Videos ✗)" = "更适合中国大陆网络环境，建议使用你自己的 API Token。（图片 ✓ 视频 ✗）";
+"Accessible in mainland China. Get your API token at " = "中国大陆可访问。在 ";
+". (Images ✓, Videos ✗)" = " 获取 API Token。（图片 ✓ 视频 ✗）";
 "Enter your SM.MS token in Settings" = "请先在偏好设置里填写 SM.MS Token";
 "S3 / R2 / MinIO" = "S3 / R2 / MinIO";
 
@@ -673,5 +682,3 @@
 "Timestamp" = "时间戳";
 "Short code" = "短代码";
 "Filename" = "文件名";
-"Remove special characters" = "移除特殊字符";
-"Replace spaces and illegal characters with underscores" = "将空格和非法字符替换为下划线";

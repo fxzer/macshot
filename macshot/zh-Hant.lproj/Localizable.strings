@@ -550,8 +550,6 @@
 "Timestamp" = "時間戳";
 "Short code" = "短碼";
 "Filename" = "檔案名稱";
-"Remove special characters" = "移除特殊字元";
-"Replace spaces and illegal characters with underscores" = "將空格和非法字元替換為底線";
 
 /* === MISSING KEYS (Need Translation) === */
 "Add New Ratio" = "Add New Ratio";

@@ -1119,11 +1119,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             return
         }
 
-        if provider == "smms" && SMMSUploader.shared.apiToken.isEmpty {
-            toast.showError(message: L("Enter your SM.MS token in Settings"))
-            return
-        }
-
         if provider == "gdrive" {
             GoogleDriveUploader.shared.uploadImage(image) { result in
                 switch result {
@@ -1149,25 +1144,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
                     pasteboard.setString(link, forType: .string)
                     UploadHistoryStore.append(link: link, provider: provider)
                     toast.showSuccess(link: link, deleteURL: "")
-                case .failure(let error):
-                    toast.showError(message: error.localizedDescription)
-                }
-            }
-        } else if provider == "smms" {
-            SMMSUploader.shared.upload(image: image) { result in
-                switch result {
-                case .success(let uploadResult):
-                    let pasteboard = NSPasteboard.general
-                    pasteboard.clearContents()
-                    pasteboard.setString(uploadResult.link, forType: .string)
-
-                    UploadHistoryStore.append(
-                        link: uploadResult.link,
-                        deleteURL: uploadResult.deleteURL,
-                        provider: provider
-                    )
-
-                    toast.showSuccess(link: uploadResult.link, deleteURL: uploadResult.deleteURL)
                 case .failure(let error):
                     toast.showError(message: error.localizedDescription)
                 }

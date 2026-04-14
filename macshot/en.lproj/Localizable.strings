@@ -328,8 +328,10 @@
 "Max height:" = "Max height:";
 "px (0 = unlimited)" = "px (0 = unlimited)";
 "Behavior" = "Behavior";
-"Auto-scroll (sends synthetic scroll events)" = "Auto-scroll (sends synthetic scroll events)";
-"Detect fixed/sticky headers" = "Detect fixed/sticky headers";
+"Auto-scroll" = "Auto-scroll";
+"Sends synthetic scroll events to automatically scroll the page" = "Sends synthetic scroll events to automatically scroll the page";
+"Smart exclude fixed headers" = "Smart exclude fixed headers";
+"Automatically detect and exclude sticky/fixed elements at the top of the page to avoid duplication when stitching" = "Automatically detect and exclude sticky/fixed elements at the top of the page to avoid duplication when stitching";
 "Scroll speed:" = "Scroll speed:";
 "Slow" = "Slow";
 "Medium" = "Medium";
@@ -379,7 +381,7 @@
 "No uploads yet." = "No uploads yet.";
 "Base URL for public access. If empty, the S3 endpoint URL is used (may not be publicly accessible)." = "Base URL for public access. If empty, the S3 endpoint URL is used (may not be publicly accessible).";
 "A shared key is included — get your own free key at imgbb.com/api if you hit rate limits. Images only (no video support)." = "A shared key is included — get your own free key at imgbb.com/api if you hit rate limits. Images only (no video support).";
-"Works with AWS S3, Cloudflare R2, MinIO, DigitalOcean Spaces, Backblaze B2, and other S3-compatible services. Supports images and videos." = "Works with AWS S3, Cloudflare R2, MinIO, DigitalOcean Spaces, Backblaze B2, and other S3-compatible services. Supports images and videos.";
+"Works with AWS S3, Cloudflare R2, MinIO, DigitalOcean Spaces, Backblaze B2, and other S3-compatible services. (Images ✓, Videos ✓)" = "Works with AWS S3, Cloudflare R2, MinIO, DigitalOcean Spaces, Backblaze B2, and other S3-compatible services. (Images ✓, Videos ✓)";
 "Configure S3 in Preferences" = "Configure S3 in Preferences";
 "Sign in to Google Drive in Preferences" = "Sign in to Google Drive in Preferences";
 "Video upload requires Google Drive or S3" = "Video upload requires Google Drive or S3";
@@ -559,7 +561,7 @@
 "Clear History?" = "Clear History?";
 "This will permanently delete all screenshots from history." = "This will permanently delete all screenshots from history.";
 "Click \"Set\" and press a key combination with at least one modifier (⌘, ⌥, ⌃, ⇧) to set a shortcut." = "Click \"Set\" and press a key combination with at least one modifier (⌘, ⌥, ⌃, ⇧) to set a shortcut.";
-"Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private — nothing is shared publicly." = "Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private — nothing is shared publicly.";
+"Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private. (Images ✓, Videos ✓)" = "Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private. (Images ✓, Videos ✓)";
 
 "Pressure" = "Pressure";
 
@@ -600,7 +602,12 @@
 "Never" = "Never";
 "Dismiss after" = "Dismiss after";
 "Google Drive Configuration" = "Google Drive Configuration";
-"imgbb Configuration" = "imgbb Configuration";
+"ImgBB Configuration" = "ImgBB Configuration";
+"Get your free API key at imgbb.com/api. (Images ✓, Videos ✗)" = "Get your free API key at imgbb.com/api. (Images ✓, Videos ✗)";
+"Accessible in mainland China. Get your free API key at " = "Accessible in mainland China. Get your free API key at ";
+". (Images ✓, Videos ✗)" = ". (Images ✓, Videos ✗)";
+"Paste your API key" = "Paste your API key";
+"ImgBB API key not configured. Please add your API key in Settings." = "ImgBB API key not configured. Please add your API key in Settings.";
 "Max height: 0 = unlimited" = "Max height: 0 = unlimited";
 "Multiple previews" = "Multiple previews";
 "Press a single key to assign. These work when the overlay or editor is active." = "Press a single key to assign. These work when the overlay or editor is active.";
@@ -631,7 +638,9 @@
 "SM.MS Configuration" = "SM.MS Configuration";
 "SM.MS token" = "SM.MS token";
 "Paste your API token" = "Paste your API token";
-"Works best in China with a personal API token. Images only (no video support)." = "Works best in China with a personal API token. Images only (no video support).";
+"Works best in China with a personal API token. (Images ✓, Videos ✗)" = "Works best in China with a personal API token. (Images ✓, Videos ✗)";
+"Accessible in mainland China. Get your API token at " = "Accessible in mainland China. Get your API token at ";
+". (Images ✓, Videos ✗)" = ". (Images ✓, Videos ✗)";
 "Enter your SM.MS token in Settings" = "Enter your SM.MS token in Settings";
 "S3 / R2 / MinIO" = "S3 / R2 / MinIO";
 
@@ -669,5 +678,3 @@
 "Timestamp" = "Timestamp";
 "Short code" = "Short code";
 "Filename" = "Filename";
-"Remove special characters" = "Remove special characters";
-"Replace spaces and illegal characters with underscores" = "Replace spaces and illegal characters with underscores";

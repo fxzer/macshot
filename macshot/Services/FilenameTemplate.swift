@@ -50,15 +50,10 @@ enum FilenameTemplateEngine {
         kind: FilenameOutputKind,
         fileExtension: String,
         date: Date = Date(),
-        prefix: String = "MacShot",
-        sanitizeSpecialCharacters: Bool = TokenFilenameFormat.sanitizeSpecialCharacters
+        prefix: String = "MacShot"
     ) -> String {
         let context = FilenameTemplateContext(kind: kind, date: date, prefix: prefix)
-        let baseName = makeBaseName(
-            format: format,
-            context: context,
-            sanitizeSpecialCharacters: sanitizeSpecialCharacters
-        )
+        let baseName = makeBaseName(format: format, context: context)
         return "\(baseName).\(fileExtension)"
     }
 
@@ -66,15 +61,10 @@ enum FilenameTemplateEngine {
         format: TokenFilenameFormat = .sharedFormat,
         kind: FilenameOutputKind,
         date: Date = Date(),
-        prefix: String = "MacShot",
-        sanitizeSpecialCharacters: Bool = TokenFilenameFormat.sanitizeSpecialCharacters
+        prefix: String = "MacShot"
     ) -> String {
         let context = FilenameTemplateContext(kind: kind, date: date, prefix: prefix)
-        return makeBaseName(
-            format: format,
-            context: context,
-            sanitizeSpecialCharacters: sanitizeSpecialCharacters
-        )
+        return makeBaseName(format: format, context: context)
     }
 
     static func uniqueDestinationURL(in directoryURL: URL, baseName: String, fileExtension: String) -> URL {
@@ -95,11 +85,7 @@ enum FilenameTemplateEngine {
         return String((0..<length).compactMap { _ in alphabet.randomElement() })
     }
 
-    private static func makeBaseName(
-        format: TokenFilenameFormat,
-        context: FilenameTemplateContext,
-        sanitizeSpecialCharacters: Bool
-    ) -> String {
+    private static func makeBaseName(format: TokenFilenameFormat, context: FilenameTemplateContext) -> String {
         let joined = format.tokens.map { token -> String in
             switch token {
             case .text(let string):
@@ -119,39 +105,31 @@ enum FilenameTemplateEngine {
             }
         }.joined()
 
-        let cleaned = cleanup(joined, sanitizeSpecialCharacters: sanitizeSpecialCharacters)
+        let cleaned = cleanup(joined)
         if cleaned.isEmpty {
             return fallbackBaseName(for: context)
         }
         return cleaned
     }
 
-    private static func cleanup(_ string: String, sanitizeSpecialCharacters: Bool) -> String {
+    private static func cleanup(_ string: String) -> String {
         var output = ""
         var lastWasSeparator = false
         let invalidCharacterSet = CharacterSet(charactersIn: "/:\\?%*|\"<>").union(.controlCharacters)
 
         for scalar in string.unicodeScalars {
             if invalidCharacterSet.contains(scalar) {
-                let replacement = sanitizeSpecialCharacters ? "_" : "-"
                 if !output.isEmpty, !lastWasSeparator {
-                    output.append(replacement)
+                    output.append("_")
                     lastWasSeparator = true
                 }
                 continue
             }
 
             if CharacterSet.whitespacesAndNewlines.contains(scalar) {
-                if sanitizeSpecialCharacters {
-                    if !output.isEmpty, !lastWasSeparator {
-                        output.append("_")
-                        lastWasSeparator = true
-                    }
-                } else {
-                    if !output.isEmpty, !lastWasSeparator {
-                        output.append(" ")
-                        lastWasSeparator = true
-                    }
+                if !output.isEmpty, !lastWasSeparator {
+                    output.append("_")
+                    lastWasSeparator = true
                 }
                 continue
             }

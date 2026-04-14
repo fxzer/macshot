@@ -60,7 +60,6 @@ struct SaveLocationSettingsRow: View {
 struct FilenameFormatSettingsRow: View {
     @Binding var format: TokenFilenameFormat
     @Binding var previewKind: FilenameOutputKind
-    @Binding var sanitizeSpecialCharacters: Bool
     let screenshotExtension: String
 
     @State private var showPopover = false
@@ -80,7 +79,6 @@ struct FilenameFormatSettingsRow: View {
                 FormatTokenField(
                     format: $format,
                     previewKind: $previewKind,
-                    sanitizeSpecialCharacters: $sanitizeSpecialCharacters,
                     screenshotExtension: screenshotExtension
                 )
                 .frame(width: 430)
@@ -89,12 +87,11 @@ struct FilenameFormatSettingsRow: View {
         }
     }
 
-    /// 外层一行展示规则摘要，用统一的 .EXT 占位表示扩展名。
+    /// 外层一行只展示文件名规则生成后的主体名称。
     private var compactPreviewText: String {
         FilenameTemplateEngine.makeBaseName(
             format: format,
-            kind: previewKind,
-            sanitizeSpecialCharacters: sanitizeSpecialCharacters
+            kind: previewKind
         )
     }
 }
@@ -102,11 +99,10 @@ struct FilenameFormatSettingsRow: View {
 /// Popover 里的完整编辑器：
 /// - 顶部是真实的 NSTokenField
 /// - 中间是预览类型切换和实时预览
-/// - 底部是变量池与高级选项
+/// - 底部是变量池
 struct FormatTokenField: View {
     @Binding var format: TokenFilenameFormat
     @Binding var previewKind: FilenameOutputKind
-    @Binding var sanitizeSpecialCharacters: Bool
     let screenshotExtension: String
 
     @State private var insertionController = TokenFieldInsertionController()
@@ -169,19 +165,6 @@ struct FormatTokenField: View {
                 }
             }
 
-            Divider()
-
-            HStack(alignment: .center) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(L("Remove special characters"))
-                    Text(L("Replace spaces and illegal characters with underscores"))
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                }
-                Spacer()
-                Toggle("", isOn: $sanitizeSpecialCharacters)
-                    .labelsHidden()
-            }
         }
     }
 

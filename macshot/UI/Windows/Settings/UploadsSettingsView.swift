@@ -6,9 +6,6 @@ struct UploadsSettingsView: View {
     @AppStorage("uploadProvider") private var uploadProvider = "imgbb"
     @AppStorage("uploadConfirmEnabled") private var uploadConfirmEnabled = true
 
-    // SM.MS
-    @State private var smmsAPIToken = ""
-
     // imgbb
     @State private var imgbbAPIKey = ""
 
@@ -33,12 +30,18 @@ struct UploadsSettingsView: View {
     // Upload history
     @State private var uploads: [[String: String]] = []
 
+    init() {
+        // Load secrets during init to avoid repeated Keychain access
+        _imgbbAPIKey = State(initialValue: KeychainStore.string(forKey: "upload.imgbb.apiKey", legacyUserDefaultsKey: "imgbbAPIKey") ?? "")
+        _s3AccessKeyID = State(initialValue: KeychainStore.string(forKey: "upload.s3.accessKeyID", legacyUserDefaultsKey: "s3AccessKeyID") ?? "")
+        _s3SecretAccessKey = State(initialValue: KeychainStore.string(forKey: "upload.s3.secretAccessKey", legacyUserDefaultsKey: "s3SecretAccessKey") ?? "")
+    }
+
     var body: some View {
         Form {
             // MARK: - Upload Service
             Section {
                 Picker(L("Upload provider"), selection: $uploadProvider) {
-                    Text("SM.MS").tag("smms")
                     Text("ImgBB").tag("imgbb")
                     Text(L("S3 / R2 / MinIO")).tag("s3")
                     Text("Google Drive").tag("gdrive")
@@ -49,30 +52,21 @@ struct UploadsSettingsView: View {
             }
 
             // MARK: - Service Configuration (dynamic)
-            if uploadProvider == "smms" {
-                Section {
-                    SecureField(L("SM.MS token"), text: $smmsAPIToken, prompt: Text(L("Paste your API token")))
-                        .font(.system(.body, design: .monospaced))
-                } header: {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(L("SM.MS Configuration"))
-                        Text(L("Works best in China with a personal API token. Images only (no video support)."))
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                    }
-                }
-            }
-
             if uploadProvider == "imgbb" {
                 Section {
-                    TextField(L("API key"), text: $imgbbAPIKey, prompt: Text(L("Leave empty to use default")))
+                    SecureField(L("API key"), text: $imgbbAPIKey, prompt: Text(L("Paste your API key")))
                         .font(.system(.body, design: .monospaced))
                 } header: {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(L("imgbb Configuration"))
-                        Text(L("A shared key is included — get your own free key at imgbb.com/api if you hit rate limits. Images only (no video support)."))
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
+                        Text(L("ImgBB Configuration"))
+                        HStack(spacing: 4) {
+                            Text(L("Accessible in mainland China. Get your free API key at "))
+                            Link("imgbb.com", destination: URL(string: "https://api.imgbb.com/")!)
+                                .foregroundStyle(Color.settingsSystemAccent)
+                            Text(L(". (Images ✓, Videos ✗)"))
+                        }
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
                     }
                 }
             }
@@ -91,7 +85,7 @@ struct UploadsSettingsView: View {
                 } header: {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(L("Google Drive Configuration"))
-                        Text(L("Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private — nothing is shared publicly."))
+                        Text(L("Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private. (Images ✓, Videos ✓)"))
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                     }
@@ -130,7 +124,7 @@ struct UploadsSettingsView: View {
                 } header: {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(L("S3-Compatible Storage"))
-                        Text(L("Works with AWS S3, Cloudflare R2, MinIO, DigitalOcean Spaces, Backblaze B2, and other S3-compatible services. Supports images and videos."))
+                        Text(L("Works with AWS S3, Cloudflare R2, MinIO, DigitalOcean Spaces, Backblaze B2, and other S3-compatible services. (Images ✓, Videos ✓)"))
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                     }
@@ -167,12 +161,8 @@ struct UploadsSettingsView: View {
         .formStyle(.grouped)
         .onAppear {
             normalizePickerSelections()
-            loadSecrets()
             refreshGDriveStatus()
             loadUploads()
-        }
-        .onChange(of: smmsAPIToken) { value in
-            KeychainStore.setString(value, forKey: "upload.smms.apiToken", legacyUserDefaultsKey: "smmsAPIToken")
         }
         .onChange(of: imgbbAPIKey) { value in
             KeychainStore.setString(value, forKey: "upload.imgbb.apiKey", legacyUserDefaultsKey: "imgbbAPIKey")
@@ -216,14 +206,7 @@ struct UploadsSettingsView: View {
     }
 
     private func normalizePickerSelections() {
-        uploadProvider = normalized(uploadProvider, allowed: ["smms", "imgbb", "gdrive", "s3"], fallback: "imgbb")
-    }
-
-    private func loadSecrets() {
-        smmsAPIToken = KeychainStore.string(forKey: "upload.smms.apiToken", legacyUserDefaultsKey: "smmsAPIToken") ?? ""
-        imgbbAPIKey = KeychainStore.string(forKey: "upload.imgbb.apiKey", legacyUserDefaultsKey: "imgbbAPIKey") ?? ""
-        s3AccessKeyID = KeychainStore.string(forKey: "upload.s3.accessKeyID", legacyUserDefaultsKey: "s3AccessKeyID") ?? ""
-        s3SecretAccessKey = KeychainStore.string(forKey: "upload.s3.secretAccessKey", legacyUserDefaultsKey: "s3SecretAccessKey") ?? ""
+        uploadProvider = normalized(uploadProvider, allowed: ["imgbb", "gdrive", "s3"], fallback: "imgbb")
     }
 
     private func normalized<T: Equatable>(_ value: T, allowed: [T], fallback: T) -> T {
@@ -282,8 +265,6 @@ struct UploadsSettingsView: View {
 
     private func providerDisplayName(for provider: String) -> String {
         switch provider {
-        case "smms":
-            return "SM.MS"
         case "imgbb":
             return "ImgBB"
         case "s3":
