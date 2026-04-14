@@ -7,8 +7,13 @@ struct CaptureSettingsView: View {
     @AppStorage("rememberLastSelection") private var rememberLastSelection = false
     @AppStorage("rememberLastTool") private var rememberLastTool = true
     @AppStorage("snapGuidesEnabled") private var snapGuidesEnabled = true
+    @AppStorage("selectionSizeSnapMode")
+    private var selectionSizeSnapMode = SelectionSizeSnapMode.lockedAspectRatioOnly.rawValue
     @AppStorage("captureCursor") private var captureCursor = false
-    @AppStorage("useWindowTitleInFilename") private var useWindowTitleInFilename = false
+
+    // Color Sampler
+    @AppStorage("colorSamplerFormat") private var colorSamplerFormat = 0
+    @AppStorage("colorSamplerGamut") private var colorSamplerGamut = 2  // Default to sRGB
 
     // Thumbnail
     @AppStorage("thumbnailAutoDismiss") private var thumbnailAutoDismiss: Int = 5
@@ -22,17 +27,30 @@ struct CaptureSettingsView: View {
                 Toggle(L("Play sound on capture"), isOn: $playCopySound)
                 Toggle(L("Remember last selection area"), isOn: $rememberLastSelection)
                 Toggle(L("Remember last selected tool"), isOn: $rememberLastTool)
+                Picker(L("Selection size snapping"), selection: $selectionSizeSnapMode) {
+                    Text(L("Off")).tag(SelectionSizeSnapMode.off.rawValue)
+                    Text(L("Locked aspect ratio only")).tag(SelectionSizeSnapMode.lockedAspectRatioOnly.rawValue)
+                    Text(L("All selections")).tag(SelectionSizeSnapMode.allSelections.rawValue)
+                }
                 Toggle(L("Show snap alignment guides"), isOn: $snapGuidesEnabled)
                 Toggle(L("Capture mouse cursor in screenshot"), isOn: $captureCursor)
-                settingWithDescription(
-                    title: L("Use window title in saved filename"),
-                    description: L("When snapping to a window, its title is used in the filename."),
-                    content: {
-                        Toggle("", isOn: $useWindowTitleInFilename).labelsHidden()
-                    }
-                )
             } header: {
                 Text(L("Capture Options"))
+            }
+
+            // MARK: - Color Sampler
+            Section {
+                Picker(L("Color format"), selection: $colorSamplerFormat) {
+                    Text("HEX").tag(0)
+                    Text("RGB").tag(1)
+                }
+                Picker(L("Color space"), selection: $colorSamplerGamut) {
+                    ForEach(ColorGamut.allCases, id: \.rawValue) { gamut in
+                        Text(gamut.displayName).tag(gamut.rawValue)
+                    }
+                }
+            } header: {
+                Text(L("Color Sampler"))
             }
 
             // MARK: - Thumbnail

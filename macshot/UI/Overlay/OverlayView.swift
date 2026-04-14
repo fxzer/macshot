@@ -678,8 +678,31 @@ class OverlayView: NSView {
     var snapGuideX: CGFloat? = nil  // vertical guide line X
     var snapGuideY: CGFloat? = nil  // horizontal guide line Y
     private let snapThreshold: CGFloat = 5
+    private var selectionSizeSnapActive = false
+    private var selectionSizeSnapWidthActive = false
+    private var selectionSizeSnapHeightActive = false
+    private var selectionSizeSnapGuideX: CGFloat?
+    private var selectionSizeSnapGuideY: CGFloat?
+    private let selectionSizeSnapThresholdPx: CGFloat = 10
     private var snapGuidesEnabled: Bool {
         UserDefaults.standard.object(forKey: "snapGuidesEnabled") as? Bool ?? true
+    }
+    private var selectionSizeSnapMode: SelectionSizeSnapMode {
+        let rawValue =
+            UserDefaults.standard.object(forKey: "selectionSizeSnapMode") as? Int
+            ?? SelectionSizeSnapMode.lockedAspectRatioOnly.rawValue
+        return SelectionSizeSnapMode(rawValue: rawValue) ?? .lockedAspectRatioOnly
+    }
+    private var allowsLockedAspectRatioSizeSnap: Bool {
+        switch selectionSizeSnapMode {
+        case .off:
+            return false
+        case .lockedAspectRatioOnly, .allSelections:
+            return true
+        }
+    }
+    private var allowsFreeformSizeSnap: Bool {
+        selectionSizeSnapMode == .allSelections
     }
 
     var cachedCompositedImage: NSImage? = nil {  // invalidated when annotations change
@@ -1842,6 +1865,10 @@ class OverlayView: NSView {
                 drawDrawingCursorPreview(at: drawingCursorPoint)
             }
 
+            if selectionSizeSnapActive {
+                drawSelectionSizeSnapGuides()
+            }
+
             // Snap alignment guides
             drawSnapGuides()
 
@@ -1908,6 +1935,12 @@ class OverlayView: NSView {
                     drawSnapGuides()
                     context.restoreGraphicsState()
                 }
+                if selectionSizeSnapActive {
+                    context.saveGraphicsState()
+                    applyCanvasTransform(to: context)
+                    drawSelectionSizeSnapGuides()
+                    context.restoreGraphicsState()
+                }
 
                 // Re-draw drawing cursor dot preview on top of beautify
                 if (currentTool == .pencil || currentTool == .marker) && drawingCursorPoint != .zero && currentAnnotation == nil && !isDraggingAnnotation && !isResizingAnnotation && !isRotatingAnnotation
@@ -1970,6 +2003,12 @@ class OverlayView: NSView {
                     context.saveGraphicsState()
                     applyCanvasTransform(to: context)
                     drawSnapGuides()
+                    context.restoreGraphicsState()
+                }
+                if selectionSizeSnapActive {
+                    context.saveGraphicsState()
+                    applyCanvasTransform(to: context)
+                    drawSelectionSizeSnapGuides()
                     context.restoreGraphicsState()
                 }
             }
@@ -2472,14 +2511,22 @@ class OverlayView: NSView {
         let pixelH = Int(selectionRect.height * scale)
 
         let attrs = sizeLabelAttrs
+        let widthAttrs: [NSAttributedString.Key: Any] = [
+            .font: Self.sizeLabelFont,
+            .foregroundColor: selectionSizeSnapWidthActive ? NSColor.controlAccentColor : ToolbarLayout.iconColor
+        ]
+        let heightAttrs: [NSAttributedString.Key: Any] = [
+            .font: Self.sizeLabelFont,
+            .foregroundColor: selectionSizeSnapHeightActive ? NSColor.controlAccentColor : ToolbarLayout.iconColor
+        ]
         let padding: CGFloat = 6
         let gap: CGFloat = 8  // space between width and height labels
 
         // Calculate individual label sizes
         let widthText = "\(pixelW)"
         let heightText = "\(pixelH)"
-        let widthTextSize = (widthText as NSString).size(withAttributes: attrs)
-        let heightTextSize = (heightText as NSString).size(withAttributes: attrs)
+        let widthTextSize = (widthText as NSString).size(withAttributes: widthAttrs)
+        let heightTextSize = (heightText as NSString).size(withAttributes: heightAttrs)
         let timesText = "\u{00D7}"
         let timesTextSize = (timesText as NSString).size(withAttributes: attrs)
 
@@ -2558,9 +2605,13 @@ class OverlayView: NSView {
         NSBezierPath(roundedRect: heightRect, xRadius: 4, yRadius: 4).fill()
 
         (widthText as NSString).draw(
-            at: NSPoint(x: widthRect.minX + padding, y: widthRect.minY + padding / 2), withAttributes: attrs)
+            at: NSPoint(x: widthRect.minX + padding, y: widthRect.minY + padding / 2),
+            withAttributes: widthAttrs
+        )
         (heightText as NSString).draw(
-            at: NSPoint(x: heightRect.minX + padding, y: heightRect.minY + padding / 2), withAttributes: attrs)
+            at: NSPoint(x: heightRect.minX + padding, y: heightRect.minY + padding / 2),
+            withAttributes: heightAttrs
+        )
 
         sizeLabelRect = NSRect(x: baseX, y: baseY, width: totalW, height: labelH)
     }
@@ -3005,8 +3056,8 @@ class OverlayView: NSView {
     }
 
     /// Sample a pixel color from the screenshot at the given canvas-space point.
-    /// Returns (NSColor for display, hex string with raw sRGB values matching what other tools report).
-    private func sampleColor(from image: NSImage, at canvasPoint: NSPoint) -> (
+    /// Returns (NSColor for display, hex string with values in the specified color gamut).
+    private func sampleColor(from image: NSImage, at canvasPoint: NSPoint, gamut: ColorGamut = .srgb) -> (
         color: NSColor, hex: String
     )? {
         // Use original CGImage if available for accurate color sampling
@@ -3035,8 +3086,8 @@ class OverlayView: NSView {
         let cgY = Int(CGFloat(cgImage.height) - 1 - py * scaleY)  // flip Y for CGImage (top-left origin)
         guard cgX >= 0, cgX < cgImage.width, cgY >= 0, cgY < cgImage.height else { return nil }
 
-        // Use sRGB color space for consistent color sampling across different display types
-        // This avoids color space conversion issues on Display P3 monitors
+        // First, always sample in sRGB to get the base color values
+        // (screenshots are captured in sRGB color space)
         let srgbColorSpace = CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB()
         guard
             let ctx = CGContext(
@@ -3053,10 +3104,13 @@ class OverlayView: NSView {
         guard let data = ctx.data else { return nil }
         let ptr = data.assumingMemoryBound(to: UInt8.self)
 
-        // Read RGB directly (no premultiplication with noneSkipLast)
-        let r = ptr[0]
-        let g = ptr[1]
-        let b = ptr[2]
+        // Read sRGB values
+        let srgbR = ptr[0]
+        let srgbG = ptr[1]
+        let srgbB = ptr[2]
+
+        // Convert to target color space based on gamut setting
+        let (r, g, b) = gamut.convertFromSRGB(srgbR, srgbG, srgbB)
 
         let hex = String(format: "#%02X%02X%02X", r, g, b)
         let color = NSColor(
@@ -3065,9 +3119,15 @@ class OverlayView: NSView {
     }
 
     /// Public method to sample color at a canvas point (for color sampler magnifier).
-    func getSampledColor(at canvasPoint: NSPoint) -> (color: NSColor, hex: String)? {
+    func getSampledColor(at canvasPoint: NSPoint, gamut: ColorGamut = .srgb) -> (color: NSColor, hex: String)? {
         guard let screenshot = screenshotImage else { return nil }
-        return sampleColor(from: screenshot, at: canvasPoint)
+        return sampleColor(from: screenshot, at: canvasPoint, gamut: gamut)
+    }
+
+    /// Get the current color gamut setting from UserDefaults.
+    private var currentColorGamut: ColorGamut {
+        let gamutRaw = UserDefaults.standard.integer(forKey: "colorSamplerGamut")
+        return ColorGamut(rawValue: gamutRaw) ?? .srgb
     }
 
     // MARK: - Editor Image Transforms
@@ -3518,6 +3578,191 @@ class OverlayView: NSView {
             line.setLineDash(pattern, count: 2, phase: 0)
             line.stroke()
         }
+    }
+
+    private func drawSelectionSizeSnapGuides() {
+        guard selectionSizeSnapActive, snapGuidesEnabled else { return }
+
+        let guideColor = NSColor.controlAccentColor.withAlphaComponent(0.82)
+        let extensionLength: CGFloat = 28
+        let pattern: [CGFloat] = [6, 4]
+        guideColor.setStroke()
+
+        if let gx = selectionSizeSnapGuideX {
+            let line = NSBezierPath()
+            line.move(to: NSPoint(x: gx, y: selectionRect.minY - extensionLength))
+            line.line(to: NSPoint(x: gx, y: selectionRect.maxY + extensionLength))
+            line.lineWidth = 1
+            line.setLineDash(pattern, count: pattern.count, phase: 0)
+            line.stroke()
+        }
+
+        if let gy = selectionSizeSnapGuideY {
+            let line = NSBezierPath()
+            line.move(to: NSPoint(x: selectionRect.minX - extensionLength, y: gy))
+            line.line(to: NSPoint(x: selectionRect.maxX + extensionLength, y: gy))
+            line.lineWidth = 1
+            line.setLineDash(pattern, count: pattern.count, phase: 0)
+            line.stroke()
+        }
+    }
+
+    private func clearSelectionSizeSnapState() {
+        selectionSizeSnapActive = false
+        selectionSizeSnapWidthActive = false
+        selectionSizeSnapHeightActive = false
+        selectionSizeSnapGuideX = nil
+        selectionSizeSnapGuideY = nil
+    }
+
+    private func applySelectionSizeSnapFeedback(widthActive: Bool, heightActive: Bool) {
+        selectionSizeSnapWidthActive = widthActive
+        selectionSizeSnapHeightActive = heightActive
+        selectionSizeSnapActive = widthActive || heightActive
+
+        if !selectionSizeSnapActive {
+            selectionSizeSnapGuideX = nil
+            selectionSizeSnapGuideY = nil
+        }
+    }
+
+    private func updateSelectionSizeSnapGuides(for rect: NSRect, handle: ResizeHandle) {
+        guard selectionSizeSnapActive else {
+            selectionSizeSnapGuideX = nil
+            selectionSizeSnapGuideY = nil
+            return
+        }
+
+        let verticalGuideX: CGFloat
+        let horizontalGuideY: CGFloat
+
+        switch handle {
+        case .topLeft:
+            verticalGuideX = rect.minX
+            horizontalGuideY = rect.maxY
+        case .topRight:
+            verticalGuideX = rect.maxX
+            horizontalGuideY = rect.maxY
+        case .bottomLeft:
+            verticalGuideX = rect.minX
+            horizontalGuideY = rect.minY
+        case .bottomRight:
+            verticalGuideX = rect.maxX
+            horizontalGuideY = rect.minY
+        case .top:
+            verticalGuideX = rect.maxX
+            horizontalGuideY = rect.maxY
+        case .bottom:
+            verticalGuideX = rect.maxX
+            horizontalGuideY = rect.minY
+        case .left:
+            verticalGuideX = rect.minX
+            horizontalGuideY = rect.minY
+        case .right:
+            verticalGuideX = rect.maxX
+            horizontalGuideY = rect.minY
+        default:
+            selectionSizeSnapGuideX = nil
+            selectionSizeSnapGuideY = nil
+            return
+        }
+
+        selectionSizeSnapGuideX = selectionSizeSnapWidthActive ? verticalGuideX : nil
+        selectionSizeSnapGuideY = selectionSizeSnapHeightActive ? horizontalGuideY : nil
+    }
+
+    private func updateSelectionSizeSnapFeedbackFlags(for pixelSize: CGSize) {
+        guard selectionSizeSnapActive else {
+            selectionSizeSnapWidthActive = false
+            selectionSizeSnapHeightActive = false
+            return
+        }
+
+        applySelectionSizeSnapFeedback(
+            widthActive: isAspectRatioSnapTarget(pixelSize.width, for: pixelSize),
+            heightActive: isAspectRatioSnapTarget(pixelSize.height, for: pixelSize)
+        )
+    }
+
+    private func updateSelectionSizeSnapGuidesForSelectionDrag(
+        rect: NSRect,
+        growsTowardRight: Bool,
+        growsTowardTop: Bool
+    ) {
+        guard selectionSizeSnapActive else {
+            selectionSizeSnapGuideX = nil
+            selectionSizeSnapGuideY = nil
+            return
+        }
+
+        selectionSizeSnapGuideX =
+            selectionSizeSnapWidthActive ? (growsTowardRight ? rect.maxX : rect.minX) : nil
+        selectionSizeSnapGuideY =
+            selectionSizeSnapHeightActive ? (growsTowardTop ? rect.maxY : rect.minY) : nil
+    }
+
+    private func snappedLockedSelectionSize(
+        width: CGFloat,
+        height: CGFloat,
+        ratio: CGFloat,
+        snapAxis: AspectRatioSnapAxis,
+        minSize: CGFloat
+    ) -> CGSize {
+        guard allowsLockedAspectRatioSizeSnap else {
+            clearSelectionSizeSnapState()
+            return CGSize(width: width, height: height)
+        }
+
+        let scale = window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2.0
+        let pixelSize = CGSize(width: width * scale, height: height * scale)
+        let drivingDimension = (snapAxis == .width ? width : height) * scale
+        let result = snapAspectRatioSize(
+            drivingDimension: drivingDimension,
+            threshold: selectionSizeSnapThresholdPx,
+            ratio: ratio,
+            minSize: minSize * scale,
+            snapAxis: snapAxis,
+            currentSize: pixelSize
+        )
+
+        selectionSizeSnapActive = result.isSnapped
+        updateSelectionSizeSnapFeedbackFlags(for: result.size)
+        if !result.isSnapped {
+            selectionSizeSnapGuideX = nil
+            selectionSizeSnapGuideY = nil
+        }
+
+        return CGSize(width: result.size.width / scale, height: result.size.height / scale)
+    }
+
+    private func snappedFreeformSelectionSize(
+        width: CGFloat,
+        height: CGFloat,
+        minSize: CGFloat,
+        snapWidth: Bool = true,
+        snapHeight: Bool = true
+    ) -> CGSize {
+        guard allowsFreeformSizeSnap else {
+            clearSelectionSizeSnapState()
+            return CGSize(width: width, height: height)
+        }
+
+        let scale = window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2.0
+        let pixelSize = CGSize(width: width * scale, height: height * scale)
+        let result = snapFreeformSize(
+            size: pixelSize,
+            threshold: selectionSizeSnapThresholdPx,
+            minSize: minSize * scale,
+            snapWidth: snapWidth,
+            snapHeight: snapHeight
+        )
+
+        applySelectionSizeSnapFeedback(
+            widthActive: result.widthSnapped,
+            heightActive: result.heightSnapped
+        )
+
+        return CGSize(width: result.size.width / scale, height: result.size.height / scale)
     }
 
     // MARK: - Auto Measure
@@ -4998,7 +5243,7 @@ class OverlayView: NSView {
             && currentTool == .colorSampler
         {
             if let screenshot = screenshotImage,
-                let result = sampleColor(from: screenshot, at: viewToCanvas(point))
+                let result = sampleColor(from: screenshot, at: viewToCanvas(point), gamut: currentColorGamut)
             {
                 NSPasteboard.general.clearContents()
                 NSPasteboard.general.setString(result.hex, forType: .string)
@@ -5372,34 +5617,74 @@ class OverlayView: NSView {
             if aspectRatioLock != .none {
                 // 宽高比锁定模式
                 let targetRatio = aspectRatioLock.ratio
+                let minSelectionSize: CGFloat = 1
                 if rawH > 0 {
                     let proposedW = rawH * targetRatio
                     if proposedW <= rawW {
                         // 以高度为基准
-                        w = max(1, proposedW)
-                        h = max(1, rawH)
+                        let snapped = snappedLockedSelectionSize(
+                            width: max(1, proposedW),
+                            height: max(1, rawH),
+                            ratio: targetRatio,
+                            snapAxis: .height,
+                            minSize: minSelectionSize
+                        )
+                        w = snapped.width
+                        h = snapped.height
                     } else {
                         // 以宽度为基准
-                        w = max(1, rawW)
-                        h = max(1, rawW / targetRatio)
+                        let snapped = snappedLockedSelectionSize(
+                            width: max(1, rawW),
+                            height: max(1, rawW / targetRatio),
+                            ratio: targetRatio,
+                            snapAxis: .width,
+                            minSize: minSelectionSize
+                        )
+                        w = snapped.width
+                        h = snapped.height
                     }
                 } else {
-                    w = max(1, rawW)
-                    h = max(1, rawW / targetRatio)
+                    let snapped = snappedLockedSelectionSize(
+                        width: max(1, rawW),
+                        height: max(1, rawW / targetRatio),
+                        ratio: targetRatio,
+                        snapAxis: .width,
+                        minSize: minSelectionSize
+                    )
+                    w = snapped.width
+                    h = snapped.height
                 }
             } else if shiftHeld {
-                // 现有的 Shift 键正方形约束
-                w = max(1, min(rawW, rawH))
-                h = max(1, min(rawW, rawH))
+                // Shift 键正方形约束
+                let squareSize = max(1, min(rawW, rawH))
+                let snapped = snappedFreeformSelectionSize(
+                    width: squareSize,
+                    height: squareSize,
+                    minSize: 1
+                )
+                w = snapped.width
+                h = snapped.height
             } else {
                 // 自由选择
-                w = max(1, rawW)
-                h = max(1, rawH)
+                let snapped = snappedFreeformSelectionSize(
+                    width: max(1, rawW),
+                    height: max(1, rawH),
+                    minSize: 1
+                )
+                w = snapped.width
+                h = snapped.height
             }
 
             let x = selectionStart.x < point.x ? selectionStart.x : selectionStart.x - w
             let y = selectionStart.y < point.y ? selectionStart.y : selectionStart.y - h
             selectionRect = NSRect(x: x, y: y, width: w, height: h)
+            if selectionSizeSnapActive {
+                updateSelectionSizeSnapGuidesForSelectionDrag(
+                    rect: selectionRect,
+                    growsTowardRight: selectionStart.x < point.x,
+                    growsTowardTop: selectionStart.y < point.y
+                )
+            }
             overlayDelegate?.overlayViewSelectionDidChange(selectionRect)
             needsDisplay = true
 
@@ -5758,6 +6043,7 @@ class OverlayView: NSView {
                 // 保持 aspectRatioLock 状态，不重置
                 if !autoOCRMode && !autoQuickSaveMode && !autoScrollCaptureMode && !autoConfirmMode { showToolbars = true }
                 overlayDelegate?.overlayViewDidFinishSelection(selectionRect)
+                clearSelectionSizeSnapState()
             } else if windowSnapEnabled, let snapRect = hoveredWindowRect, !snapRect.isEmpty {
                 // Click (no drag) with snap on — snap to hovered window
                 selectionRect = snapRect
@@ -5787,6 +6073,7 @@ class OverlayView: NSView {
                 // 保持 aspectRatioLock 状态，不重置
                 if !autoOCRMode && !autoQuickSaveMode && !autoScrollCaptureMode && !autoConfirmMode { showToolbars = true }
                 overlayDelegate?.overlayViewDidFinishSelection(selectionRect)
+                clearSelectionSizeSnapState()
             } else {
                 // Click (no drag), snap off — expand to full screen
                 selectionRect = bounds
@@ -5802,6 +6089,7 @@ class OverlayView: NSView {
                 aspectRatioLock = .none  // 全屏时重置锁定
                 if !autoOCRMode && !autoQuickSaveMode && !autoScrollCaptureMode && !autoConfirmMode { showToolbars = true }
                 overlayDelegate?.overlayViewDidFinishSelection(selectionRect)
+                clearSelectionSizeSnapState()
             }
             hoveredWindowRect = nil
             // Update cursor to match the selected tool (replaces resize cursor from dragging)
@@ -5884,6 +6172,7 @@ class OverlayView: NSView {
             } else if isResizingSelection {
                 isResizingSelection = false
                 resizeHandle = .none
+                clearSelectionSizeSnapState()
                 scheduleBarcodeDetection()
                 if !autoOCRMode && !autoQuickSaveMode && !autoScrollCaptureMode && !autoConfirmMode {
                     showToolbars = true
@@ -5938,7 +6227,7 @@ class OverlayView: NSView {
         if state == .selected && currentTool == .colorSampler {
             // Right-click with color sampler: copy hex to clipboard
             if let screenshot = screenshotImage,
-                let result = sampleColor(from: screenshot, at: viewToCanvas(point))
+                let result = sampleColor(from: screenshot, at: viewToCanvas(point), gamut: currentColorGamut)
             {
                 NSPasteboard.general.clearContents()
                 NSPasteboard.general.setString(result.hex, forType: .string)
@@ -6231,6 +6520,15 @@ class OverlayView: NSView {
         return aspectRatioLock.ratio
     }
 
+    private func snapAxis(for handle: ResizeHandle) -> AspectRatioSnapAxis {
+        switch handle {
+        case .top, .bottom:
+            return .height
+        default:
+            return .width
+        }
+    }
+
     private func resizedSelectionRect(
         from rect: NSRect,
         handle: ResizeHandle,
@@ -6241,58 +6539,240 @@ class OverlayView: NSView {
         let r = rect
 
         if let targetRatio = aspectRatio, targetRatio > 0 {
+            let axis = snapAxis(for: handle)
+
             switch handle {
             case .bottomRight:
-                let newWidth = max(minSize, point.x - r.minX)
-                let newHeight = newWidth / targetRatio
-                let newOriginY = r.maxY - newHeight
-                return NSRect(x: r.minX, y: newOriginY, width: newWidth, height: newHeight)
+                let rawWidth = max(minSize, point.x - r.minX)
+                let snapped = snappedLockedSelectionSize(
+                    width: rawWidth,
+                    height: rawWidth / targetRatio,
+                    ratio: targetRatio,
+                    snapAxis: axis,
+                    minSize: minSize
+                )
+                let rect = NSRect(
+                    x: r.minX, y: r.maxY - snapped.height, width: snapped.width, height: snapped.height)
+                updateSelectionSizeSnapGuides(for: rect, handle: handle)
+                return rect
 
             case .bottomLeft:
-                let newWidth = max(minSize, r.maxX - point.x)
-                let newOriginX = r.maxX - newWidth
-                let newHeight = newWidth / targetRatio
-                let newOriginY = r.maxY - newHeight
-                return NSRect(x: newOriginX, y: newOriginY, width: newWidth, height: newHeight)
+                let rawWidth = max(minSize, r.maxX - point.x)
+                let snapped = snappedLockedSelectionSize(
+                    width: rawWidth,
+                    height: rawWidth / targetRatio,
+                    ratio: targetRatio,
+                    snapAxis: axis,
+                    minSize: minSize
+                )
+                let rect = NSRect(
+                    x: r.maxX - snapped.width,
+                    y: r.maxY - snapped.height,
+                    width: snapped.width,
+                    height: snapped.height
+                )
+                updateSelectionSizeSnapGuides(for: rect, handle: handle)
+                return rect
 
             case .topRight:
-                let newWidth = max(minSize, point.x - r.minX)
-                let newHeight = newWidth / targetRatio
-                return NSRect(x: r.minX, y: r.minY, width: newWidth, height: newHeight)
+                let rawWidth = max(minSize, point.x - r.minX)
+                let snapped = snappedLockedSelectionSize(
+                    width: rawWidth,
+                    height: rawWidth / targetRatio,
+                    ratio: targetRatio,
+                    snapAxis: axis,
+                    minSize: minSize
+                )
+                let rect = NSRect(x: r.minX, y: r.minY, width: snapped.width, height: snapped.height)
+                updateSelectionSizeSnapGuides(for: rect, handle: handle)
+                return rect
 
             case .topLeft:
-                let newWidth = max(minSize, r.maxX - point.x)
-                let newOriginX = r.maxX - newWidth
-                return NSRect(x: newOriginX, y: r.minY, width: newWidth, height: newWidth / targetRatio)
+                let rawWidth = max(minSize, r.maxX - point.x)
+                let snapped = snappedLockedSelectionSize(
+                    width: rawWidth,
+                    height: rawWidth / targetRatio,
+                    ratio: targetRatio,
+                    snapAxis: axis,
+                    minSize: minSize
+                )
+                let rect = NSRect(
+                    x: r.maxX - snapped.width, y: r.minY, width: snapped.width, height: snapped.height)
+                updateSelectionSizeSnapGuides(for: rect, handle: handle)
+                return rect
 
             case .right:
-                let newWidth = max(minSize, point.x - r.minX)
-                let newHeight = newWidth / targetRatio
-                let newOriginY = r.maxY - newHeight
-                return NSRect(x: r.minX, y: newOriginY, width: newWidth, height: newHeight)
+                let rawWidth = max(minSize, point.x - r.minX)
+                let snapped = snappedLockedSelectionSize(
+                    width: rawWidth,
+                    height: rawWidth / targetRatio,
+                    ratio: targetRatio,
+                    snapAxis: axis,
+                    minSize: minSize
+                )
+                let rect = NSRect(
+                    x: r.minX, y: r.maxY - snapped.height, width: snapped.width, height: snapped.height)
+                updateSelectionSizeSnapGuides(for: rect, handle: handle)
+                return rect
 
             case .left:
-                let newWidth = max(minSize, r.maxX - point.x)
-                let newOriginX = r.maxX - newWidth
-                let newHeight = newWidth / targetRatio
-                let newOriginY = r.maxY - newHeight
-                return NSRect(x: newOriginX, y: newOriginY, width: newWidth, height: newHeight)
+                let rawWidth = max(minSize, r.maxX - point.x)
+                let snapped = snappedLockedSelectionSize(
+                    width: rawWidth,
+                    height: rawWidth / targetRatio,
+                    ratio: targetRatio,
+                    snapAxis: axis,
+                    minSize: minSize
+                )
+                let rect = NSRect(
+                    x: r.maxX - snapped.width,
+                    y: r.maxY - snapped.height,
+                    width: snapped.width,
+                    height: snapped.height
+                )
+                updateSelectionSizeSnapGuides(for: rect, handle: handle)
+                return rect
 
             case .bottom:
-                let newHeight = max(minSize, r.maxY - point.y)
-                let newWidth = newHeight * targetRatio
-                let newOriginY = r.maxY - newHeight
-                return NSRect(x: r.minX, y: newOriginY, width: newWidth, height: newHeight)
+                let rawHeight = max(minSize, r.maxY - point.y)
+                let snapped = snappedLockedSelectionSize(
+                    width: rawHeight * targetRatio,
+                    height: rawHeight,
+                    ratio: targetRatio,
+                    snapAxis: axis,
+                    minSize: minSize
+                )
+                let rect = NSRect(
+                    x: r.minX, y: r.maxY - snapped.height, width: snapped.width, height: snapped.height)
+                updateSelectionSizeSnapGuides(for: rect, handle: handle)
+                return rect
 
             case .top:
-                let newHeight = max(minSize, point.y - r.minY)
-                let newWidth = newHeight * targetRatio
-                return NSRect(x: r.minX, y: r.minY, width: newWidth, height: newHeight)
+                let rawHeight = max(minSize, point.y - r.minY)
+                let snapped = snappedLockedSelectionSize(
+                    width: rawHeight * targetRatio,
+                    height: rawHeight,
+                    ratio: targetRatio,
+                    snapAxis: axis,
+                    minSize: minSize
+                )
+                let rect = NSRect(x: r.minX, y: r.minY, width: snapped.width, height: snapped.height)
+                updateSelectionSizeSnapGuides(for: rect, handle: handle)
+                return rect
 
             default:
+                clearSelectionSizeSnapState()
                 return r
             }
         }
+
+        if allowsFreeformSizeSnap {
+            switch handle {
+            case .topLeft:
+                let rawWidth = r.maxX - min(point.x, r.maxX - minSize)
+                let rawHeight = max(point.y, r.minY + minSize) - r.minY
+                let snapped = snappedFreeformSelectionSize(
+                    width: rawWidth,
+                    height: rawHeight,
+                    minSize: minSize
+                )
+                let rect = NSRect(
+                    x: r.maxX - snapped.width, y: r.minY, width: snapped.width, height: snapped.height)
+                updateSelectionSizeSnapGuides(for: rect, handle: handle)
+                return rect
+            case .topRight:
+                let rawWidth = max(point.x, r.minX + minSize) - r.minX
+                let rawHeight = max(point.y, r.minY + minSize) - r.minY
+                let snapped = snappedFreeformSelectionSize(
+                    width: rawWidth,
+                    height: rawHeight,
+                    minSize: minSize
+                )
+                let rect = NSRect(x: r.minX, y: r.minY, width: snapped.width, height: snapped.height)
+                updateSelectionSizeSnapGuides(for: rect, handle: handle)
+                return rect
+            case .bottomLeft:
+                let rawWidth = r.maxX - min(point.x, r.maxX - minSize)
+                let rawHeight = r.maxY - min(point.y, r.maxY - minSize)
+                let snapped = snappedFreeformSelectionSize(
+                    width: rawWidth,
+                    height: rawHeight,
+                    minSize: minSize
+                )
+                let rect = NSRect(
+                    x: r.maxX - snapped.width,
+                    y: r.maxY - snapped.height,
+                    width: snapped.width,
+                    height: snapped.height
+                )
+                updateSelectionSizeSnapGuides(for: rect, handle: handle)
+                return rect
+            case .bottomRight:
+                let rawWidth = max(point.x, r.minX + minSize) - r.minX
+                let rawHeight = r.maxY - min(point.y, r.maxY - minSize)
+                let snapped = snappedFreeformSelectionSize(
+                    width: rawWidth,
+                    height: rawHeight,
+                    minSize: minSize
+                )
+                let rect = NSRect(
+                    x: r.minX, y: r.maxY - snapped.height, width: snapped.width, height: snapped.height)
+                updateSelectionSizeSnapGuides(for: rect, handle: handle)
+                return rect
+            case .top:
+                let rawHeight = max(point.y, r.minY + minSize) - r.minY
+                let snapped = snappedFreeformSelectionSize(
+                    width: r.width,
+                    height: rawHeight,
+                    minSize: minSize,
+                    snapWidth: false,
+                    snapHeight: true
+                )
+                let rect = NSRect(x: r.minX, y: r.minY, width: r.width, height: snapped.height)
+                updateSelectionSizeSnapGuides(for: rect, handle: handle)
+                return rect
+            case .bottom:
+                let rawHeight = r.maxY - min(point.y, r.maxY - minSize)
+                let snapped = snappedFreeformSelectionSize(
+                    width: r.width,
+                    height: rawHeight,
+                    minSize: minSize,
+                    snapWidth: false,
+                    snapHeight: true
+                )
+                let rect = NSRect(x: r.minX, y: r.maxY - snapped.height, width: r.width, height: snapped.height)
+                updateSelectionSizeSnapGuides(for: rect, handle: handle)
+                return rect
+            case .left:
+                let rawWidth = r.maxX - min(point.x, r.maxX - minSize)
+                let snapped = snappedFreeformSelectionSize(
+                    width: rawWidth,
+                    height: r.height,
+                    minSize: minSize,
+                    snapWidth: true,
+                    snapHeight: false
+                )
+                let rect = NSRect(x: r.maxX - snapped.width, y: r.minY, width: snapped.width, height: r.height)
+                updateSelectionSizeSnapGuides(for: rect, handle: handle)
+                return rect
+            case .right:
+                let rawWidth = max(point.x, r.minX + minSize) - r.minX
+                let snapped = snappedFreeformSelectionSize(
+                    width: rawWidth,
+                    height: r.height,
+                    minSize: minSize,
+                    snapWidth: true,
+                    snapHeight: false
+                )
+                let rect = NSRect(x: r.minX, y: r.minY, width: snapped.width, height: r.height)
+                updateSelectionSizeSnapGuides(for: rect, handle: handle)
+                return rect
+            default:
+                break
+            }
+        }
+
+        clearSelectionSizeSnapState()
 
         switch handle {
         case .topLeft:
@@ -6331,6 +6811,9 @@ class OverlayView: NSView {
 
     private func resizeSelection(to point: NSPoint) {
         let minSize: CGFloat = 10
+        if activeAspectRatio == nil {
+            clearSelectionSizeSnapState()
+        }
         selectionRect = resizedSelectionRect(
             from: selectionRect,
             handle: resizeHandle,
@@ -7253,7 +7736,7 @@ class OverlayView: NSView {
         // Note: point is already in canvas space (converted by caller).
         if currentTool == .colorSampler {
             if let screenshot = screenshotImage,
-                let result = sampleColor(from: screenshot, at: point)
+                let result = sampleColor(from: screenshot, at: point, gamut: currentColorGamut)
             {
                 currentColor = result.color
                 currentColorOpacity = 1.0
@@ -8627,6 +9110,7 @@ class OverlayView: NSView {
     func clearSelection() {
         state = .idle
         selectionRect = .zero
+        clearSelectionSizeSnapState()
         remoteSelectionRect = .zero
         remoteSelectionFullRect = .zero
         showToolbars = false
@@ -8761,6 +9245,7 @@ class OverlayView: NSView {
     func reset() {
         state = .idle
         selectionRect = .zero
+        clearSelectionSizeSnapState()
         selectionIsWindowSnap = false
         snappedWindowID = nil
         snappedWindowImage = nil
