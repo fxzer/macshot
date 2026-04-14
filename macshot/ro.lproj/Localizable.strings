@@ -393,8 +393,8 @@
 "Cam size:" = "Dim. cam.:";
 "Cam shape:" = "Forma cam.:";
 /* New Strings */
-"Settings..." = "Setari...";
-"macshot Settings" = "Setari MacShot";
+"Settings..." = "Setări...";
+"macshot Settings" = "Setări MacShot";
 "Also open in Editor" = "Deschide si in editor";
 "Hide controls" = "Ascunde controalele";
 "Hide recording controls" = "Ascunde controalele de inregistrare";

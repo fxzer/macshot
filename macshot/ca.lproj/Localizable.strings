@@ -393,8 +393,8 @@
 "Cam size:" = "Mida cam:";
 "Cam shape:" = "Forma cam:";
 /* Settings */
-"Settings..." = "Configuracio...";
-"macshot Settings" = "Configuracio de MacShot";
+"Settings..." = "Configuració...";
+"macshot Settings" = "Configuració de MacShot";
 "Also open in Editor" = "Obrir tambe a l'editor";
 "Hide controls" = "Amagar controls";
 "Hide recording controls" = "Amagar controls de gravacio";

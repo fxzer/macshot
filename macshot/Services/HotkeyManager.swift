@@ -222,7 +222,7 @@ class HotkeyManager {
     /// Display string for a slot's current hotkey.
     static func displayString(for slot: HotkeySlot) -> String {
         let (keyCode, modifiers) = readHotkey(for: slot)
-        if keyCode == 0 && modifiers == 0 { return "None" }
+        if keyCode == 0 && modifiers == 0 { return L("None") }
         return modifierString(from: modifiers) + keyString(from: keyCode)
     }
 
