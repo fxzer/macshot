@@ -117,9 +117,9 @@ struct FormatTokenField: View {
                 format: $format,
                 insertionController: insertionController
             )
-            .frame(height: 52)
+            .frame(height: 42)
             .padding(.horizontal, 10)
-            .padding(.vertical, 10)
+            .padding(.vertical, 8)
             .background(
                 RoundedRectangle(cornerRadius: 8)
                     .fill(Color(nsColor: .controlBackgroundColor))
@@ -424,7 +424,18 @@ private struct MacTokenField: NSViewRepresentable {
 
             let currentString = tokenField.stringValue
             let nsString = currentString as NSString
-            let selectedRange = currentSelectedRange(in: tokenField)
+
+            // 当拖放插入时，如果 field 不是 first responder，插入到末尾
+            // 这避免了使用可能过时的 lastKnownSelectedRange
+            let selectedRange: NSRange
+            if tokenField.currentEditor() == nil {
+                // 不是 first responder，插入到末尾
+                selectedRange = NSRange(location: nsString.length, length: 0)
+            } else {
+                // 是 first responder，使用当前光标位置
+                selectedRange = currentSelectedRange(in: tokenField)
+            }
+
             let newString = nsString.replacingCharacters(in: selectedRange, with: code)
             let newRange = NSRange(location: selectedRange.location + code.count, length: 0)
 
