@@ -1,4 +1,5 @@
 import AppKit
+import CoreTransferable
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -97,7 +98,7 @@ struct FilenameFormatSettingsRow: View {
 }
 
 /// Popover 里的完整编辑器：
-/// - 顶部是真实的 NSTokenField
+/// - 顶部是块编辑区
 /// - 中间是预览类型切换和实时预览
 /// - 底部是变量池
 struct FormatTokenField: View {
@@ -105,33 +106,16 @@ struct FormatTokenField: View {
     @Binding var previewKind: FilenameOutputKind
     let screenshotExtension: String
 
-    @State private var insertionController = TokenFieldInsertionController()
-    @State private var isDropTargeted = false
+    @State private var blocks: [FilenameFormatBlock] = []
+    @State private var lastSyncedSerialized = ""
+    @State private var highlightedDropIndex: Int?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(L("Filename"))
                 .font(.headline)
 
-            MacTokenField(
-                format: $format,
-                insertionController: insertionController
-            )
-            .frame(minHeight: 38)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 6)
-            .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(Color(nsColor: .controlBackgroundColor))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(
-                        isDropTargeted ? Color.accentColor : Color(nsColor: .separatorColor),
-                        lineWidth: isDropTargeted ? 2 : 1
-                    )
-            )
-            .onDrop(of: [.plainText], isTargeted: $isDropTargeted, perform: handleDrop(providers:))
+            blockEditor
 
             VStack(alignment: .leading, spacing: 8) {
                 Picker(L("Preview"), selection: $previewKind) {
@@ -142,29 +126,50 @@ struct FormatTokenField: View {
                 .pickerStyle(.segmented)
 
                 Text(format.preview(kind: previewKind, fileExtension: fileExtension(for: previewKind)))
-                    .font(.system(.body, design: .monospaced))
+                    .font(.system(size: 12, design: .monospaced))
                     .lineLimit(1)
                     .padding(.horizontal, 10)
-                    .padding(.vertical, 8)
+                    .padding(.vertical, 6)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(Color(nsColor: .controlBackgroundColor))
                     .cornerRadius(6)
             }
 
             VStack(alignment: .leading, spacing: 8) {
-                Text(L("Insert variable"))
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
+                HStack {
+                    Text("Tokens")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+
+                    Spacer()
+                }
+
+                HStack(spacing: 8) {
+                    symbolPaletteButton(name: "短横线", symbol: "-", isInserted: false)
+                    symbolPaletteButton(name: "下划线", symbol: "_", isInserted: false)
+                }
 
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 140), spacing: 8)], spacing: 8) {
                     ForEach(FormatToken.allVariables, id: \.self) { token in
-                        TokenInsertButtonView(token: token) {
-                            insert(token: token)
-                        }
+                        VariablePaletteTokenView(
+                            token: token,
+                            isInserted: containsVariableToken(token),
+                            onInsert: {
+                                insertVariableTokenAtEnd(token)
+                            },
+                            onRemove: {
+                                removeVariableToken(token)
+                            }
+                        )
                     }
                 }
             }
-
+        }
+        .onAppear {
+            syncBlocksFromFormat(force: true)
+        }
+        .onChange(of: format.serializedString) { _ in
+            syncBlocksFromFormat(force: false)
         }
     }
 
@@ -183,24 +188,144 @@ struct FormatTokenField: View {
         }
     }
 
-    private func handleDrop(providers: [NSItemProvider]) -> Bool {
-        guard let provider = providers.first else { return false }
-        provider.loadObject(ofClass: NSString.self) { object, _ in
-            guard let code = object as? NSString,
-                  let token = FormatToken.fromVariableCode(code as String) else { return }
-            DispatchQueue.main.async {
-                insert(token: token)
+    private var blockEditor: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 2) {
+                ForEach(Array(blocks.enumerated()), id: \.element.id) { index, block in
+                    dropSlot(at: index)
+                    blockView(for: block)
+                }
+                dropSlot(at: blocks.count)
             }
+            .padding(8)
         }
+        .frame(minHeight: 52)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Color(nsColor: .controlBackgroundColor))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color(nsColor: .separatorColor), lineWidth: 1)
+        )
+    }
+
+    @ViewBuilder
+    private func blockView(for block: FilenameFormatBlock) -> some View {
+        FilenameFormatBlockView(
+            block: block,
+            onDelete: {
+                removeBlock(id: block.id)
+            }
+        )
+    }
+
+    private func dropSlot(at index: Int) -> some View {
+        FilenameFormatDropSlot(isHighlighted: highlightedDropIndex == index)
+            .dropDestination(for: FilenameFormatDragPayload.self) { items, _ in
+                handleDrop(items, at: index)
+            } isTargeted: { isTargeted in
+                if isTargeted {
+                    highlightedDropIndex = index
+                } else if highlightedDropIndex == index {
+                    highlightedDropIndex = nil
+                }
+            }
+    }
+
+    private func handleDrop(_ items: [FilenameFormatDragPayload], at index: Int) -> Bool {
+        guard let payload = items.first else { return false }
+        highlightedDropIndex = nil
+        guard canInsert(payload: payload) else { return false }
+        applyDrop(payload, at: index)
         return true
     }
 
-    private func insert(token: FormatToken) {
-        if insertionController.insert(token: token) {
-            return
+    private func insertTextSymbolAtEnd(_ symbol: String) {
+        blocks.append(.text(symbol))
+        syncFormatFromBlocks()
+    }
+
+    private func insertVariableTokenAtEnd(_ token: FormatToken) {
+        guard !containsVariableToken(token) else { return }
+        blocks.append(.variable(token))
+        syncFormatFromBlocks()
+    }
+
+    private func removeVariableToken(_ token: FormatToken) {
+        blocks.removeAll { $0.variableToken == token }
+        syncFormatFromBlocks()
+    }
+
+    private func removeBlock(id: UUID) {
+        blocks.removeAll { $0.id == id }
+        if blocks.isEmpty {
+            blocks = []
+        }
+        syncFormatFromBlocks()
+    }
+
+    private func applyDrop(_ payload: FilenameFormatDragPayload, at index: Int) {
+        switch payload.source {
+        case .editor:
+            guard let blockID = payload.blockID,
+                  let sourceIndex = blocks.firstIndex(where: { $0.id == blockID }) else { return }
+
+            let block = blocks.remove(at: sourceIndex)
+            let destinationIndex = sourceIndex < index ? index - 1 : index
+            blocks.insert(block, at: max(0, min(destinationIndex, blocks.count)))
+
+        case .palette:
+            guard let block = payload.makeBlock() else { return }
+            blocks.insert(block, at: max(0, min(index, blocks.count)))
         }
 
-        format.tokens.append(token)
+        syncFormatFromBlocks()
+    }
+
+    private func syncBlocksFromFormat(force: Bool) {
+        let serialized = format.serializedString
+        guard force || serialized != lastSyncedSerialized else { return }
+
+        lastSyncedSerialized = serialized
+        let mappedBlocks = FilenameFormatBlock.blocks(from: format)
+        blocks = mappedBlocks
+    }
+
+    private func syncFormatFromBlocks() {
+        let tokens = blocks.compactMap(\.formatToken)
+        let newFormat = TokenFilenameFormat(tokens: tokens)
+        lastSyncedSerialized = newFormat.serializedString
+        if format != newFormat {
+            format = newFormat
+        }
+    }
+
+    private func symbolPaletteButton(name: String, symbol: String, isInserted: Bool) -> some View {
+        SymbolPaletteTokenView(name: name, symbol: symbol, isInserted: isInserted) {
+            insertTextSymbolAtEnd(symbol)
+        }
+    }
+
+    private func containsVariableToken(_ token: FormatToken) -> Bool {
+        blocks.contains { $0.variableToken == token }
+    }
+
+    private func containsTextSymbol(_ symbol: String) -> Bool {
+        blocks.contains { $0.kind == .text && $0.text == symbol }
+    }
+
+    private func canInsert(payload: FilenameFormatDragPayload) -> Bool {
+        if let tokenCode = payload.tokenCode,
+           let token = FormatToken.fromVariableCode(tokenCode) {
+            return !containsVariableToken(token)
+        }
+
+        if payload.textValue != nil {
+            return true
+        }
+
+        return true
     }
 }
 
@@ -273,231 +398,162 @@ private struct SaveLocationPopoverView: View {
     }
 }
 
-private final class TokenFieldInsertionController {
-    var insertHandler: ((FormatToken) -> Void)?
-
-    func insert(token: FormatToken) -> Bool {
-        guard let insertHandler else { return false }
-        insertHandler(token)
-        return true
-    }
-}
-
-private struct MacTokenField: NSViewRepresentable {
-    @Binding var format: TokenFilenameFormat
-    let insertionController: TokenFieldInsertionController
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator(parent: self)
+private struct FilenameFormatBlock: Identifiable, Hashable {
+    enum Kind: String, Codable {
+        case text
+        case variable
     }
 
-    func makeNSView(context: Context) -> NSTokenField {
-        let tokenField = NSTokenField(frame: .zero)
-        tokenField.delegate = context.coordinator
-        tokenField.font = .systemFont(ofSize: 13)
-        tokenField.tokenizingCharacterSet = CharacterSet()
-        tokenField.focusRingType = .default
-        tokenField.isBordered = false
-        tokenField.drawsBackground = false
-        tokenField.completionDelay = 0
-        tokenField.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        context.coordinator.tokenField = tokenField
-        context.coordinator.apply(format: format, to: tokenField, preserveSelection: false)
-        return tokenField
+    let id: UUID
+    var kind: Kind
+    var text: String
+    var variableToken: FormatToken?
+
+    init(id: UUID = UUID(), kind: Kind, text: String, variableToken: FormatToken?) {
+        self.id = id
+        self.kind = kind
+        self.text = text
+        self.variableToken = variableToken
     }
 
-    func updateNSView(_ nsView: NSTokenField, context: Context) {
-        context.coordinator.parent = self
-        insertionController.insertHandler = { [weak coordinator = context.coordinator, weak nsView] token in
-            guard let coordinator, let nsView else { return }
-            coordinator.insert(token: token, into: nsView)
-        }
-        context.coordinator.apply(format: format, to: nsView, preserveSelection: true)
+    static func text(_ value: String, id: UUID = UUID()) -> FilenameFormatBlock {
+        FilenameFormatBlock(id: id, kind: .text, text: value, variableToken: nil)
     }
 
-    final class Coordinator: NSObject, NSTokenFieldDelegate {
-        var parent: MacTokenField
-        weak var tokenField: NSTokenField?
-        var lastAppliedSerialized = ""
-        private var pendingSelectedRange: NSRange?
-        private var lastKnownSelectedRange = NSRange(location: 0, length: 0)
-        private var selectionObserver: NSObjectProtocol?
-
-        init(parent: MacTokenField) {
-            self.parent = parent
-        }
-
-        deinit {
-            if let selectionObserver {
-                NotificationCenter.default.removeObserver(selectionObserver)
-            }
-        }
-
-        func controlTextDidBeginEditing(_ notification: Notification) {
-            installSelectionObserverIfNeeded()
-        }
-
-        func controlTextDidChange(_ notification: Notification) {
-            if let editor = tokenField?.currentEditor() as? NSTextView {
-                lastKnownSelectedRange = editor.selectedRange()
-            }
-            syncFromControl()
-        }
-
-        func controlTextDidEndEditing(_ notification: Notification) {
-            if let editor = tokenField?.currentEditor() as? NSTextView {
-                lastKnownSelectedRange = editor.selectedRange()
-            }
-            syncFromControl()
-        }
-
-        func tokenField(_ tokenField: NSTokenField, displayStringForRepresentedObject representedObject: Any) -> String? {
-            if let variable = representedObject as? VariableTokenObject {
-                return variable.token.variableCode
-            }
-            if let text = representedObject as? String {
-                return text
-            }
-            if let text = representedObject as? NSString {
-                return text as String
-            }
-            return nil
-        }
-
-        func tokenField(_ tokenField: NSTokenField, editingStringForRepresentedObject representedObject: Any) -> String? {
-            if let variable = representedObject as? VariableTokenObject {
-                return variable.token.variableCode
-            }
-            if let text = representedObject as? String {
-                return text
-            }
-            if let text = representedObject as? NSString {
-                return text as String
-            }
-            return nil
-        }
-
-        func tokenField(_ tokenField: NSTokenField, representedObjectForEditing editingString: String) -> Any? {
-            if let variable = FormatToken.fromVariableCode(editingString) {
-                return VariableTokenObject(token: variable)
-            }
-            return editingString
-        }
-
-        func tokenField(_ tokenField: NSTokenField, styleForRepresentedObject representedObject: Any) -> NSTokenField.TokenStyle {
-            if representedObject is VariableTokenObject {
-                return .rounded
-            }
-            return .none
-        }
-
-        func apply(format: TokenFilenameFormat, to tokenField: NSTokenField, preserveSelection: Bool) {
-            let serialized = format.serializedString
-            guard lastAppliedSerialized != serialized || tokenField.objectValue == nil else { return }
-
-            if preserveSelection, let editor = tokenField.currentEditor() as? NSTextView {
-                pendingSelectedRange = editor.selectedRange()
-            }
-
-            lastAppliedSerialized = serialized
-            tokenField.objectValue = format.tokens.map { token -> Any in
-                switch token {
-                case .text(let text):
-                    return text
-                default:
-                    return VariableTokenObject(token: token)
-                }
-            }
-
-            if let selectedRange = pendingSelectedRange {
-                DispatchQueue.main.async { [weak tokenField] in
-                    guard let editor = tokenField?.currentEditor() as? NSTextView else { return }
-                    let clampedLocation = min(selectedRange.location, (tokenField?.stringValue as NSString?)?.length ?? 0)
-                    editor.setSelectedRange(NSRange(location: clampedLocation, length: 0))
-                }
-            }
-        }
-
-        func insert(token: FormatToken, into tokenField: NSTokenField) {
-            guard let code = token.variableCode else { return }
-
-            let currentString = tokenField.stringValue
-            let nsString = currentString as NSString
-            let selectedRange = currentSelectedRange(in: tokenField)
-            let newString = nsString.replacingCharacters(in: selectedRange, with: code)
-            let newRange = NSRange(location: selectedRange.location + code.count, length: 0)
-
-            pendingSelectedRange = newRange
-            let parsed = TokenFilenameFormat.fromSerializedString(newString)
-            parent.format = parsed
-            apply(format: parsed, to: tokenField, preserveSelection: false)
-
-            DispatchQueue.main.async { [weak tokenField] in
-                guard let tokenField else { return }
-                tokenField.window?.makeFirstResponder(tokenField)
-                if let editor = tokenField.currentEditor() as? NSTextView {
-                    editor.setSelectedRange(newRange)
-                }
-            }
-        }
-
-        private func currentSelectedRange(in tokenField: NSTokenField) -> NSRange {
-            if let editor = tokenField.currentEditor() as? NSTextView {
-                return editor.selectedRange()
-            }
-
-            if lastKnownSelectedRange.location > 0 || lastKnownSelectedRange.length > 0 {
-                return lastKnownSelectedRange
-            }
-
-            let stringLength = (tokenField.stringValue as NSString).length
-            return NSRange(location: stringLength, length: 0)
-        }
-
-        private func syncFromControl() {
-            guard let tokenField else { return }
-            let parsed = TokenFilenameFormat.fromSerializedString(tokenField.stringValue)
-            lastAppliedSerialized = parsed.serializedString
-            if parent.format != parsed {
-                parent.format = parsed
-            }
-        }
-
-        private func installSelectionObserverIfNeeded() {
-            if let selectionObserver {
-                NotificationCenter.default.removeObserver(selectionObserver)
-            }
-
-            selectionObserver = NotificationCenter.default.addObserver(
-                forName: NSTextView.didChangeSelectionNotification,
-                object: nil,
-                queue: .main
-            ) { [weak self] notification in
-                guard let self,
-                      let editor = notification.object as? NSTextView,
-                      editor == self.tokenField?.currentEditor() as? NSTextView else { return }
-                self.lastKnownSelectedRange = editor.selectedRange()
-            }
-        }
+    static func variable(_ token: FormatToken, id: UUID = UUID()) -> FilenameFormatBlock {
+        FilenameFormatBlock(id: id, kind: .variable, text: "", variableToken: token)
     }
-}
-
-private final class VariableTokenObject: NSObject {
-    let token: FormatToken
 
     init(token: FormatToken) {
-        self.token = token
+        switch token {
+        case .text(let value):
+            self = .text(value)
+        default:
+            self = .variable(token)
+        }
+    }
+
+    var formatToken: FormatToken? {
+        switch kind {
+        case .text:
+            return .text(text)
+        case .variable:
+            return variableToken
+        }
+    }
+
+    var editorPayload: FilenameFormatDragPayload {
+        .editor(blockID: id)
+    }
+
+    static func blocks(from format: TokenFilenameFormat) -> [FilenameFormatBlock] {
+        format.tokens.map(FilenameFormatBlock.init(token:))
     }
 }
 
-private struct TokenInsertButtonView: View {
+private struct FilenameFormatDragPayload: Codable, Hashable, Transferable {
+    enum Source: String, Codable {
+        case editor
+        case palette
+    }
+
+    let source: Source
+    let blockID: UUID?
+    let tokenCode: String?
+    let textValue: String?
+
+    static var transferRepresentation: some TransferRepresentation {
+        CodableRepresentation(contentType: .filenameFormatBlockPayload)
+    }
+
+    static func editor(blockID: UUID) -> FilenameFormatDragPayload {
+        FilenameFormatDragPayload(source: .editor, blockID: blockID, tokenCode: nil, textValue: nil)
+    }
+
+    static func palette(token: FormatToken) -> FilenameFormatDragPayload {
+        FilenameFormatDragPayload(source: .palette, blockID: nil, tokenCode: token.variableCode, textValue: nil)
+    }
+
+    static func palette(text: String) -> FilenameFormatDragPayload {
+        FilenameFormatDragPayload(source: .palette, blockID: nil, tokenCode: nil, textValue: text)
+    }
+
+    func makeBlock() -> FilenameFormatBlock? {
+        if let tokenCode, let token = FormatToken.fromVariableCode(tokenCode) {
+            return .variable(token)
+        }
+        if let textValue {
+            return .text(textValue)
+        }
+        return nil
+    }
+}
+
+private struct FilenameFormatDropSlot: View {
+    let isHighlighted: Bool
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: 5)
+            .fill(isHighlighted ? Color.accentColor.opacity(0.18) : Color.clear)
+            .frame(width: isHighlighted ? 8 : 4, height: 30)
+            .overlay(
+                RoundedRectangle(cornerRadius: 5)
+                    .stroke(
+                        isHighlighted ? Color.accentColor : Color(nsColor: .separatorColor).opacity(0.2),
+                        lineWidth: isHighlighted ? 2 : 1
+                    )
+            )
+            .animation(.easeInOut(duration: 0.12), value: isHighlighted)
+    }
+}
+
+private struct FilenameFormatBlockView: View {
+    let block: FilenameFormatBlock
+    let onDelete: () -> Void
+
+    var body: some View {
+        Text(displayText)
+            .font(.system(size: 12, design: .monospaced))
+            .foregroundColor(.primary)
+            .fixedSize()
+        .padding(.horizontal, 8)
+        .padding(.vertical, 5)
+        .background(backgroundColor)
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(borderColor, lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .onTapGesture(perform: onDelete)
+    }
+
+    private var backgroundColor: Color {
+        block.kind == .variable
+            ? Color.accentColor.opacity(0.10)
+            : Color(nsColor: .windowBackgroundColor)
+    }
+
+    private var borderColor: Color {
+        block.kind == .variable
+            ? Color.accentColor.opacity(0.45)
+            : Color(nsColor: .separatorColor)
+    }
+
+    private var displayText: String {
+        block.kind == .text ? block.text : (block.variableToken?.variableCode ?? "")
+    }
+}
+
+private struct VariablePaletteTokenView: View {
     let token: FormatToken
+    let isInserted: Bool
     let onInsert: () -> Void
+    let onRemove: () -> Void
 
     @State private var isHovered = false
 
     var body: some View {
-        HStack(spacing: 6) {
+        let content = HStack(spacing: 6) {
             Text(token.label)
                 .font(.system(size: 12, weight: .medium))
             Spacer(minLength: 4)
@@ -509,17 +565,107 @@ private struct TokenInsertButtonView: View {
         .padding(.vertical, 8)
         .background(
             RoundedRectangle(cornerRadius: 6)
-                .fill(isHovered ? Color.accentColor.opacity(0.16) : Color(nsColor: .controlBackgroundColor))
+                .fill(backgroundColor)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 6)
-                .stroke(Color(nsColor: .separatorColor), lineWidth: 1)
+                .stroke(borderColor, lineWidth: 1)
         )
         .contentShape(Rectangle())
-        .onTapGesture(perform: onInsert)
+        .opacity(isInserted ? 0.92 : 1)
+        .onTapGesture {
+            if isInserted {
+                onRemove()
+            } else {
+                onInsert()
+            }
+        }
         .onHover { isHovered = $0 }
-        .onDrag {
-            NSItemProvider(object: NSString(string: token.variableCode ?? ""))
+
+        if isInserted {
+            content.allowsHitTesting(true)
+        } else {
+            content
+                .draggable(FilenameFormatDragPayload.palette(token: token)) {
+                    Text(token.variableCode ?? "")
+                        .font(.system(size: 11, design: .monospaced))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 5)
+                        .background(Color(nsColor: .controlBackgroundColor))
+                        .cornerRadius(6)
+                }
+                .allowsHitTesting(true)
         }
     }
+
+    private var backgroundColor: Color {
+        if isInserted {
+            return Color.accentColor.opacity(0.18)
+        }
+        return isHovered ? Color.accentColor.opacity(0.16) : Color(nsColor: .controlBackgroundColor)
+    }
+
+    private var borderColor: Color {
+        isInserted ? Color.accentColor.opacity(0.55) : Color(nsColor: .separatorColor)
+    }
+}
+
+private struct SymbolPaletteTokenView: View {
+    let name: String
+    let symbol: String
+    let isInserted: Bool
+    let onInsert: () -> Void
+
+    @State private var isHovered = false
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Text(name)
+                .font(.system(size: 12, weight: .medium))
+            Spacer(minLength: 4)
+            Text(symbol)
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundColor(.secondary)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 6)
+                .fill(backgroundColor)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(borderColor, lineWidth: 1)
+        )
+        .contentShape(Rectangle())
+        .opacity(isInserted ? 0.92 : 1)
+        .onTapGesture {
+            guard !isInserted else { return }
+            onInsert()
+        }
+        .onHover { isHovered = $0 }
+        .draggable(FilenameFormatDragPayload.palette(text: symbol)) {
+            Text(symbol)
+                .font(.system(size: 11, design: .monospaced))
+                .padding(.horizontal, 8)
+                .padding(.vertical, 5)
+                .background(Color(nsColor: .controlBackgroundColor))
+                .cornerRadius(6)
+        }
+    }
+
+    private var backgroundColor: Color {
+        if isInserted {
+            return Color.accentColor.opacity(0.18)
+        }
+        return isHovered ? Color.accentColor.opacity(0.16) : Color(nsColor: .controlBackgroundColor)
+    }
+
+    private var borderColor: Color {
+        isInserted ? Color.accentColor.opacity(0.55) : Color(nsColor: .separatorColor)
+    }
+}
+
+private extension UTType {
+    static let filenameFormatBlockPayload = UTType(exportedAs: "com.fxzer.macshot.filename-format-block-payload")
 }

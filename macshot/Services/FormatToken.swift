@@ -274,7 +274,7 @@ struct TokenFilenameFormat: Codable, Equatable {
         }
 
         flushText()
-        return normalizedTokens.isEmpty ? TokenFilenameFormat.default.tokens : normalizedTokens
+        return normalizedTokens
     }
 
     private static func legacyBooleanFormat(forKey key: String) -> TokenFilenameFormat? {

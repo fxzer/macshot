@@ -114,40 +114,29 @@ enum FilenameTemplateEngine {
 
     private static func cleanup(_ string: String) -> String {
         var output = ""
-        var lastWasSeparator = false
         let invalidCharacterSet = CharacterSet(charactersIn: "/:\\?%*|\"<>").union(.controlCharacters)
 
         for scalar in string.unicodeScalars {
             if invalidCharacterSet.contains(scalar) {
-                if !output.isEmpty, !lastWasSeparator {
-                    output.append("_")
-                    lastWasSeparator = true
-                }
+                output.append("_")
                 continue
             }
 
             if CharacterSet.whitespacesAndNewlines.contains(scalar) {
-                if !output.isEmpty, !lastWasSeparator {
-                    output.append("_")
-                    lastWasSeparator = true
-                }
+                output.append("_")
                 continue
             }
 
             let character = Character(scalar)
             if character == "_" || character == "-" {
-                if !output.isEmpty, !lastWasSeparator {
-                    output.append(character)
-                    lastWasSeparator = true
-                }
+                output.append(character)
                 continue
             }
 
             output.unicodeScalars.append(scalar)
-            lastWasSeparator = false
         }
 
-        return output.trimmingCharacters(in: CharacterSet(charactersIn: "_- "))
+        return output
     }
 
     private static func fallbackBaseName(for context: FilenameTemplateContext) -> String {
