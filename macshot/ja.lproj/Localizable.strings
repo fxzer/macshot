@@ -613,3 +613,9 @@
 "minutes" = "minutes";
 "screenshots" = "screenshots";
 "seconds" = "seconds";
+
+
+/* Translation Errors */
+"Could not detect source language. Try selecting more text." = "ソース言語を検出できませんでした。テキストをさらに選択してみてください。";
+"Apple Translation timed out. The language pack may need to be downloaded in System Settings." = "Apple翻訳がタイムアウトしました。言語パックをシステム設定でダウンロードする必要がある場合があります。";
+"Apple Translation failed: %@. You can switch to Google Translate in Settings." = "Apple翻訳に失敗しました：%@。設定でGoogle翻訳に切り替えることができます。";

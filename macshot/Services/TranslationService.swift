@@ -263,7 +263,7 @@ enum TranslationService {
         guard let detected = recognizer.dominantLanguage else {
             // Can't detect language (single word, ambiguous text) — assume English
             // rather than passing nil which triggers Apple's blocking "Choose Language" dialog
-            completion(.failure(TranslationError.appleTranslation("Could not detect source language. Try selecting more text.")))
+            completion(.failure(TranslationError.appleTranslation(LanguageManager.shared.localizedString("Could not detect source language. Try selecting more text."))))
             return
         }
 
@@ -335,7 +335,7 @@ final class TranslationBridge: ObservableObject {
             guard let self = self, self.translationID == thisID, self.pendingCompletion != nil else { return }
             let completion = self.pendingCompletion
             self.cleanup()
-            completion?(.failure(TranslationError.appleTranslation("Apple Translation timed out. The language pack may need to be downloaded in System Settings.")))
+            completion?(.failure(TranslationError.appleTranslation(LanguageManager.shared.localizedString("Apple Translation timed out. The language pack may need to be downloaded in System Settings."))))
         }
     }
 
@@ -372,7 +372,7 @@ final class TranslationBridge: ObservableObject {
                     guard self.translationID == activeID else { return }
                     self.cleanup()
                     let desc = error.localizedDescription
-                    let msg = "Apple Translation failed: \(desc). You can switch to Google Translate in Settings."
+                    let msg = String(format: LanguageManager.shared.localizedString("Apple Translation failed: %@. You can switch to Google Translate in Settings."), desc)
                     completion?(.failure(TranslationError.appleTranslation(msg)))
                 }
             }

@@ -677,4 +677,9 @@
 "Time" = "Time";
 "Timestamp" = "Timestamp";
 "Short code" = "Short code";
+
+/* Translation Errors */
+"Could not detect source language. Try selecting more text." = "Could not detect source language. Try selecting more text.";
+"Apple Translation timed out. The language pack may need to be downloaded in System Settings." = "Apple Translation timed out. The language pack may need to be downloaded in System Settings.";
+"Apple Translation failed: %@. You can switch to Google Translate in Settings." = "Apple Translation failed: %@. You can switch to Google Translate in Settings.";
 "Filename" = "Filename";

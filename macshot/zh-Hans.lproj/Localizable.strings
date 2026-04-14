@@ -682,3 +682,8 @@
 "Timestamp" = "时间戳";
 "Short code" = "短代码";
 "Filename" = "文件名";
+
+/* Translation Errors */
+"Could not detect source language. Try selecting more text." = "无法检测源语言。请尝试选择更多文本。";
+"Apple Translation timed out. The language pack may need to be downloaded in System Settings." = "Apple 翻译超时。语言包可能需要在系统设置中下载。";
+"Apple Translation failed: %@. You can switch to Google Translate in Settings." = "Apple 翻译失败：%@。你可以在设置中切换到 Google 翻译。";
