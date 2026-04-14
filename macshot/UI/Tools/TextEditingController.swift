@@ -84,16 +84,34 @@ private final class NoFocusRingTextView: NSTextView {
         layer?.borderColor = nil
     }
 
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        // Recursively strip focus ring from entire scroll view hierarchy
+        if let sv = enclosingScrollView {
+            stripLayerBorders(sv)
+            stripLayerBorders(sv.contentView)
+        }
+        stripLayerBorders(self)
+    }
+
     override func becomeFirstResponder() -> Bool {
         let result = super.becomeFirstResponder()
         if result {
             applyEditingChrome()
-            // Aggressively strip borders from entire scroll view hierarchy
             if let sv = enclosingScrollView {
                 stripLayerBorders(sv)
                 stripLayerBorders(sv.contentView)
             }
             stripLayerBorders(self)
+            // Deferred strip — macOS may apply focus ring after this returns
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                if let sv = self.enclosingScrollView {
+                    stripLayerBorders(sv)
+                    stripLayerBorders(sv.contentView)
+                }
+                stripLayerBorders(self)
+            }
         }
         return result
     }

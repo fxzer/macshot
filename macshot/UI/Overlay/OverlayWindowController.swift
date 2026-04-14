@@ -883,6 +883,10 @@ extension OverlayWindowController: OverlayViewDelegate {
 class OverlayWindow: NSWindow {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { true }
+    override var autorecalculatesKeyViewLoop: Bool {
+        get { false }
+        set { }
+    }
 
     /// Tags on `OverlayView` inline numeric `NSTextField`s (zoom). Field editor stays transparent so rounded pills drawn in `OverlayView` remain visible.
     private static let overlayInlineNumericFieldTags: Set<Int> = [889]
