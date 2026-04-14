@@ -117,9 +117,9 @@ struct FormatTokenField: View {
                 format: $format,
                 insertionController: insertionController
             )
-            .frame(height: 42)
+            .frame(minHeight: 60)
             .padding(.horizontal, 10)
-            .padding(.vertical, 8)
+            .padding(.vertical, 10)
             .background(
                 RoundedRectangle(cornerRadius: 8)
                     .fill(Color(nsColor: .controlBackgroundColor))
@@ -189,7 +189,8 @@ struct FormatTokenField: View {
             guard let code = object as? NSString,
                   let token = FormatToken.fromVariableCode(code as String) else { return }
             DispatchQueue.main.async {
-                insert(token: token)
+                // 拖放时直接追加到末尾，避免操作 stringValue 导致 token 被破坏
+                format.tokens.append(token)
             }
         }
         return true
@@ -424,18 +425,7 @@ private struct MacTokenField: NSViewRepresentable {
 
             let currentString = tokenField.stringValue
             let nsString = currentString as NSString
-
-            // 当拖放插入时，如果 field 不是 first responder，插入到末尾
-            // 这避免了使用可能过时的 lastKnownSelectedRange
-            let selectedRange: NSRange
-            if tokenField.currentEditor() == nil {
-                // 不是 first responder，插入到末尾
-                selectedRange = NSRange(location: nsString.length, length: 0)
-            } else {
-                // 是 first responder，使用当前光标位置
-                selectedRange = currentSelectedRange(in: tokenField)
-            }
-
+            let selectedRange = currentSelectedRange(in: tokenField)
             let newString = nsString.replacingCharacters(in: selectedRange, with: code)
             let newRange = NSRange(location: selectedRange.location + code.count, length: 0)
 
@@ -509,16 +499,20 @@ private struct TokenInsertButtonView: View {
     @State private var isHovered = false
 
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 4) {
             Text(token.label)
                 .font(.system(size: 12, weight: .medium))
-            Spacer(minLength: 4)
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
+            Spacer(minLength: 2)
             Text(token.variableCode ?? "")
-                .font(.system(size: 11, design: .monospaced))
+                .font(.system(size: 10, design: .monospaced))
                 .foregroundColor(.secondary)
+                .lineLimit(1)
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 10)
+        .frame(height: 36)
         .background(
             RoundedRectangle(cornerRadius: 6)
                 .fill(isHovered ? Color.accentColor.opacity(0.16) : Color(nsColor: .controlBackgroundColor))
