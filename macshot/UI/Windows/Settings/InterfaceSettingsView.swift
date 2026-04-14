@@ -19,6 +19,17 @@ struct InterfaceSettingsView: View {
     @AppStorage("SUEnableAutomaticChecks") private var autoUpdate = true
     @AppStorage("betaUpdatesEnabled") private var betaUpdates = false
 
+    // Thumbnail
+    @AppStorage("thumbnailAutoDismiss") private var thumbnailAutoDismiss: Int = 5
+    @AppStorage("thumbnailStacking") private var thumbnailStacking = true
+    @AppStorage("thumbnailScale") private var thumbnailScale = 1.0
+
+    // Output (Save Location & Filename)
+    @State private var savePath: String = SaveDirectoryAccess.displayPath
+    @State private var recordingSavePath: String = SaveDirectoryAccess.recordingDisplayPath
+    @State private var sharedFilenameFormat = TokenFilenameFormat.sharedFormat
+    @State private var previewKind: FilenameOutputKind = .screenshot
+
     init() {
         let currentLang = LanguageManager.shared.currentLanguage
         let idx = LanguageManager.availableLanguages.firstIndex(where: { $0.code == currentLang }) ?? 0
@@ -30,7 +41,7 @@ struct InterfaceSettingsView: View {
 
     var body: some View {
         Form {
-            // MARK: - Language
+            // MARK: - Interface (Language + Appearance)
             Section {
                 Picker(L("Language"), selection: $selectedLanguageIndex) {
                     ForEach(0..<LanguageManager.availableLanguages.count, id: \.self) { i in
@@ -42,12 +53,7 @@ struct InterfaceSettingsView: View {
                     guard newValue >= 0, newValue < languages.count else { return }
                     LanguageManager.shared.currentLanguage = languages[newValue].code
                 }
-            } header: {
-                Text(L("Language"))
-            }
 
-            // MARK: - Appearance
-            Section {
                 HStack {
                     ColorPicker(L("Accent color"), selection: $accentColor, supportsOpacity: false)
                         .onChange(of: accentColor) { newValue in
@@ -82,10 +88,10 @@ struct InterfaceSettingsView: View {
                     .controlSize(.small)
                 }
             } header: {
-                Text(L("Appearance"))
+                Text(L("Interface"))
             }
 
-            // MARK: - Window
+            // MARK: - Application (Window + Updates)
             Section {
                 Toggle(L("Launch at login"), isOn: $launchAtLogin)
                     .onChange(of: launchAtLogin) { newValue in
@@ -118,12 +124,7 @@ struct InterfaceSettingsView: View {
                             .foregroundColor(.secondary)
                     }
                 }
-            } header: {
-                Text(L("Application"))
-            }
 
-            // MARK: - Updates
-            Section {
                 Toggle(L("Check for updates automatically"), isOn: $autoUpdate)
                 settingWithDescription(
                     title: L("Check for beta updates"),
@@ -133,7 +134,7 @@ struct InterfaceSettingsView: View {
                 }
             } header: {
                 HStack {
-                    Text(L("Updates"))
+                    Text(L("Application"))
                     Spacer()
                     Button(L("Check Now")) {
                         NSApp.sendAction(Selector(("checkForUpdates")), to: NSApp.delegate, from: nil)
@@ -143,8 +144,66 @@ struct InterfaceSettingsView: View {
                     .foregroundStyle(Color.settingsSystemAccent)
                 }
             }
+
+            // MARK: - Thumbnail
+            Section {
+                Picker(L("Auto-dismiss after"), selection: $thumbnailAutoDismiss) {
+                    Text(L("Never")).tag(0)
+                    Text("5 " + L("seconds")).tag(5)
+                    Text("10 " + L("seconds")).tag(10)
+                    Text("15 " + L("seconds")).tag(15)
+                    Text("30 " + L("seconds")).tag(30)
+                    Text("45 " + L("seconds")).tag(45)
+                    Text("1 " + L("minute")).tag(60)
+                    Text("2 " + L("minutes")).tag(120)
+                    Text("5 " + L("minutes")).tag(300)
+                    Text("10 " + L("minutes")).tag(600)
+                }
+                Picker(L("Multiple previews"), selection: $thumbnailStacking) {
+                    Text(L("Stack (keep all)")).tag(true)
+                    Text(L("Replace (show only latest)")).tag(false)
+                }
+                HStack {
+                    Text(L("Preview size"))
+                    Spacer()
+                    Slider(value: $thumbnailScale, in: 0.5...2.0, step: 0.1)
+                        .frame(width: 300)
+                    Text(scalePercentString)
+                        .foregroundColor(.secondary)
+                        .monospacedDigit()
+                        .frame(width: 44, alignment: .trailing)
+                }
+            } header: {
+                Text(L("Thumbnail"))
+            }
+
+            // MARK: - Output (Save Location & Filename)
+            Section {
+                SaveLocationSettingsRow(
+                    screenshotPath: savePath,
+                    recordingPath: recordingSavePath,
+                    onBrowseScreenshot: browseSavePath,
+                    onBrowseRecording: browseRecordingSavePath,
+                    onClearRecording: {
+                        SaveDirectoryAccess.clearRecordingDirectory()
+                        recordingSavePath = SaveDirectoryAccess.recordingDisplayPath
+                    }
+                )
+
+                FilenameFormatSettingsRow(
+                    format: $sharedFilenameFormat,
+                    previewKind: $previewKind,
+                    screenshotExtension: ImageEncoder.fileExtension
+                )
+                .onChange(of: sharedFilenameFormat) { newFormat in
+                    TokenFilenameFormat.sharedFormat = newFormat
+                }
+            } header: {
+                Text(L("Output"))
+            }
         }
         .formStyle(.grouped)
+        .onAppear(perform: normalizePickerSelections)
     }
 
     private func resetAccentColor() {
@@ -180,6 +239,54 @@ struct InterfaceSettingsView: View {
             }
             Spacer()
             content()
+        }
+    }
+
+    // MARK: - Thumbnail Helpers
+
+    private var scalePercentString: String {
+        "\(Int(round(thumbnailScale * 100)))%"
+    }
+
+    private func normalizePickerSelections() {
+        thumbnailAutoDismiss = normalized(
+            thumbnailAutoDismiss,
+            allowed: [0, 5, 10, 15, 30, 45, 60, 120, 300, 600],
+            fallback: 5
+        )
+        TokenFilenameFormat.migrateIfNeeded()
+        sharedFilenameFormat = TokenFilenameFormat.sharedFormat
+    }
+
+    private func normalized<T: Equatable>(_ value: T, allowed: [T], fallback: T) -> T {
+        allowed.contains(value) ? value : fallback
+    }
+
+    // MARK: - Output Helpers
+
+    private func browseSavePath() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.directoryURL = SaveDirectoryAccess.directoryHint()
+        panel.begin { response in
+            guard response == .OK, let url = panel.url else { return }
+            SaveDirectoryAccess.save(url: url)
+            savePath = url.path
+        }
+    }
+
+    private func browseRecordingSavePath() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.directoryURL = SaveDirectoryAccess.recordingDirectoryHint()
+        panel.begin { response in
+            guard response == .OK, let url = panel.url else { return }
+            SaveDirectoryAccess.saveRecordingDirectory(url: url)
+            recordingSavePath = url.path
         }
     }
 }

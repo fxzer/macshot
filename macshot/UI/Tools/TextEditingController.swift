@@ -11,6 +11,7 @@ protocol TextEditingCanvas: AnyObject {
     var undoStack: [UndoEntry] { get set }
     var redoStack: [UndoEntry] { get set }
     var currentColor: NSColor { get }
+    var textEditingBounds: NSRect { get }
 }
 
 /// Strips all layer-based borders that macOS applies on focus transitions.
@@ -18,8 +19,7 @@ private func stripLayerBorders(_ view: NSView) {
     view.layer?.borderWidth = 0
     view.layer?.borderColor = nil
     for child in view.subviews {
-        child.layer?.borderWidth = 0
-        child.layer?.borderColor = nil
+        stripLayerBorders(child)
     }
 }
 
@@ -71,17 +71,6 @@ private final class NoFocusRingTextView: NSTextView {
     }
     override func noteFocusRingMaskChanged() {}
 
-    /// Locked selection attributes — once set, prevents the system from
-    /// overriding with accent-color highlights on focus transitions.
-    private var lockedSelectedTextAttrs: [NSAttributedString.Key: Any]?
-
-    override var selectedTextAttributes: [NSAttributedString.Key: Any] {
-        get { super.selectedTextAttributes }
-        set {
-            super.selectedTextAttributes = lockedSelectedTextAttrs ?? newValue
-        }
-    }
-
     override func updateLayer() {
         super.updateLayer()
         layer?.borderWidth = 0
@@ -101,6 +90,12 @@ private final class NoFocusRingTextView: NSTextView {
         }
     }
 
+    override func draw(_ dirtyRect: NSRect) {
+        applyEditingChrome()
+        super.draw(dirtyRect)
+        stripAllFocusBorders()
+    }
+
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         // Recursively strip focus ring from entire scroll view hierarchy
@@ -114,6 +109,7 @@ private final class NoFocusRingTextView: NSTextView {
     override func becomeFirstResponder() -> Bool {
         let result = super.becomeFirstResponder()
         if result {
+            collapseSelection()
             applyEditingChrome()
             stripAllFocusBorders()
             // Multiple deferred strips to catch system-applied borders at different timings
@@ -133,10 +129,21 @@ private final class NoFocusRingTextView: NSTextView {
     override func resignFirstResponder() -> Bool {
         let result = super.resignFirstResponder()
         if result {
+            collapseSelection()
             applyEditingChrome()
             stripAllFocusBorders()
         }
         return result
+    }
+
+    override func setSelectedRanges(
+        _ ranges: [NSValue],
+        affinity: NSSelectionAffinity,
+        stillSelecting stillSelectingFlag: Bool
+    ) {
+        super.setSelectedRanges(ranges, affinity: affinity, stillSelecting: stillSelectingFlag)
+        applyEditingChrome()
+        stripAllFocusBorders()
     }
 
     private func stripAllFocusBorders() {
@@ -145,6 +152,12 @@ private final class NoFocusRingTextView: NSTextView {
             stripLayerBorders(sv.contentView)
         }
         stripLayerBorders(self)
+    }
+
+    private func collapseSelection() {
+        let range = selectedRange()
+        let insertionLocation = range.location + range.length
+        super.setSelectedRange(NSRange(location: insertionLocation, length: 0))
     }
 
     func applyEditingChrome(explicitColor: NSColor? = nil) {
@@ -156,12 +169,12 @@ private final class NoFocusRingTextView: NSTextView {
 
         focusRingType = .none
         insertionPointColor = color
-        let attrs: [NSAttributedString.Key: Any] = [
+        markedTextAttributes = [
             .backgroundColor: NSColor.clear,
             .foregroundColor: color,
+            .underlineStyle: NSUnderlineStyle.single.rawValue,
+            .underlineColor: color.withAlphaComponent(0.9),
         ]
-        lockedSelectedTextAttrs = attrs
-        super.selectedTextAttributes = attrs
     }
 }
 
@@ -411,23 +424,36 @@ class TextEditingController {
               canvas: TextEditingCanvas) {
         dismiss()
 
-        let viewPt = canvas.canvasToView(canvasPoint)
         let viewFrame: NSRect
         let isNewText = existingText == nil
         if existingFrame != .zero {
             viewFrame = NSRect(origin: canvas.canvasToView(existingFrame.origin), size: existingFrame.size)
             isAutoWidth = false
+            let rightMargin: CGFloat = 20
+            let availableCanvasWidth = canvas.textEditingBounds.maxX - canvasPoint.x - rightMargin
+            maxAutoWidth = max(1, availableCanvasWidth)
         } else {
             // New text: start narrow and auto-expand
             let height = max(28, fontSize + 12)
-            let initialWidth = max(40, fontSize * 2 + 16) // ~2 chars + inset
+            let rightMargin: CGFloat = 20
+            let editableBounds = canvas.textEditingBounds
+            let preferredWidth = max(40, fontSize * 2 + 16) // ~2 chars + inset
+            let maxCanvasWidth = max(1, editableBounds.width - rightMargin)
+            var originX = min(max(canvasPoint.x, editableBounds.minX), editableBounds.maxX - 1)
+            var initialWidth = min(preferredWidth, maxCanvasWidth)
+
+            if originX + initialWidth > editableBounds.maxX - rightMargin {
+                originX = max(editableBounds.minX, editableBounds.maxX - rightMargin - initialWidth)
+            }
+
+            let availableCanvasWidth = max(1, editableBounds.maxX - originX - rightMargin)
+            initialWidth = min(initialWidth, availableCanvasWidth)
+            maxAutoWidth = availableCanvasWidth
+
+            let viewPt = canvas.canvasToView(NSPoint(x: originX, y: canvasPoint.y))
             viewFrame = NSRect(x: viewPt.x, y: viewPt.y - height, width: initialWidth, height: height)
             isAutoWidth = true
         }
-
-        // Calculate max auto-width from parent bounds (right edge minus click point)
-        let rightMargin: CGFloat = 20
-        maxAutoWidth = max(200, parentView.bounds.maxX - viewPt.x - rightMargin)
 
         let sv = NoFocusRingScrollView(frame: viewFrame)
         let cv = NoFocusRingClipView(frame: sv.contentView.frame)
@@ -466,12 +492,6 @@ class TextEditingController {
 
         // Keep selection rendering transparent even after focus changes.
         tv.applyEditingChrome(explicitColor: color)
-
-        // Disable marked text highlight (e.g., during IME composition)
-        tv.markedTextAttributes = [
-            .backgroundColor: NSColor.controlAccentColor.withAlphaComponent(0.2),
-            .underlineStyle: NSUnderlineStyle.single.rawValue
-        ]
 
         let paraStyle = NSMutableParagraphStyle()
         paraStyle.alignment = alignment
@@ -513,7 +533,7 @@ class TextEditingController {
             windowKeyObserver = NotificationCenter.default.addObserver(
                 forName: NSWindow.didBecomeKeyNotification, object: window, queue: .main
             ) { [weak tv, weak sv, weak cv] _ in
-                if let tv { stripLayerBorders(tv); (tv as? NoFocusRingTextView)?.applyEditingChrome() }
+                if let tv { stripLayerBorders(tv); tv.applyEditingChrome() }
                 if let sv { stripLayerBorders(sv) }
                 if let cv { stripLayerBorders(cv) }
                 // Deferred strip for system-applied borders after key change
@@ -535,7 +555,7 @@ class TextEditingController {
         for delay in [0.0, 0.05, 0.15, 0.3] as [Double] {
             if delay == 0.0 {
                 DispatchQueue.main.async { [weak tv, weak sv, weak cv] in
-                    if let tv { (tv as? NoFocusRingTextView)?.applyEditingChrome(); stripLayerBorders(tv) }
+                    if let tv { tv.applyEditingChrome(); stripLayerBorders(tv) }
                     if let sv { stripLayerBorders(sv) }
                     if let cv { stripLayerBorders(cv) }
                 }
@@ -653,28 +673,76 @@ class TextEditingController {
     /// In auto-width mode (new text), also expands width to fit the longest line.
     func resizeToFit() {
         guard let tv = textView, let sv = scrollView else { return }
-        guard let layoutManager = tv.layoutManager, let textContainer = tv.textContainer else { return }
-
-        layoutManager.ensureLayout(for: textContainer)
-        let usedRect = layoutManager.usedRect(for: textContainer)
-        let extraHeight = layoutManager.extraLineFragmentRect.height
+        guard let textStorage = tv.textStorage else { return }
 
         let minH = max(28, fontSize + 12)
         let inset = tv.textContainerInset
 
         // Width: auto-expand in auto-width mode
         var width = sv.frame.width
+        let measurementOptions: NSString.DrawingOptions = [.usesLineFragmentOrigin, .usesFontLeading]
         if isAutoWidth {
             let minW = max(40, fontSize * 2 + 16)
-            let contentWidth = ceil(usedRect.width) + inset.width * 2
+            let unconstrainedBounds = textStorage.boundingRect(
+                with: NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude),
+                options: measurementOptions
+            )
+            let contentWidth = ceil(unconstrainedBounds.width) + inset.width * 2
             width = min(maxAutoWidth, max(minW, contentWidth))
         }
 
-        let newHeight = max(minH, ceil(usedRect.height + extraHeight) + inset.height * 2)
+        let contentBounds = textStorage.boundingRect(
+            with: NSSize(width: max(1, width - inset.width * 2), height: CGFloat.greatestFiniteMagnitude),
+            options: measurementOptions
+        )
+        let newHeight = max(minH, ceil(contentBounds.height) + inset.height * 2)
 
         let topEdge = sv.frame.maxY
         sv.frame = NSRect(x: sv.frame.minX, y: topEdge - newHeight, width: width, height: newHeight)
         tv.frame.size = NSSize(width: width, height: newHeight)
+    }
+
+    func applyLiveFrame(_ frame: NSRect, fitHeightToContent: Bool) {
+        guard let tv = textView, let sv = scrollView else { return }
+
+        sv.frame = frame
+        tv.frame.size = frame.size
+        updateTextContainerWidth(for: frame.width)
+
+        if fitHeightToContent {
+            resizeToFit()
+        }
+
+        (tv as? NoFocusRingTextView)?.applyEditingChrome()
+    }
+
+    func scaleLiveText(to newFontSize: CGFloat) {
+        let clampedSize = max(6, min(200, newFontSize))
+        let previousSize = max(fontSize, 1)
+        fontSize = clampedSize
+
+        guard let tv = textView, let textStorage = tv.textStorage else { return }
+        let scaleFactor = clampedSize / previousSize
+        let fullRange = NSRange(location: 0, length: textStorage.length)
+
+        if fullRange.length > 0 {
+            textStorage.beginEditing()
+            textStorage.enumerateAttribute(.font, in: fullRange) { value, range, _ in
+                let baseFont = (value as? NSFont) ?? self.currentFont()
+                let resizedFont = NSFontManager.shared.convert(
+                    baseFont,
+                    toSize: max(6, min(200, baseFont.pointSize * scaleFactor))
+                )
+                textStorage.addAttribute(.font, value: resizedFont, range: range)
+            }
+            textStorage.endEditing()
+        }
+
+        var typingAttrs = tv.typingAttributes
+        typingAttrs[.font] = currentFont()
+        tv.typingAttributes = typingAttrs
+        tv.font = currentFont()
+        (tv as? NoFocusRingTextView)?.applyEditingChrome()
     }
 
     /// Lock auto-width mode off (called when user manually resizes the text box).
@@ -682,9 +750,8 @@ class TextEditingController {
         guard isAutoWidth else { return }
         isAutoWidth = false
         // Switch text container to wrap at current width
-        guard let tv = textView, let sv = scrollView else { return }
-        tv.textContainer?.containerSize = NSSize(width: sv.frame.width - 8, height: CGFloat.greatestFiniteMagnitude)
-        tv.textContainer?.widthTracksTextView = true
+        guard let sv = scrollView else { return }
+        updateTextContainerWidth(for: sv.frame.width)
     }
 
     /// Restore formatting state from an existing annotation for re-editing.
@@ -700,6 +767,16 @@ class TextEditingController {
         if let bg = annotation.textBgColor { bgColor = bg }
         outlineEnabled = annotation.textOutlineColor != nil
         if let ol = annotation.textOutlineColor { outlineColor = ol }
+    }
+
+    private func updateTextContainerWidth(for viewWidth: CGFloat) {
+        guard let tv = textView else { return }
+        let inset = tv.textContainerInset.width * 2
+        tv.textContainer?.containerSize = NSSize(
+            width: max(1, viewWidth - inset),
+            height: CGFloat.greatestFiniteMagnitude
+        )
+        tv.textContainer?.widthTracksTextView = true
     }
 
 }

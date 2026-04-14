@@ -23,8 +23,6 @@ struct SwiftUISettingsView: View {
                     CaptureSettingsView()
                 case .behavior:
                     BehaviorSettingsView()
-                case .output:
-                    OutputSettingsView()
                 case .shortcuts:
                     ShortcutsSettingsView(onHotkeyChanged: onHotkeyChanged)
                 case .tools:
@@ -56,11 +54,10 @@ struct SwiftUISettingsView: View {
 enum SettingsTab: String, CaseIterable, Identifiable {
     case interface
     case capture
+    case recording
     case behavior
-    case output
     case shortcuts
     case tools
-    case recording
     case uploads
     case about
 
@@ -71,7 +68,6 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         case .interface: return L("General")
         case .capture: return L("Capture")
         case .behavior: return L("Behavior")
-        case .output: return L("Output")
         case .shortcuts: return L("Shortcuts")
         case .tools: return L("Tools")
         case .recording: return L("Recording")
@@ -85,7 +81,6 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         case .interface: return "rectangle.3.group"
         case .capture: return "camera"
         case .behavior: return "slider.horizontal.3"
-        case .output: return "arrow.down.doc"
         case .shortcuts: return "command"
         case .tools: return "wrench.and.screwdriver"
         case .recording: return "record.circle"

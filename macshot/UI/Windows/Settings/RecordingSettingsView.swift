@@ -38,21 +38,15 @@ struct RecordingSettingsView: View {
 
     var body: some View {
         Form {
-            // MARK: - Quality
+            // MARK: - Recording Settings
             Section {
-                Picker(L("Frame rate"), selection: $recordingFPS) {
+                Picker(L("Recording frame rate"), selection: $recordingFPS) {
                     Text(L("15 fps")).tag(15)
                     Text(L("24 fps")).tag(24)
                     Text(L("30 fps")).tag(30)
                     Text(L("60 fps")).tag(60)
                     Text(L("120 fps")).tag(120)
                 }
-            } header: {
-                Text(L("Quality"))
-            }
-
-            // MARK: - Behavior
-            Section {
                 Picker(L("Recording controls"), selection: $recordingControlsModeRaw) {
                     Text(L("Floating HUD")).tag(RecordingControlsMode.floatingHUD.rawValue)
                     Text(L("Menu Bar")).tag(RecordingControlsMode.menuBar.rawValue)
@@ -61,7 +55,7 @@ struct RecordingSettingsView: View {
                     syncLegacyControlsMode(rawValue: newValue)
                 }
             } header: {
-                Text(L("Behavior"))
+                Text(L("Recording Settings"))
             }
 
             // MARK: - Webcam

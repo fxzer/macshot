@@ -28,8 +28,15 @@ struct BehaviorSettingsView: View {
     @AppStorage(PostCaptureActionPreferences.Keys.recordingOpenVideoEditor)
     private var recordingOpenVideoEditor = true
 
+    // Sound feedback
+    @AppStorage("playCopySound") private var playCopySound = true
+    @AppStorage("playRecordingSound") private var playRecordingSound = false
+
     // OCR
     @AppStorage("ocrAction") private var ocrAction: Int = 0
+
+    // Translation
+    @AppStorage("translationProvider") private var translationProvider = "google"
 
     var body: some View {
         Form {
@@ -67,6 +74,11 @@ struct BehaviorSettingsView: View {
                     title: L("Pin to screen")
                 )
                 actionMatrixRow(
+                    screenshotBinding: $playCopySound,
+                    recordingBinding: $playRecordingSound,
+                    title: L("Play sound")
+                )
+                actionMatrixRow(
                     screenshotBinding: nil,
                     recordingBinding: $recordingOpenVideoEditor,
                     title: L("Open video editor")
@@ -84,6 +96,46 @@ struct BehaviorSettingsView: View {
             } header: {
                 Text(L("OCR"))
             }
+
+            // MARK: - Translation
+            if TranslationService.appleTranslationAvailable {
+                Section {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Picker(L("Engine"), selection: $translationProvider) {
+                            Text(L("Apple (on-device)")).tag("apple")
+                            Text(L("Google Translate")).tag("google")
+                        }
+                        .onChange(of: translationProvider) { newValue in
+                            TranslationService.provider = TranslationProvider(rawValue: newValue) ?? .google
+                        }
+
+                        if translationProvider == "apple" {
+                            Text(L("Apple translation is faster and works offline."))
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        } else if translationProvider == "google" {
+                            Text(L("Google Translate supports more languages."))
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+
+                    HStack {
+                        Text(L("Language packs"))
+                        Spacer()
+                        Button(L("Download")) {
+                            // Open System Settings > General > Language & Region
+                            if let url = URL(string: "x-apple.systempreferences:com.apple.Localization") {
+                                NSWorkspace.shared.open(url)
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.small)
+                    }
+                } header: {
+                    Text(L("Translation"))
+                }
+            }
         }
         .formStyle(.grouped)
         .onAppear(perform: normalizeSettings)
@@ -92,6 +144,16 @@ struct BehaviorSettingsView: View {
     private func normalizeSettings() {
         PostCaptureActionPreferences.migrateIfNeeded()
         ocrAction = normalized(ocrAction, allowed: [0, 1, 2], fallback: 0)
+
+        if TranslationService.appleTranslationAvailable {
+            translationProvider = normalized(
+                translationProvider,
+                allowed: ["apple", "google"],
+                fallback: "google"
+            )
+        } else {
+            translationProvider = "google"
+        }
     }
 
     private func normalized<T: Equatable>(_ value: T, allowed: [T], fallback: T) -> T {
