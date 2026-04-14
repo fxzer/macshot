@@ -117,9 +117,9 @@ struct FormatTokenField: View {
                 format: $format,
                 insertionController: insertionController
             )
-            .frame(minHeight: 60)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 10)
+            .frame(minHeight: 38)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
             .background(
                 RoundedRectangle(cornerRadius: 8)
                     .fill(Color(nsColor: .controlBackgroundColor))
@@ -189,8 +189,7 @@ struct FormatTokenField: View {
             guard let code = object as? NSString,
                   let token = FormatToken.fromVariableCode(code as String) else { return }
             DispatchQueue.main.async {
-                // 拖放时直接追加到末尾，避免操作 stringValue 导致 token 被破坏
-                format.tokens.append(token)
+                insert(token: token)
             }
         }
         return true
@@ -295,10 +294,9 @@ private struct MacTokenField: NSViewRepresentable {
     func makeNSView(context: Context) -> NSTokenField {
         let tokenField = NSTokenField(frame: .zero)
         tokenField.delegate = context.coordinator
-        tokenField.font = .systemFont(ofSize: 14)
-        tokenField.controlSize = .large
+        tokenField.font = .systemFont(ofSize: 13)
         tokenField.tokenizingCharacterSet = CharacterSet()
-        tokenField.focusRingType = .none
+        tokenField.focusRingType = .default
         tokenField.isBordered = false
         tokenField.drawsBackground = false
         tokenField.completionDelay = 0
@@ -499,20 +497,16 @@ private struct TokenInsertButtonView: View {
     @State private var isHovered = false
 
     var body: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: 6) {
             Text(token.label)
                 .font(.system(size: 12, weight: .medium))
-                .lineLimit(1)
-                .fixedSize(horizontal: true, vertical: false)
-            Spacer(minLength: 2)
+            Spacer(minLength: 4)
             Text(token.variableCode ?? "")
-                .font(.system(size: 10, design: .monospaced))
+                .font(.system(size: 11, design: .monospaced))
                 .foregroundColor(.secondary)
-                .lineLimit(1)
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 10)
-        .frame(height: 36)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
         .background(
             RoundedRectangle(cornerRadius: 6)
                 .fill(isHovered ? Color.accentColor.opacity(0.16) : Color(nsColor: .controlBackgroundColor))
