@@ -5834,7 +5834,7 @@ class OverlayView: NSView {
                     }
                     cachedCompositedImage = nil
                     needsDisplay = true
-                    break
+                    return
                 }
 
                 let shiftHeld = event.modifierFlags.contains(.shift)

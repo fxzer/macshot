@@ -30,6 +30,8 @@ private final class NoFocusRingScrollView: NSScrollView {
         get { .none }
         set { }
     }
+    override var allowsVibrancy: Bool { false }
+    override func noteFocusRingMaskChanged() {}
     override func updateLayer() {
         super.updateLayer()
         layer?.borderWidth = 0
@@ -48,6 +50,7 @@ private final class NoFocusRingClipView: NSClipView {
         get { .none }
         set { }
     }
+    override func noteFocusRingMaskChanged() {}
     override func updateLayer() {
         super.updateLayer()
         layer?.borderWidth = 0
@@ -66,6 +69,7 @@ private final class NoFocusRingTextView: NSTextView {
         get { .none }
         set { }
     }
+    override func noteFocusRingMaskChanged() {}
 
     /// Locked selection attributes — once set, prevents the system from
     /// overriding with accent-color highlights on focus transitions.
@@ -84,6 +88,19 @@ private final class NoFocusRingTextView: NSTextView {
         layer?.borderColor = nil
     }
 
+    override func viewWillDraw() {
+        super.viewWillDraw()
+        // Re-strip every draw cycle to catch system-applied borders
+        layer?.borderWidth = 0
+        layer?.borderColor = nil
+        if let sv = enclosingScrollView {
+            sv.layer?.borderWidth = 0
+            sv.layer?.borderColor = nil
+            sv.contentView.layer?.borderWidth = 0
+            sv.contentView.layer?.borderColor = nil
+        }
+    }
+
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         // Recursively strip focus ring from entire scroll view hierarchy
@@ -98,19 +115,16 @@ private final class NoFocusRingTextView: NSTextView {
         let result = super.becomeFirstResponder()
         if result {
             applyEditingChrome()
-            if let sv = enclosingScrollView {
-                stripLayerBorders(sv)
-                stripLayerBorders(sv.contentView)
-            }
-            stripLayerBorders(self)
-            // Deferred strip — macOS may apply focus ring after this returns
+            stripAllFocusBorders()
+            // Multiple deferred strips to catch system-applied borders at different timings
             DispatchQueue.main.async { [weak self] in
-                guard let self else { return }
-                if let sv = self.enclosingScrollView {
-                    stripLayerBorders(sv)
-                    stripLayerBorders(sv.contentView)
-                }
-                stripLayerBorders(self)
+                self?.stripAllFocusBorders()
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+                self?.stripAllFocusBorders()
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
+                self?.stripAllFocusBorders()
             }
         }
         return result
@@ -120,13 +134,17 @@ private final class NoFocusRingTextView: NSTextView {
         let result = super.resignFirstResponder()
         if result {
             applyEditingChrome()
-            if let sv = enclosingScrollView {
-                stripLayerBorders(sv)
-                stripLayerBorders(sv.contentView)
-            }
-            stripLayerBorders(self)
+            stripAllFocusBorders()
         }
         return result
+    }
+
+    private func stripAllFocusBorders() {
+        if let sv = enclosingScrollView {
+            stripLayerBorders(sv)
+            stripLayerBorders(sv.contentView)
+        }
+        stripLayerBorders(self)
     }
 
     func applyEditingChrome(explicitColor: NSColor? = nil) {
@@ -180,6 +198,7 @@ class TextEditingController {
 
     private(set) var textView: NSTextView?
     private(set) var scrollView: NSScrollView?
+    private var windowKeyObserver: NSObjectProtocol?
 
     var isEditing: Bool { textView != nil }
 
@@ -488,16 +507,45 @@ class TextEditingController {
         self.scrollView = sv
         self.textView = tv
 
+        // Watch for window becoming key (e.g. user switches back from another app)
+        // to re-strip any system-applied focus decorations
+        if let window = parentView.window {
+            windowKeyObserver = NotificationCenter.default.addObserver(
+                forName: NSWindow.didBecomeKeyNotification, object: window, queue: .main
+            ) { [weak tv, weak sv, weak cv] _ in
+                if let tv { stripLayerBorders(tv); (tv as? NoFocusRingTextView)?.applyEditingChrome() }
+                if let sv { stripLayerBorders(sv) }
+                if let cv { stripLayerBorders(cv) }
+                // Deferred strip for system-applied borders after key change
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak tv, weak sv, weak cv] in
+                    if let tv { stripLayerBorders(tv) }
+                    if let sv { stripLayerBorders(sv) }
+                    if let cv { stripLayerBorders(cv) }
+                }
+            }
+        }
+
         parentView.window?.makeFirstResponder(tv)
 
-        // Aggressively strip layer borders after focus change and on next run loop
+        // Aggressively strip layer borders after focus change at multiple timings
+        // to catch system-applied focus decorations
         stripLayerBorders(sv)
         stripLayerBorders(cv)
         stripLayerBorders(tv)
-        DispatchQueue.main.async { [weak tv, weak sv, weak cv] in
-            if let tv { tv.applyEditingChrome(); stripLayerBorders(tv) }
-            if let sv { stripLayerBorders(sv) }
-            if let cv { stripLayerBorders(cv) }
+        for delay in [0.0, 0.05, 0.15, 0.3] as [Double] {
+            if delay == 0.0 {
+                DispatchQueue.main.async { [weak tv, weak sv, weak cv] in
+                    if let tv { (tv as? NoFocusRingTextView)?.applyEditingChrome(); stripLayerBorders(tv) }
+                    if let sv { stripLayerBorders(sv) }
+                    if let cv { stripLayerBorders(cv) }
+                }
+            } else {
+                DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak tv, weak sv, weak cv] in
+                    if let tv { stripLayerBorders(tv) }
+                    if let sv { stripLayerBorders(sv) }
+                    if let cv { stripLayerBorders(cv) }
+                }
+            }
         }
 
         if existingText != nil { resizeToFit() }
@@ -590,6 +638,10 @@ class TextEditingController {
     }
 
     func dismiss() {
+        if let observer = windowKeyObserver {
+            NotificationCenter.default.removeObserver(observer)
+            windowKeyObserver = nil
+        }
         scrollView?.removeFromSuperview()
         scrollView = nil
         textView = nil
