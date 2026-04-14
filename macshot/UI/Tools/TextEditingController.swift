@@ -270,11 +270,20 @@ class TextEditingController {
         // Disable layer to prevent visual artifacts
         sv.wantsLayer = false
 
-        let tv = NSTextView(frame: NSRect(origin: .zero, size: viewFrame.size))
+        class NoFocusRingTextView: NSTextView {
+            override func drawFocusRingMask() {
+                // Return without doing anything to completely disable the focus ring mask
+            }
+            override var focusRingType: NSFocusRingType {
+                get { return .none }
+                set { } // Ignore attempts to set
+            }
+        }
+
+        let tv = NoFocusRingTextView(frame: NSRect(origin: .zero, size: viewFrame.size))
         tv.isRichText = true
         tv.allowsUndo = true
         tv.drawsBackground = false
-        tv.focusRingType = .none
         tv.isVerticallyResizable = true
         tv.isHorizontallyResizable = false
         // Disable layer to prevent visual artifacts
