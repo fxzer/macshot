@@ -468,12 +468,17 @@ class OverlayView: NSView {
     // Text editing — state managed by TextEditingController
     let textEditor = TextEditingController()
     var textEditView: NSTextView? { textEditor.textView }
+    var textEditingBounds: NSRect { selectionRect }
 
     // Text box resize state (stays here — tied to mouse drag handling)
     private var isResizingTextBox: Bool = false
     private var textBoxResizeHandle: ResizeHandle = .none
     private var textBoxResizeStart: NSPoint = .zero
     private var textBoxOrigFrame: NSRect = .zero
+    private var textBoxOrigFontSize: CGFloat = 0
+    private var isDraggingTextBox: Bool = false
+    private var textBoxDragStart: NSPoint = .zero
+    private var textBoxDragOrigFrame: NSRect = .zero
     // (Text box move handle removed — standard annotation chrome handles movement)
 
     // Toolbars (drawn inline)
@@ -1370,6 +1375,24 @@ class OverlayView: NSView {
 
         // Non-interactive states — simple cursors
         if textEditView != nil {
+            if isDraggingTextBox {
+                NSCursor.closedHand.set()
+                return
+            }
+            if let sv = textEditor.scrollView {
+                if let handle = hitTestLiveTextResizeHandle(at: point, frame: sv.frame) {
+                    cursorForHandle(handle).set()
+                    return
+                }
+                if isPointOnLiveTextDragEdge(point, frame: sv.frame) {
+                    NSCursor.openHand.set()
+                    return
+                }
+                if sv.frame.contains(point) {
+                    NSCursor.iBeam.set()
+                    return
+                }
+            }
             NSCursor.arrow.set()
             return
         }
@@ -1620,6 +1643,42 @@ class OverlayView: NSView {
         case .left, .right: return .resizeLeftRight
         case .none, .move: return .arrow
         }
+    }
+
+    private func liveTextResizeHandles(for frame: NSRect) -> [(ResizeHandle, NSRect)] {
+        let hs: CGFloat = 10
+        return [
+            (.bottomLeft, NSRect(x: frame.minX - hs / 2, y: frame.minY - hs / 2, width: hs, height: hs)),
+            (.bottomRight, NSRect(x: frame.maxX - hs / 2, y: frame.minY - hs / 2, width: hs, height: hs)),
+            (.topLeft, NSRect(x: frame.minX - hs / 2, y: frame.maxY - hs / 2, width: hs, height: hs)),
+            (.topRight, NSRect(x: frame.maxX - hs / 2, y: frame.maxY - hs / 2, width: hs, height: hs)),
+            (.bottom, NSRect(x: frame.midX - hs / 2, y: frame.minY - hs / 2, width: hs, height: hs)),
+            (.top, NSRect(x: frame.midX - hs / 2, y: frame.maxY - hs / 2, width: hs, height: hs)),
+            (.left, NSRect(x: frame.minX - hs / 2, y: frame.midY - hs / 2, width: hs, height: hs)),
+            (.right, NSRect(x: frame.maxX - hs / 2, y: frame.midY - hs / 2, width: hs, height: hs)),
+        ]
+    }
+
+    private func hitTestLiveTextResizeHandle(at point: NSPoint, frame: NSRect) -> ResizeHandle? {
+        for (handle, rect) in liveTextResizeHandles(for: frame) where rect.contains(point) {
+            return handle
+        }
+        return nil
+    }
+
+    private func isPointOnLiveTextDragEdge(_ point: NSPoint, frame: NSRect) -> Bool {
+        let horizontalBleed: CGFloat = 6
+        let topOutsidePadding: CGFloat = 8
+        let topInsidePadding: CGFloat = 6
+
+        let topRect = NSRect(
+            x: frame.minX - horizontalBleed,
+            y: frame.maxY - topInsidePadding,
+            width: frame.width + horizontalBleed * 2,
+            height: topInsidePadding + topOutsidePadding
+        )
+
+        return topRect.contains(point)
     }
 
     // MARK: - Subclass override points
@@ -5313,47 +5372,27 @@ class OverlayView: NSView {
         if isTextEditing && showToolbars {
             // Check text box resize handles
             if let sv = textEditor.scrollView {
-                let hs: CGFloat = 10  // hit area
-                let f = sv.frame
-                let handles: [(ResizeHandle, NSRect)] = [
-                    (
-                        .bottomLeft,
-                        NSRect(x: f.minX - hs / 2, y: f.minY - hs / 2, width: hs, height: hs)
-                    ),
-                    (
-                        .bottomRight,
-                        NSRect(x: f.maxX - hs / 2, y: f.minY - hs / 2, width: hs, height: hs)
-                    ),
-                    (
-                        .topLeft,
-                        NSRect(x: f.minX - hs / 2, y: f.maxY - hs / 2, width: hs, height: hs)
-                    ),
-                    (
-                        .topRight,
-                        NSRect(x: f.maxX - hs / 2, y: f.maxY - hs / 2, width: hs, height: hs)
-                    ),
-                    (
-                        .bottom,
-                        NSRect(x: f.midX - hs / 2, y: f.minY - hs / 2, width: hs, height: hs)
-                    ),
-                    (.top, NSRect(x: f.midX - hs / 2, y: f.maxY - hs / 2, width: hs, height: hs)),
-                    (.left, NSRect(x: f.minX - hs / 2, y: f.midY - hs / 2, width: hs, height: hs)),
-                    (.right, NSRect(x: f.maxX - hs / 2, y: f.midY - hs / 2, width: hs, height: hs)),
-                ]
-                for (handle, rect) in handles {
-                    if rect.contains(point) {
-                        isResizingTextBox = true
-                        textBoxResizeHandle = handle
-                        textBoxResizeStart = point
-                        textBoxOrigFrame = f
-                        textEditor.lockWidth()
-                        return
-                    }
+                let frame = sv.frame
+                if let handle = hitTestLiveTextResizeHandle(at: point, frame: frame) {
+                    isResizingTextBox = true
+                    textBoxResizeHandle = handle
+                    textBoxResizeStart = point
+                    textBoxOrigFrame = frame
+                    textBoxOrigFontSize = textEditor.fontSize
+                    textEditor.lockWidth()
+                    return
                 }
-            }
-            // Clicking on the text editor itself — don't commit
-            if let sv = textEditor.scrollView, sv.frame.contains(point) {
-                return
+                if isPointOnLiveTextDragEdge(point, frame: frame) {
+                    isDraggingTextBox = true
+                    textBoxDragStart = point
+                    textBoxDragOrigFrame = frame
+                    NSCursor.closedHand.set()
+                    return
+                }
+                // Clicking on the text editor itself — don't commit
+                if frame.contains(point) {
+                    return
+                }
             }
         }
 
@@ -5568,44 +5607,72 @@ class OverlayView: NSView {
             let orig = textBoxOrigFrame
             var newFrame = orig
             let minW: CGFloat = 60
-            let minH: CGFloat = max(28, textEditor.fontSize + 12)
+            let minH: CGFloat = max(28, textBoxOrigFontSize + 12)
+            let isCornerHandle: Bool
 
             switch textBoxResizeHandle {
-            case .right: newFrame.size.width = max(minW, orig.width + dx)
+            case .right:
+                newFrame.size.width = max(minW, orig.width + dx)
+                isCornerHandle = false
             case .left:
                 newFrame.origin.x = min(orig.maxX - minW, orig.minX + dx)
                 newFrame.size.width = orig.maxX - newFrame.minX
-            case .top: newFrame.size.height = max(minH, orig.height + dy)
+                isCornerHandle = false
+            case .top:
+                newFrame.size.height = max(minH, orig.height + dy)
+                isCornerHandle = false
             case .bottom:
                 let newMinY = min(orig.maxY - minH, orig.minY + dy)
                 newFrame.origin.y = newMinY
                 newFrame.size.height = orig.maxY - newMinY
+                isCornerHandle = false
             case .topRight:
                 newFrame.size.width = max(minW, orig.width + dx)
                 newFrame.size.height = max(minH, orig.height + dy)
+                isCornerHandle = true
             case .topLeft:
                 newFrame.origin.x = min(orig.maxX - minW, orig.minX + dx)
                 newFrame.size.width = orig.maxX - newFrame.minX
                 newFrame.size.height = max(minH, orig.height + dy)
+                isCornerHandle = true
             case .bottomRight:
                 newFrame.size.width = max(minW, orig.width + dx)
                 let newMinY = min(orig.maxY - minH, orig.minY + dy)
                 newFrame.origin.y = newMinY
                 newFrame.size.height = orig.maxY - newMinY
+                isCornerHandle = true
             case .bottomLeft:
                 newFrame.origin.x = min(orig.maxX - minW, orig.minX + dx)
                 newFrame.size.width = orig.maxX - newFrame.minX
                 let newMinY = min(orig.maxY - minH, orig.minY + dy)
                 newFrame.origin.y = newMinY
                 newFrame.size.height = orig.maxY - newMinY
-            default: break
+                isCornerHandle = true
+            default:
+                isCornerHandle = false
             }
 
-            sv.frame = newFrame
-            tv.frame.size = newFrame.size
-            tv.textContainer?.containerSize = NSSize(
-                width: newFrame.width - tv.textContainerInset.width * 2,
-                height: CGFloat.greatestFiniteMagnitude)
+            if isCornerHandle, orig.width > 0, textBoxOrigFontSize > 0 {
+                let newFontSize = max(6, min(200, textBoxOrigFontSize * (newFrame.width / orig.width)))
+                textEditor.scaleLiveText(to: newFontSize)
+                toolOptionsRowView?.updateFontSizeDisplay(value: newFontSize)
+            }
+
+            let shouldFitHeightToContent = textBoxResizeHandle == .left || textBoxResizeHandle == .right
+            textEditor.applyLiveFrame(newFrame, fitHeightToContent: shouldFitHeightToContent)
+            needsDisplay = true
+            return
+        }
+
+        if isDraggingTextBox, let sv = textEditor.scrollView {
+            let dx = point.x - textBoxDragStart.x
+            let dy = point.y - textBoxDragStart.y
+            let newOrigin = NSPoint(
+                x: textBoxDragOrigFrame.origin.x + dx,
+                y: textBoxDragOrigFrame.origin.y + dy
+            )
+            sv.frame.origin = newOrigin
+            NSCursor.closedHand.set()
             needsDisplay = true
             return
         }
@@ -6066,6 +6133,18 @@ class OverlayView: NSView {
 
         if isResizingTextBox {
             isResizingTextBox = false
+            textBoxOrigFontSize = 0
+            if let win = window {
+                updateCursorForPoint(convert(win.mouseLocationOutsideOfEventStream, from: nil))
+            }
+            return
+        }
+
+        if isDraggingTextBox {
+            isDraggingTextBox = false
+            if let win = window {
+                updateCursorForPoint(convert(win.mouseLocationOutsideOfEventStream, from: nil))
+            }
             return
         }
         if isRotatingAnnotation {
@@ -8446,6 +8525,11 @@ class OverlayView: NSView {
             selectedAnnotations = []
             cachedCompositedImage = nil
             needsDisplay = true
+        case 50:  // ` (backtick) - toggle temporary remember selection
+            if state == .selected || state == .idle {
+                toggleTempRememberSelection()
+                return
+            }
         default:
             // Handle arrow keys for pixel-perfect movement
             if handleArrowKeys(with: event) {
@@ -8575,6 +8659,41 @@ class OverlayView: NSView {
             }
             super.keyDown(with: event)
         }
+    }
+
+    // MARK: - Temporary Remember Selection
+
+    /// Toggle temporary remember selection state.
+    /// When enabled, the current selection area is saved and will be restored on next capture.
+    /// User can press ` (backtick) again to cancel.
+    private func toggleTempRememberSelection() {
+        let defaults = UserDefaults.standard
+        let currentState = defaults.bool(forKey: "tempRememberSelection")
+
+        if currentState {
+            // Cancel temporary remember selection
+            defaults.set(false, forKey: "tempRememberSelection")
+            defaults.removeObject(forKey: "tempRememberSelectionRect")
+            defaults.removeObject(forKey: "tempRememberSelectionScreenFrame")
+            showOverlayHint(L("Canceled remembering area"))
+        } else {
+            // Enable temporary remember selection
+            guard state == .selected && selectionRect.width > 1 && selectionRect.height > 1 else {
+                showOverlayHint(L("Please select an area first"))
+                return
+            }
+
+            defaults.set(true, forKey: "tempRememberSelection")
+            defaults.set(NSStringFromRect(selectionRect), forKey: "tempRememberSelectionRect")
+
+            // Get screen frame from window
+            if let screenFrame = window?.screen?.frame {
+                defaults.set(NSStringFromRect(screenFrame), forKey: "tempRememberSelectionScreenFrame")
+            }
+
+            showOverlayHint(L("Area remembered (press ` to cancel)"))
+        }
+        needsDisplay = true
     }
 
     override func keyUp(with event: NSEvent) {

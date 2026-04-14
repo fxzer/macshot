@@ -201,11 +201,18 @@
 "Changes take effect immediately." = "更改立即生效。";
 "Capture" = "捕获";
 "Quick Actions" = "快速操作";
+"Capture Settings" = "捕获设置";
 "Capture Options" = "捕获选项";
+"Image Output" = "图像输出";
 "Play sound on capture" = "截图时播放提示音";
 "Play sound on copy" = "拷贝时播放声音";
+"Play sound" = "播放提示音";
 "Remember last selection area" = "记住上次选择区域";
 "Remember last selected tool" = "记住上次选择的工具";
+"Tip: Press ` to temporarily remember area" = "框选后，按 ` 键可临时记住区域";
+"Area remembered (press ` to cancel)" = "已记住区域（按 ` 取消）";
+"Canceled remembering area" = "已取消记住区域";
+"Please select an area first" = "请先选择一个区域";
 "Selection size snapping" = "选区尺寸吸附";
 "Off" = "关闭";
 "Locked aspect ratio only" = "仅比例锁定";
@@ -213,7 +220,7 @@
 "Show floating thumbnail after capture" = "捕获后显示";
 "Launch at login" = "登录时启动";
 "Show snap alignment guides" = "显示对齐辅助线";
-"Capture mouse cursor in screenshot" = "在截图中捕获鼠标指针";
+"Capture mouse cursor in screenshot" = "捕获鼠标指针";
 "Use window title in saved filename" = "在保存文件名中使用窗口标题";
 "Color Sampler" = "取色器";
 "Color format" = "色值格式";
@@ -577,6 +584,8 @@
 "Engine" = "引擎";
 "Enter / Quick Capture" = "回车 / 快速捕获";
 "Frame rate" = "帧率";
+"Recording frame rate" = "录制帧率";
+"Recording Settings" = "录制设置";
 "History size" = "历史数量";
 "Icon color" = "图标颜色";
 "Background color" = "背景颜色";

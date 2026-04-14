@@ -217,11 +217,18 @@
 "Changes take effect immediately." = "Changes take effect immediately.";
 "Capture" = "Capture";
 "Quick Actions" = "Quick Actions";
+"Capture Settings" = "Capture Settings";
 "Capture Options" = "Capture Options";
+"Image Output" = "Image Output";
 "Play sound on capture" = "Play sound on capture";
 "Play sound on copy" = "Play sound on copy";
+"Play sound" = "Play sound";
 "Remember last selection area" = "Remember last selection area";
 "Remember last selected tool" = "Remember last selected tool";
+"Tip: Press ` to temporarily remember area" = "After selection, press ` to temporarily remember area";
+"Area remembered (press ` to cancel)" = "Area remembered (press ` to cancel)";
+"Canceled remembering area" = "Canceled remembering area";
+"Please select an area first" = "Please select an area first";
 "Selection size snapping" = "Selection size snapping";
 "Off" = "Off";
 "Locked aspect ratio only" = "Locked aspect ratio only";
@@ -575,6 +582,8 @@
 "Engine" = "Engine";
 "Enter / Quick Capture" = "Enter / Quick Capture";
 "Frame rate" = "Frame rate";
+"Recording frame rate" = "Recording frame rate";
+"Recording Settings" = "Recording Settings";
 "History size" = "History size";
 "Icon color" = "Icon color";
 "Image format" = "Image format";
