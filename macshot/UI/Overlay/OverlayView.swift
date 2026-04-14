@@ -5345,6 +5345,7 @@ class OverlayView: NSView {
                         textBoxResizeHandle = handle
                         textBoxResizeStart = point
                         textBoxOrigFrame = f
+                        textEditor.lockWidth()
                         return
                     }
                 }
@@ -9409,6 +9410,8 @@ extension OverlayView: NSTextFieldDelegate {
 extension OverlayView: NSTextViewDelegate {
     func textView(_ textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
         if commandSelector == #selector(NSResponder.insertNewline(_:)) {
+            // Lock width on first newline so text wraps at current width
+            textEditor.lockWidth()
             textView.insertNewlineIgnoringFieldEditor(self)
             textDidChange(Notification(name: NSText.didChangeNotification))
             return true

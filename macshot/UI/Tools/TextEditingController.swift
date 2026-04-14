@@ -13,6 +13,85 @@ protocol TextEditingCanvas: AnyObject {
     var currentColor: NSColor { get }
 }
 
+private final class NoFocusRingScrollView: NSScrollView {
+    override func drawFocusRingMask() {}
+    override var focusRingMaskBounds: NSRect { .zero }
+    override var focusRingType: NSFocusRingType {
+        get { .none }
+        set { }
+    }
+}
+
+private final class NoFocusRingClipView: NSClipView {
+    override func drawFocusRingMask() {}
+    override var focusRingMaskBounds: NSRect { .zero }
+    override var focusRingType: NSFocusRingType {
+        get { .none }
+        set { }
+    }
+}
+
+private final class NoFocusRingTextView: NSTextView {
+    override func drawFocusRingMask() {}
+    override var focusRingMaskBounds: NSRect { .zero }
+    override var focusRingType: NSFocusRingType {
+        get { .none }
+        set { }
+    }
+
+    /// Locked selection attributes — once set, prevents the system from
+    /// overriding with accent-color highlights on focus transitions.
+    private var lockedSelectedTextAttrs: [NSAttributedString.Key: Any]?
+
+    override var selectedTextAttributes: [NSAttributedString.Key: Any] {
+        get { super.selectedTextAttributes }
+        set {
+            // Always apply locked attributes when available, ignoring system changes
+            super.selectedTextAttributes = lockedSelectedTextAttrs ?? newValue
+        }
+    }
+
+    override func updateLayer() {
+        super.updateLayer()
+        // Prevent layer-based focus ring on newer macOS
+        layer?.borderWidth = 0
+        layer?.borderColor = nil
+    }
+
+    override func becomeFirstResponder() -> Bool {
+        let becameFirstResponder = super.becomeFirstResponder()
+        if becameFirstResponder {
+            applyEditingChrome()
+        }
+        return becameFirstResponder
+    }
+
+    override func resignFirstResponder() -> Bool {
+        let resignedFirstResponder = super.resignFirstResponder()
+        if resignedFirstResponder {
+            applyEditingChrome()
+        }
+        return resignedFirstResponder
+    }
+
+    func applyEditingChrome(explicitColor: NSColor? = nil) {
+        let color =
+            explicitColor
+            ?? (typingAttributes[.foregroundColor] as? NSColor)
+            ?? textColor
+            ?? .white
+
+        focusRingType = .none
+        insertionPointColor = color
+        let attrs: [NSAttributedString.Key: Any] = [
+            .backgroundColor: NSColor.clear,
+            .foregroundColor: color,
+        ]
+        lockedSelectedTextAttrs = attrs
+        super.selectedTextAttributes = attrs
+    }
+}
+
 /// Manages inline text editing for the text annotation tool.
 /// Owns ALL text state: style, NSTextView lifecycle, formatting, commit, cancel.
 @MainActor
@@ -51,6 +130,13 @@ class TextEditingController {
 
     /// The annotation being re-edited (removed from canvas, restored on cancel).
     var editingAnnotation: Annotation?
+
+    /// When true, the text box auto-expands width as the user types (new text).
+    /// Set to false when editing existing text or after user manually resizes.
+    var isAutoWidth: Bool = false
+
+    /// Maximum width for auto-expanding text boxes (set from parent view bounds).
+    private var maxAutoWidth: CGFloat = 800
 
     // MARK: - Font construction
 
@@ -240,8 +326,8 @@ class TextEditingController {
         if range.length > 0 {
             tv.textStorage?.addAttribute(.foregroundColor, value: color, range: range)
         }
-        tv.insertionPointColor = color
         tv.typingAttributes[.foregroundColor] = color
+        (tv as? NoFocusRingTextView)?.applyEditingChrome(explicitColor: color)
     }
 
     // MARK: - Show / Create text view
@@ -253,39 +339,21 @@ class TextEditingController {
 
         let viewPt = canvas.canvasToView(canvasPoint)
         let viewFrame: NSRect
+        let isNewText = existingText == nil
         if existingFrame != .zero {
             viewFrame = NSRect(origin: canvas.canvasToView(existingFrame.origin), size: existingFrame.size)
+            isAutoWidth = false
         } else {
+            // New text: start narrow and auto-expand
             let height = max(28, fontSize + 12)
-            viewFrame = NSRect(x: viewPt.x, y: viewPt.y - height, width: 200, height: height)
+            let initialWidth = max(40, fontSize * 2 + 16) // ~2 chars + inset
+            viewFrame = NSRect(x: viewPt.x, y: viewPt.y - height, width: initialWidth, height: height)
+            isAutoWidth = true
         }
 
-        class NoFocusRingScrollView: NSScrollView {
-            override func drawFocusRingMask() {}
-            override var focusRingMaskBounds: NSRect { return .zero }
-            override var focusRingType: NSFocusRingType {
-                get { return .none }
-                set { }
-            }
-        }
-
-        class NoFocusRingClipView: NSClipView {
-            override func drawFocusRingMask() {}
-            override var focusRingMaskBounds: NSRect { return .zero }
-            override var focusRingType: NSFocusRingType {
-                get { return .none }
-                set { }
-            }
-        }
-
-        class NoFocusRingTextView: NSTextView {
-            override func drawFocusRingMask() {}
-            override var focusRingMaskBounds: NSRect { return .zero }
-            override var focusRingType: NSFocusRingType {
-                get { return .none }
-                set { }
-            }
-        }
+        // Calculate max auto-width from parent bounds (right edge minus click point)
+        let rightMargin: CGFloat = 20
+        maxAutoWidth = max(200, parentView.bounds.maxX - viewPt.x - rightMargin)
 
         let sv = NoFocusRingScrollView(frame: viewFrame)
         let cv = NoFocusRingClipView(frame: sv.contentView.frame)
@@ -309,16 +377,21 @@ class TextEditingController {
         tv.wantsLayer = false
         tv.textContainerInset = NSSize(width: 4, height: 4)
         tv.textContainer?.lineFragmentPadding = 0
-        tv.textContainer?.containerSize = NSSize(width: viewFrame.width - 8, height: CGFloat.greatestFiniteMagnitude)
-        tv.textContainer?.widthTracksTextView = true
+        if isNewText {
+            // Auto-width: use a very wide container so text doesn't wrap initially
+            tv.textContainer?.containerSize = NSSize(width: maxAutoWidth - 8, height: CGFloat.greatestFiniteMagnitude)
+            tv.textContainer?.widthTracksTextView = false
+        } else {
+            tv.textContainer?.containerSize = NSSize(width: viewFrame.width - 8, height: CGFloat.greatestFiniteMagnitude)
+            tv.textContainer?.widthTracksTextView = true
+        }
 
         let font = currentFont()
         tv.font = font
         tv.textColor = color
-        tv.insertionPointColor = color
 
-        // Disable default selection highlight (system accent color background)
-        tv.selectedTextAttributes = [.backgroundColor: NSColor.clear]
+        // Keep selection rendering transparent even after focus changes.
+        tv.applyEditingChrome(explicitColor: color)
 
         // Disable marked text highlight (e.g., during IME composition)
         tv.markedTextAttributes = [
@@ -365,8 +438,7 @@ class TextEditingController {
         // Ensure visual properties are set after becoming first responder
         DispatchQueue.main.async { [weak tv] in
             guard let tv else { return }
-            tv.focusRingType = .none
-            tv.selectedTextAttributes = [.backgroundColor: NSColor.clear]
+            tv.applyEditingChrome()
         }
 
         if existingText != nil { resizeToFit() }
@@ -466,7 +538,8 @@ class TextEditingController {
 
     // MARK: - Resize
 
-    /// Auto-resize the text view height to fit content, pinning the top edge.
+    /// Auto-resize the text view to fit content, pinning the top edge.
+    /// In auto-width mode (new text), also expands width to fit the longest line.
     func resizeToFit() {
         guard let tv = textView, let sv = scrollView else { return }
         guard let layoutManager = tv.layoutManager, let textContainer = tv.textContainer else { return }
@@ -477,12 +550,30 @@ class TextEditingController {
 
         let minH = max(28, fontSize + 12)
         let inset = tv.textContainerInset
+
+        // Width: auto-expand in auto-width mode
+        var width = sv.frame.width
+        if isAutoWidth {
+            let minW = max(40, fontSize * 2 + 16)
+            let contentWidth = ceil(usedRect.width) + inset.width * 2
+            width = min(maxAutoWidth, max(minW, contentWidth))
+        }
+
         let newHeight = max(minH, ceil(usedRect.height + extraHeight) + inset.height * 2)
-        let width = sv.frame.width
 
         let topEdge = sv.frame.maxY
         sv.frame = NSRect(x: sv.frame.minX, y: topEdge - newHeight, width: width, height: newHeight)
         tv.frame.size = NSSize(width: width, height: newHeight)
+    }
+
+    /// Lock auto-width mode off (called when user manually resizes the text box).
+    func lockWidth() {
+        guard isAutoWidth else { return }
+        isAutoWidth = false
+        // Switch text container to wrap at current width
+        guard let tv = textView, let sv = scrollView else { return }
+        tv.textContainer?.containerSize = NSSize(width: sv.frame.width - 8, height: CGFloat.greatestFiniteMagnitude)
+        tv.textContainer?.widthTracksTextView = true
     }
 
     /// Restore formatting state from an existing annotation for re-editing.
