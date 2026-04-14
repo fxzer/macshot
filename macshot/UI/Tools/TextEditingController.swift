@@ -260,25 +260,44 @@ class TextEditingController {
             viewFrame = NSRect(x: viewPt.x, y: viewPt.y - height, width: 200, height: height)
         }
 
-        let sv = NSScrollView(frame: viewFrame)
+        class NoFocusRingScrollView: NSScrollView {
+            override func drawFocusRingMask() {}
+            override var focusRingMaskBounds: NSRect { return .zero }
+            override var focusRingType: NSFocusRingType {
+                get { return .none }
+                set { }
+            }
+        }
+
+        class NoFocusRingClipView: NSClipView {
+            override func drawFocusRingMask() {}
+            override var focusRingMaskBounds: NSRect { return .zero }
+            override var focusRingType: NSFocusRingType {
+                get { return .none }
+                set { }
+            }
+        }
+
+        class NoFocusRingTextView: NSTextView {
+            override func drawFocusRingMask() {}
+            override var focusRingMaskBounds: NSRect { return .zero }
+            override var focusRingType: NSFocusRingType {
+                get { return .none }
+                set { }
+            }
+        }
+
+        let sv = NoFocusRingScrollView(frame: viewFrame)
+        let cv = NoFocusRingClipView(frame: sv.contentView.frame)
+        sv.contentView = cv
+        
         sv.hasVerticalScroller = false
         sv.hasHorizontalScroller = false
         sv.autohidesScrollers = true
         sv.drawsBackground = false
         sv.borderType = .noBorder
-        sv.focusRingType = .none
         // Disable layer to prevent visual artifacts
         sv.wantsLayer = false
-
-        class NoFocusRingTextView: NSTextView {
-            override func drawFocusRingMask() {
-                // Return without doing anything to completely disable the focus ring mask
-            }
-            override var focusRingType: NSFocusRingType {
-                get { return .none }
-                set { } // Ignore attempts to set
-            }
-        }
 
         let tv = NoFocusRingTextView(frame: NSRect(origin: .zero, size: viewFrame.size))
         tv.isRichText = true
