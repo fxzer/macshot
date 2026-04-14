@@ -41,6 +41,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     private var scrollCaptureOverlayController: OverlayWindowController?
     private var scrollCapturePreviewPanel: ScrollCapturePreviewPanel?
     private var statusBarMenu: NSMenu?
+    private var lastStatusBarInteractionScreen: NSScreen?
 
     /// Shared capture sound — loaded once, reused everywhere.
     static let captureSound: NSSound? = {
@@ -113,15 +114,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         PermissionOnboardingController.checkPermissionSync { [weak self] granted in
             guard let self = self else { return }
             if !granted {
-                self.showOnboarding()
+                self.showOnboarding(on: self.defaultInteractionScreen())
             }
         }
     }
 
-    private func showOnboarding() {
+    private func showOnboarding(on preferredScreen: NSScreen? = nil) {
         // If already open, just bring it to front
         if let existing = onboardingController {
-            existing.show()
+            existing.show(on: preferredScreen)
             return
         }
         let oc = PermissionOnboardingController()
@@ -129,7 +130,17 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             self?.onboardingController = nil
         }
         onboardingController = oc
-        oc.show()
+        oc.show(on: preferredScreen)
+    }
+
+    private func defaultInteractionScreen() -> NSScreen? {
+        if let lastStatusBarInteractionScreen {
+            return lastStatusBarInteractionScreen
+        }
+        if let mouseScreen = NSScreen.screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) }) {
+            return mouseScreen
+        }
+        return NSScreen.main ?? NSScreen.screens.first
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
@@ -509,6 +520,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         guard recordingEngine == nil else { return }
         isCapturing = true
 
+        // Track which screen the menu interaction occurred on for positioning dialogs
+        if fromMenu {
+            lastStatusBarInteractionScreen = NSScreen.screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) })
+        }
+
         // Kick off SCShareableContent enumeration early — the cache will be ready
         // by the time performCapture() needs it (covers hotkey path where menu wasn't opened)
         ScreenCaptureManager.prewarm()
@@ -634,7 +650,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             if captures.isEmpty {
                 self.isCapturing = false
                 // Permission was revoked or never granted — show onboarding instead of a generic alert
-                self.showOnboarding()
+                self.showOnboarding(on: self.defaultInteractionScreen())
                 return
             }
 

@@ -181,7 +181,7 @@ class PermissionOnboardingController: NSWindowController {
 
     // MARK: - Show
 
-    func show() {
+    func show(on preferredScreen: NSScreen? = nil) {
         // Reset granted state each time we show — handles the revoke-then-reshown case.
         // CGPreflightScreenCaptureAccess() caches true within a process lifetime, so
         // we cannot rely on it after revocation. We reset here so polling starts fresh.
@@ -196,10 +196,26 @@ class PermissionOnboardingController: NSWindowController {
         actionButton?.isHidden = false
         continueButton?.isHidden = true
 
-        window?.center()
+        positionWindow(on: preferredScreen)
         window?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         startPolling()
+    }
+
+    private func positionWindow(on preferredScreen: NSScreen?) {
+        guard let window else { return }
+        let targetScreen = preferredScreen ?? window.screen ?? NSScreen.main ?? NSScreen.screens.first
+        guard let targetScreen else {
+            window.center()
+            return
+        }
+
+        let visibleFrame = targetScreen.visibleFrame
+        let origin = NSPoint(
+            x: visibleFrame.midX - window.frame.width / 2,
+            y: visibleFrame.midY - window.frame.height / 2
+        )
+        window.setFrameOrigin(origin)
     }
 
     // MARK: - Permission polling

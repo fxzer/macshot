@@ -117,9 +117,9 @@ struct FormatTokenField: View {
                 format: $format,
                 insertionController: insertionController
             )
-            .frame(minHeight: 38)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 6)
+            .frame(height: 52)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 10)
             .background(
                 RoundedRectangle(cornerRadius: 8)
                     .fill(Color(nsColor: .controlBackgroundColor))
@@ -294,9 +294,10 @@ private struct MacTokenField: NSViewRepresentable {
     func makeNSView(context: Context) -> NSTokenField {
         let tokenField = NSTokenField(frame: .zero)
         tokenField.delegate = context.coordinator
-        tokenField.font = .systemFont(ofSize: 13)
+        tokenField.font = .systemFont(ofSize: 14)
+        tokenField.controlSize = .large
         tokenField.tokenizingCharacterSet = CharacterSet()
-        tokenField.focusRingType = .default
+        tokenField.focusRingType = .none
         tokenField.isBordered = false
         tokenField.drawsBackground = false
         tokenField.completionDelay = 0

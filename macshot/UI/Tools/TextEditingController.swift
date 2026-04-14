@@ -266,13 +266,19 @@ class TextEditingController {
         sv.autohidesScrollers = true
         sv.drawsBackground = false
         sv.borderType = .noBorder
+        sv.focusRingType = .none
+        // Disable layer to prevent visual artifacts
+        sv.wantsLayer = false
 
         let tv = NSTextView(frame: NSRect(origin: .zero, size: viewFrame.size))
         tv.isRichText = true
         tv.allowsUndo = true
         tv.drawsBackground = false
+        tv.focusRingType = .none
         tv.isVerticallyResizable = true
         tv.isHorizontallyResizable = false
+        // Disable layer to prevent visual artifacts
+        tv.wantsLayer = false
         tv.textContainerInset = NSSize(width: 4, height: 4)
         tv.textContainer?.lineFragmentPadding = 0
         tv.textContainer?.containerSize = NSSize(width: viewFrame.width - 8, height: CGFloat.greatestFiniteMagnitude)
@@ -282,6 +288,15 @@ class TextEditingController {
         tv.font = font
         tv.textColor = color
         tv.insertionPointColor = color
+
+        // Disable default selection highlight (system accent color background)
+        tv.selectedTextAttributes = [.backgroundColor: NSColor.clear]
+
+        // Disable marked text highlight (e.g., during IME composition)
+        tv.markedTextAttributes = [
+            .backgroundColor: NSColor.controlAccentColor.withAlphaComponent(0.2),
+            .underlineStyle: NSUnderlineStyle.single.rawValue
+        ]
 
         let paraStyle = NSMutableParagraphStyle()
         paraStyle.alignment = alignment
@@ -318,6 +333,13 @@ class TextEditingController {
         self.textView = tv
 
         parentView.window?.makeFirstResponder(tv)
+
+        // Ensure visual properties are set after becoming first responder
+        DispatchQueue.main.async { [weak tv] in
+            guard let tv else { return }
+            tv.focusRingType = .none
+            tv.selectedTextAttributes = [.backgroundColor: NSColor.clear]
+        }
 
         if existingText != nil { resizeToFit() }
     }

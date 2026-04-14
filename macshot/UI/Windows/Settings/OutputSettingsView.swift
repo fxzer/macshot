@@ -54,7 +54,7 @@ struct OutputSettingsView: View {
                 if imageFormat == "jpeg" || imageFormat == "heic" || imageFormat == "webp" {
                     HStack {
                         Text(L("Quality"))
-                        Slider(value: $imageQuality, in: 0.1...1.0, step: 0.01)
+                        Slider(value: $imageQuality, in: 0.1...1.0)
                         Text(qualityPercentString)
                             .monospacedDigit()
                             .frame(width: 44, alignment: .trailing)
