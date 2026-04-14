@@ -13,12 +13,31 @@ protocol TextEditingCanvas: AnyObject {
     var currentColor: NSColor { get }
 }
 
+/// Strips all layer-based borders that macOS applies on focus transitions.
+private func stripLayerBorders(_ view: NSView) {
+    view.layer?.borderWidth = 0
+    view.layer?.borderColor = nil
+    for child in view.subviews {
+        child.layer?.borderWidth = 0
+        child.layer?.borderColor = nil
+    }
+}
+
 private final class NoFocusRingScrollView: NSScrollView {
     override func drawFocusRingMask() {}
     override var focusRingMaskBounds: NSRect { .zero }
     override var focusRingType: NSFocusRingType {
         get { .none }
         set { }
+    }
+    override func updateLayer() {
+        super.updateLayer()
+        layer?.borderWidth = 0
+        layer?.borderColor = nil
+    }
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        stripLayerBorders(self)
     }
 }
 
@@ -28,6 +47,15 @@ private final class NoFocusRingClipView: NSClipView {
     override var focusRingType: NSFocusRingType {
         get { .none }
         set { }
+    }
+    override func updateLayer() {
+        super.updateLayer()
+        layer?.borderWidth = 0
+        layer?.borderColor = nil
+    }
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        stripLayerBorders(self)
     }
 }
 
@@ -46,32 +74,41 @@ private final class NoFocusRingTextView: NSTextView {
     override var selectedTextAttributes: [NSAttributedString.Key: Any] {
         get { super.selectedTextAttributes }
         set {
-            // Always apply locked attributes when available, ignoring system changes
             super.selectedTextAttributes = lockedSelectedTextAttrs ?? newValue
         }
     }
 
     override func updateLayer() {
         super.updateLayer()
-        // Prevent layer-based focus ring on newer macOS
         layer?.borderWidth = 0
         layer?.borderColor = nil
     }
 
     override func becomeFirstResponder() -> Bool {
-        let becameFirstResponder = super.becomeFirstResponder()
-        if becameFirstResponder {
+        let result = super.becomeFirstResponder()
+        if result {
             applyEditingChrome()
+            // Aggressively strip borders from entire scroll view hierarchy
+            if let sv = enclosingScrollView {
+                stripLayerBorders(sv)
+                stripLayerBorders(sv.contentView)
+            }
+            stripLayerBorders(self)
         }
-        return becameFirstResponder
+        return result
     }
 
     override func resignFirstResponder() -> Bool {
-        let resignedFirstResponder = super.resignFirstResponder()
-        if resignedFirstResponder {
+        let result = super.resignFirstResponder()
+        if result {
             applyEditingChrome()
+            if let sv = enclosingScrollView {
+                stripLayerBorders(sv)
+                stripLayerBorders(sv.contentView)
+            }
+            stripLayerBorders(self)
         }
-        return resignedFirstResponder
+        return result
     }
 
     func applyEditingChrome(explicitColor: NSColor? = nil) {
@@ -435,10 +472,14 @@ class TextEditingController {
 
         parentView.window?.makeFirstResponder(tv)
 
-        // Ensure visual properties are set after becoming first responder
-        DispatchQueue.main.async { [weak tv] in
-            guard let tv else { return }
-            tv.applyEditingChrome()
+        // Aggressively strip layer borders after focus change and on next run loop
+        stripLayerBorders(sv)
+        stripLayerBorders(cv)
+        stripLayerBorders(tv)
+        DispatchQueue.main.async { [weak tv, weak sv, weak cv] in
+            if let tv { tv.applyEditingChrome(); stripLayerBorders(tv) }
+            if let sv { stripLayerBorders(sv) }
+            if let cv { stripLayerBorders(cv) }
         }
 
         if existingText != nil { resizeToFit() }

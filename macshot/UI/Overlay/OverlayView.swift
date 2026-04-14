@@ -735,6 +735,7 @@ class OverlayView: NSView {
     private var annotationResizeOrigEnd: NSPoint = .zero
     private var annotationResizeOrigTextOrigin: NSPoint = .zero
     private var annotationResizeOrigControlPoint: NSPoint = .zero
+    private var annotationResizeOrigFontSize: CGFloat = 0
     private var annotationResizeMouseStart: NSPoint = .zero
     private var annotationDeleteButtonRect: NSRect = .zero
     private var annotationEditButtonRect: NSRect = .zero
@@ -5741,43 +5742,58 @@ class OverlayView: NSView {
                     let minW: CGFloat = 40
                     let minH: CGFloat = max(20, annotation.fontSize + 8)
 
+                    let isCornerHandle: Bool
                     switch annotationResizeHandle {
-                    case .right: newRect.size.width = max(minW, origRect.width + dx)
+                    case .right: newRect.size.width = max(minW, origRect.width + dx); isCornerHandle = false
                     case .left:
                         newRect.origin.x = min(origRect.maxX - minW, origRect.minX + dx)
                         newRect.size.width = origRect.maxX - newRect.minX
+                        isCornerHandle = false
                     case .top:
                         newRect.size.height = max(minH, origRect.height + dy)
+                        isCornerHandle = false
                     case .bottom:
                         let newMinY = min(origRect.maxY - minH, origRect.minY + dy)
                         newRect.origin.y = newMinY
                         newRect.size.height = origRect.maxY - newMinY
+                        isCornerHandle = false
                     case .topRight:
                         newRect.size.width = max(minW, origRect.width + dx)
                         newRect.size.height = max(minH, origRect.height + dy)
+                        isCornerHandle = true
                     case .topLeft:
                         newRect.origin.x = min(origRect.maxX - minW, origRect.minX + dx)
                         newRect.size.width = origRect.maxX - newRect.minX
                         newRect.size.height = max(minH, origRect.height + dy)
+                        isCornerHandle = true
                     case .bottomRight:
                         newRect.size.width = max(minW, origRect.width + dx)
                         let newMinY = min(origRect.maxY - minH, origRect.minY + dy)
                         newRect.origin.y = newMinY
                         newRect.size.height = origRect.maxY - newMinY
+                        isCornerHandle = true
                     case .bottomLeft:
                         newRect.origin.x = min(origRect.maxX - minW, origRect.minX + dx)
                         newRect.size.width = origRect.maxX - newRect.minX
                         let newMinY = min(origRect.maxY - minH, origRect.minY + dy)
                         newRect.origin.y = newMinY
                         newRect.size.height = origRect.maxY - newMinY
-                    default: break
+                        isCornerHandle = true
+                    default: isCornerHandle = false
                     }
 
                     annotation.startPoint = newRect.origin
                     annotation.endPoint = NSPoint(x: newRect.maxX, y: newRect.maxY)
                     annotation.textDrawRect = newRect
-                    // Re-render textImage at new size
-                    if let attrStr = annotation.attributedText {
+
+                    // Corner handles: scale font size proportionally, then re-render
+                    if isCornerHandle, origRect.width > 0, annotationResizeOrigFontSize > 0 {
+                        let scaleFactor = newRect.width / origRect.width
+                        let newFontSize = max(6, min(200, annotationResizeOrigFontSize * scaleFactor))
+                        annotation.fontSize = newFontSize
+                        annotation.reRenderTextImage()
+                    } else if let attrStr = annotation.attributedText {
+                        // Edge handles: reflow text at same font size
                         let inset: CGFloat = 4
                         let img = NSImage(size: newRect.size, flipped: true) { _ in
                             attrStr.draw(in: NSRect(x: inset, y: inset,
@@ -7848,6 +7864,7 @@ class OverlayView: NSView {
                 annotationResizeOrigStart = selected.startPoint
                 annotationResizeOrigEnd = selected.endPoint
                 annotationResizeOrigTextOrigin = selected.textDrawRect.origin
+                annotationResizeOrigFontSize = selected.fontSize
                 annotationResizeMouseStart = point
                 annotationResizeAnchorIndex = -1
                 if let anchors = selected.anchorPoints, anchors.count >= 3, handleIdx >= 2 {
