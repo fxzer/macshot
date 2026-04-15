@@ -122,8 +122,8 @@ class OverlayWindowController {
         }
     }
 
-    func applySelection(_ rect: NSRect) {
-        overlayView?.applySelection(rect)
+    func applySelection(_ rect: NSRect, restoredFromMemory: Bool = false) {
+        overlayView?.applySelection(rect, restoredFromMemory: restoredFromMemory)
     }
 
     func clearSelection() {

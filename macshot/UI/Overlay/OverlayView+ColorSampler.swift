@@ -140,6 +140,11 @@ extension OverlayView {
     func overlayViewFlagsChanged(with event: NSEvent) {
         let shiftIsNowPressed = event.modifierFlags.contains(.shift)
 
+        guard magnifierView != nil else {
+            wasShiftPressed = shiftIsNowPressed
+            return
+        }
+
         // Detect Shift press edge (false → true)
         if shiftIsNowPressed && !wasShiftPressed {
             toggleColorSamplerFormat()

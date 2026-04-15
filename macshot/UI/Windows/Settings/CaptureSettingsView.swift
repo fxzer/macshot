@@ -27,7 +27,7 @@ struct CaptureSettingsView: View {
             Section {
                 settingWithDescription(
                     title: L("Remember last selection area"),
-                    description: L("Tip: Press ` to temporarily remember area")
+                    description: L("Tip: Press ` during capture to toggle this")
                 ) {
                     Toggle("", isOn: $rememberLastSelection).labelsHidden()
                 }

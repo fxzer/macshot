@@ -263,6 +263,9 @@ class OverlayView: NSView {
     private var lastDragPoint: NSPoint?  // for shift constraint on flagsChanged
     private var spaceRepositioning: Bool = false  // Space held during drag to reposition
     private var spaceRepositionLast: NSPoint = .zero  // last mouse position when space reposition started
+    /// True only when the current selection came from automatic restore.
+    /// User-created or user-adjusted selections clear this flag.
+    private var selectionWasRestoredFromMemory: Bool = false
 
     // Aspect Ratio Lock
     private(set) var aspectRatioLock: AspectRatioLock = .none
@@ -2460,6 +2463,23 @@ class OverlayView: NSView {
         line4Elements.append(("label", L("Fullscreen"), (L("Fullscreen") as NSString).size(withAttributes: [.font: baseFont, .foregroundColor: labelColor]).width))
 
         lines.append((line4Elements, 14))
+
+        // Line 5: 选区记忆提示
+        var line5Elements: [(type: String, text: String, width: CGFloat)] = []
+        let rememberPrefix = L("After selection, press")
+        line5Elements.append((
+            "label",
+            rememberPrefix,
+            (rememberPrefix as NSString).size(withAttributes: [.font: baseFont, .foregroundColor: labelColor]).width
+        ))
+        line5Elements.append(("key", "`", ("`" as NSString).size(withAttributes: [.font: keyFont]).width))
+        let rememberSuffix = L("remember this area")
+        line5Elements.append((
+            "label",
+            rememberSuffix,
+            (rememberSuffix as NSString).size(withAttributes: [.font: baseFont, .foregroundColor: labelColor]).width
+        ))
+        lines.append((line5Elements, 14))
 
         // Calculate total size
         var maxWidth: CGFloat = 0
@@ -5427,6 +5447,7 @@ class OverlayView: NSView {
             selectionStart = point
             selectionRect = NSRect(origin: point, size: .zero)
             state = .selecting
+            selectionWasRestoredFromMemory = false
             overlayDelegate?.overlayViewDidBeginSelection()
 
             // Show color sampler magnifier when entering selection state
@@ -5469,6 +5490,7 @@ class OverlayView: NSView {
                 let handle = hitTestHandle(at: point)
                 if handle != .none {
                     isResizingSelection = true
+                    selectionWasRestoredFromMemory = false
                     selectionIsWindowSnap = false
                     snappedWindowID = nil
                     snappedWindowImage = nil
@@ -5504,6 +5526,7 @@ class OverlayView: NSView {
                 if !clickedOnAnnotation && currentTool == .select {
                     // Inside selection but not on any annotation — start dragging selection
                     isDraggingSelection = true
+                    selectionWasRestoredFromMemory = false
                     selectionDragStart = point
                     selectionDragOffset = NSPoint(x: point.x - selectionRect.origin.x, y: point.y - selectionRect.origin.y)
                     NSCursor.closedHand.set()
@@ -5535,6 +5558,7 @@ class OverlayView: NSView {
             selectionStart = point
             selectionRect = NSRect(origin: point, size: .zero)
             state = .selecting
+            selectionWasRestoredFromMemory = false
             overlayDelegate?.overlayViewDidBeginSelection()
             needsDisplay = true
 
@@ -8525,9 +8549,9 @@ class OverlayView: NSView {
             selectedAnnotations = []
             cachedCompositedImage = nil
             needsDisplay = true
-        case 50:  // ` (backtick) - toggle temporary remember selection
+        case 50:  // ` (backtick) - toggle "remember last selection area"
             if state == .selected || state == .idle {
-                toggleTempRememberSelection()
+                toggleRememberLastSelection()
                 return
             }
         default:
@@ -8661,37 +8685,30 @@ class OverlayView: NSView {
         }
     }
 
-    // MARK: - Temporary Remember Selection
+    // MARK: - Remember Last Selection
 
-    /// Toggle temporary remember selection state.
-    /// When enabled, the current selection area is saved and will be restored on next capture.
-    /// User can press ` (backtick) again to cancel.
-    private func toggleTempRememberSelection() {
+    /// Toggle the persistent "remember last selection area" preference.
+    private func toggleRememberLastSelection() {
         let defaults = UserDefaults.standard
-        let currentState = defaults.bool(forKey: "tempRememberSelection")
+        let newState = !defaults.bool(forKey: "rememberLastSelection")
+        defaults.set(newState, forKey: "rememberLastSelection")
 
-        if currentState {
-            // Cancel temporary remember selection
-            defaults.set(false, forKey: "tempRememberSelection")
-            defaults.removeObject(forKey: "tempRememberSelectionRect")
-            defaults.removeObject(forKey: "tempRememberSelectionScreenFrame")
-            showOverlayHint(L("Canceled remembering area"))
+        // Clean up legacy one-shot state so only the real preference remains.
+        defaults.removeObject(forKey: "tempRememberSelection")
+        defaults.removeObject(forKey: "tempRememberSelectionRect")
+        defaults.removeObject(forKey: "tempRememberSelectionScreenFrame")
+
+        if newState {
+            if state == .selected && selectionRect.width > 1 && selectionRect.height > 1 {
+                showOverlayHint(L("Current selection remembered"))
+            } else {
+                showOverlayHint(L("Remember last selection area enabled"))
+            }
         } else {
-            // Enable temporary remember selection
-            guard state == .selected && selectionRect.width > 1 && selectionRect.height > 1 else {
-                showOverlayHint(L("Please select an area first"))
-                return
+            if selectionWasRestoredFromMemory && state == .selected {
+                clearSelection()
             }
-
-            defaults.set(true, forKey: "tempRememberSelection")
-            defaults.set(NSStringFromRect(selectionRect), forKey: "tempRememberSelectionRect")
-
-            // Get screen frame from window
-            if let screenFrame = window?.screen?.frame {
-                defaults.set(NSStringFromRect(screenFrame), forKey: "tempRememberSelectionScreenFrame")
-            }
-
-            showOverlayHint(L("Area remembered (press ` to cancel)"))
+            showOverlayHint(L("Remember last selection area disabled"))
         }
         needsDisplay = true
     }
@@ -9276,10 +9293,11 @@ class OverlayView: NSView {
         needsDisplay = true
     }
 
-    func applySelection(_ rect: NSRect) {
+    func applySelection(_ rect: NSRect, restoredFromMemory: Bool = false) {
         selectionRect = rect
         selectionStart = rect.origin
         state = .selected
+        selectionWasRestoredFromMemory = restoredFromMemory
 
         // Hide color sampler magnifier when entering selected state
         hideColorSamplerMagnifier()
@@ -9297,6 +9315,7 @@ class OverlayView: NSView {
         selectionRect = bounds
         selectionStart = bounds.origin
         state = .selected
+        selectionWasRestoredFromMemory = false
 
         // Hide color sampler magnifier when entering selected state
         hideColorSamplerMagnifier()
@@ -9315,10 +9334,14 @@ class OverlayView: NSView {
     func clearSelection() {
         state = .idle
         selectionRect = .zero
+        selectionWasRestoredFromMemory = false
         clearSelectionSizeSnapState()
         remoteSelectionRect = .zero
         remoteSelectionFullRect = .zero
         showToolbars = false
+        if screenshotImage != nil {
+            showColorSamplerMagnifier()
+        }
         needsDisplay = true
     }
 
@@ -9450,6 +9473,7 @@ class OverlayView: NSView {
     func reset() {
         state = .idle
         selectionRect = .zero
+        selectionWasRestoredFromMemory = false
         clearSelectionSizeSnapState()
         selectionIsWindowSnap = false
         snappedWindowID = nil

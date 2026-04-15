@@ -114,6 +114,10 @@ final class ColorSamplerMagnifierView: NSView {
     private let hudPadding: CGFloat = 6  // Internal padding for HUD text
     private let crosshairColor = NSColor.white.withAlphaComponent(0.6)
     private let crosshairWidth: CGFloat = 1.0
+    private let valueFont = NSFont.monospacedSystemFont(ofSize: 10, weight: .medium)
+    private let coordinateFont = NSFont.monospacedSystemFont(ofSize: 9, weight: .regular)
+    private let valueColor = NSColor.white
+    private let coordinateColor = NSColor.white.withAlphaComponent(0.6)
 
     var magnificationLevel: CGFloat { magnifierWidth / sourceSize }
 
@@ -205,21 +209,14 @@ final class ColorSamplerMagnifierView: NSView {
     func toggleFormat() {
         // Switch format
         let newFormat: ColorFormat = currentFormat == .hex ? .rgb : .hex
+        guard newFormat != currentFormat else { return }
         currentFormat = newFormat
 
-        // Force layer update if using layer-backed rendering
-        if let layer = layer {
-            layer.setNeedsDisplay()
-        }
-
-        // Force immediate update
+        // Avoid synchronous display/update here.
+        // Pressing Shift can also refresh SwiftUI preferences via AppStorage;
+        // invalidating the view is enough and avoids re-entrant redraw churn.
+        layer?.setNeedsDisplay()
         setNeedsDisplay(bounds)
-
-        // Force immediate redraw
-        display()
-
-        // Trigger window update
-        window?.update()
     }
 
     /// Copy current color in the selected format to clipboard.
@@ -329,17 +326,14 @@ final class ColorSamplerMagnifierView: NSView {
         let colorString = formatColorFromRGB(currentRGB, as: currentFormat)
         let coordString = String(format: "(%.0f, %.0f)", currentPoint.x, currentPoint.y)
 
-        let font = NSFont.monospacedSystemFont(ofSize: 10, weight: .medium)  // Reduced from 11 to 10
-        let coordFont = NSFont.monospacedSystemFont(ofSize: 9, weight: .regular)
-
         let colorAttrs: [NSAttributedString.Key: Any] = [
-            .font: font,
-            .foregroundColor: NSColor.white
+            .font: valueFont,
+            .foregroundColor: valueColor,
         ]
 
         let coordAttrs: [NSAttributedString.Key: Any] = [
-            .font: coordFont,
-            .foregroundColor: NSColor.white.withAlphaComponent(0.6)
+            .font: coordinateFont,
+            .foregroundColor: coordinateColor,
         ]
 
         let colorSize = colorString.size(withAttributes: colorAttrs)

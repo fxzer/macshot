@@ -14,6 +14,7 @@ class ListPickerView: NSView {
 
     var items: [Item] = [] { didSet { rebuildRows() } }
     var onSelect: ((Int) -> Void)?
+    var showsSelectedBackground: Bool = true { didSet { rebuildRows() } }
 
     private let rowHeight: CGFloat = 28
     private let padding: CGFloat = 6
@@ -40,6 +41,7 @@ class ListPickerView: NSView {
             rv.icon = item.icon
             rv.isEnabled = item.isEnabled
             rv.subtitle = item.subtitle
+            rv.showsSelectedBackground = showsSelectedBackground
             rv.index = i
             rv.onSelect = { [weak self] idx in self?.onSelect?(idx) }
             addSubview(rv)
@@ -115,6 +117,7 @@ private class ListPickerRowView: NSView {
     var icon: NSImage?
     var isEnabled: Bool = true
     var subtitle: String?
+    var showsSelectedBackground: Bool = false
     var index: Int = 0
     var onSelect: ((Int) -> Void)?
 
@@ -124,7 +127,10 @@ private class ListPickerRowView: NSView {
     override func draw(_ dirtyRect: NSRect) {
         let alpha: CGFloat = isEnabled ? 1.0 : 0.35
 
-        if isHovered && isEnabled {
+        if isItemSelected && showsSelectedBackground {
+            ToolbarLayout.accentColor.withAlphaComponent(0.3 * alpha).setFill()
+            NSBezierPath(roundedRect: bounds.insetBy(dx: 3, dy: 1), xRadius: 4, yRadius: 4).fill()
+        } else if isHovered && isEnabled {
             ToolbarLayout.iconColor.withAlphaComponent(0.1).setFill()
             NSBezierPath(roundedRect: bounds.insetBy(dx: 3, dy: 1), xRadius: 4, yRadius: 4).fill()
         }
