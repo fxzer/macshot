@@ -300,7 +300,7 @@ class ToolOptionsRowView: NSView {
     private func addStrokeSlider(at x: CGFloat, tool: AnnotationTool, ov: OverlayView) -> CGFloat {
         var curX = x
 
-        let nameLabel = NSTextField(labelWithString: tool == .loupe ? L("Size") : L("Stroke"))
+        let nameLabel = NSTextField(labelWithString: (tool == .loupe || tool == .number) ? L("Size") : L("Stroke"))
         nameLabel.font = NSFont.systemFont(ofSize: 9.5, weight: .medium)
         nameLabel.textColor = ToolbarLayout.iconColor.withAlphaComponent(0.4)
         nameLabel.sizeToFit()
@@ -310,8 +310,22 @@ class ToolOptionsRowView: NSView {
 
         let currentVal = editingAnnotation?.strokeWidth ?? ov.activeStrokeWidthForTool(tool)
         let sliderW: CGFloat = 100
-        let sliderMin: Double = tool == .loupe ? 40 : (tool == .marker ? 6 : 1)
-        let sliderMax: Double = tool == .loupe ? 320 : (tool == .marker ? 100 : 30)
+        let sliderMin: Double
+        let sliderMax: Double
+        switch tool {
+        case .loupe:
+            sliderMin = 40
+            sliderMax = 320
+        case .marker:
+            sliderMin = 6
+            sliderMax = 100
+        case .number:
+            sliderMin = NumberCalloutGeometry.minSize
+            sliderMax = NumberCalloutGeometry.maxSize
+        default:
+            sliderMin = 1
+            sliderMax = 30
+        }
         let slider = NSSlider(value: Double(currentVal),
                               minValue: sliderMin, maxValue: sliderMax,
                               target: self, action: #selector(strokeSliderChanged(_:)))

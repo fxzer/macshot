@@ -73,6 +73,23 @@ protocol AnnotationCanvas: AnyObject {
     var annotationLayerCache: NSImage? { get }
     /// Incrementally add a newly committed annotation to the cached annotation layer.
     func appendToAnnotationCache(_ annotation: Annotation, previousCache: NSImage)
+
+    // Magnified callout preview
+    func beginMagnifiedCalloutPreview(sourcePoint: NSPoint, color: NSColor)
+    func updateMagnifiedCalloutPreview(destinationPoint: NSPoint)
+    func finishMagnifiedCalloutPreview() -> LoupeCalloutPreviewSnapshot?
+    func cancelMagnifiedCalloutPreview()
+
+    func beginNumberedCalloutPreview(sourcePoint: NSPoint, bubbleDiameter: CGFloat, numberText: String, color: NSColor)
+    func updateNumberedCalloutPreview(destinationPoint: NSPoint)
+    func finishNumberedCalloutPreview() -> LoupeCalloutPreviewSnapshot?
+    func cancelNumberedCalloutPreview()
+}
+
+struct LoupeCalloutPreviewSnapshot {
+    let sourcePoint: NSPoint
+    let destinationPoint: NSPoint
+    let bubbleDiameter: CGFloat
 }
 
 /// Protocol for extracted annotation tool logic.
@@ -97,11 +114,17 @@ protocol AnnotationToolHandler {
 
     /// State-aware cursor — override when the cursor depends on canvas state (e.g. smart marker toggle).
     func cursorForCanvas(_ canvas: AnnotationCanvas) -> NSCursor?
+
+    /// Whether dragging this tool requires a full NSView redraw every mouse tick.
+    /// Tools that render through dedicated CALayers can return false.
+    var requiresDisplayRefreshDuringDrag: Bool { get }
 }
 
 /// Default implementations for common patterns.
 extension AnnotationToolHandler {
     var cursor: NSCursor? { nil }
+
+    var requiresDisplayRefreshDuringDrag: Bool { true }
 
     func cursorForCanvas(_ canvas: AnnotationCanvas) -> NSCursor? { cursor }
 

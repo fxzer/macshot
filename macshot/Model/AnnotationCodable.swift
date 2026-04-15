@@ -59,6 +59,10 @@ struct CodableAnnotation: Codable {
     // Censor (pixelate/blur) baked result
     var bakedBlurPNG: Data?
 
+    // Loupe callout
+    var loupeSourcePointXY: [CGFloat]?
+    var loupeMagnification: CGFloat = MagnifiedCalloutGeometry.magnification
+
     // Misc
     var measureInPoints: Bool = false
     var censorMode: Int = 0
@@ -132,6 +136,8 @@ extension Annotation {
         // Baked censor result (pixelate/blur/erase) — skip loupe since it
         // needs re-baking from the editor's source image at the correct coordinates.
         if tool != .loupe, let baked = bakedBlurNSImage { c.bakedBlurPNG = Self.encodeImage(baked) }
+        if let loupeSourcePoint { c.loupeSourcePointXY = [loupeSourcePoint.x, loupeSourcePoint.y] }
+        c.loupeMagnification = loupeMagnification
 
         // Misc
         c.measureInPoints = measureInPoints
@@ -214,6 +220,10 @@ extension Annotation {
 
         // Baked censor result
         if let data = c.bakedBlurPNG { ann.bakedBlurNSImage = NSImage(data: data) }
+        if let point = c.loupeSourcePointXY, point.count == 2 {
+            ann.loupeSourcePoint = NSPoint(x: point[0], y: point[1])
+        }
+        ann.loupeMagnification = c.loupeMagnification
 
         // Misc
         ann.measureInPoints = c.measureInPoints

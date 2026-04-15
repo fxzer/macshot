@@ -93,6 +93,7 @@ class OverlayView: NSView {
 
     var screenshotImage: NSImage? {
         didSet {
+            loupeSourceCGImage = screenshotImage?.cgImage(forProposedRect: nil, context: nil, hints: nil)
             // Ensure UI updates happen on main thread
             DispatchQueue.main.async {
                 self.needsDisplay = true
@@ -108,6 +109,7 @@ class OverlayView: NSView {
     /// Using NSImage.cgImage(forProposedRect:) can return CGImages in different pixel formats
     /// (e.g., 16-bit float on Retina), which causes color sampling inaccuracies.
     private var originalCGImage: CGImage?
+    private var loupeSourceCGImage: CGImage?
 
     /// Set the original CGImage for accurate color sampling.
     func setOriginalCGImage(_ cgImage: CGImage) {
@@ -335,6 +337,7 @@ class OverlayView: NSView {
                 // Persist drawing tool choices; skip transient/mode tools
                 OverlayView.lastUsedTool = currentTool
             }
+            refreshToolCursorPreview()
         }
     }
     var currentColor: NSColor = {
@@ -349,6 +352,7 @@ class OverlayView: NSView {
                 UserDefaults.standard.set(data, forKey: "lastUsedColor")
             }
             updateToolbarColorSwatch()
+            refreshToolCursorPreview()
         }
     }
     /// currentColor with opacity applied — used for all tools except marker, loupe, measure, pixelate, blur
@@ -632,22 +636,34 @@ class OverlayView: NSView {
     // Tool options row (second row below bottom bar)
     var currentMeasureInPoints: Bool = UserDefaults.standard.bool(forKey: "measureInPoints")
     var currentLineStyle: LineStyle =
-        LineStyle(rawValue: UserDefaults.standard.integer(forKey: "currentLineStyle")) ?? .solid
+        LineStyle(rawValue: UserDefaults.standard.integer(forKey: "currentLineStyle")) ?? .solid {
+        didSet { refreshToolCursorPreview() }
+    }
     var currentArrowStyle: ArrowStyle =
-        ArrowStyle(rawValue: UserDefaults.standard.integer(forKey: "currentArrowStyle")) ?? .single
+        ArrowStyle(rawValue: UserDefaults.standard.integer(forKey: "currentArrowStyle")) ?? .single {
+        didSet { refreshToolCursorPreview() }
+    }
     var arrowReversed: Bool =
-        UserDefaults.standard.bool(forKey: "arrowReversed")
+        UserDefaults.standard.bool(forKey: "arrowReversed") {
+        didSet { refreshToolCursorPreview() }
+    }
     var currentRectFillStyle: RectFillStyle =
         RectFillStyle(rawValue: UserDefaults.standard.integer(forKey: "currentRectFillStyle"))
-        ?? .stroke
-    var currentStampImage: NSImage?  // selected emoji/image for stamp tool
+        ?? .stroke {
+        didSet { refreshToolCursorPreview() }
+    }
+    var currentStampImage: NSImage? {  // selected emoji/image for stamp tool
+        didSet { refreshToolCursorPreview() }
+    }
     var currentStampEmoji: String?  // emoji string for highlight tracking
     private var stampPreviewPoint: NSPoint?  // mouse position for stamp cursor preview
     private let stampPreviewRadius: CGFloat = 40
     var currentRectCornerRadius: CGFloat = {
         let v = UserDefaults.standard.object(forKey: "currentRectCornerRadius") as? Double
         return v != nil ? CGFloat(v!) : 0
-    }()
+    }() {
+        didSet { refreshToolCursorPreview() }
+    }
 
     // Stroke width picker popover
 
@@ -665,21 +681,48 @@ class OverlayView: NSView {
         UserDefaults.standard.object(forKey: "pencilPressureEnabled") as? Bool ?? false
     var currentPressure: CGFloat = 1.0
     var smartMarkerEnabled: Bool =
-        UserDefaults.standard.object(forKey: "smartMarkerEnabled") as? Bool ?? false
+        UserDefaults.standard.object(forKey: "smartMarkerEnabled") as? Bool ?? false {
+        didSet { refreshToolCursorPreview() }
+    }
 
 
     var currentLoupeSize: CGFloat = {
         let saved = UserDefaults.standard.object(forKey: "loupeSize") as? Double
         return saved != nil ? CGFloat(saved!) : 120.0
-    }()
+    }() {
+        didSet { refreshToolCursorPreview() }
+    }
+    private lazy var magnifiedCalloutPreview = MagnifiedCalloutPreviewController(hostView: self)
+    private lazy var numberedCalloutPreview = NumberedCalloutPreviewController(hostView: self)
     private var loupeCursorPoint: NSPoint = .zero
     var drawingCursorPoint: NSPoint = .zero
     private var smartMarkerLineHeight: CGFloat?  // detected text line height at cursor (smart marker)
+    private enum CursorVisualMode {
+        case system
+        case toolPreview
+    }
+    private var cursorVisualMode: CursorVisualMode = .system
     // Auto-measure preview (live while holding 1 or 2 key)
     private var autoMeasurePreview: Annotation?  // temporary, drawn but not in annotations[]
     private var autoMeasureVertical: Bool = true  // true = "1" key, false = "2" key
     private var autoMeasureKeyHeld: Bool = false  // true while 1 or 2 is held down
     private var autoMeasureBitmapCtx: CGContext?  // cached pixel data for fast scanning
+
+    private var shouldDrawCurrentAnnotationInline: Bool {
+        guard let annotation = currentAnnotation else { return false }
+        if annotation.tool == .number && numberedCalloutPreview.sourcePoint != nil {
+            return false
+        }
+        if annotation.tool == .loupe && magnifiedCalloutPreview.sourcePoint != nil {
+            return false
+        }
+        return true
+    }
+
+    private func drawCurrentAnnotationIfNeeded(in context: NSGraphicsContext) {
+        guard shouldDrawCurrentAnnotationInline else { return }
+        currentAnnotation?.draw(in: context)
+    }
     private var autoMeasureBitmapW: Int = 0
     private var autoMeasureBitmapH: Int = 0
     // Snap/alignment guides
@@ -1064,7 +1107,9 @@ class OverlayView: NSView {
         let saved = UserDefaults.standard.object(forKey: "lastUsedColorOpacity") as? Double
         return saved != nil ? CGFloat(saved!) : 1.0
     }()
-    private var currentColorOpacity: CGFloat = OverlayView.lastUsedOpacity
+    private var currentColorOpacity: CGFloat = OverlayView.lastUsedOpacity {
+        didSet { refreshToolCursorPreview() }
+    }
 
     // Radial color wheel (right-click in drawing mode)
     private let colorWheel = ColorWheelRenderer()
@@ -1244,14 +1289,111 @@ class OverlayView: NSView {
         return true
     }
 
+    private func supportsDrawingCursorPreview(for tool: AnnotationTool) -> Bool {
+        switch tool {
+        case .pencil, .marker, .line, .arrow, .measure, .number:
+            return true
+        default:
+            return false
+        }
+    }
+
     private func shouldShowDrawingCursorPreview(at viewPoint: NSPoint) -> Bool {
         guard state == .selected,
             !isRecording,
-            (currentTool == .pencil || currentTool == .marker),
+            supportsDrawingCursorPreview(for: currentTool),
             pointIsInSelection(viewPoint),
             !isPointOnChrome(viewPoint)
         else { return false }
         return true
+    }
+
+    private var shouldDrawActiveDrawingCursorPreview: Bool {
+        guard supportsDrawingCursorPreview(for: currentTool),
+            drawingCursorPoint != .zero,
+            currentAnnotation == nil,
+            !isDraggingAnnotation,
+            !isResizingAnnotation,
+            !isRotatingAnnotation
+        else { return false }
+        return true
+    }
+
+    private func updateSmartMarkerPreviewMetrics(at canvasPoint: NSPoint) {
+        guard currentTool == .marker && smartMarkerEnabled else {
+            smartMarkerLineHeight = nil
+            return
+        }
+        if let handler = toolHandlers[.marker] as? MarkerToolHandler {
+            handler.ensureOCRCache(canvas: self)
+            smartMarkerLineHeight = handler.textLineHeight(at: canvasPoint, canvas: self)
+        }
+    }
+
+    private func updateStampPreview(at viewPoint: NSPoint) {
+        guard currentTool == .stamp,
+            cursorVisualMode == .toolPreview,
+            shouldShowStampPreview(at: viewPoint)
+        else {
+            clearStampPreview()
+            return
+        }
+
+        let canvasStampPt = viewToCanvas(viewPoint)
+        if stampPreviewPoint == nil
+            || hypot(
+                canvasStampPt.x - (stampPreviewPoint?.x ?? 0),
+                canvasStampPt.y - (stampPreviewPoint?.y ?? 0)) > 0.5
+        {
+            let oldPt = stampPreviewPoint ?? .zero
+            stampPreviewPoint = canvasStampPt
+            invalidateCursorPreview(oldCanvas: oldPt, newCanvas: canvasStampPt, radius: stampPreviewRadius)
+        }
+    }
+
+    private func updateLoupePreview(at viewPoint: NSPoint) {
+        guard currentTool == .loupe,
+            cursorVisualMode == .toolPreview,
+            shouldShowLoupePreview(at: viewPoint)
+        else {
+            clearLoupePreview()
+            return
+        }
+
+        let newPoint = viewToCanvas(viewPoint)
+        if newPoint != loupeCursorPoint {
+            let oldPt = loupeCursorPoint
+            loupeCursorPoint = newPoint
+            let r = currentLoupeSize / 2 + 4
+            invalidateCursorPreview(oldCanvas: oldPt, newCanvas: newPoint, radius: r)
+        }
+    }
+
+    private func updateDrawingCursorPreview(at viewPoint: NSPoint) {
+        guard cursorVisualMode == .toolPreview,
+            shouldShowDrawingCursorPreview(at: viewPoint)
+        else {
+            clearDrawingCursorPreview()
+            return
+        }
+
+        let canvasPoint = viewToCanvas(viewPoint)
+        let oldPt = drawingCursorPoint
+        let oldR = drawingCursorRadius
+        drawingCursorPoint = canvasPoint
+        updateSmartMarkerPreviewMetrics(at: canvasPoint)
+        let newR = drawingCursorRadius
+
+        if canvasPoint != oldPt || abs(newR - oldR) > 0.5 {
+            let r = max(oldR, newR) + 4
+            invalidateCursorPreview(oldCanvas: oldPt, newCanvas: canvasPoint, radius: r)
+        }
+    }
+
+    private func updateToolCursorPreviews(at viewPoint: NSPoint) {
+        updateStampPreview(at: viewPoint)
+        updateLoupePreview(at: viewPoint)
+        updateDrawingCursorPreview(at: viewPoint)
     }
 
     private func clearStampPreview() {
@@ -1295,24 +1437,9 @@ class OverlayView: NSView {
             return
         }
 
-        // Stamp cursor preview — track in view coords (same as annotations)
-        if shouldShowStampPreview(at: point) {
-            let canvasStampPt = viewToCanvas(point)
-            if stampPreviewPoint == nil
-                || hypot(
-                    canvasStampPt.x - (stampPreviewPoint?.x ?? 0),
-                    canvasStampPt.y - (stampPreviewPoint?.y ?? 0)) > 0.5
-            {
-                let oldPt = stampPreviewPoint ?? .zero
-                stampPreviewPoint = canvasStampPt
-                invalidateCursorPreview(oldCanvas: oldPt, newCanvas: canvasStampPt, radius: stampPreviewRadius)
-            }
-        } else {
-            clearStampPreview()
-        }
-
         // Update cursor on every mouse move
         updateCursorForPoint(point)
+        updateToolCursorPreviews(at: point)
 
         // Auto-measure: update preview as cursor moves while key is held
         if autoMeasureKeyHeld {
@@ -1334,42 +1461,6 @@ class OverlayView: NSView {
                 })
             else { return }
             queryWindowSnap(at: screenPoint)
-        }
-
-        // Track cursor for loupe live preview (use canvas space for zoom correctness)
-        if shouldShowLoupePreview(at: point) {
-            let newPoint = viewToCanvas(point)
-            if newPoint != loupeCursorPoint {
-                let oldPt = loupeCursorPoint
-                loupeCursorPoint = newPoint
-                let r = currentLoupeSize / 2 + 4
-                invalidateCursorPreview(oldCanvas: oldPt, newCanvas: newPoint, radius: r)
-            }
-        } else {
-            clearLoupePreview()
-        }
-
-        // Track cursor for pencil/marker dot preview (canvas space so it scales with zoom)
-        if shouldShowDrawingCursorPreview(at: point) {
-            let canvasPoint = viewToCanvas(point)
-            if canvasPoint != drawingCursorPoint {
-                let oldPt = drawingCursorPoint
-                let oldR = drawingCursorRadius
-                drawingCursorPoint = canvasPoint
-                // Smart marker: query line height at cursor and update preview size
-                if currentTool == .marker && smartMarkerEnabled {
-                    if let handler = toolHandlers[.marker] as? MarkerToolHandler {
-                        handler.ensureOCRCache(canvas: self)
-                        smartMarkerLineHeight = handler.textLineHeight(at: canvasPoint, canvas: self)
-                    }
-                }
-                // Invalidate both old and new positions with the larger radius
-                let newR = drawingCursorRadius
-                let r = max(oldR, newR) + 4
-                invalidateCursorPreview(oldCanvas: oldPt, newCanvas: canvasPoint, radius: r)
-            }
-        } else {
-            clearDrawingCursorPreview()
         }
 
         // Toolbar hover handled by ToolbarButtonView (real NSView subviews)
@@ -1421,6 +1512,8 @@ class OverlayView: NSView {
     /// Imperative cursor management. Called from mouseMoved and a 30fps timer.
     /// Simplified: arrow for chrome, resize cursors for handles, tool cursor for canvas.
     private func updateCursorForPoint(_ point: NSPoint) {
+        cursorVisualMode = .system
+
         // Arrow cursor when mouse is over an open popover
         if PopoverHelper.isMouseInsidePopover {
             NSCursor.arrow.set()
@@ -1559,8 +1652,8 @@ class OverlayView: NSView {
                 return
             }
 
-            // Body hover — open hand (skip for pencil/marker where click always draws)
-            if currentTool != .pencil && currentTool != .marker {
+            // Body hover — open hand (skip for pencil where click still draws immediately)
+            if currentTool != .pencil {
                 let canvasPoint = viewToCanvas(point)
                 if let selected = selectedAnnotation, selected.hitTest(point: canvasPoint) {
                     NSCursor.openHand.set()
@@ -1574,22 +1667,25 @@ class OverlayView: NSView {
 
             // Inside selection area but not on any annotation — show drag cursor (Snipaste-style)
             // This allows dragging the entire selection without clicking the move button
-            if selectionRect.contains(point) {
+            if currentTool == .select && selectionRect.contains(point) {
                 NSCursor.closedHand.set()
                 return
             }
         }
 
-        // Tool cursor — use handler's state-aware cursor if available, else legacy switch
-        // Pencil/marker: hide system cursor when dot preview is active (the dot IS the cursor)
-        if (currentTool == .pencil || currentTool == .marker)
-            && state == .selected && drawingCursorPoint != .zero {
+        // Tool preview takes over only after higher-priority interaction cursors have been ruled out.
+        if (currentTool == .stamp && shouldShowStampPreview(at: point))
+            || (currentTool == .loupe && shouldShowLoupePreview(at: point))
+            || shouldShowDrawingCursorPreview(at: point)
+        {
+            cursorVisualMode = .toolPreview
             Self.invisibleCursor.set()
         } else if let handler = toolHandlers[currentTool], let cursor = handler.cursorForCanvas(self) {
             cursor.set()
         } else {
             switch currentTool {
             case .select: NSCursor.arrow.set()
+            case .text: NSCursor.iBeam.set()
             default: NSCursor.crosshair.set()
             }
         }
@@ -1601,10 +1697,17 @@ class OverlayView: NSView {
         chromeParentView?.subviews.compactMap { $0 as? EditorTopBarView }.first
     }
 
+    private func refreshToolCursorPreview() {
+        guard window != nil else { return }
+        updateCursorForCurrentTool()
+        needsDisplay = true
+    }
+
     func updateCursorForCurrentTool() {
         guard let win = window else { return }
         let point = convert(win.mouseLocationOutsideOfEventStream, from: nil)
         updateCursorForPoint(point)
+        updateToolCursorPreviews(at: point)
     }
 
     // MARK: - Hit Testing
@@ -1920,7 +2023,7 @@ class OverlayView: NSView {
                 context.saveGraphicsState()
                 applyCanvasTransform(to: context)
             }
-            currentAnnotation?.draw(in: context)
+            drawCurrentAnnotationIfNeeded(in: context)
             autoMeasurePreview?.draw(in: context)
 
             // Crop selection rectangle preview
@@ -1977,8 +2080,8 @@ class OverlayView: NSView {
                 drawMultiSelectDeleteButton()
             }
 
-            // Pencil/marker cursor dot preview inside zoom transform so it scales with zoom
-            if (currentTool == .pencil || currentTool == .marker) && drawingCursorPoint != .zero && currentAnnotation == nil && !isDraggingAnnotation && !isResizingAnnotation && !isRotatingAnnotation {
+            // Tool cursor preview inside zoom transform so it scales with zoom
+            if shouldDrawActiveDrawingCursorPreview {
                 drawDrawingCursorPreview(at: drawingCursorPoint)
             }
 
@@ -2019,7 +2122,7 @@ class OverlayView: NSView {
                 if currentAnnotation != nil || autoMeasurePreview != nil {
                     context.saveGraphicsState()
                     applyCanvasTransform(to: context)
-                    currentAnnotation?.draw(in: context)
+                    drawCurrentAnnotationIfNeeded(in: context)
                     autoMeasurePreview?.draw(in: context)
                     context.restoreGraphicsState()
                 }
@@ -2059,9 +2162,8 @@ class OverlayView: NSView {
                     context.restoreGraphicsState()
                 }
 
-                // Re-draw drawing cursor dot preview on top of beautify
-                if (currentTool == .pencil || currentTool == .marker) && drawingCursorPoint != .zero && currentAnnotation == nil && !isDraggingAnnotation && !isResizingAnnotation && !isRotatingAnnotation
-                {
+                // Re-draw tool cursor preview on top of beautify
+                if shouldDrawActiveDrawingCursorPreview {
                     context.saveGraphicsState()
                     applyCanvasTransform(to: context)
                     drawDrawingCursorPreview(at: drawingCursorPoint)
@@ -2091,7 +2193,7 @@ class OverlayView: NSView {
                 // Re-draw annotations on top (censor first, then everything else)
                 for annotation in annotations where annotation.tool == .pixelate { annotation.draw(in: context) }
                 for annotation in annotations where annotation.tool != .pixelate { annotation.draw(in: context) }
-                currentAnnotation?.draw(in: context)
+                drawCurrentAnnotationIfNeeded(in: context)
                 context.restoreGraphicsState()
 
                 // Re-draw overlays on top of effects preview
@@ -2110,7 +2212,7 @@ class OverlayView: NSView {
                     drawLoupePreview(at: loupeCursorPoint)
                     context.restoreGraphicsState()
                 }
-                if (currentTool == .pencil || currentTool == .marker) && drawingCursorPoint != .zero && currentAnnotation == nil && !isDraggingAnnotation && !isResizingAnnotation && !isRotatingAnnotation {
+                if shouldDrawActiveDrawingCursorPreview {
                     context.saveGraphicsState()
                     applyCanvasTransform(to: context)
                     drawDrawingCursorPreview(at: drawingCursorPoint)
@@ -3034,7 +3136,7 @@ class OverlayView: NSView {
             for annotation in annotations {
                 annotation.draw(in: context)
             }
-            currentAnnotation?.draw(in: context)
+            drawCurrentAnnotationIfNeeded(in: context)
             if dx != 0 || dy != 0 {
                 context.cgContext.translateBy(x: -dx, y: -dy)
             }
@@ -3115,7 +3217,7 @@ class OverlayView: NSView {
             for annotation in annotations {
                 annotation.draw(in: context)
             }
-            currentAnnotation?.draw(in: context)
+            drawCurrentAnnotationIfNeeded(in: context)
             if dx != 0 || dy != 0 {
                 context.cgContext.translateBy(x: -dx, y: -dy)
             }
@@ -3141,7 +3243,7 @@ class OverlayView: NSView {
             for annotation in annotations {
                 annotation.draw(in: context)
             }
-            currentAnnotation?.draw(in: context)
+            drawCurrentAnnotationIfNeeded(in: context)
             if dx != 0 || dy != 0 {
                 context.cgContext.translateBy(x: -dx, y: -dy)
             }
@@ -4041,21 +4143,250 @@ class OverlayView: NSView {
         ).fill()
     }
 
-    /// Half-extent of the drawing cursor preview (used for dirty rect invalidation).
-    private var drawingCursorRadius: CGFloat {
-        if currentTool == .marker {
-            if smartMarkerEnabled {
-                // Smart marker pill: height is the dominant dimension
-                let h = smartMarkerLineHeight ?? currentMarkerSize
-                return h / 2
-            }
-            return currentMarkerSize / 2
-        } else {
-            return max(currentStrokeWidth / 2, 2)
+    private var activeDrawingPreviewStrokeWidth: CGFloat {
+        max(activeStrokeWidthForTool(currentTool), 1)
+    }
+
+    private var activeDrawingPreviewColor: NSColor {
+        switch currentTool {
+        case .pixelate, .blur:
+            return NSColor.white
+        default:
+            return opacityAppliedColor(for: currentTool)
         }
     }
 
+    private var drawingCursorCoreRadius: CGFloat {
+        switch currentTool {
+        case .marker:
+            if smartMarkerEnabled {
+                return max((smartMarkerLineHeight ?? currentMarkerSize) / 2, 6)
+            }
+            return max(currentMarkerSize / 2, 6)
+        case .number:
+            return NumberCalloutGeometry.bubbleRadius(for: currentNumberSize)
+        case .loupe:
+            return max(currentLoupeSize / 2, 12)
+        default:
+            return max(activeDrawingPreviewStrokeWidth / 2, 5)
+        }
+    }
+
+    /// Half-extent of the drawing cursor preview (used for dirty rect invalidation).
+    private var drawingCursorRadius: CGFloat {
+        switch currentTool {
+        case .marker:
+            return max(drawingCursorCoreRadius + 2, 8)
+        case .pencil:
+            return max(drawingCursorCoreRadius + 2, 6)
+        case .measure:
+            return 16
+        case .number:
+            return max(drawingCursorCoreRadius + 8, 18)
+        case .pixelate, .blur:
+            return max(drawingCursorCoreRadius + 12, 18)
+        case .line, .arrow, .rectangle, .filledRectangle, .ellipse:
+            return max(drawingCursorCoreRadius + 10, 16)
+        default:
+            return max(drawingCursorCoreRadius + 8, 14)
+        }
+    }
+
+    private func drawToolCursorTicks(at center: NSPoint, radius: CGFloat, color: NSColor) {
+        let inner = radius + 2
+        let outer = radius + 7
+        let path = NSBezierPath()
+        path.lineCapStyle = .round
+        path.lineWidth = 1.25
+        path.move(to: NSPoint(x: center.x, y: center.y + inner))
+        path.line(to: NSPoint(x: center.x, y: center.y + outer))
+        path.move(to: NSPoint(x: center.x + inner, y: center.y))
+        path.line(to: NSPoint(x: center.x + outer, y: center.y))
+        path.move(to: NSPoint(x: center.x, y: center.y - inner))
+        path.line(to: NSPoint(x: center.x, y: center.y - outer))
+        path.move(to: NSPoint(x: center.x - inner, y: center.y))
+        path.line(to: NSPoint(x: center.x - outer, y: center.y))
+        color.withAlphaComponent(0.9).setStroke()
+        path.stroke()
+    }
+
+    private func drawStrokeDotCursorPreview(
+        at center: NSPoint,
+        radius: CGFloat,
+        color: NSColor,
+        filled: Bool
+    ) {
+        let dotRadius = max(radius, 5)
+        let circleRect = NSRect(
+            x: center.x - dotRadius,
+            y: center.y - dotRadius,
+            width: dotRadius * 2,
+            height: dotRadius * 2)
+        let path = NSBezierPath(ovalIn: circleRect)
+        if filled {
+            color.withAlphaComponent(0.95).setFill()
+            path.fill()
+            let border = NSBezierPath(ovalIn: circleRect.insetBy(dx: -0.5, dy: -0.5))
+            border.lineWidth = 1.0
+            NSColor.white.withAlphaComponent(0.55).setStroke()
+            border.stroke()
+            let inner = NSBezierPath(ovalIn: circleRect.insetBy(dx: 0.5, dy: 0.5))
+            inner.lineWidth = 0.5
+            NSColor.black.withAlphaComponent(0.22).setStroke()
+            inner.stroke()
+        } else {
+            color.withAlphaComponent(0.28).setFill()
+            path.fill()
+            path.lineWidth = max(1.0, min(activeDrawingPreviewStrokeWidth * 0.22, 1.8))
+            color.withAlphaComponent(0.95).setStroke()
+            path.stroke()
+        }
+    }
+
+    private func drawMeasureCursorPreview(at center: NSPoint, color: NSColor) {
+        let scale = max(isInsideScrollView ? 1 : zoomLevel, 0.001)
+        let majorStart: CGFloat = 9 / scale
+        let majorEnd: CGFloat = 14 / scale
+        let lineHalf: CGFloat = 8 / scale
+        let capHeight: CGFloat = 3.5 / scale
+        let notchHalf: CGFloat = 2.5 / scale
+
+        let tickPath = NSBezierPath()
+        tickPath.lineCapStyle = .round
+        tickPath.lineWidth = 1.25 / scale
+        tickPath.move(to: NSPoint(x: center.x, y: center.y + majorStart))
+        tickPath.line(to: NSPoint(x: center.x, y: center.y + majorEnd))
+        tickPath.move(to: NSPoint(x: center.x + majorStart, y: center.y))
+        tickPath.line(to: NSPoint(x: center.x + majorEnd, y: center.y))
+        tickPath.move(to: NSPoint(x: center.x, y: center.y - majorStart))
+        tickPath.line(to: NSPoint(x: center.x, y: center.y - majorEnd))
+        tickPath.move(to: NSPoint(x: center.x - majorStart, y: center.y))
+        tickPath.line(to: NSPoint(x: center.x - majorEnd, y: center.y))
+        color.withAlphaComponent(0.9).setStroke()
+        tickPath.stroke()
+
+        let linePath = NSBezierPath()
+        linePath.lineCapStyle = .round
+        linePath.lineWidth = 1.6 / scale
+        linePath.move(to: NSPoint(x: center.x - lineHalf, y: center.y))
+        linePath.line(to: NSPoint(x: center.x + lineHalf, y: center.y))
+        color.withAlphaComponent(0.95).setStroke()
+        linePath.stroke()
+
+        let capPath = NSBezierPath()
+        capPath.lineCapStyle = .round
+        capPath.lineWidth = 1.4 / scale
+        capPath.move(to: NSPoint(x: center.x - lineHalf, y: center.y - capHeight))
+        capPath.line(to: NSPoint(x: center.x - lineHalf, y: center.y + capHeight))
+        capPath.move(to: NSPoint(x: center.x + lineHalf, y: center.y - capHeight))
+        capPath.line(to: NSPoint(x: center.x + lineHalf, y: center.y + capHeight))
+        color.withAlphaComponent(0.95).setStroke()
+        capPath.stroke()
+
+        let notchPath = NSBezierPath()
+        notchPath.lineCapStyle = .round
+        notchPath.lineWidth = 1.0 / scale
+        notchPath.move(to: NSPoint(x: center.x, y: center.y - notchHalf))
+        notchPath.line(to: NSPoint(x: center.x, y: center.y + notchHalf))
+        color.withAlphaComponent(0.75).setStroke()
+        notchPath.stroke()
+    }
+
+    private func drawShapeToolCursorPreview(
+        at center: NSPoint,
+        radius: CGFloat,
+        color: NSColor,
+        shape: AnnotationTool
+    ) {
+        drawToolCursorTicks(at: center, radius: radius, color: color)
+
+        let rect = NSRect(x: center.x - 5.5, y: center.y - 4.5, width: 11, height: 9)
+        let path: NSBezierPath
+        switch shape {
+        case .ellipse:
+            path = NSBezierPath(ovalIn: rect)
+        default:
+            path = NSBezierPath(
+                roundedRect: rect,
+                xRadius: shape == .filledRectangle ? 2.5 : 2,
+                yRadius: shape == .filledRectangle ? 2.5 : 2)
+        }
+
+        if shape == .filledRectangle {
+            color.withAlphaComponent(0.25).setFill()
+            path.fill()
+        }
+        path.lineWidth = max(1.2, min(activeDrawingPreviewStrokeWidth * 0.32, 2.2))
+        color.withAlphaComponent(0.95).setStroke()
+        path.stroke()
+    }
+
+    private func drawNumberToolCursorPreview(at center: NSPoint, radius: CGFloat, color: NSColor) {
+        let circleRadius = radius
+        let circleRect = NSRect(
+            x: center.x - circleRadius,
+            y: center.y - circleRadius,
+            width: circleRadius * 2,
+            height: circleRadius * 2)
+        let circle = NSBezierPath(ovalIn: circleRect)
+        color.withAlphaComponent(0.98).setFill()
+        circle.fill()
+        NSColor.white.withAlphaComponent(0.16).setStroke()
+        circle.lineWidth = 0.8
+        circle.stroke()
+
+        let nextNumber = currentNumberFormat.format(numberCounter + numberStartAt)
+        let fontSize = circleRadius * 1.1
+        if let cgContext = NSGraphicsContext.current?.cgContext {
+            NumberCalloutTextLayout.draw(
+                text: nextNumber,
+                font: NSFont.boldSystemFont(ofSize: fontSize),
+                fillColor: color,
+                in: circleRect,
+                cgContext: cgContext
+            )
+        }
+    }
+
+    private func drawCensorToolCursorPreview(
+        at center: NSPoint,
+        radius: CGFloat,
+        color: NSColor,
+        isBlur: Bool
+    ) {
+        let side = min(max(radius * 1.25, 18), 28)
+        let rect = NSRect(x: center.x - side / 2, y: center.y - side / 2, width: side, height: side)
+        let path = NSBezierPath(roundedRect: rect, xRadius: 4, yRadius: 4)
+        let fillColor = isBlur ? color.withAlphaComponent(0.12) : color.withAlphaComponent(0.08)
+        fillColor.setFill()
+        path.fill()
+        path.lineWidth = 1.2
+        let borderColor = isBlur ? color.withAlphaComponent(0.95) : color.withAlphaComponent(0.9)
+        borderColor.setStroke()
+        let dashPattern: [CGFloat] = isBlur ? [4, 3] : [2, 2]
+        path.setLineDash(dashPattern, count: dashPattern.count, phase: 0)
+        path.stroke()
+
+        let innerStep = side / 4
+        let grid = NSBezierPath()
+        grid.lineWidth = 0.9
+        grid.lineCapStyle = .round
+        for index in 1..<4 {
+            let x = rect.minX + innerStep * CGFloat(index)
+            grid.move(to: NSPoint(x: x, y: rect.minY + 3))
+            grid.line(to: NSPoint(x: x, y: rect.maxY - 3))
+            let y = rect.minY + innerStep * CGFloat(index)
+            grid.move(to: NSPoint(x: rect.minX + 3, y: y))
+            grid.line(to: NSPoint(x: rect.maxX - 3, y: y))
+        }
+        borderColor.withAlphaComponent(isBlur ? 0.35 : 0.55).setStroke()
+        grid.stroke()
+    }
+
     private func drawDrawingCursorPreview(at center: NSPoint) {
+        let radius = drawingCursorCoreRadius
+        let color = activeDrawingPreviewColor
+
         if currentTool == .marker && smartMarkerEnabled {
             // Smart marker: vertical pill that scales to text line height
             let h = smartMarkerLineHeight ?? currentMarkerSize
@@ -4067,9 +4398,10 @@ class OverlayView: NSView {
             currentColor.withAlphaComponent(0.8).setStroke()
             pill.lineWidth = 1.0
             pill.stroke()
-        } else if currentTool == .marker {
-            // Normal marker: circle at marker stroke size
-            let radius = drawingCursorRadius
+            return
+        }
+
+        if currentTool == .marker {
             let circleRect = NSRect(
                 x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2)
             let path = NSBezierPath(ovalIn: circleRect)
@@ -4078,10 +4410,12 @@ class OverlayView: NSView {
             currentColor.withAlphaComponent(0.7).setStroke()
             path.lineWidth = 1.0
             path.stroke()
-        } else {
+            return
+        }
+
+        if currentTool == .pencil {
             // Pencil: solid dot at stroke width (fixed size — don't scale by pressure
             // to avoid distracting size ripple while moving the cursor)
-            let radius = max(drawingCursorRadius, 0.5)
             let circleRect = NSRect(
                 x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2)
             let path = NSBezierPath(ovalIn: circleRect)
@@ -4095,6 +4429,24 @@ class OverlayView: NSView {
             inner.lineWidth = 0.5
             NSColor.black.withAlphaComponent(0.3).setStroke()
             inner.stroke()
+            return
+        }
+
+        switch currentTool {
+        case .line, .arrow:
+            drawStrokeDotCursorPreview(at: center, radius: radius, color: color, filled: true)
+        case .measure:
+            drawMeasureCursorPreview(at: center, color: color)
+        case .rectangle, .filledRectangle, .ellipse:
+            drawShapeToolCursorPreview(at: center, radius: radius, color: color, shape: currentTool)
+        case .number:
+            drawNumberToolCursorPreview(at: center, radius: radius, color: color)
+        case .pixelate:
+            drawCensorToolCursorPreview(at: center, radius: radius, color: color, isBlur: false)
+        case .blur:
+            drawCensorToolCursorPreview(at: center, radius: radius, color: color, isBlur: true)
+        default:
+            break
         }
     }
 
@@ -4130,9 +4482,13 @@ class OverlayView: NSView {
             width: srcRect.width * scaleX, height: srcRect.height * scaleY)
         screenshot.draw(in: squareRect, from: fromRect, operation: .copy, fraction: 1.0)
 
-        // Simple border
-        NSColor.white.withAlphaComponent(0.6).setStroke()
-        path.lineWidth = 3
+        // Outer + inner border so the loupe edge stays visible on light and dark backgrounds
+        NSColor.black.withAlphaComponent(0.35).setStroke()
+        path.lineWidth = 4
+        path.stroke()
+
+        NSColor.white.withAlphaComponent(0.82).setStroke()
+        path.lineWidth = 2
         path.stroke()
 
         context.restoreGraphicsState()
@@ -6182,7 +6538,11 @@ class OverlayView: NSView {
                         at: canvasPoint, shiftHeld: event.modifierFlags.contains(.shift))
                 }
                 lastDragPoint = canvasPoint
-                needsDisplay = true
+                if let annotation = currentAnnotation,
+                    toolHandlers[annotation.tool]?.requiresDisplayRefreshDuringDrag ?? true
+                {
+                    needsDisplay = true
+                }
             }
 
         default:
@@ -6651,7 +7011,7 @@ class OverlayView: NSView {
             } else if ann.tool == .number {
                 // Adjust number size
                 let oldSize = currentNumberSize
-                let newSize = min(30, max(8, oldSize + delta * step))
+                let newSize = NumberCalloutGeometry.clampSize(oldSize + delta * step)
                 if newSize != oldSize {
                     currentNumberSize = newSize
                     ann.strokeWidth = currentNumberSize
@@ -6687,17 +7047,21 @@ class OverlayView: NSView {
             } else if ann.tool == .loupe {
                 // Adjust loupe size
                 let oldSize = currentLoupeSize
+                let oldSnapshot = ann.clone()
                 let newSize = min(320, max(50, oldSize + delta * step * 10))
                 if newSize != oldSize {
                     currentLoupeSize = newSize
+                    let center = NSPoint(x: ann.boundingRect.midX, y: ann.boundingRect.midY)
+                    ann.startPoint = NSPoint(x: center.x - newSize / 2, y: center.y - newSize / 2)
+                    ann.endPoint = NSPoint(x: center.x + newSize / 2, y: center.y + newSize / 2)
+                    ann.bakeLoupe()
                     needsDisplay = true
                     toolOptionsRowView?.updateStrokeSlider(value: newSize)
                     scheduleScrollPropertyCommit { [weak self] in
                         guard let self = self else { return }
                         UserDefaults.standard.set(newSize, forKey: "loupeSize")
                         if self.annotations.contains(where: { $0 === ann }) {
-                            let snapshot = ann.clone()
-                            self.undoStack.append(.propertyChange(annotation: ann, snapshot: snapshot))
+                            self.undoStack.append(.propertyChange(annotation: ann, snapshot: oldSnapshot))
                         }
                     }
                 }
@@ -6718,6 +7082,22 @@ class OverlayView: NSView {
                 }
             }
             return
+        }
+
+        if currentTool == .loupe {
+            let oldSize = currentLoupeSize
+            let newSize = min(320, max(40, oldSize + event.deltaY * 5))
+            if newSize != oldSize {
+                setActiveStrokeWidth(newSize, for: .loupe)
+                toolOptionsRowView?.updateStrokeSlider(value: newSize)
+            }
+        } else if currentTool == .number {
+            let oldSize = currentNumberSize
+            let newSize = NumberCalloutGeometry.clampSize(oldSize + event.deltaY * 0.5)
+            if newSize != oldSize {
+                setActiveStrokeWidth(newSize, for: .number)
+                toolOptionsRowView?.updateStrokeSlider(value: newSize)
+            }
         }
 
         // No annotation selected and no Cmd key → ignore (require Cmd for canvas zoom)
@@ -7831,9 +8211,9 @@ class OverlayView: NSView {
         guard !isRecording else { return }
 
         // Click-to-select: if clicking on an existing annotation, select it instead of
-        // starting a new annotation. Pencil and marker use long-press instead (so taps
-        // and drags always draw, even single dots).
-        let isPencilOrMarker = currentTool == .pencil || currentTool == .marker
+        // starting a new annotation. Pencil keeps long-press behavior so taps and drags
+        // still draw immediately; marker follows the normal interaction path.
+        let isPencilTool = currentTool == .pencil
 
         // Multi-select delete button — check before single-select controls
         if selectedAnnotations.count > 1 && multiSelectDeleteButtonRect.contains(point) {
@@ -7865,11 +8245,11 @@ class OverlayView: NSView {
         // on an already-selected annotation (allows multi-drag).
         let shiftHeld = NSEvent.modifierFlags.contains(.shift)
         let ctrlHeld = NSEvent.modifierFlags.contains(.control)
-        let pencilHasMultiSelection = isPencilOrMarker && selectedAnnotations.count > 1
+        let pencilHasMultiSelection = isPencilTool && selectedAnnotations.count > 1
         let textHasSelection = currentTool == .text && !selectedAnnotations.isEmpty
         let useInstantSelect = currentTool != .colorSampler
             && (currentTool != .text || shiftHeld || textHasSelection)
-            && (!isPencilOrMarker || shiftHeld || ctrlHeld || pencilHasMultiSelection)
+            && (!isPencilTool || shiftHeld || ctrlHeld || pencilHasMultiSelection)
         if useInstantSelect {
             if let clicked = annotations.reversed().first(where: { $0.isMovable && $0.hitTest(point: point) }) {
                 shiftClickPendingDeselect = nil
@@ -7911,7 +8291,7 @@ class OverlayView: NSView {
         // Pencil/marker without Shift: start a long-press timer. If the user holds
         // still for 300ms on an annotation, select it. Otherwise drawing starts
         // normally (the timer is cancelled in mouseDragged when movement exceeds 3px).
-        if isPencilOrMarker && !shiftHeld {
+        if isPencilTool && !shiftHeld {
             let hasAnnotationUnder = annotations.reversed().contains(where: { $0.isMovable && $0.hitTest(point: point) })
             if hasAnnotationUnder {
                 longPressPoint = point
@@ -9480,7 +9860,7 @@ class OverlayView: NSView {
             currentStrokeWidth = value
             UserDefaults.standard.set(Double(value), forKey: "currentStrokeWidth")
         }
-        needsDisplay = true
+        refreshToolCursorPreview()
     }
 
 
@@ -9765,6 +10145,67 @@ extension OverlayView: AnnotationCanvas {
         // Keep the current tool active for continuous drawing.
         selectedAnnotation = annotation
         cachedCompositedImage = nil
+    }
+
+    func beginMagnifiedCalloutPreview(sourcePoint: NSPoint, color: NSColor) {
+        clearLoupePreview()
+        magnifiedCalloutPreview.begin(
+            at: sourcePoint,
+            diameter: currentLoupeSize,
+            color: color
+        )
+    }
+
+    func updateMagnifiedCalloutPreview(destinationPoint: NSPoint) {
+        let drawingBounds = selectionRect.intersection(bounds).isEmpty ? selectionRect : selectionRect.intersection(bounds)
+        let scale = window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2
+        magnifiedCalloutPreview.update(
+            destination: destinationPoint,
+            constrainedTo: drawingBounds,
+            image: loupeSourceCGImage,
+            imageDrawRect: captureDrawRect,
+            color: currentColor,
+            backingScale: scale
+        )
+    }
+
+    func finishMagnifiedCalloutPreview() -> LoupeCalloutPreviewSnapshot? {
+        magnifiedCalloutPreview.finish()
+    }
+
+    func cancelMagnifiedCalloutPreview() {
+        magnifiedCalloutPreview.hide()
+    }
+
+    func beginNumberedCalloutPreview(sourcePoint: NSPoint, bubbleDiameter: CGFloat, numberText: String, color: NSColor) {
+        clearDrawingCursorPreview()
+        let scale = window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2
+        numberedCalloutPreview.begin(
+            at: sourcePoint,
+            diameter: bubbleDiameter,
+            numberText: numberText,
+            color: color,
+            backingScale: scale
+        )
+    }
+
+    func updateNumberedCalloutPreview(destinationPoint: NSPoint) {
+        let drawingBounds = selectionRect.intersection(bounds).isEmpty ? selectionRect : selectionRect.intersection(bounds)
+        let scale = window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2
+        numberedCalloutPreview.update(
+            destination: destinationPoint,
+            constrainedTo: drawingBounds,
+            color: opacityAppliedColor(for: .number),
+            backingScale: scale
+        )
+    }
+
+    func finishNumberedCalloutPreview() -> LoupeCalloutPreviewSnapshot? {
+        numberedCalloutPreview.finish()
+    }
+
+    func cancelNumberedCalloutPreview() {
+        numberedCalloutPreview.hide()
     }
 }
 

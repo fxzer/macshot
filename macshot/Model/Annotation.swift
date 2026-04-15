@@ -156,6 +156,8 @@ class Annotation {
     var sourceImage: NSImage?    // for pixelate: temporary reference during drawing (cleared after bake)
     var sourceImageBounds: NSRect = .zero  // the bounds the image was drawn into
     var bakedBlurNSImage: NSImage?    // baked result for pixelate/blur (NSImage avoids CGImage flip issues)
+    var loupeSourcePoint: NSPoint?    // magnified callout sampling center
+    var loupeMagnification: CGFloat = MagnifiedCalloutGeometry.magnification
     var outlineGlowImage: NSImage?   // cached selection outline glow (invalidated on move/change)
     var outlineGlowRect: NSRect = .zero  // the rect the cached glow covers
     var textImage: NSImage?   // snapshot of the NSTextView at commit time — drawn as-is, no coord math
@@ -232,6 +234,8 @@ class Annotation {
         c.points = points
         c.pressures = pressures
         c.bakedBlurNSImage = bakedBlurNSImage
+        c.loupeSourcePoint = loupeSourcePoint
+        c.loupeMagnification = loupeMagnification
         c.textImage = textImage
         c.textDrawRect = textDrawRect
         c.fontSize = fontSize
@@ -284,6 +288,12 @@ class Annotation {
         censorMode = src.censorMode
         censorDrawScope = src.censorDrawScope
         bakedBlurNSImage = src.bakedBlurNSImage
+        loupeMagnification = src.loupeMagnification
+        if tool == .loupe {
+            startPoint = src.startPoint
+            endPoint = src.endPoint
+            loupeSourcePoint = src.loupeSourcePoint
+        }
     }
 
     var boundingRect: NSRect {
@@ -394,8 +404,7 @@ class Annotation {
             let rx = rect.width / 2, ry = rect.height / 2
             let nx = (point.x - cx) / rx, ny = (point.y - cy) / ry
             let d = nx * nx + ny * ny
-            let rNorm = threshold / min(rx, ry)
-            return abs(d - 1.0) < rNorm * 2
+            return d <= 1.0 + (threshold / min(rx, ry))
         case .text:
             return textDrawRect.insetBy(dx: -threshold, dy: -threshold).contains(point)
         case .number:
@@ -417,6 +426,9 @@ class Annotation {
         if textDrawRect != .zero {
             textDrawRect.origin.x += dx
             textDrawRect.origin.y += dy
+        }
+        if let loupeSourcePoint {
+            self.loupeSourcePoint = NSPoint(x: loupeSourcePoint.x + dx, y: loupeSourcePoint.y + dy)
         }
         if var pts = points {
             for i in 0..<pts.count {
@@ -1451,32 +1463,36 @@ class Annotation {
 
     private func drawNumber() {
         guard let number = number else { return }
-        let radius: CGFloat = 8 + strokeWidth * 3
+        let radius = NumberCalloutGeometry.bubbleRadius(for: strokeWidth)
         let center = startPoint
+        let targetPoint = endPoint
+        let showsDetachedCallout = MagnifiedCalloutGeometry.shouldRenderDetachedCallout(
+            sourceCenter: targetPoint,
+            sourceRadius: MagnifiedCalloutGeometry.sourceDotRadius,
+            destinationCenter: center,
+            destinationRadius: radius
+        )
 
-        // Draw pointer cone if dragged (startPoint != endPoint)
-        let dx = endPoint.x - startPoint.x
-        let dy = endPoint.y - startPoint.y
-        let dist = hypot(dx, dy)
-        if dist > 4 {
-            let angle = atan2(dy, dx)
-            // Cone base width tapers from the circle edge, narrowing to a point
-            let baseHalfWidth = radius * 0.55
-            let perpAngle = angle + .pi / 2
+        if showsDetachedCallout {
+            if let funnelPath = MagnifiedCalloutGeometry.funnelPath(
+                sourceCenter: targetPoint,
+                sourceRadius: MagnifiedCalloutGeometry.sourceDotRadius,
+                destinationCenter: center,
+                destinationRadius: radius
+            ) {
+                color.withAlphaComponent(0.22).setFill()
+                NSGraphicsContext.current?.cgContext.addPath(funnelPath)
+                NSGraphicsContext.current?.cgContext.fillPath()
+            }
 
-            // Base points on the circle's edge
-            let baseL = NSPoint(x: center.x + baseHalfWidth * cos(perpAngle),
-                                y: center.y + baseHalfWidth * sin(perpAngle))
-            let baseR = NSPoint(x: center.x - baseHalfWidth * cos(perpAngle),
-                                y: center.y - baseHalfWidth * sin(perpAngle))
-
-            let cone = NSBezierPath()
-            cone.move(to: baseL)
-            cone.line(to: endPoint)
-            cone.line(to: baseR)
-            cone.close()
+            let sourceDotRect = NSRect(
+                x: targetPoint.x - MagnifiedCalloutGeometry.sourceDotRadius,
+                y: targetPoint.y - MagnifiedCalloutGeometry.sourceDotRadius,
+                width: MagnifiedCalloutGeometry.sourceDotRadius * 2,
+                height: MagnifiedCalloutGeometry.sourceDotRadius * 2
+            )
             color.setFill()
-            cone.fill()
+            NSBezierPath(ovalIn: sourceDotRect).fill()
         }
 
         // Draw the circle on top of the cone
@@ -1500,13 +1516,28 @@ class Annotation {
             return luminance > 0.6 ? .black : .white
         }()
         let fontSize = radius * 1.1
-        let attrs: [NSAttributedString.Key: Any] = [
-            .font: NSFont.boldSystemFont(ofSize: fontSize),
-            .foregroundColor: textColor
-        ]
-        let str = numberFormat.format(number) as NSString
-        let size = str.size(withAttributes: attrs)
-        str.draw(at: NSPoint(x: center.x - size.width / 2, y: center.y - size.height / 2), withAttributes: attrs)
+        let font = NSFont.boldSystemFont(ofSize: fontSize)
+        let numberText = numberFormat.format(number)
+        if let cgContext = NSGraphicsContext.current?.cgContext {
+            NumberCalloutTextLayout.draw(
+                text: numberText,
+                font: font,
+                fillColor: color,
+                in: circleRect,
+                cgContext: cgContext
+            )
+        } else {
+            let attrs: [NSAttributedString.Key: Any] = [
+                .font: font,
+                .foregroundColor: textColor
+            ]
+            let measured = (numberText as NSString).size(withAttributes: attrs)
+            let origin = CGPoint(
+                x: floor(circleRect.midX - measured.width / 2),
+                y: floor(circleRect.midY - measured.height / 2)
+            )
+            (numberText as NSString).draw(at: origin, withAttributes: attrs)
+        }
     }
 
     private func drawStamp() {
@@ -1943,65 +1974,32 @@ class Annotation {
     }
 
     private func generateLoupeImage() -> NSImage? {
-        // Real-time geometric magnification of the source underlying the circle
-        guard let image = sourceImage else { return nil }
+        guard tool == .loupe,
+            let image = sourceImage,
+            let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil)
+        else { return nil }
 
-        let bounds = sourceImageBounds
-        let imageSize = image.size
-        let scaleX = imageSize.width / bounds.width
-        let scaleY = imageSize.height / bounds.height
-        
         let rect = boundingRect
-        let scale: CGFloat = 2.0 // 2x Magnification
-        
-        // Always force a perfect circle
         let size = min(rect.width, rect.height)
         guard size > 10 else { return nil }
 
-        let centerX = rect.origin.x + rect.width / 2
-        let centerY = rect.origin.y + rect.height / 2
-        
-        let srcSize = size / scale
-        let srcX = centerX - srcSize / 2
-        let srcY = centerY - srcSize / 2
-        
-        // Extract the original region.
-        // NSImage and the overlay view share the same coordinate system (Y=0 at bottom),
-        // so no Y-flip is needed — just scale directly.
-        let cropRect = NSRect(
-            x: srcX * scaleX,
-            y: srcY * scaleY,
-            width: srcSize * scaleX,
-            height: srcSize * scaleY
-        )
-        
-        let magnifiedImage = NSImage(size: NSSize(width: size, height: size), flipped: false) { _ in
-            if let ctx = NSGraphicsContext.current {
-                ctx.imageInterpolation = .high
-            }
-            image.draw(in: NSRect(x: 0, y: 0, width: size, height: size),
-                       from: cropRect,
-                       operation: .copy,
-                       fraction: 1.0)
-            return true
-        }
-        
-        return magnifiedImage
+        let samplePoint = loupeSourcePoint ?? NSPoint(x: rect.midX, y: rect.midY)
+        guard let cropped = MagnifiedCalloutGeometry.croppedImage(
+            from: cgImage,
+            sourcePoint: samplePoint,
+            bubbleDiameter: size,
+            imageDrawRect: sourceImageBounds
+        ) else { return nil }
+
+        return NSImage(cgImage: cropped, size: NSSize(width: size, height: size))
     }
 
     // Cached loupe chrome objects (shared across all loupe annotations)
     private static let loupeOuterShadow: NSShadow = {
         let s = NSShadow()
-        s.shadowColor = NSColor.black.withAlphaComponent(0.4)
-        s.shadowOffset = NSSize(width: 0, height: -6)
-        s.shadowBlurRadius = 14
-        return s
-    }()
-    private static let loupeInnerShadow: NSShadow = {
-        let s = NSShadow()
-        s.shadowColor = NSColor.black.withAlphaComponent(0.5)
-        s.shadowOffset = NSSize(width: 0, height: -3)
-        s.shadowBlurRadius = 6
+        s.shadowColor = NSColor.black.withAlphaComponent(0.22)
+        s.shadowOffset = NSSize(width: 0, height: -4)
+        s.shadowBlurRadius = 10
         return s
     }()
     private static let loupeGradient: CGGradient? = {
@@ -2025,6 +2023,40 @@ class Annotation {
         )
 
         let path = NSBezierPath(ovalIn: squareRect)
+        let bubbleCenter = NSPoint(x: squareRect.midX, y: squareRect.midY)
+        let samplePoint = loupeSourcePoint ?? bubbleCenter
+        let showsDetachedCallout = MagnifiedCalloutGeometry.shouldRenderDetachedCallout(
+            sourceCenter: samplePoint,
+            sourceRadius: MagnifiedCalloutGeometry.sourceDotRadius,
+            destinationCenter: bubbleCenter,
+            destinationRadius: size / 2
+        )
+        let connectorPath = MagnifiedCalloutGeometry.funnelPath(
+            sourceCenter: samplePoint,
+            sourceRadius: MagnifiedCalloutGeometry.sourceDotRadius,
+            destinationCenter: bubbleCenter,
+            destinationRadius: size / 2
+        )
+
+        if let connectorPath {
+            context.saveGraphicsState()
+            MagnifiedCalloutGeometry.loupeConnectorFillColor.setFill()
+            context.cgContext.addPath(connectorPath)
+            context.cgContext.fillPath()
+            context.restoreGraphicsState()
+        }
+
+        if showsDetachedCallout {
+            let sourceDotRect = NSRect(
+                x: samplePoint.x - MagnifiedCalloutGeometry.sourceDotRadius,
+                y: samplePoint.y - MagnifiedCalloutGeometry.sourceDotRadius,
+                width: MagnifiedCalloutGeometry.sourceDotRadius * 2,
+                height: MagnifiedCalloutGeometry.sourceDotRadius * 2
+            )
+            let sourceDot = NSBezierPath(ovalIn: sourceDotRect)
+            MagnifiedCalloutGeometry.loupeSourceDotColor.setFill()
+            sourceDot.fill()
+        }
 
         // 1. Outer drop shadow
         context.saveGraphicsState()
@@ -2041,16 +2073,13 @@ class Annotation {
             baked.draw(in: squareRect, from: NSRect(origin: .zero, size: baked.size),
                        operation: .sourceOver, fraction: 1.0)
         } else if let image = sourceImage {
-            // Draw directly from source without creating an intermediate image.
             let imgSize = image.size
             let scaleX = imgSize.width / sourceImageBounds.width
             let scaleY = imgSize.height / sourceImageBounds.height
-            let magnification: CGFloat = 2.0
-            let srcSize = size / magnification
-            let cx = rect.midX, cy = rect.midY
+            let srcSize = size / loupeMagnification
             let fromRect = NSRect(
-                x: (cx - srcSize/2) * scaleX,
-                y: (cy - srcSize/2) * scaleY,
+                x: (samplePoint.x - srcSize / 2 - sourceImageBounds.minX) * scaleX,
+                y: (samplePoint.y - srcSize / 2 - sourceImageBounds.minY) * scaleY,
                 width: srcSize * scaleX,
                 height: srcSize * scaleY
             )
@@ -2077,17 +2106,6 @@ class Annotation {
             )
         }
         cgCtx.restoreGState()
-
-        // 4. Inner shadow
-        context.saveGraphicsState()
-        Self.loupeInnerShadow.set()
-        let holeRect = squareRect.insetBy(dx: -30, dy: -30)
-        let innerHole = NSBezierPath(rect: holeRect)
-        innerHole.append(NSBezierPath(ovalIn: squareRect).reversed)
-        path.addClip()
-        NSColor.black.withAlphaComponent(0.8).setFill()
-        innerHole.fill()
-        context.restoreGraphicsState()
     }
 
     // MARK: - Translate overlay
