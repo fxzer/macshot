@@ -23,6 +23,48 @@ private func stripLayerBorders(_ view: NSView) {
     }
 }
 
+/// 会导致重新编辑时出现强调色/描边观感的临时文本属性。
+private let transientEditingAttributeKeys: [NSAttributedString.Key] = [
+    .backgroundColor,
+    .strokeColor,
+    .strokeWidth,
+    .underlineColor,
+    NSAttributedString.Key("NSMarkedClauseSegment"),
+    NSAttributedString.Key("NSTextAlternatives"),
+    NSAttributedString.Key("NSOriginalFont"),
+]
+
+private func sanitizedTextForEditing(
+    _ source: NSAttributedString,
+    defaultFont: NSFont,
+    defaultColor: NSColor,
+    alignment: NSTextAlignment
+) -> NSAttributedString {
+    let mutable = NSMutableAttributedString(attributedString: source)
+    let fullRange = NSRange(location: 0, length: mutable.length)
+    guard fullRange.length > 0 else { return mutable }
+
+    mutable.beginEditing()
+    for key in transientEditingAttributeKeys {
+        mutable.removeAttribute(key, range: fullRange)
+    }
+
+    let paragraph = NSMutableParagraphStyle()
+    paragraph.alignment = alignment
+
+    mutable.enumerateAttributes(in: fullRange) { attrs, range, _ in
+        if attrs[.font] == nil {
+            mutable.addAttribute(.font, value: defaultFont, range: range)
+        }
+        if attrs[.foregroundColor] == nil {
+            mutable.addAttribute(.foregroundColor, value: defaultColor, range: range)
+        }
+    }
+    mutable.addAttribute(.paragraphStyle, value: paragraph, range: fullRange)
+    mutable.endEditing()
+    return mutable
+}
+
 private final class NoFocusRingScrollView: NSScrollView {
     override func drawFocusRingMask() {}
     override var focusRingMaskBounds: NSRect { .zero }
@@ -71,6 +113,16 @@ private final class NoFocusRingTextView: NSTextView {
     }
     override func noteFocusRingMaskChanged() {}
 
+    /// 锁住选中文本样式，防止系统在重新聚焦时恢复强调色描边效果。
+    private var lockedSelectedTextAttributes: [NSAttributedString.Key: Any]?
+
+    override var selectedTextAttributes: [NSAttributedString.Key: Any] {
+        get { super.selectedTextAttributes }
+        set {
+            super.selectedTextAttributes = lockedSelectedTextAttributes ?? newValue
+        }
+    }
+
     override func updateLayer() {
         super.updateLayer()
         layer?.borderWidth = 0
@@ -109,7 +161,9 @@ private final class NoFocusRingTextView: NSTextView {
     override func becomeFirstResponder() -> Bool {
         let result = super.becomeFirstResponder()
         if result {
+            inputContext?.discardMarkedText()
             collapseSelection()
+            sanitizeTextStorage()
             applyEditingChrome()
             stripAllFocusBorders()
             // Multiple deferred strips to catch system-applied borders at different timings
@@ -129,7 +183,9 @@ private final class NoFocusRingTextView: NSTextView {
     override func resignFirstResponder() -> Bool {
         let result = super.resignFirstResponder()
         if result {
+            inputContext?.discardMarkedText()
             collapseSelection()
+            sanitizeTextStorage()
             applyEditingChrome()
             stripAllFocusBorders()
         }
@@ -142,6 +198,7 @@ private final class NoFocusRingTextView: NSTextView {
         stillSelecting stillSelectingFlag: Bool
     ) {
         super.setSelectedRanges(ranges, affinity: affinity, stillSelecting: stillSelectingFlag)
+        sanitizeTextStorage()
         applyEditingChrome()
         stripAllFocusBorders()
     }
@@ -160,6 +217,16 @@ private final class NoFocusRingTextView: NSTextView {
         super.setSelectedRange(NSRange(location: insertionLocation, length: 0))
     }
 
+    private func sanitizeTextStorage() {
+        guard let textStorage, textStorage.length > 0 else { return }
+        let fullRange = NSRange(location: 0, length: textStorage.length)
+        textStorage.beginEditing()
+        for key in transientEditingAttributeKeys {
+            textStorage.removeAttribute(key, range: fullRange)
+        }
+        textStorage.endEditing()
+    }
+
     func applyEditingChrome(explicitColor: NSColor? = nil) {
         let color =
             explicitColor
@@ -169,11 +236,20 @@ private final class NoFocusRingTextView: NSTextView {
 
         focusRingType = .none
         insertionPointColor = color
+        let selectedAttrs: [NSAttributedString.Key: Any] = [
+            .backgroundColor: NSColor.clear,
+            .foregroundColor: color,
+            .strokeColor: NSColor.clear,
+            .strokeWidth: 0,
+        ]
+        lockedSelectedTextAttributes = selectedAttrs
+        super.selectedTextAttributes = selectedAttrs
         markedTextAttributes = [
             .backgroundColor: NSColor.clear,
             .foregroundColor: color,
-            .underlineStyle: NSUnderlineStyle.single.rawValue,
-            .underlineColor: color.withAlphaComponent(0.9),
+            .strokeColor: NSColor.clear,
+            .strokeWidth: 0,
+            .underlineStyle: 0,
         ]
     }
 }
@@ -497,7 +573,13 @@ class TextEditingController {
         paraStyle.alignment = alignment
 
         if let existing = existingText {
-            tv.textStorage?.setAttributedString(existing)
+            let sanitized = sanitizedTextForEditing(
+                existing,
+                defaultFont: font,
+                defaultColor: color,
+                alignment: alignment
+            )
+            tv.textStorage?.setAttributedString(sanitized)
         }
 
         // Build typingAttributes with ALL current style state
@@ -580,7 +662,12 @@ class TextEditingController {
         if !text.isEmpty {
             // Ensure scrollView frame matches actual text height before snapshotting
             resizeToFit()
-            let attrStr = NSAttributedString(attributedString: tv.textStorage!)
+            let attrStr = sanitizedTextForEditing(
+                NSAttributedString(attributedString: tv.textStorage!),
+                defaultFont: currentFont(),
+                defaultColor: (tv.typingAttributes[.foregroundColor] as? NSColor) ?? tv.textColor ?? .white,
+                alignment: alignment
+            )
             let inset = tv.textContainerInset
             let drawWidth = sv.frame.width - inset.width * 2
 

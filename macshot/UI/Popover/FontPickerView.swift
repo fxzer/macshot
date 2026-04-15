@@ -79,12 +79,28 @@ class FontPickerView: NSScrollView {
         documentView?.frame = NSRect(x: 0, y: 0, width: frame.width, height: totalH)
     }
 
-    /// Scroll to top so popular fonts are visible first.
-    func scrollToTop() {
-        guard let docView = documentView else { return }
-        let topPoint = NSPoint(x: 0, y: docView.frame.height - contentView.bounds.height)
-        contentView.scroll(to: topPoint)
+    /// Scroll the list so the currently selected font is visible.
+    func scrollToSelected() {
+        guard
+            let docView = documentView,
+            let selectedRowRect = rowRect(for: selectedFamily, in: docView)
+        else { return }
+
+        let paddedRect = selectedRowRect.insetBy(dx: 0, dy: -rowHeight)
+        contentView.scrollToVisible(paddedRect)
         reflectScrolledClipView(contentView)
+    }
+
+    private func rowRect(for family: String, in docView: NSView) -> NSRect? {
+        let fonts = allFonts()
+        let totalH = CGFloat(fonts.count) * rowHeight + 8
+
+        for (i, entry) in fonts.enumerated() where !entry.isSeparator && entry.family == family {
+            let y = totalH - CGFloat(i + 1) * rowHeight - 4
+            return NSRect(x: 0, y: y, width: docView.frame.width, height: rowHeight)
+        }
+
+        return nil
     }
 
     fileprivate func drawContent(in dirtyRect: NSRect) {

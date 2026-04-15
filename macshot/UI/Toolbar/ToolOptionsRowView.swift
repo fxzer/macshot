@@ -1493,7 +1493,7 @@ class ToolOptionsRowView: NSView {
         }
         PopoverHelper.show(picker, size: picker.preferredSize, relativeTo: sender.bounds, of: sender, preferredEdge: .maxY)
         DispatchQueue.main.async {
-            picker.scrollToTop()
+            picker.scrollToSelected()
         }
     }
 
