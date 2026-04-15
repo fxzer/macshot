@@ -207,17 +207,19 @@
 "Play sound on capture" = "截图时播放提示音";
 "Play sound on copy" = "拷贝时播放声音";
 "Play sound" = "播放提示音";
-"Remember last selection area" = "记住上次选择区域";
+"Remember last selection area" = "选区记忆";
 "Remember last selected tool" = "记住上次选择的工具";
-"Tip: Press ` to temporarily remember area" = "框选后，按 ` 键可临时记住区域";
-"Area remembered (press ` to cancel)" = "已记住区域（按 ` 取消）";
-"Canceled remembering area" = "已取消记住区域";
-"Please select an area first" = "请先选择一个区域";
+"Tip: Press ` during capture to toggle this" = "选取后，按 ` 键可以快捷切换开关";
+"After selection, press" = "选区后，按";
+"remember this area" = "记忆本次选区";
+"Remember last selection area enabled" = "选区记忆已开启";
+"Remember last selection area disabled" = "选区记忆已关闭";
+"Current selection remembered" = "已记住本次选区";
 "Selection size snapping" = "选区尺寸吸附";
 "Off" = "关闭";
 "Locked aspect ratio only" = "仅比例锁定";
 "All selections" = "所有选区";
-"Show floating thumbnail after capture" = "捕获后显示";
+"Show floating thumbnail after capture" = "显示浮动缩略图";
 "Launch at login" = "登录时启动";
 "Show snap alignment guides" = "显示对齐辅助线";
 "Capture mouse cursor in screenshot" = "捕获鼠标指针";
@@ -235,7 +237,7 @@
 "Thumbnail" = "缩略图";
 "  Dismiss after:" = "  自动消失:";
 "seconds before auto-dismiss (0 = never)" = "秒后自动消失（0 = 永不）";
-"  Multiple previews:" = "  多个预览:";
+"  Multiple previews:" = "  多个缩略图:";
 "Stack (keep all)" = "堆叠（保留全部）";
 "Replace (show only latest)" = "替换（仅显示最新）";
 "Output" = "输出";
@@ -566,7 +568,7 @@
 "Shape:" = "形状:";
 
 "Same as screenshots" = "与截图相同";
-"  Preview size:" = "  预览大小:";
+"  Preview size:" = "  缩略图大小:";
 "(0 = off)" = "(0 = 关闭)";
 "Clear All" = "清除全部";
 "Clear History?" = "清除历史记录？";
@@ -623,10 +625,10 @@
 "Paste your API key" = "粘贴您的 API Key";
 "ImgBB API key not configured. Please add your API key in Settings." = "ImgBB API Key 未配置，请在设置中添加您的 API Key。";
 "Max height: 0 = unlimited" = "最大高度：0 = 不限制";
-"Multiple previews" = "多个预览";
+"Multiple previews" = "多个缩略图";
 "Play sound on capture" = "截图时播放声音";
 "Press a single key to assign. These work when the overlay or editor is active." = "按单个键即可分配。这些快捷键在覆盖层或编辑器激活时生效。";
-"Preview size" = "预览大小";
+"Preview size" = "缩略图大小";
 "S3-Compatible" = "S3 兼容";
 "seconds" = "秒";
 "minute" = "分钟";
@@ -643,7 +645,7 @@
 "After Capture" = "捕获后";
 "Screenshot" = "截图";
 "Action" = "动作";
-"Show quick access overlay" = "显示快捷操作面板";
+"Show quick access overlay" = "显示浮动缩略图";
 "Copy file to clipboard" = "将文件拷贝到剪贴板";
 "Upload and copy link" = "上传并复制链接";
 "Open screenshot editor" = "打开截图编辑器";

@@ -49,14 +49,9 @@ struct BehaviorSettingsView: View {
                 actionMatrixHeader()
 
                 actionMatrixRow(
-                    screenshotBinding: $screenshotShowQuickAccessOverlay,
-                    recordingBinding: $recordingShowQuickAccessOverlay,
-                    title: L("Show quick access overlay")
-                )
-                actionMatrixRow(
-                    screenshotBinding: $screenshotCopyToClipboard,
-                    recordingBinding: $recordingCopyToClipboard,
-                    title: L("Copy file to clipboard")
+                    screenshotBinding: $playCopySound,
+                    recordingBinding: $playRecordingSound,
+                    title: L("Play sound")
                 )
                 actionMatrixRow(
                     screenshotBinding: $screenshotSaveToFile,
@@ -64,9 +59,19 @@ struct BehaviorSettingsView: View {
                     title: L("Save to file")
                 )
                 actionMatrixRow(
+                    screenshotBinding: $screenshotCopyToClipboard,
+                    recordingBinding: $recordingCopyToClipboard,
+                    title: L("Copy file to clipboard")
+                )
+                actionMatrixRow(
                     screenshotBinding: $screenshotShowInFinder,
                     recordingBinding: $recordingShowInFinder,
                     title: L("Show in Finder")
+                )
+                actionMatrixRow(
+                    screenshotBinding: $screenshotShowQuickAccessOverlay,
+                    recordingBinding: $recordingShowQuickAccessOverlay,
+                    title: L("Show quick access overlay")
                 )
                 actionMatrixRow(
                     screenshotBinding: $screenshotUploadAndCopyLink,
@@ -74,19 +79,14 @@ struct BehaviorSettingsView: View {
                     title: L("Upload and copy link")
                 )
                 actionMatrixRow(
-                    screenshotBinding: $screenshotOpenEditor,
-                    recordingBinding: nil,
-                    title: L("Open screenshot editor")
-                )
-                actionMatrixRow(
                     screenshotBinding: $screenshotPinToScreen,
                     recordingBinding: nil,
                     title: L("Pin to screen")
                 )
                 actionMatrixRow(
-                    screenshotBinding: $playCopySound,
-                    recordingBinding: $playRecordingSound,
-                    title: L("Play sound")
+                    screenshotBinding: $screenshotOpenEditor,
+                    recordingBinding: nil,
+                    title: L("Open screenshot editor")
                 )
                 actionMatrixRow(
                     screenshotBinding: nil,

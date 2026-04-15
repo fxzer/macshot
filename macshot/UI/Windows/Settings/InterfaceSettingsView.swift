@@ -22,7 +22,7 @@ struct InterfaceSettingsView: View {
     // Thumbnail
     @AppStorage("thumbnailAutoDismiss") private var thumbnailAutoDismiss: Int = 5
     @AppStorage("thumbnailStacking") private var thumbnailStacking = true
-    @AppStorage("thumbnailScale") private var thumbnailScale = 1.0
+    @AppStorage("thumbnailScale") private var thumbnailScale = 0.8
 
     // Output (Save Location & Filename)
     @State private var savePath: String = SaveDirectoryAccess.displayPath

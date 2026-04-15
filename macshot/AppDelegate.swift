@@ -702,29 +702,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     }
 
     private func restoreLastSelectionIfNeeded(controllers: [OverlayWindowController]) {
-        // Priority 1: Check temporary remember selection (triggered by ` key)
-        if UserDefaults.standard.bool(forKey: "tempRememberSelection") {
-            guard let rectStr = UserDefaults.standard.string(forKey: "tempRememberSelectionRect"),
-                  let screenStr = UserDefaults.standard.string(forKey: "tempRememberSelectionScreenFrame") else {
-                // Data invalid, clear temp remember state
-                UserDefaults.standard.set(false, forKey: "tempRememberSelection")
-                return
-            }
-            let savedRect = NSRectFromString(rectStr)
-            let savedScreenFrame = NSRectFromString(screenStr)
-            guard savedRect.width > 1, savedRect.height > 1 else {
-                UserDefaults.standard.set(false, forKey: "tempRememberSelection")
-                return
-            }
-            // Apply to the controller whose screen matches the saved screen frame
-            for controller in controllers where controller.screen.frame == savedScreenFrame {
-                controller.applySelection(savedRect)
-                break
-            }
-            return
-        }
-
-        // Priority 2: Regular remember last selection setting
         guard UserDefaults.standard.bool(forKey: "rememberLastSelection") else { return }
         guard let rectStr = UserDefaults.standard.string(forKey: "lastSelectionRect"),
               let screenStr = UserDefaults.standard.string(forKey: "lastSelectionScreenFrame") else { return }
@@ -733,7 +710,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         guard savedRect.width > 1, savedRect.height > 1 else { return }
         // Apply to the controller whose screen matches the saved screen frame
         for controller in controllers where controller.screen.frame == savedScreenFrame {
-            controller.applySelection(savedRect)
+            controller.applySelection(savedRect, restoredFromMemory: true)
             break
         }
     }
