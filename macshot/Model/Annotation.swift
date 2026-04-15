@@ -2040,7 +2040,7 @@ class Annotation {
 
         if let connectorPath {
             context.saveGraphicsState()
-            MagnifiedCalloutGeometry.loupeConnectorFillColor.setFill()
+            MagnifiedCalloutGeometry.connectorFillColor(for: color).setFill()
             context.cgContext.addPath(connectorPath)
             context.cgContext.fillPath()
             context.restoreGraphicsState()
@@ -2054,7 +2054,7 @@ class Annotation {
                 height: MagnifiedCalloutGeometry.sourceDotRadius * 2
             )
             let sourceDot = NSBezierPath(ovalIn: sourceDotRect)
-            MagnifiedCalloutGeometry.loupeSourceDotColor.setFill()
+            MagnifiedCalloutGeometry.sourceDotColor(for: color).setFill()
             sourceDot.fill()
         }
 

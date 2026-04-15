@@ -4,8 +4,14 @@ struct MagnifiedCalloutGeometry {
     static let sourceDotRadius: CGFloat = 2.0
     static let magnification: CGFloat = 2.0
     static let minimumCommitDistance: CGFloat = 6.0
-    static let loupeConnectorFillColor = NSColor.white.withAlphaComponent(0.2)
-    static let loupeSourceDotColor = NSColor.white.withAlphaComponent(0.96)
+
+    static func connectorFillColor(for accentColor: NSColor) -> NSColor {
+        accentColor.withAlphaComponent(0.22)
+    }
+
+    static func sourceDotColor(for accentColor: NSColor) -> NSColor {
+        accentColor
+    }
 
     static func bubbleRect(center: CGPoint, diameter: CGFloat) -> CGRect {
         CGRect(
@@ -152,7 +158,7 @@ final class MagnifiedCalloutPreviewController {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         rootLayer.frame = hostView?.bounds ?? .zero
-        sourceDotLayer.fillColor = MagnifiedCalloutGeometry.loupeSourceDotColor.cgColor
+        sourceDotLayer.fillColor = MagnifiedCalloutGeometry.sourceDotColor(for: color).cgColor
         sourceDotLayer.path = CGPath(
             ellipseIn: CGRect(
                 x: sourcePoint.x - MagnifiedCalloutGeometry.sourceDotRadius,
@@ -206,7 +212,8 @@ final class MagnifiedCalloutPreviewController {
         CATransaction.setDisableActions(true)
 
         rootLayer.frame = hostView?.bounds ?? .zero
-        funnelLayer.fillColor = MagnifiedCalloutGeometry.loupeConnectorFillColor.cgColor
+        sourceDotLayer.fillColor = MagnifiedCalloutGeometry.sourceDotColor(for: color).cgColor
+        funnelLayer.fillColor = MagnifiedCalloutGeometry.connectorFillColor(for: color).cgColor
         funnelLayer.path = funnelPath
         funnelLayer.isHidden = funnelPath == nil
         sourceDotLayer.isHidden = !showsDetachedCallout
@@ -318,37 +325,59 @@ final class MagnifiedCalloutPreviewController {
 }
 
 /// Handles loupe (magnifying glass) tool interaction.
-/// Click-to-place: creates a baked magnified annotation immediately on mouseDown.
+/// Target-first magnified callout: click samples, drag moves the bubble, release commits.
 final class LoupeToolHandler: AnnotationToolHandler {
 
     let tool: AnnotationTool = .loupe
+    var requiresDisplayRefreshDuringDrag: Bool { false }
 
     func start(at point: NSPoint, canvas: AnnotationCanvas) -> Annotation? {
-        let size = canvas.currentLoupeSize
         let annotation = Annotation(
             tool: .loupe,
-            startPoint: NSPoint(x: point.x - size / 2, y: point.y - size / 2),
-            endPoint: NSPoint(x: point.x + size / 2, y: point.y + size / 2),
+            startPoint: point,
+            endPoint: point,
             color: canvas.currentColor,
             strokeWidth: canvas.currentStrokeWidth
         )
+        annotation.loupeSourcePoint = point
+        annotation.loupeMagnification = MagnifiedCalloutGeometry.magnification
+        annotation.sourceImage = canvas.screenshotImage
+        annotation.sourceImageBounds = canvas.captureDrawRect
+        canvas.beginMagnifiedCalloutPreview(sourcePoint: point, color: annotation.color)
+        return annotation
+    }
+
+    func update(to point: NSPoint, shiftHeld: Bool, canvas: AnnotationCanvas) {
+        canvas.updateMagnifiedCalloutPreview(destinationPoint: point)
+    }
+
+    func finish(canvas: AnnotationCanvas) {
+        guard let annotation = canvas.activeAnnotation else {
+            canvas.cancelMagnifiedCalloutPreview()
+            return
+        }
+
+        guard let preview = canvas.finishMagnifiedCalloutPreview() else {
+            canvas.activeAnnotation = nil
+            canvas.setNeedsDisplay()
+            return
+        }
+
+        let halfSize = preview.bubbleDiameter / 2
+        annotation.startPoint = NSPoint(
+            x: preview.destinationPoint.x - halfSize,
+            y: preview.destinationPoint.y - halfSize
+        )
+        annotation.endPoint = NSPoint(
+            x: preview.destinationPoint.x + halfSize,
+            y: preview.destinationPoint.y + halfSize
+        )
+        annotation.loupeSourcePoint = preview.sourcePoint
         annotation.loupeMagnification = MagnifiedCalloutGeometry.magnification
         annotation.sourceImage = canvas.screenshotImage
         annotation.sourceImageBounds = canvas.captureDrawRect
         annotation.bakeLoupe()
 
-        canvas.annotations.append(annotation)
-        canvas.undoStack.append(.added(annotation))
-        canvas.redoStack.removeAll()
-        canvas.setNeedsDisplay()
-        return nil
-    }
-
-    func update(to point: NSPoint, shiftHeld: Bool, canvas: AnnotationCanvas) {
-        // Loupe commits immediately on mouse down.
-    }
-
-    func finish(canvas: AnnotationCanvas) {
-        // Loupe commits in start().
+        commitAnnotation(annotation, canvas: canvas)
     }
 }
