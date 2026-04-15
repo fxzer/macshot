@@ -967,26 +967,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     }
 
     private func saveImageToDefaultDirectory(_ image: NSImage, windowTitle: String?, showInFinder: Bool = false) {
-        let dirURL = SaveDirectoryAccess.resolve()
-        let baseName = FilenameTemplateEngine.makeBaseName(kind: .screenshot)
-
-        let fileURL = FilenameTemplateEngine.uniqueDestinationURL(
-            in: dirURL,
-            baseName: baseName,
-            fileExtension: ImageEncoder.fileExtension
-        )
-        guard let imageData = ImageEncoder.encode(image) else {
-            SaveDirectoryAccess.stopAccessing(url: dirURL)
-            return
-        }
-
-        DispatchQueue.global(qos: .userInitiated).async {
-            defer { SaveDirectoryAccess.stopAccessing(url: dirURL) }
-            try? imageData.write(to: fileURL)
+        _ = windowTitle
+        ImageSaveService.saveToDefaultDirectoryAsync(image, kind: .screenshot) { result in
+            guard case .success(let fileURL) = result else { return }
             if showInFinder {
-                DispatchQueue.main.async {
-                    NSWorkspace.shared.activateFileViewerSelecting([fileURL])
-                }
+                NSWorkspace.shared.activateFileViewerSelecting([fileURL])
             }
         }
     }

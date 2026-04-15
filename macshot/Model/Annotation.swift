@@ -176,13 +176,15 @@ class Annotation {
             return false
         }
     }
+    @available(*, deprecated, message: "Use anchorPoints instead for multi-anchor lines/arrows")
     var controlPoint: NSPoint? = nil  // optional bend point for line/arrow (legacy single bend)
     /// Ordered waypoints for multi-anchor lines/arrows: [start, anchor1, anchor2, ..., end].
     /// When set, overrides startPoint/endPoint/controlPoint for rendering.
     var anchorPoints: [NSPoint]?
 
     /// Returns the full ordered path: anchorPoints if set, otherwise [start, end].
-    /// Legacy controlPoint is NOT included — it uses the original bezier rendering.
+    /// Legacy controlPoint is intentionally excluded so old single-bend lines/arrows
+    /// keep their original Bezier behavior.
     var waypoints: [NSPoint] {
         if let anchors = anchorPoints, anchors.count >= 2 {
             return anchors
@@ -192,7 +194,9 @@ class Annotation {
 
     /// Whether this annotation uses multi-anchor points (vs legacy single bend).
     var hasMultiAnchor: Bool { anchorPoints != nil && (anchorPoints?.count ?? 0) >= 3 }
+    var hasLegacyControlPoint: Bool { controlPoint != nil && !hasMultiAnchor }
 
+    @available(*, deprecated, message: "Use rectCornerRadius instead")
     var isRounded: Bool = false       // legacy — kept for compat, see rectCornerRadius
     var rectCornerRadius: CGFloat = 0 // 0..30, actual corner radius for rect tools
     var lineStyle: LineStyle = .solid // line/arrow/rect/ellipse stroke style
@@ -421,7 +425,6 @@ class Annotation {
             }
             points = pts
         }
-        
         if var cp = controlPoint {
             cp.x += dx; cp.y += dy
             controlPoint = cp
@@ -803,7 +806,9 @@ class Annotation {
         path.lineCapStyle = .round
         if lineStyle != .solid {
             let length: CGFloat
-            if let cp = controlPoint {
+            if hasMultiAnchor {
+                length = Annotation.smoothPathLength(waypoints)
+            } else if let cp = controlPoint {
                 length = Annotation.approxBezierLength(from: startPoint, cp1: cp, cp2: cp, to: endPoint)
             } else {
                 length = hypot(endPoint.x - startPoint.x, endPoint.y - startPoint.y)
@@ -811,7 +816,10 @@ class Annotation {
             lineStyle.applyFitted(to: path, pathLength: length)
         }
         path.move(to: startPoint)
-        if let cp = controlPoint {
+        if hasMultiAnchor {
+            let smoothPath = Self.smoothPath(through: waypoints)
+            path.append(smoothPath)
+        } else if let cp = controlPoint {
             path.curve(to: endPoint, controlPoint1: cp, controlPoint2: cp)
         } else {
             path.line(to: endPoint)
@@ -1142,6 +1150,7 @@ class Annotation {
     private func drawRectangle(forceFilled: Bool = false) {
         let rect = boundingRect
         guard rect.width > 0, rect.height > 0 else { return }
+        // Migrate legacy isRounded to rectCornerRadius
         let cornerRadius: CGFloat = rectCornerRadius > 0 ? rectCornerRadius : (isRounded ? min(rect.width, rect.height) * 0.2 : 0)
         let style = forceFilled ? RectFillStyle.fill : rectFillStyle
 

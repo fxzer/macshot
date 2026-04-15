@@ -714,7 +714,11 @@ class OverlayView: NSView {
     }
 
     var cachedCompositedImage: NSImage? = nil {  // invalidated when annotations change
-        didSet { if !isDraggingAnnotation && !isResizingAnnotation && !isRotatingAnnotation && !isScrollAdjustingProperty { cachedAnnotationLayer = nil } }
+        didSet {
+            if !isDraggingAnnotation && !isResizingAnnotation && !isRotatingAnnotation && !isScrollAdjustingProperty {
+                setCachedAnnotationLayer(nil)
+            }
+        }
     }
     /// Cached transparent image of committed annotations only (no screenshot).
     /// Drawn with applyCanvasTransform so zoom works correctly. Invalidated alongside cachedCompositedImage.
@@ -722,6 +726,53 @@ class OverlayView: NSView {
     /// During drag/resize, this holds a cache of all annotations EXCEPT the ones being manipulated.
     private var cachedAnnotationLayerExcludingSelected: NSImage? = nil
     private var cachedOpaqueRect: NSRect?  // cached opaque content bounds of screenshotImage
+
+    // MARK: - Memory Cache Management
+
+    /// Maximum cache memory usage in bytes (100MB)
+    private let maxCacheMemory: Int = 100_000_000
+    /// Estimated current cache memory usage
+    private var estimatedCacheMemory: Int = 0
+
+    /// Estimate memory size of an NSImage based on its TIFF representation
+    private func estimateImageSize(_ image: NSImage?) -> Int {
+        guard let image = image,
+              let tiffRep = image.tiffRepresentation else { return 0 }
+        return tiffRep.count
+    }
+
+    private func recalculateCacheMemoryUsage() {
+        estimatedCacheMemory =
+            estimateImageSize(cachedAnnotationLayer) +
+            estimateImageSize(cachedAnnotationLayerExcludingSelected)
+    }
+
+    private func evictAnnotationCachesIfNeeded() {
+        if estimatedCacheMemory > maxCacheMemory {
+            // Clear all caches to free memory
+            cachedAnnotationLayer = nil
+            cachedAnnotationLayerExcludingSelected = nil
+            estimatedCacheMemory = 0
+        }
+    }
+
+    private func setCachedAnnotationLayer(_ image: NSImage?) {
+        cachedAnnotationLayer = image
+        recalculateCacheMemoryUsage()
+        evictAnnotationCachesIfNeeded()
+    }
+
+    private func setCachedAnnotationLayerExcludingSelected(_ image: NSImage?) {
+        cachedAnnotationLayerExcludingSelected = image
+        recalculateCacheMemoryUsage()
+        evictAnnotationCachesIfNeeded()
+    }
+
+    /// Invalidate cache with memory tracking
+    private func invalidateAnnotationCaches() {
+        setCachedAnnotationLayer(nil)
+        setCachedAnnotationLayerExcludingSelected(nil)
+    }
 
     var isTranslating: Bool = false
     var translateEnabled: Bool = false
@@ -3502,8 +3553,7 @@ class OverlayView: NSView {
         filter.setValue(ciImage, forKey: kCIInputImageKey)
         guard let output = filter.outputImage else { return }
 
-        let ciCtx = CIContext()
-        guard let inverted = ciCtx.createCGImage(output, from: output.extent) else { return }
+        guard let inverted = Self.sharedCIContext.createCGImage(output, from: output.extent) else { return }
 
         screenshotImage = NSImage(cgImage: inverted, size: original.size)
         originalCGImage = inverted  // Update original CGImage for accurate color sampling
@@ -4591,6 +4641,16 @@ class OverlayView: NSView {
         }
     }
 
+    /// Shared CIContext for general image processing — reused across all operations.
+    /// Using GPU acceleration with working color space for better performance.
+    private static let sharedCIContext: CIContext = {
+        let options: [CIContextOption: Any] = [
+            .useSoftwareRenderer: false,
+            .workingColorSpace: CGColorSpace(name: CGColorSpace.sRGB)!
+        ]
+        return CIContext(options: options)
+    }()
+
     /// Shared CIContext for outline glow rendering — reused across frames.
     private static let outlineGlowCIContext = CIContext()
 
@@ -5520,6 +5580,9 @@ class OverlayView: NSView {
             // Snipaste-style: drag selection area when clicking inside selection but not on any annotation
             // This allows moving the selection without clicking the move button
             if pointIsInSelection(point) && currentTool != .crop {
+                if currentTool == .select, handleSelectionChromePriorityClick(at: point) {
+                    return
+                }
                 let canvasPoint = viewToCanvas(point)
                 // Check if clicking on any movable annotation
                 let clickedOnAnnotation = annotations.reversed().contains(where: { $0.isMovable && $0.hitTest(point: canvasPoint) })
@@ -6173,16 +6236,14 @@ class OverlayView: NSView {
         }
         if isRotatingAnnotation {
             isRotatingAnnotation = false
-            cachedAnnotationLayerExcludingSelected = nil
-            cachedAnnotationLayer = nil
+            invalidateAnnotationCaches()
             NSCursor.openHand.set()
             needsDisplay = true
             return
         }
         if isResizingAnnotation {
             isResizingAnnotation = false
-            cachedAnnotationLayerExcludingSelected = nil
-            cachedAnnotationLayer = nil
+            invalidateAnnotationCaches()
             annotationResizeHandle = .none
             if let ann = selectedAnnotation {
                 if ann.tool == .loupe { ann.bakeLoupe() }
@@ -6316,8 +6377,7 @@ class OverlayView: NSView {
                 }
                 isDraggingAnnotation = false
                 didMoveAnnotation = false
-                cachedAnnotationLayerExcludingSelected = nil
-                cachedAnnotationLayer = nil
+                invalidateAnnotationCaches()
                 snapGuideX = nil
                 snapGuideY = nil
                 NSCursor.openHand.set()
@@ -6569,8 +6629,9 @@ class OverlayView: NSView {
             // ticks only re-draw the single selected annotation (not all of them).
             if !isScrollAdjustingProperty {
                 isScrollAdjustingProperty = true
-                cachedAnnotationLayerExcludingSelected = buildAnnotationLayer(
-                    excluding: Set(selectedAnnotations.map { ObjectIdentifier($0) }))
+                setCachedAnnotationLayerExcludingSelected(
+                    buildAnnotationLayer(excluding: Set(selectedAnnotations.map { ObjectIdentifier($0) }))
+                )
             }
 
             if ann.tool == .text {
@@ -7694,8 +7755,7 @@ class OverlayView: NSView {
     private func finishScrollPropertyAdjustmentState() {
         pendingScrollPropertyCommit = nil
         isScrollAdjustingProperty = false
-        cachedAnnotationLayerExcludingSelected = nil
-        cachedAnnotationLayer = nil
+        invalidateAnnotationCaches()
         cachedCompositedImage = nil
         scrollPropertyAdjustTimer = nil
         needsDisplay = true
@@ -7830,7 +7890,9 @@ class OverlayView: NSView {
                 didMoveAnnotation = false
                 annotationDragStart = point
                 // Build cache of non-selected annotations for fast drag rendering
-                cachedAnnotationLayerExcludingSelected = buildAnnotationLayer(excluding: Set(selectedAnnotations.map { ObjectIdentifier($0) }))
+                setCachedAnnotationLayerExcludingSelected(
+                    buildAnnotationLayer(excluding: Set(selectedAnnotations.map { ObjectIdentifier($0) }))
+                )
                 NSCursor.closedHand.set()
                 needsDisplay = true
                 return
@@ -7875,7 +7937,9 @@ class OverlayView: NSView {
                         self.didMoveAnnotation = false
                         self.annotationDragStart = point
                         // Build cache of non-selected annotations for fast drag rendering
-                        self.cachedAnnotationLayerExcludingSelected = self.buildAnnotationLayer(excluding: Set(self.selectedAnnotations.map { ObjectIdentifier($0) }))
+                        self.setCachedAnnotationLayerExcludingSelected(
+                            self.buildAnnotationLayer(excluding: Set(self.selectedAnnotations.map { ObjectIdentifier($0) }))
+                        )
                         // Cancel any in-progress pencil stroke
                         self.currentAnnotation = nil
                         NSCursor.closedHand.set()
@@ -7955,6 +8019,32 @@ class OverlayView: NSView {
         }
     }
 
+    /// In select mode, selected annotation controls must consume clicks before the
+    /// canvas drag branch, otherwise buttons like delete can be swallowed by selection drag.
+    private func handleSelectionChromePriorityClick(at viewPoint: NSPoint) -> Bool {
+        let canvasPoint = viewToCanvas(viewPoint)
+
+        if selectedAnnotations.count > 1 && multiSelectDeleteButtonRect.contains(canvasPoint) {
+            for ann in selectedAnnotations {
+                if let idx = annotations.firstIndex(where: { $0 === ann }) {
+                    annotations.remove(at: idx)
+                    undoStack.append(.deleted(ann, idx))
+                }
+            }
+            redoStack.removeAll()
+            selectedAnnotations = []
+            cachedCompositedImage = nil
+            needsDisplay = true
+            return true
+        }
+
+        if let selected = selectedAnnotation {
+            return handleSelectedAnnotationClick(selected, at: canvasPoint)
+        }
+
+        return false
+    }
+
     private func updateAnnotation(at point: NSPoint, shiftHeld: Bool = false) {
         guard let annotation = currentAnnotation else { return }
         if let handler = toolHandlers[annotation.tool] {
@@ -7992,7 +8082,9 @@ class OverlayView: NSView {
             if rect.insetBy(dx: -4, dy: -4).contains(handleTestPoint) {
                 isResizingAnnotation = true
                 // Build cache of non-selected annotations for fast resize rendering
-                cachedAnnotationLayerExcludingSelected = buildAnnotationLayer(excluding: Set(selectedAnnotations.map { ObjectIdentifier($0) }))
+                setCachedAnnotationLayerExcludingSelected(
+                    buildAnnotationLayer(excluding: Set(selectedAnnotations.map { ObjectIdentifier($0) }))
+                )
                 annotationResizeHandle = handle
                 annotationResizeOrigStart = selected.startPoint
                 annotationResizeOrigEnd = selected.endPoint
@@ -8026,7 +8118,9 @@ class OverlayView: NSView {
             && annotationRotateHandleRect.insetBy(dx: -6, dy: -6).contains(point)
         {
             isRotatingAnnotation = true
-            cachedAnnotationLayerExcludingSelected = buildAnnotationLayer(excluding: Set(selectedAnnotations.map { ObjectIdentifier($0) }))
+            setCachedAnnotationLayerExcludingSelected(
+                buildAnnotationLayer(excluding: Set(selectedAnnotations.map { ObjectIdentifier($0) }))
+            )
             let center = NSPoint(x: selected.boundingRect.midX, y: selected.boundingRect.midY)
             rotationStartAngle = atan2(point.x - center.x, point.y - center.y)
             rotationOriginal = selected.rotation
@@ -8079,7 +8173,9 @@ class OverlayView: NSView {
             isDraggingAnnotation = true
             didMoveAnnotation = false
             annotationDragStart = point
-            cachedAnnotationLayerExcludingSelected = buildAnnotationLayer(excluding: Set(selectedAnnotations.map { ObjectIdentifier($0) }))
+            setCachedAnnotationLayerExcludingSelected(
+                buildAnnotationLayer(excluding: Set(selectedAnnotations.map { ObjectIdentifier($0) }))
+            )
             NSCursor.closedHand.set()
             needsDisplay = true
             return true
@@ -9035,7 +9131,7 @@ class OverlayView: NSView {
     private func annotationLayerImage() -> NSImage {
         if let cached = cachedAnnotationLayer { return cached }
         let image = renderAnnotationBitmap(annotations: annotations)
-        cachedAnnotationLayer = image
+        setCachedAnnotationLayer(image)
         return image
     }
 
@@ -9071,7 +9167,8 @@ class OverlayView: NSView {
         NSGraphicsContext.restoreGraphicsState()
 
         guard let cgImage = cgCtx.makeImage() else { return }
-        cachedAnnotationLayer = NSImage(cgImage: cgImage, size: size)
+        let newImage = NSImage(cgImage: cgImage, size: size)
+        setCachedAnnotationLayer(newImage)
     }
 
     /// Build annotation layer excluding specific annotations (used during drag/resize).

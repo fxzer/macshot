@@ -448,31 +448,8 @@ extension DetachedEditorWindowController: OverlayViewDelegate {
         _ image: NSImage,
         completion: @escaping @MainActor (Result<URL, Error>) -> Void
     ) {
-        let dirURL = SaveDirectoryAccess.resolve()
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd 'at' HH.mm.ss"
-        let filename = "Screenshot \(formatter.string(from: Date())).\(ImageEncoder.fileExtension)"
-        let fileURL = dirURL.appendingPathComponent(filename)
-
-        DispatchQueue.global(qos: .userInitiated).async {
-            defer { SaveDirectoryAccess.stopAccessing(url: dirURL) }
-            guard let imageData = ImageEncoder.encode(image) else {
-                DispatchQueue.main.async {
-                    completion(.failure(NSError(domain: "macshot.save", code: 1)))
-                }
-                return
-            }
-            do {
-                try imageData.write(to: fileURL, options: .atomic)
-                DispatchQueue.main.async {
-                    completion(.success(fileURL))
-                }
-            } catch {
-                DispatchQueue.main.async {
-                    completion(.failure(error))
-                }
-            }
-        }
+        // 使用统一的 ImageSaveService
+        ImageSaveService.saveToDefaultDirectoryAsync(image, kind: .screenshot, completion: completion)
     }
     func overlayViewDidRequestUpload() {
         guard let raw = overlayView?.captureSelectedRegion() else { return }

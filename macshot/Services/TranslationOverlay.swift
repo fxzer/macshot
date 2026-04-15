@@ -4,6 +4,12 @@ import Vision
 /// Handles text translation overlay: OCR → translate → create overlay annotations.
 enum TranslateOverlay {
 
+    private struct OverlayBlock {
+        let translatedText: String
+        let viewRect: NSRect
+        let backgroundColor: NSColor
+    }
+
     /// Perform OCR + translation on the selected region. Calls completion with overlay annotations.
     static func translate(
         screenshot: NSImage,
@@ -47,7 +53,7 @@ enum TranslateOverlay {
                     onError("Translation failed: \(error.localizedDescription)")
 
                 case .success(let translations):
-                    var annotations: [Annotation] = []
+                    var overlayBlocks: [OverlayBlock] = []
                     let groupID = UUID()
 
                     for (i, block) in blocks.enumerated() {
@@ -69,16 +75,34 @@ enum TranslateOverlay {
                             height: box.height * CGFloat(cgImage.height)
                         ))
 
+                        overlayBlocks.append(
+                            OverlayBlock(
+                                translatedText: translated,
+                                viewRect: NSRect(x: viewX, y: viewY, width: viewW, height: viewH),
+                                backgroundColor: bgColor
+                            )
+                        )
+                    }
+
+                    let typicalFontSize = unifiedFontSize(for: overlayBlocks)
+                    let annotations = overlayBlocks.map { block in
                         let ann = Annotation(
                             tool: .translateOverlay,
-                            startPoint: NSPoint(x: viewX, y: viewY),
-                            endPoint: NSPoint(x: viewX + viewW, y: viewY + viewH),
-                            color: bgColor, strokeWidth: 0
+                            startPoint: block.viewRect.origin,
+                            endPoint: NSPoint(x: block.viewRect.maxX, y: block.viewRect.maxY),
+                            color: block.backgroundColor, strokeWidth: 0
                         )
-                        ann.text = translated
-                        ann.fontSize = max(8, viewH * 0.65)
+                        ann.text = block.translatedText
+                        ann.fontSize = fittedFontSize(
+                            for: block.translatedText,
+                            in: block.viewRect.size,
+                            preferred: snappedFontSize(
+                                raw: max(8, block.viewRect.height * 0.65),
+                                typical: typicalFontSize
+                            )
+                        )
                         ann.groupID = groupID
-                        annotations.append(ann)
+                        return ann
                     }
 
                     DispatchQueue.main.async { completion(annotations) }
@@ -125,5 +149,50 @@ enum TranslateOverlay {
             b += CGFloat(pixelData[base + 2]) / 255.0
         }
         return NSColor(deviceRed: r / count, green: g / count, blue: b / count, alpha: 1.0)
+    }
+
+    private static func unifiedFontSize(for blocks: [OverlayBlock]) -> CGFloat {
+        let rawSizes = blocks.map { max(8, $0.viewRect.height * 0.65) }.sorted()
+        guard !rawSizes.isEmpty else { return 8 }
+        return rawSizes[rawSizes.count / 2]
+    }
+
+    private static func snappedFontSize(raw: CGFloat, typical: CGFloat) -> CGFloat {
+        guard typical > 0 else { return raw }
+
+        let delta = abs(raw - typical) / typical
+        if delta <= 0.25 {
+            return typical
+        }
+        return raw
+    }
+
+    private static func fittedFontSize(
+        for text: String,
+        in size: NSSize,
+        preferred: CGFloat
+    ) -> CGFloat {
+        let hPad: CGFloat = 3
+        let vPad: CGFloat = 2
+        let availW = max(1, size.width - hPad * 2)
+        let availH = max(1, size.height - vPad * 2)
+
+        var fontSize = max(8, preferred)
+        while fontSize > 8 {
+            let attrStr = NSAttributedString(
+                string: text,
+                attributes: [.font: NSFont.systemFont(ofSize: fontSize, weight: .medium)]
+            )
+            let needed = attrStr.boundingRect(
+                with: NSSize(width: availW, height: .greatestFiniteMagnitude),
+                options: [.usesLineFragmentOrigin, .usesFontLeading]
+            )
+            if needed.height <= availH {
+                break
+            }
+            fontSize -= 1
+        }
+
+        return fontSize
     }
 }
