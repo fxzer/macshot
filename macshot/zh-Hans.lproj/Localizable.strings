@@ -556,10 +556,9 @@
 "Resume" = "继续";
 "Engine:" = "引擎:";
 "Google Translate" = "谷歌翻译";
-"Apple (on-device)" = "苹果（内置）";
-"Apple translation is faster and works offline." = "苹果翻译更快且支持离线使用。";
+"Youdao (有道)" = "有道翻译";
 "Google Translate supports more languages." = "谷歌翻译支持更多语言。";
-"Apple translation is faster and works offline. Google Translate supports more languages." = "苹果翻译更快且支持离线使用。谷歌翻译支持更多语言。";
+"Youdao provides excellent Chinese-English translation." = "有道翻译提供出色的中英翻译质量。";
 "Download language packs in System Settings…" = "在系统设置中下载语言包…";
 "Configure S3 in Settings" = "在偏好设置中配置 S3";
 "Sign in to Google Drive in Settings" = "在偏好设置中登录 Google Drive";

@@ -128,43 +128,28 @@ struct BehaviorSettingsView: View {
             }
 
             // MARK: - Translation
-            if TranslationService.appleTranslationAvailable {
-                Section {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Picker(L("Engine"), selection: $translationProvider) {
-                            Text(L("Apple (on-device)")).tag("apple")
-                            Text(L("Google Translate")).tag("google")
-                        }
-                        .onChange(of: translationProvider) { newValue in
-                            TranslationService.provider = TranslationProvider(rawValue: newValue) ?? .google
-                        }
-
-                        if translationProvider == "apple" {
-                            Text(L("Apple translation is faster and works offline."))
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                        } else if translationProvider == "google" {
-                            Text(L("Google Translate supports more languages."))
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                        }
+            Section {
+                VStack(alignment: .leading, spacing: 4) {
+                    Picker(L("Engine"), selection: $translationProvider) {
+                        Text(L("Google Translate")).tag("google")
+                        Text(L("Youdao (有道)")).tag("youdao")
+                    }
+                    .onChange(of: translationProvider) { newValue in
+                        TranslationService.provider = TranslationProvider(rawValue: newValue) ?? .youdao
                     }
 
-                    HStack {
-                        Text(L("Language packs"))
-                        Spacer()
-                        Button(L("Download")) {
-                            // Open System Settings > General > Language & Region
-                            if let url = URL(string: "x-apple.systempreferences:com.apple.Localization") {
-                                NSWorkspace.shared.open(url)
-                            }
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .controlSize(.small)
+                    if translationProvider == "google" {
+                        Text(L("Google Translate supports more languages."))
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    } else if translationProvider == "youdao" {
+                        Text(L("Youdao provides excellent Chinese-English translation."))
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
                     }
-                } header: {
-                    Text(L("Translation"))
                 }
+            } header: {
+                Text(L("Translation"))
             }
         }
         .formStyle(.grouped)
@@ -174,15 +159,11 @@ struct BehaviorSettingsView: View {
     private func normalizeSettings() {
         PostCaptureActionPreferences.migrateIfNeeded()
 
-        if TranslationService.appleTranslationAvailable {
-            translationProvider = normalized(
-                translationProvider,
-                allowed: ["apple", "google"],
-                fallback: "google"
-            )
-        } else {
-            translationProvider = "google"
-        }
+        translationProvider = normalized(
+            translationProvider,
+            allowed: ["google", "youdao"],
+            fallback: "youdao"
+        )
     }
 
     private func normalized<T: Equatable>(_ value: T, allowed: [T], fallback: T) -> T {

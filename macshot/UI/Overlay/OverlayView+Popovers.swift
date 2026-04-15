@@ -140,14 +140,7 @@ extension OverlayView {
             }
         }
 
-        // If Apple Translation is selected, check which languages are installed
-        if #available(macOS 15.0, *), TranslationService.provider == .apple {
-            TranslationService.checkAppleLanguageAvailability { availability in
-                showPopover(availability)
-            }
-        } else {
-            showPopover(nil)
-        }
+        showPopover(nil)
     }
 
     func showBeautifyGradientPopover(anchorView: NSView? = nil, anchorRect: NSRect = .zero) {

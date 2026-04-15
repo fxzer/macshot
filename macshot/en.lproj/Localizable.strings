@@ -555,10 +555,9 @@
 "Resume" = "Resume";
 "Engine:" = "Engine:";
 "Google Translate" = "Google Translate";
-"Apple (on-device)" = "Apple (on-device)";
-"Apple translation is faster and works offline." = "Apple translation is faster and works offline.";
+"Youdao (有道)" = "Youdao";
 "Google Translate supports more languages." = "Google Translate supports more languages.";
-"Apple translation is faster and works offline. Google Translate supports more languages." = "Apple translation is faster and works offline. Google Translate supports more languages.";
+"Youdao provides excellent Chinese-English translation." = "Youdao provides excellent Chinese-English translation.";
 "Download language packs in System Settings…" = "Download language packs in System Settings…";
 "Configure S3 in Settings" = "Configure S3 in Settings";
 "Sign in to Google Drive in Settings" = "Sign in to Google Drive in Settings";

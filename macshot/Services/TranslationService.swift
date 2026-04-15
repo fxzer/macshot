@@ -1,12 +1,9 @@
 import Foundation
-import NaturalLanguage
-import Combine
-import SwiftUI
-@preconcurrency import Translation
+import CryptoSwift
 
 enum TranslationProvider: String {
-    case apple = "apple"
     case google = "google"
+    case youdao = "youdao"
 }
 
 enum TranslationService {
@@ -17,20 +14,28 @@ enum TranslationService {
         get {
             if let raw = UserDefaults.standard.string(forKey: "translationProvider"),
                let p = TranslationProvider(rawValue: raw) { return p }
-            return .google  // Google by default — Apple requires language pack downloads
+            return .youdao  // Youdao by default
         }
         set { UserDefaults.standard.set(newValue.rawValue, forKey: "translationProvider") }
-    }
-
-    /// Whether Apple Translation is available on this system.
-    static var appleTranslationAvailable: Bool {
-        if #available(macOS 15.0, *) { return true }
-        return false
     }
 
     /// Cached Apple language availability — populated on first check,
     /// reused instantly for subsequent popover opens.
     private static var cachedAppleAvailability: [String: Bool]?
+
+    // MARK: - Youdao Constants
+
+    private enum YoudaoConstants {
+        static let baseURL = "https://dict.youdao.com"
+        static let client = "fanyideskweb"
+        static let product = "webfanyi"
+        static let appVersion = "1.0.0"
+        static let vendor = "web"
+        static let defaultKey = "asdjnjfenknafdfsdfsd"
+    }
+
+    /// Cached Youdao key data (secretKey, aesKey, aesIv, expiry)
+    private static var cachedYoudaoKey: (secretKey: String, aesKey: String, aesIv: String, expiry: Date)?
 
     // MARK: - Target language
 
@@ -72,71 +77,6 @@ enum TranslationService {
         ("vi", "Vietnamese"),
     ]
 
-    /// Check which languages are available for Apple Translation.
-    /// Returns a dict of language code → installed status.
-    @available(macOS 15.0, *)
-    static func checkAppleLanguageAvailability(completion: @escaping ([String: Bool]) -> Void) {
-        // Return cache immediately if available
-        if let cached = cachedAppleAvailability {
-            completion(cached)
-            return
-        }
-
-        Task {
-            let availability = LanguageAvailability()
-            let allLocales = availableLanguages.map { (code: $0.code, locale: appleLocale(from: $0.code)) }
-
-            // Find the first installed pair to get a known-installed "probe" language.
-            // Then check all remaining languages against that probe — O(n) instead of O(n²).
-            var installed: [String: Bool] = [:]
-            var probeLocale: Locale.Language?
-            var probeCode: String?
-
-            // Quick scan: find any installed pair
-            outerLoop: for (i, lang) in allLocales.enumerated() {
-                for other in allLocales[(i+1)...] {
-                    let status = await availability.status(from: lang.locale, to: other.locale)
-                    if status == .installed {
-                        installed[lang.code] = true
-                        installed[other.code] = true
-                        probeLocale = lang.locale
-                        probeCode = lang.code
-                        break outerLoop
-                    }
-                }
-            }
-
-            // Check remaining languages against the probe
-            if let probe = probeLocale, let pc = probeCode {
-                for lang in allLocales where installed[lang.code] != true {
-                    // Check both directions since the probe→lang direction
-                    // might not be valid but lang→probe could be
-                    let toStatus = await availability.status(from: probe, to: lang.locale)
-                    let fromStatus = await availability.status(from: lang.locale, to: probe)
-                    installed[lang.code] = (toStatus == .installed || fromStatus == .installed)
-                }
-                // Ensure the probe itself is marked
-                installed[pc] = true
-            }
-
-            // Any language not checked stays false
-            for lang in allLocales where installed[lang.code] == nil {
-                installed[lang.code] = false
-            }
-
-            await MainActor.run {
-                // Only cache if we found at least one installed language.
-                // If the Translation framework wasn't ready (e.g. right after
-                // launch), all languages come back as not-installed — don't
-                // cache that or the popover stays empty for the whole session.
-                if installed.values.contains(true) {
-                    cachedAppleAvailability = installed
-                }
-                completion(installed)
-            }
-        }
-    }
-
     // MARK: - Translate a batch of strings (auto-detect source)
 
     /// Translates multiple strings using the selected provider.
@@ -151,8 +91,8 @@ enum TranslationService {
             return
         }
 
-        if #available(macOS 15.0, *), provider == .apple {
-            translateBatchApple(texts: texts, targetLang: targetLang, completion: completion)
+        if provider == .youdao {
+            translateBatchYoudao(texts: texts, targetLang: targetLang, completion: completion)
         } else {
             translateBatchGoogle(texts: texts, targetLang: targetLang, completion: completion)
         }
@@ -245,174 +185,317 @@ enum TranslationService {
         }.resume()
     }
 
-    // MARK: - Apple Translation (macOS 15.0+ via SwiftUI bridge)
+    // MARK: - Youdao Translator (unofficial endpoint)
 
-    @available(macOS 15.0, *)
-    private static func translateBatchApple(
+    /// Batch translate using Youdao
+    private static func translateBatchYoudao(
         texts: [String],
         targetLang: String,
         completion: @escaping (Result<[String], Error>) -> Void
     ) {
-        let target = appleLocale(from: targetLang)
+        var results = Array(repeating: "", count: texts.count)
+        let group = DispatchGroup()
+        var firstError: Error?
+        let lock = NSLock()
 
-        // Auto-detect source language to avoid Apple's "Choose Language" dialog
-        let combined = texts.joined(separator: " ")
-        let recognizer = NLLanguageRecognizer()
-        recognizer.processString(combined)
+        for (i, text) in texts.enumerated() {
+            let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else {
+                results[i] = text
+                continue
+            }
+            group.enter()
+            translateOneYoudao(text: trimmed, targetLang: targetLang) { result in
+                lock.lock()
+                switch result {
+                case .success(let translated):
+                    results[i] = translated
+                case .failure(let error):
+                    if firstError == nil { firstError = error }
+                    results[i] = ""
+                }
+                lock.unlock()
+                group.leave()
+            }
+        }
 
-        guard let detected = recognizer.dominantLanguage else {
-            // Can't detect language (single word, ambiguous text) — assume English
-            // rather than passing nil which triggers Apple's blocking "Choose Language" dialog
-            completion(.failure(TranslationError.appleTranslation(LanguageManager.shared.localizedString("Could not detect source language. Try selecting more text."))))
+        group.notify(queue: .main) {
+            if let error = firstError {
+                completion(.failure(error))
+            } else {
+                completion(.success(results))
+            }
+        }
+    }
+
+    /// Translate single text using Youdao
+    static func translateOneYoudao(
+        text: String,
+        targetLang: String,
+        completion: @escaping (Result<String, Error>) -> Void
+    ) {
+        // Get or refresh Youdao key
+        fetchYoudaoKey { result in
+            switch result {
+            case .success(let (secretKey, aesKey, aesIv)):
+                // Map language codes to Youdao format
+                guard let youdaoTargetLang = youdaoLanguageCode(from: targetLang) else {
+                    completion(.failure(TranslationError.parseError))
+                    return
+                }
+
+                let timestamp = currentTimestamp()
+                let sign = generateYoudaoSign(
+                    client: YoudaoConstants.client,
+                    timestamp: timestamp,
+                    product: YoudaoConstants.product,
+                    key: secretKey
+                )
+
+                var components = URLComponents(string: "\(YoudaoConstants.baseURL)/webtranslate")!
+                components.queryItems = [
+                    URLQueryItem(name: "client", value: YoudaoConstants.client),
+                    URLQueryItem(name: "product", value: YoudaoConstants.product),
+                    URLQueryItem(name: "appVersion", value: YoudaoConstants.appVersion),
+                    URLQueryItem(name: "vendor", value: YoudaoConstants.vendor),
+                    URLQueryItem(name: "pointParam", value: "client,mysticTime,product"),
+                    URLQueryItem(name: "keyfrom", value: "fanyi.web"),
+                    URLQueryItem(name: "keyid", value: "webfanyi"),
+                    URLQueryItem(name: "sign", value: sign),
+                    URLQueryItem(name: "mysticTime", value: timestamp),
+                    URLQueryItem(name: "from", value: "auto"),
+                    URLQueryItem(name: "to", value: youdaoTargetLang),
+                    URLQueryItem(name: "dictResult", value: "false"),
+                    URLQueryItem(name: "i", value: text),
+                ]
+
+                guard let url = components.url else {
+                    completion(.failure(TranslationError.badURL))
+                    return
+                }
+
+                var request = URLRequest(url: url)
+                request.httpMethod = "POST"
+                request.setValue("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36", forHTTPHeaderField: "User-Agent")
+                request.setValue("https://fanyi.youdao.com/", forHTTPHeaderField: "Referer")
+                request.setValue("OUTFOX_SEARCH_USER_ID=1796239350@10.110.96.157;", forHTTPHeaderField: "Cookie")
+                request.timeoutInterval = 15
+
+                URLSession.shared.dataTask(with: request) { data, response, error in
+                    if let error = error {
+                        completion(.failure(error))
+                        return
+                    }
+                    guard let data = data,
+                          let encryptedText = String(data: data, encoding: .utf8) else {
+                        completion(.failure(TranslationError.noData))
+                        return
+                    }
+
+                    // Decrypt response
+                    guard let decryptedText = decryptYoudaoResponse(
+                        encryptedText: encryptedText,
+                        key: aesKey,
+                        iv: aesIv
+                    ),
+                    let decryptedData = decryptedText.data(using: .utf8) else {
+                        completion(.failure(TranslationError.parseError))
+                        return
+                    }
+
+                    // Parse JSON
+                    do {
+                        let youdaoResponse = try JSONDecoder().decode(YoudaoTranslateResponse.self, from: decryptedData)
+                        if youdaoResponse.code == 0 {
+                            // Flatten the nested arrays and join translations
+                            let translations = youdaoResponse.translateResult.map { group in
+                                group.map { $0.tgt }.joined(separator: "")
+                            }
+                            let translatedText = translations.joined(separator: "")
+                            completion(.success(translatedText))
+                        } else {
+                            completion(.failure(TranslationError.parseError))
+                        }
+                    } catch {
+                        completion(.failure(TranslationError.parseError))
+                    }
+                }.resume()
+
+            case .failure(let error):
+                completion(.failure(error))
+            }
+        }
+    }
+
+    /// Fetch Youdao translation key from the web API
+    static func fetchYoudaoKey(
+        completion: @escaping (Result<(secretKey: String, aesKey: String, aesIv: String), Error>) -> Void
+    ) {
+        // Check cache first
+        if let cached = cachedYoudaoKey, cached.expiry > Date() {
+            completion(.success((cached.secretKey, cached.aesKey, cached.aesIv)))
             return
         }
 
-        let source = Locale.Language(identifier: detected.rawValue)
-        let config = TranslationSession.Configuration(source: source, target: target)
-        // Must dispatch to main — TranslationBridge adds a SwiftUI view which requires main thread
-        DispatchQueue.main.async {
-            TranslationBridge.shared.translate(texts: texts, configuration: config, completion: completion)
-        }
-    }
+        let timestamp = currentTimestamp()
+        let sign = generateYoudaoSign(
+            client: YoudaoConstants.client,
+            timestamp: timestamp,
+            product: YoudaoConstants.product,
+            key: YoudaoConstants.defaultKey
+        )
 
-    /// Map our language codes to Apple's Locale.Language.
-    @available(macOS 15.0, *)
-    private static func appleLocale(from code: String) -> Locale.Language {
-        switch code {
-        case "zh-CN": return Locale.Language(identifier: "zh-Hans")
-        case "zh-TW": return Locale.Language(identifier: "zh-Hant")
-        case "nb":    return Locale.Language(identifier: "no")
-        default:      return Locale.Language(identifier: code)
-        }
-    }
-}
+        var components = URLComponents(string: "\(YoudaoConstants.baseURL)/webtranslate/key")!
+        components.queryItems = [
+            URLQueryItem(name: "client", value: YoudaoConstants.client),
+            URLQueryItem(name: "product", value: YoudaoConstants.product),
+            URLQueryItem(name: "appVersion", value: YoudaoConstants.appVersion),
+            URLQueryItem(name: "vendor", value: YoudaoConstants.vendor),
+            URLQueryItem(name: "pointParam", value: "client,mysticTime,product"),
+            URLQueryItem(name: "keyfrom", value: "fanyi.web"),
+            URLQueryItem(name: "keyid", value: "webfanyi-key-getter"),
+            URLQueryItem(name: "sign", value: sign),
+            URLQueryItem(name: "mysticTime", value: timestamp),
+        ]
 
-// MARK: - SwiftUI bridge for Apple Translation
-
-/// Uses a hidden SwiftUI view with .translationTask() to obtain a TranslationSession.
-/// This is the supported way to use the Translation framework from AppKit.
-@available(macOS 15.0, *)
-@MainActor
-final class TranslationBridge: ObservableObject {
-    static let shared = TranslationBridge()
-
-    @Published var config: TranslationSession.Configuration?
-    private var hostingView: NSView?
-    private var pendingTexts: [String] = []
-    private var pendingCompletion: ((Result<[String], Error>) -> Void)?
-
-    private var translationID: UUID?
-
-    func translate(
-        texts: [String],
-        configuration: TranslationSession.Configuration,
-        completion: @escaping (Result<[String], Error>) -> Void
-    ) {
-        // Cancel any in-flight translation before starting a new one
-        if pendingCompletion != nil {
-            cleanup()
+        guard let url = components.url else {
+            completion(.failure(TranslationError.badURL))
+            return
         }
 
-        let thisID = UUID()
-        translationID = thisID
-        pendingTexts = texts
-        pendingCompletion = completion
+        var request = URLRequest(url: url)
+        request.setValue("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36", forHTTPHeaderField: "User-Agent")
+        request.setValue("https://fanyi.youdao.com/", forHTTPHeaderField: "Referer")
+        request.timeoutInterval = 10
 
-        // Create hidden SwiftUI view and attach to a window
-        let view = TranslationBridgeView(bridge: self)
-        let hosting = NSHostingView(rootView: view)
-        hosting.frame = NSRect(x: -1, y: -1, width: 1, height: 1)
-        if let window = NSApp.windows.first(where: { $0.contentView != nil }) {
-            window.contentView?.addSubview(hosting)
-        }
-        hostingView = hosting
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error {
+                completion(.failure(error))
+                return
+            }
+            guard let data = data else {
+                completion(.failure(TranslationError.noData))
+                return
+            }
 
-        // Setting config triggers .translationTask
-        config = configuration
-
-        // Timeout: if session doesn't respond in 10s, report error
-        DispatchQueue.main.asyncAfter(deadline: .now() + 10) { [weak self] in
-            guard let self = self, self.translationID == thisID, self.pendingCompletion != nil else { return }
-            let completion = self.pendingCompletion
-            self.cleanup()
-            completion?(.failure(TranslationError.appleTranslation(LanguageManager.shared.localizedString("Apple Translation timed out. The language pack may need to be downloaded in System Settings."))))
-        }
-    }
-
-    fileprivate func sessionReady(_ session: TranslationSession) {
-        // Ignore stale sessions from cancelled translations
-        guard pendingCompletion != nil else { return }
-        let texts = pendingTexts
-        let completion = pendingCompletion
-        let activeID = translationID
-        Task { [weak self] in
             do {
-                var results = Array(repeating: "", count: texts.count)
-                for (i, text) in texts.enumerated() {
-                    // Bail if a new translation was started while we're iterating
-                    let stillActive = await MainActor.run { self?.translationID == activeID }
-                    guard stillActive else { return }
-                    let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-                    guard !trimmed.isEmpty else {
-                        results[i] = text
-                        continue
-                    }
-                    let response = try await session.translate(trimmed)
-                    results[i] = response.targetText
-                }
-                await MainActor.run {
-                    guard let self = self else { return }
-                    guard self.translationID == activeID else { return }
-                    self.cleanup()
-                    completion?(.success(results))
+                let youdaoKey = try JSONDecoder().decode(YoudaoKey.self, from: data)
+                if youdaoKey.code == 0 {
+                    // Cache for 10 minutes
+                    cachedYoudaoKey = (
+                        secretKey: youdaoKey.data.secretKey,
+                        aesKey: youdaoKey.data.aesKey,
+                        aesIv: youdaoKey.data.aesIv,
+                        expiry: Date().addingTimeInterval(600)
+                    )
+                    completion(.success((youdaoKey.data.secretKey, youdaoKey.data.aesKey, youdaoKey.data.aesIv)))
+                } else {
+                    completion(.failure(TranslationError.parseError))
                 }
             } catch {
-                await MainActor.run {
-                    guard let self = self else { return }
-                    guard self.translationID == activeID else { return }
-                    self.cleanup()
-                    let desc = error.localizedDescription
-                    let msg = String(format: LanguageManager.shared.localizedString("Apple Translation failed: %@. You can switch to Google Translate in Settings."), desc)
-                    completion?(.failure(TranslationError.appleTranslation(msg)))
-                }
+                completion(.failure(TranslationError.parseError))
             }
+        }.resume()
+    }
+
+    /// Generate MD5 sign for Youdao API
+    static func generateYoudaoSign(
+        client: String,
+        timestamp: String,
+        product: String,
+        key: String
+    ) -> String {
+        let signText = "client=\(client)&mysticTime=\(timestamp)&product=\(product)&key=\(key)"
+        guard let data = signText.data(using: .utf8) else { return "" }
+        do {
+            let hash = try Digest.md5(data.bytes)
+            return hash.toHexString()
+        } catch {
+            return ""
         }
     }
 
-    private func cleanup() {
-        hostingView?.removeFromSuperview()
-        hostingView = nil
-        pendingTexts = []
-        pendingCompletion = nil
-        config = nil
+    /// Decrypt Youdao AES-128-CBC response
+    static func decryptYoudaoResponse(
+        encryptedText: String,
+        key: String,
+        iv: String
+    ) -> String? {
+        // Convert URL-safe base64 to standard base64
+        let standardBase64 = encryptedText
+            .replacingOccurrences(of: "-", with: "+")
+            .replacingOccurrences(of: "_", with: "/")
+
+        // Decode base64 string to data
+        guard let encryptedData = Data(base64Encoded: standardBase64) else {
+            return nil
+        }
+
+        // Generate MD5 hashes for key and iv using CryptoSwift
+        guard let keyData = key.data(using: .utf8),
+              let ivData = iv.data(using: .utf8) else {
+            return nil
+        }
+
+        do {
+            // Use CryptoSwift's MD5
+            let keyHash = try Digest.md5(keyData.bytes)
+            let ivHash = try Digest.md5(ivData.bytes)
+
+            // Create AES cipher with CBC mode and PKCS7 padding
+            let aes = try AES(
+                key: keyHash,
+                blockMode: CBC(iv: ivHash),
+                padding: .pkcs7
+            )
+
+            // Decrypt the data
+            let decryptedBytes = try aes.decrypt(encryptedData.bytes)
+
+            // Convert decrypted bytes to string
+            return String(data: Data(decryptedBytes), encoding: .utf8)
+        } catch {
+            return nil
+        }
     }
-}
 
-@available(macOS 15.0, *)
-private struct TranslationBridgeView: View {
-    @ObservedObject var bridge: TranslationBridge
+    /// Map language codes to Youdao format
+    static func youdaoLanguageCode(from code: String) -> String? {
+        switch code {
+        case "zh-CN": return "zh-CHS"
+        case "zh-TW": return "zh-CHT"
+        case "en": return "en"
+        case "ja": return "ja"
+        case "ko": return "ko"
+        case "fr": return "fr"
+        case "es": return "es"
+        case "pt": return "pt"
+        case "it": return "it"
+        case "de": return "de"
+        case "ru": return "ru"
+        case "ar": return "ar"
+        case "th": return "th"
+        case "nl": return "nl"
+        case "id": return "id"
+        case "vi": return "vi"
+        default: return nil
+        }
+    }
 
-    var body: some View {
-        Color.clear
-            .frame(width: 1, height: 1)
-            .translationTask(bridge.config) { session in
-                await MainActor.run {
-                    bridge.sessionReady(session)
-                }
-            }
+    /// A timestamp string in milliseconds
+    static func currentTimestamp() -> String {
+        String(Int(Date().timeIntervalSince1970 * 1000))
     }
 }
 
 enum TranslationError: LocalizedError {
     case badURL, noData, parseError, emptyResult
-    case appleTranslation(String)
     var errorDescription: String? {
         switch self {
         case .badURL:      return "Invalid translation URL"
         case .noData:      return "No response from translation service"
         case .parseError:  return "Could not parse translation response"
         case .emptyResult: return "Translation returned empty result"
-        case .appleTranslation(let msg): return msg
         }
     }
 }

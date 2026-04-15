@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		2F98BCF22F6D83A1006ADDC3 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = AA0000022F61B60100B71643 /* Sparkle */; };
 		2F98BCF32F6D83A1006ADDC3 /* WebP in Frameworks */ = {isa = PBXBuildFile; productRef = AA0000052F61B60100B71643 /* WebP */; };
+		2FYOUDAO0012F61B60100B71643 /* CryptoSwift in Frameworks */ = {isa = PBXBuildFile; productRef = AA0000062F61B60100B71643 /* CryptoSwift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -43,6 +44,7 @@
 			files = (
 				2F98BCF32F6D83A1006ADDC3 /* WebP in Frameworks */,
 				2F98BCF22F6D83A1006ADDC3 /* Sparkle in Frameworks */,
+				2FYOUDAO0012F61B60100B71643 /* CryptoSwift in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -87,6 +89,7 @@
 			packageProductDependencies = (
 				AA0000022F61B60100B71643 /* Sparkle */,
 				AA0000052F61B60100B71643 /* WebP */,
+				AA0000062F61B60100B71643 /* CryptoSwift */,
 			);
 			productName = macshot;
 			productReference = 2F4EB1222F61B60100B71643 /* macshot.app */;
@@ -158,6 +161,7 @@
 			packageReferences = (
 				AA0000032F61B60100B71643 /* XCRemoteSwiftPackageReference "Sparkle" */,
 				AA0000042F61B60100B71643 /* XCRemoteSwiftPackageReference "Swift-WebP" */,
+				AA0000072F61B60100B71643 /* XCRemoteSwiftPackageReference "CryptoSwift" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 2F4EB1232F61B60100B71643 /* Products */;
@@ -414,6 +418,14 @@
 				version = 0.5.0;
 			};
 		};
+		AA0000072F61B60100B71643 /* XCRemoteSwiftPackageReference "CryptoSwift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/krzyzanowskim/CryptoSwift";
+			requirement = {
+				branch = 1.8.3;
+				kind = branch;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -426,6 +438,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = AA0000042F61B60100B71643 /* XCRemoteSwiftPackageReference "Swift-WebP" */;
 			productName = WebP;
+		};
+		AA0000062F61B60100B71643 /* CryptoSwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AA0000072F61B60100B71643 /* XCRemoteSwiftPackageReference "CryptoSwift" */;
+			productName = CryptoSwift;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

@@ -1,6 +1,15 @@
 {
-  "originHash" : "64db855399237b1bcd26e2e4f22b74a187a97d70e989f36c71b365c62f5b52ce",
+  "originHash" : "6860021dc8ce56b5aef61fe68961bdea9ed880b1b080a73261eabfecb5702b62",
   "pins" : [
+    {
+      "identity" : "cryptoswift",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/krzyzanowskim/CryptoSwift",
+      "state" : {
+        "branch" : "1.8.3",
+        "revision" : "678d442c6f7828def400a70ae15968aef67ef52d"
+      }
+    },
     {
       "identity" : "libwebp-xcode",
       "kind" : "remoteSourceControl",
