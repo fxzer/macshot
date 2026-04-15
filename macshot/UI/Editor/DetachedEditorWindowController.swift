@@ -356,10 +356,8 @@ extension DetachedEditorWindowController: OverlayViewDelegate {
             let text = lines.joined(separator: "\n")
             DispatchQueue.main.async {
                 guard let self = self else { return }
-                // OCR action: 0 = window + copy, 1 = window only, 2 = copy only
-                let ocrAction = UserDefaults.standard.integer(forKey: "ocrAction")
-                let shouldCopy = ocrAction == 0 || ocrAction == 2
-                let shouldShowWindow = ocrAction == 0 || ocrAction == 1
+                let shouldCopy = UserDefaults.standard.bool(forKey: "ocrCopyToClipboard")
+                let shouldShowWindow = UserDefaults.standard.bool(forKey: "ocrShowWindow")
 
                 if shouldCopy && !text.isEmpty {
                     NSPasteboard.general.clearContents()

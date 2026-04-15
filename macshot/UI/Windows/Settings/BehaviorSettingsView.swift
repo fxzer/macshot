@@ -33,10 +33,15 @@ struct BehaviorSettingsView: View {
     @AppStorage("playRecordingSound") private var playRecordingSound = false
 
     // OCR
-    @AppStorage("ocrAction") private var ocrAction: Int = 0
+    @AppStorage("ocrShowWindow") private var ocrShowWindow = true
+    @AppStorage("ocrCopyToClipboard") private var ocrCopyToClipboard = true
 
     // Translation
     @AppStorage("translationProvider") private var translationProvider = "google"
+
+    // Show in Finder
+    @AppStorage("screenshotShowInFinder") private var screenshotShowInFinder = false
+    @AppStorage("recordingShowInFinder") private var recordingShowInFinder = false
 
     var body: some View {
         Form {
@@ -57,6 +62,11 @@ struct BehaviorSettingsView: View {
                     screenshotBinding: $screenshotSaveToFile,
                     recordingBinding: $recordingSaveToFile,
                     title: L("Save to file")
+                )
+                actionMatrixRow(
+                    screenshotBinding: $screenshotShowInFinder,
+                    recordingBinding: $recordingShowInFinder,
+                    title: L("Show in Finder")
                 )
                 actionMatrixRow(
                     screenshotBinding: $screenshotUploadAndCopyLink,
@@ -88,13 +98,33 @@ struct BehaviorSettingsView: View {
             }
 
             Section {
-                Picker(L("OCR Capture"), selection: $ocrAction) {
-                    Text(L("Show window + copy to clipboard")).tag(0)
-                    Text(L("Show window only")).tag(1)
-                    Text(L("Copy to clipboard only")).tag(2)
+                HStack(alignment: .center) {
+                    Text(L("OCR"))
+                        .font(.subheadline.weight(.medium))
+                        .foregroundColor(.secondary)
+
+                    Spacer()
+
+                    HStack(spacing: 16) {
+                        HStack(spacing: 6) {
+                            Button("") {
+                                ocrShowWindow.toggle()
+                            }
+                            .buttonStyle(.checkbox(checked: ocrShowWindow))
+
+                            Text(L("Show window"))
+                        }
+
+                        HStack(spacing: 6) {
+                            Button("") {
+                                ocrCopyToClipboard.toggle()
+                            }
+                            .buttonStyle(.checkbox(checked: ocrCopyToClipboard))
+
+                            Text(L("Copy to clipboard"))
+                        }
+                    }
                 }
-            } header: {
-                Text(L("OCR"))
             }
 
             // MARK: - Translation
@@ -143,7 +173,6 @@ struct BehaviorSettingsView: View {
 
     private func normalizeSettings() {
         PostCaptureActionPreferences.migrateIfNeeded()
-        ocrAction = normalized(ocrAction, allowed: [0, 1, 2], fallback: 0)
 
         if TranslationService.appleTranslationAvailable {
             translationProvider = normalized(
@@ -166,16 +195,17 @@ struct BehaviorSettingsView: View {
             Text(L("Screenshot"))
                 .font(.subheadline.weight(.medium))
                 .foregroundColor(.secondary)
-                .frame(width: 88, alignment: .center)
+                .frame(width: 100, alignment: .center)
 
             Text(L("Recording"))
                 .font(.subheadline.weight(.medium))
                 .foregroundColor(.secondary)
-                .frame(width: 88, alignment: .center)
+                .frame(width: 100, alignment: .center)
 
             Text(L("Action"))
                 .font(.subheadline.weight(.medium))
                 .foregroundColor(.secondary)
+                .padding(.leading, 30)
 
             Spacer(minLength: 0)
         }
@@ -190,12 +220,13 @@ struct BehaviorSettingsView: View {
     ) -> some View {
         HStack(spacing: 12) {
             actionToggleCell(binding: screenshotBinding)
-                .frame(width: 88)
+                .frame(width: 100)
 
             actionToggleCell(binding: recordingBinding)
-                .frame(width: 88)
+                .frame(width: 100)
 
             Text(title)
+                .padding(.leading, 30)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(.vertical, 2)
@@ -212,5 +243,21 @@ struct BehaviorSettingsView: View {
                 .foregroundColor(.secondary)
                 .frame(maxWidth: .infinity, alignment: .center)
         }
+    }
+}
+
+struct CheckboxButtonStyle: ButtonStyle {
+    let checked: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        Image(systemName: checked ? "checkmark.square.fill" : "square")
+            .foregroundColor(checked ? .accentColor : .secondary)
+            .imageScale(.large)
+    }
+}
+
+extension ButtonStyle where Self == CheckboxButtonStyle {
+    static func checkbox(checked: Bool) -> CheckboxButtonStyle {
+        CheckboxButtonStyle(checked: checked)
     }
 }

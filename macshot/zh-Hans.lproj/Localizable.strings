@@ -179,7 +179,7 @@
 "FPS:" = "FPS:";
 "When done:" = "完成后:";
 "Open editor" = "打开编辑器";
-"Show in Finder" = "在 Finder 中显示";
+"Show in Finder" = "在访达中显示";
 "Copy to clipboard" = "拷贝到剪贴板";
 
 /* Preferences - General */
@@ -270,7 +270,9 @@
 "Icon color:" = "图标颜色:";
 "Background color:" = "背景颜色:";
 "Reset" = "重置";
-"OCR Capture:" = "OCR 捕获:";
+"OCR" = "OCR";
+"Show window" = "显示窗口";
+"Copy to clipboard" = "拷贝到剪贴板";
 "Show window + copy to clipboard" = "显示窗口 + 拷贝到剪贴板";
 "Show window only" = "仅显示窗口";
 "Copy to clipboard only" = "仅拷贝到剪贴板";

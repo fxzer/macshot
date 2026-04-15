@@ -288,7 +288,9 @@
 "Background color" = "Background color";
 "Background color:" = "Background color:";
 "Reset" = "Reset";
-"OCR Capture:" = "OCR Capture:";
+"OCR" = "OCR";
+"Show window" = "Show window";
+"Copy to clipboard" = "Copy to clipboard";
 "Show window + copy to clipboard" = "Show window + copy to clipboard";
 "Show window only" = "Show window only";
 "Copy to clipboard only" = "Copy to clipboard only";

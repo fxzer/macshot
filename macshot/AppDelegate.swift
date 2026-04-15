@@ -914,7 +914,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             ImageEncoder.copyToClipboard(image)
         }
         if actions.saveToFile && context != .manualSave {
-            saveImageToDefaultDirectory(image, windowTitle: windowTitle)
+            let showInFinder = UserDefaults.standard.bool(forKey: "screenshotShowInFinder")
+            saveImageToDefaultDirectory(image, windowTitle: windowTitle, showInFinder: showInFinder)
         }
         if actions.uploadAndCopyLink {
             showUploadProgress(image: image)
@@ -951,7 +952,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             copyRecordingToClipboard(url: url)
         }
         if actions.saveToFile {
-            saveRecordingToDefaultDirectory(url)
+            let showInFinder = UserDefaults.standard.bool(forKey: "recordingShowInFinder")
+            saveRecordingToDefaultDirectory(url, showInFinder: showInFinder)
         }
         if actions.uploadAndCopyLink {
             uploadRecording(url: url)
@@ -987,7 +989,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         recordingQuickActionsController = controller
     }
 
-    private func saveImageToDefaultDirectory(_ image: NSImage, windowTitle: String?) {
+    private func saveImageToDefaultDirectory(_ image: NSImage, windowTitle: String?, showInFinder: Bool = false) {
         let dirURL = SaveDirectoryAccess.resolve()
         let baseName = FilenameTemplateEngine.makeBaseName(kind: .screenshot)
 
@@ -1004,10 +1006,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         DispatchQueue.global(qos: .userInitiated).async {
             defer { SaveDirectoryAccess.stopAccessing(url: dirURL) }
             try? imageData.write(to: fileURL)
+            if showInFinder {
+                DispatchQueue.main.async {
+                    NSWorkspace.shared.activateFileViewerSelecting([fileURL])
+                }
+            }
         }
     }
 
-    private func saveRecordingToDefaultDirectory(_ sourceURL: URL) {
+    private func saveRecordingToDefaultDirectory(_ sourceURL: URL, showInFinder: Bool = false) {
         let dirURL = SaveDirectoryAccess.resolveRecordingDirectory()
         let kind: FilenameOutputKind = sourceURL.pathExtension.lowercased() == "gif" ? .gif : .recording
         let destinationURL = FilenameTemplateEngine.uniqueDestinationURL(
@@ -1019,6 +1026,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         DispatchQueue.global(qos: .userInitiated).async {
             defer { SaveDirectoryAccess.stopAccessing(url: dirURL) }
             try? FileManager.default.copyItem(at: sourceURL, to: destinationURL)
+            if showInFinder {
+                DispatchQueue.main.async {
+                    NSWorkspace.shared.activateFileViewerSelecting([destinationURL])
+                }
+            }
         }
     }
 
@@ -1445,10 +1457,8 @@ extension AppDelegate: OverlayWindowControllerDelegate {
     }
 
     func overlayDidRequestOCR(_ controller: OverlayWindowController, text: String, image: NSImage?) {
-        // OCR action: 0 = window + copy (default), 1 = window only, 2 = copy only
-        let ocrAction = UserDefaults.standard.integer(forKey: "ocrAction")
-        let shouldCopy = ocrAction == 0 || ocrAction == 2
-        let shouldShowWindow = ocrAction == 0 || ocrAction == 1
+        let shouldCopy = UserDefaults.standard.bool(forKey: "ocrCopyToClipboard")
+        let shouldShowWindow = UserDefaults.standard.bool(forKey: "ocrShowWindow")
         dismissOverlays(refocusPreviousApp: !shouldShowWindow)
 
         if shouldCopy && !text.isEmpty {
