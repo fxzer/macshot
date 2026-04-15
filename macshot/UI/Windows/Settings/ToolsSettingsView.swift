@@ -1,5 +1,6 @@
 import SwiftUI
 
+/// 工具设置视图 - 使用 Form 容器，四列复选框布局
 struct ToolsSettingsView: View {
 
     @State private var enabledTools: Set<Int>
@@ -43,7 +44,7 @@ struct ToolsSettingsView: View {
         (1006, L("Auto-Redact")),
     ]
 
-    // 捕获操作 Capture Actions - 按右侧工具栏顺序：Share, Upload, Pin, OCR, Translate, Scroll Capture, Record
+    // 捕获操作 Capture Actions
     private let otherActions: [(tag: Int, label: String)] = [
         (1012, L("Share")),
         (1001, L("Upload")),
@@ -73,80 +74,103 @@ struct ToolsSettingsView: View {
 
     var body: some View {
         Form {
-            // MARK: - Drawing Tools (画笔)
+            // MARK: - 绘制工具
             Section {
-                ForEach(drawingTools, id: \.tag) { item in
-                    toggleRow(item: item, enabled: $enabledTools, key: "enabledTools")
-                }
+                ToolGrid(items: drawingTools, enabled: $enabledTools, key: "enabledTools")
             } header: {
                 Text(L("Drawing"))
             }
 
-            // MARK: - Shape Tools (形状)
+            // MARK: - 形状工具
             Section {
-                ForEach(shapeTools, id: \.tag) { item in
-                    toggleRow(item: item, enabled: $enabledTools, key: "enabledTools")
-                }
+                ToolGrid(items: shapeTools, enabled: $enabledTools, key: "enabledTools")
             } header: {
                 Text(L("Shapes"))
             }
 
-            // MARK: - Annotation Tools (标注)
+            // MARK: - 标注工具
             Section {
-                ForEach(annotationTools, id: \.tag) { item in
-                    toggleRow(item: item, enabled: $enabledTools, key: "enabledTools")
-                }
+                ToolGrid(items: annotationTools, enabled: $enabledTools, key: "enabledTools")
             } header: {
                 Text(L("Annotation"))
             }
 
-            // MARK: - Color Tools (颜色)
+            // MARK: - 颜色工具
             Section {
-                ForEach(colorTools, id: \.tag) { item in
-                    toggleRow(item: item, enabled: $enabledTools, key: "enabledTools")
-                }
+                ToolGrid(items: colorTools, enabled: $enabledTools, key: "enabledTools")
             } header: {
                 Text(L("Color"))
             }
 
-            // MARK: - Effect Tools (效果)
+            // MARK: - 效果
             Section {
-                ForEach(effectActions, id: \.tag) { item in
-                    toggleRow(item: item, enabled: $enabledActions, key: "enabledActions")
-                }
+                ToolGrid(items: effectActions, enabled: $enabledActions, key: "enabledActions")
             } header: {
                 Text(L("Effects"))
             }
 
-            // MARK: - Capture Actions (捕获操作)
+            // MARK: - 捕获操作
             Section {
-                ForEach(otherActions, id: \.tag) { item in
-                    toggleRow(item: item, enabled: $enabledActions, key: "enabledActions")
-                }
+                ToolGrid(items: otherActions, enabled: $enabledActions, key: "enabledActions")
             } header: {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(L("Capture Actions"))
-                    Text(L("Hidden actions are removed from the right toolbar."))
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                }
+                Text(L("Capture Actions"))
             }
         }
         .formStyle(.grouped)
     }
+}
 
-    @ViewBuilder
-    private func toggleRow(item: (tag: Int, label: String), enabled: Binding<Set<Int>>, key: String) -> some View {
-        Toggle(item.label, isOn: Binding(
-            get: { enabled.wrappedValue.contains(item.tag) },
+// MARK: - 四列网格布局
+
+struct ToolGrid: View {
+    let items: [(tag: Int, label: String)]
+    @Binding var enabled: Set<Int>
+    let key: String
+
+    private let columns = 4
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            ForEach(0..<rows, id: \.self) { row in
+                HStack(alignment: .top, spacing: 8) {
+                    ForEach(0..<columns, id: \.self) { col in
+                        let idx = row * columns + col
+                        if idx < items.count {
+                            let item = items[idx]
+                            Toggle(item.label, isOn: toggleBinding(item: item))
+                                .toggleStyle(.checkbox)
+                                .font(.system(size: 13))
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        } else {
+                            Spacer()
+                                .frame(maxWidth: .infinity)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private var rows: Int {
+        Int(ceil(Double(items.count) / Double(columns)))
+    }
+
+    private func toggleBinding(item: (tag: Int, label: String)) -> Binding<Bool> {
+        Binding(
+            get: { enabled.contains(item.tag) },
             set: { newValue in
                 if newValue {
-                    enabled.wrappedValue.insert(item.tag)
+                    enabled.insert(item.tag)
                 } else {
-                    enabled.wrappedValue.remove(item.tag)
+                    enabled.remove(item.tag)
                 }
-                UserDefaults.standard.set(Array(enabled.wrappedValue), forKey: key)
+                UserDefaults.standard.set(Array(enabled), forKey: key)
             }
-        ))
+        )
     }
+}
+
+#Preview {
+    ToolsSettingsView()
+        .frame(width: 560, height: 600)
 }
