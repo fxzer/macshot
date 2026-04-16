@@ -111,22 +111,8 @@ class UploadToastController {
         statusLabel?.removeFromSuperview()
         statusLabel = nil
 
-        // Compute height based on link text length
-        let linkFont = NSFont.systemFont(ofSize: 11)
-        let maxLinkW = toastWidth - 140
-        let linkTextSize = (link as NSString).boundingRect(
-            with: NSSize(width: maxLinkW, height: 200),
-            options: [.usesLineFragmentOrigin],
-            attributes: [.font: linkFont]
-        ).size
-        let linkH = max(16, ceil(linkTextSize.height))
-
-        // 布局常量
-        let topPadding: CGFloat = 12
-        let titleHeight: CGFloat = 18
-        let titleLinkSpacing: CGFloat = 4
-        let bottomPadding: CGFloat = 12
-        let toastHeight = max(56, topPadding + titleHeight + titleLinkSpacing + linkH + bottomPadding)
+        // 固定高度：链接只显示一行（用省略号）
+        let toastHeight: CGFloat = 56
 
         // Resize and reposition (stay top-center)
         let screen = NSScreen.main ?? NSScreen.screens[0]
@@ -144,11 +130,17 @@ class UploadToastController {
         // 垂直居中计算
         let centerY = toastHeight / 2
 
+        // 文字整体高度（标题 + 链接 + 间距）
+        let titleHeight: CGFloat = 18
+        let linkHeight: CGFloat = 16
+        let spacing: CGFloat = 2
+        let totalTextHeight = titleHeight + spacing + linkHeight
+
         // Reposition icon
         iconView?.frame = NSRect(x: 14, y: centerY - 14, width: 28, height: 28)
 
-        // Title (顶部位置)
-        let titleY = toastHeight - topPadding - titleHeight
+        // Title (垂直居中)
+        let titleY = centerY + totalTextHeight / 2 - titleHeight
         let titleLabel = NSTextField(labelWithString: L("URL copied to the clipboard"))
         titleLabel.frame = NSRect(x: 50, y: titleY, width: toastWidth - 140, height: titleHeight)
         titleLabel.font = NSFont.systemFont(ofSize: 13, weight: .semibold)
@@ -158,10 +150,10 @@ class UploadToastController {
         self.statusLabel = titleLabel
 
         // Link (紧跟标题下方)
-        let linkY = titleY - titleLinkSpacing - linkH
+        let linkY = titleY - spacing - linkHeight
         let linkLabel = NSTextField(labelWithString: link)
-        linkLabel.frame = NSRect(x: 50, y: linkY, width: toastWidth - 140, height: linkH)
-        linkLabel.font = linkFont
+        linkLabel.frame = NSRect(x: 50, y: linkY, width: toastWidth - 140, height: linkHeight)
+        linkLabel.font = NSFont.systemFont(ofSize: 11)
         linkLabel.textColor = .secondaryLabelColor
         linkLabel.lineBreakMode = .byTruncatingMiddle
         linkLabel.isSelectable = false
