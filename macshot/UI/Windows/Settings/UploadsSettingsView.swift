@@ -43,18 +43,7 @@ struct UploadsSettingsView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            // 顶部分段切换
-            Picker("", selection: $selectedTab) {
-                Text("配置").tag(UploadTab.configuration)
-                Text("历史").tag(UploadTab.history)
-            }
-            .pickerStyle(.segmented)
-            .padding(.horizontal)
-            .padding(.top, 8)
-            .padding(.bottom, 8)
-
-            // 内容区域
+        Group {
             if selectedTab == .configuration {
                 configurationContent
             } else {
@@ -86,6 +75,15 @@ struct UploadsSettingsView: View {
     @ViewBuilder
     private var configurationContent: some View {
         Form {
+            // MARK: - Tab Switcher
+            Section {
+                Picker("", selection: $selectedTab) {
+                    Text("配置").tag(UploadTab.configuration)
+                    Text("历史").tag(UploadTab.history)
+                }
+                .pickerStyle(.segmented)
+            }
+
             // MARK: - Upload Service
             Section {
                 Picker(L("Upload provider"), selection: $uploadProvider) {
@@ -185,15 +183,29 @@ struct UploadsSettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .padding(.top, -20)
     }
 
     // MARK: - History Content
 
     @ViewBuilder
     private var historyContent: some View {
-        UploadHistoryGridView()
-            .frame(maxHeight: 400)
+        VStack(spacing: 0) {
+            // 分段切换（与配置 Form 的样式一致）
+            HStack {
+                Picker("", selection: $selectedTab) {
+                    Text("配置").tag(UploadTab.configuration)
+                    Text("历史").tag(UploadTab.history)
+                }
+                .pickerStyle(.segmented)
+            }
+            .padding()
+            .background(Color(NSColor.controlBackgroundColor))
+
+            // 历史网格内容
+            UploadHistoryGridView()
+                .frame(maxHeight: 400)
+        }
+        .background(Color(NSColor.controlBackgroundColor))
     }
 
     // MARK: - Actions
