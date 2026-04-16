@@ -51,6 +51,8 @@ struct UploadsSettingsView: View {
             }
             .pickerStyle(.segmented)
             .padding(.horizontal)
+            .padding(.top, 12)
+            .padding(.bottom, 8)
 
             // 内容区域
             if selectedTab == .configuration {

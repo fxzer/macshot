@@ -34,7 +34,9 @@ struct UploadHistoryGridView: View {
                 }
                 .disabled(history.isEmpty)
             }
-            .padding()
+            .padding(.horizontal)
+            .padding(.top, 8)
+            .padding(.bottom, 8)
 
             // 虚拟化自适应网格
             if isLoading {

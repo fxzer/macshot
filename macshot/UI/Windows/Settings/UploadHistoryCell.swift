@@ -9,29 +9,30 @@ struct UploadHistoryCell: View {
 
     var body: some View {
         ZStack(alignment: .topLeading) {
-            // 1. 缩略图（使用占位图，后续可以加载真实缩略图）
-            RoundedRectangle(cornerRadius: 8)
-                .fill(Color.gray.opacity(0.2))
-                .frame(width: 100, height: 100)
-                .overlay(
-                    Image(systemName: "photo")
-                        .foregroundColor(.secondary)
-                )
-                .onTapGesture {
-                    // 点击预览（暂未实现）
+            // 1. 缩略图 - 尝试从历史缓存加载
+            let thumbnailImage = loadThumbnailImage()
+            Group {
+                if let nsImage = thumbnailImage {
+                    Image(nsImage: nsImage)
+                        .resizable()
+                        .scaledToFill()
+                } else {
+                    // 占位图
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color.gray.opacity(0.2))
+                        .overlay(
+                            Image(systemName: "photo")
+                                .foregroundColor(.secondary)
+                        )
                 }
+            }
+            .frame(width: 100, height: 100)
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .onTapGesture {
+                // 点击预览（暂未实现）
+            }
 
-            // 2. 左上角：服务商图标
-            Image(systemName: item.providerIcon)
-                .font(.system(size: 12, weight: .bold))
-                .foregroundColor(.white)
-                .padding(5)
-                .background(item.providerColor.opacity(0.85))
-                .clipShape(RoundedRectangle(cornerRadius: 6))
-                .padding(6)
-                .shadow(color: .black.opacity(0.2), radius: 2, x: 0, y: 1)
-
-            // 3. 底部：服务商名称
+            // 2. 底部：服务商名称
             VStack {
                 Spacer()
                 Text(item.providerName)
@@ -43,7 +44,7 @@ struct UploadHistoryCell: View {
                     .cornerRadius(4)
             }
 
-            // 4. 右上角：复制按钮（悬停时显示）
+            // 3. 右上角：复制按钮（悬停时显示）
             VStack {
                 HStack {
                     Spacer()
@@ -79,8 +80,8 @@ struct UploadHistoryCell: View {
                         }
                     }
                 }
-                .padding(.top, 6)
-                .padding(.trailing, 6)
+                .padding(.top, 4)
+                .padding(.trailing, 4)
                 Spacer()
                 Spacer()
             }
@@ -141,6 +142,26 @@ struct UploadHistoryCell: View {
                 showCopyFeedback = false
             }
         }
+    }
+
+    private func loadThumbnailImage() -> NSImage? {
+        // 从历史缓存加载缩略图
+        let fileManager = FileManager.default
+        guard let appSupportURL = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
+            return nil
+        }
+
+        let historyDir = appSupportURL.appendingPathComponent("com.fxzer.macshot/history")
+        let thumbnailDir = historyDir.appendingPathComponent("thumbnails")
+
+        // 使用 ID 作为文件名
+        let thumbnailURL = thumbnailDir.appendingPathComponent("\(item.id).jpg")
+
+        guard fileManager.fileExists(atPath: thumbnailURL.path) else {
+            return nil
+        }
+
+        return NSImage(contentsOf: thumbnailURL)
     }
 }
 
