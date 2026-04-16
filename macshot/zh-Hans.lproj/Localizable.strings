@@ -424,6 +424,7 @@
 /* Upload Toast */
 "URL copied to the clipboard" = "URL 已拷贝到剪贴板";
 "Uploading... %d%%" = "上传中... %d%%";
+"Uploading..." = "上传中...";
 "Upload failed: %@" = "上传失败: %@";
 "Uploaded! Link copied." = "上传完成！链接已拷贝。";
 "Uploading to %@... %d%%" = "正在上传到 %@... %d%%";

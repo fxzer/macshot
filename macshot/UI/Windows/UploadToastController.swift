@@ -148,11 +148,12 @@ class UploadToastController {
         contentView.addSubview(titleLabel)
         self.statusLabel = titleLabel
 
-        // Link (subtitle)
-        let linkLabel = NSTextField(wrappingLabelWithString: link)
+        // Link (subtitle) - single line with truncation
+        let linkLabel = NSTextField(labelWithString: link)
         linkLabel.frame = NSRect(x: 50, y: 10, width: toastWidth - 140, height: linkH)
         linkLabel.font = linkFont
         linkLabel.textColor = .secondaryLabelColor
+        linkLabel.lineBreakMode = .byTruncatingMiddle
         linkLabel.isSelectable = false
         contentView.addSubview(linkLabel)
         self.linkLabel = linkLabel

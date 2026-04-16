@@ -1003,7 +1003,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         toast.onDismiss = { [weak self] in
             self?.uploadToastController = nil
         }
-        toast.show(status: "Uploading...")
+        toast.show(status: L("Uploading..."))
 
         let provider = UserDefaults.standard.string(forKey: "uploadProvider") ?? "imgbb"
         if provider == "gdrive" && !GoogleDriveUploader.shared.isSignedIn {
@@ -1118,7 +1118,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         toast.onDismiss = { [weak self] in
             self?.uploadToastController = nil
         }
-        toast.show(status: "Uploading...")
+        toast.show(status: L("Uploading..."))
 
         let provider = UserDefaults.standard.string(forKey: "uploadProvider") ?? "imgbb"
 

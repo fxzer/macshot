@@ -442,6 +442,7 @@
 
 /* Upload Toast */
 "URL copied to the clipboard" = "URL copied to the clipboard";
+"Uploading..." = "Uploading...";
 "Uploading... %d%%" = "Uploading... %d%%";
 "Upload failed: %@" = "Upload failed: %@";
 "Uploaded! Link copied." = "Uploaded! Link copied.";
