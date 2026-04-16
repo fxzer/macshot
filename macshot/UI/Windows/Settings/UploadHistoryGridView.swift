@@ -7,11 +7,12 @@ struct UploadHistoryGridView: View {
     @State private var isLoading = false
     @Environment(\.dismiss) private var dismiss
 
-    // 固定 4 列网格
-    let columns = [GridItem(.flexible(), spacing: 8),
-                   GridItem(.flexible(), spacing: 8),
-                   GridItem(.flexible(), spacing: 8),
-                   GridItem(.flexible(), spacing: 8)]
+    // 固定 5 列网格
+    let columns = [GridItem(.flexible(), spacing: 4),
+                   GridItem(.flexible(), spacing: 4),
+                   GridItem(.flexible(), spacing: 4),
+                   GridItem(.flexible(), spacing: 4),
+                   GridItem(.flexible(), spacing: 4)]
 
     var body: some View {
         VStack(spacing: 0) {
@@ -55,7 +56,7 @@ struct UploadHistoryGridView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                LazyVGrid(columns: columns, spacing: 8) {
+                LazyVGrid(columns: columns, spacing: 4) {
                     ForEach(history) { item in
                         UploadHistoryCell(item: item)
                     }
