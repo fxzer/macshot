@@ -1,6 +1,13 @@
 import SwiftUI
 
+enum UploadTab: String {
+    case configuration = "配置"
+    case history = "历史"
+}
+
 struct UploadsSettingsView: View {
+    // Tab selection
+    @State private var selectedTab: UploadTab = .configuration
 
     // Provider
     @AppStorage("uploadProvider") private var uploadProvider = "imgbb"
@@ -28,9 +35,6 @@ struct UploadsSettingsView: View {
     @State private var s3StatusMessage = ""
     @State private var s3StatusColor: Color = .secondary
 
-    // Upload history
-    @State private var uploads: [[String: String]] = []
-
     init() {
         // Load secrets during init to avoid repeated Keychain access
         _imgbbAPIKey = State(initialValue: KeychainStore.string(forKey: "upload.imgbb.apiKey", legacyUserDefaultsKey: "imgbbAPIKey") ?? "")
@@ -39,13 +43,47 @@ struct UploadsSettingsView: View {
     }
 
     var body: some View {
+        VStack(spacing: 0) {
+            // 顶部分段切换
+            Picker("", selection: $selectedTab) {
+                Text("配置").tag(UploadTab.configuration)
+                Text("历史").tag(UploadTab.history)
+            }
+            .pickerStyle(.segmented)
+            .padding(.horizontal)
+
+            // 内容区域
+            if selectedTab == .configuration {
+                configurationContent
+            } else {
+                historyContent
+            }
+        }
+        .onAppear {
+            normalizePickerSelections()
+        }
+        .onChange(of: imgbbAPIKey) { value in
+            KeychainStore.setString(value, forKey: "upload.imgbb.apiKey", legacyUserDefaultsKey: "imgbbAPIKey")
+        }
+        .onChange(of: s3AccessKeyID) { value in
+            KeychainStore.setString(value, forKey: "upload.s3.accessKeyID", legacyUserDefaultsKey: "s3AccessKeyID")
+        }
+        .onChange(of: s3SecretAccessKey) { value in
+            KeychainStore.setString(value, forKey: "upload.s3.secretAccessKey", legacyUserDefaultsKey: "s3SecretAccessKey")
+        }
+    }
+
+    // MARK: - Configuration Content
+
+    @ViewBuilder
+    private var configurationContent: some View {
         Form {
             // MARK: - Upload Service
             Section {
                 Picker(L("Upload provider"), selection: $uploadProvider) {
                     Text("ImgBB").tag("imgbb")
-                    Text(L("S3 / R2 / MinIO")).tag("s3")
                     Text("Google Drive").tag("gdrive")
+                    Text("S3 兼容存储").tag("s3")
                 }
                 Toggle(L("Confirm before uploading"), isOn: $uploadConfirmEnabled)
             } header: {
@@ -130,79 +168,23 @@ struct UploadsSettingsView: View {
                     }
                 } header: {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(L("S3-Compatible Storage"))
-                        Text(L("Works with AWS S3, Cloudflare R2, MinIO, DigitalOcean Spaces, Backblaze B2, and other S3-compatible services. (Images ✓, Videos ✓)"))
+                        Text("S3 兼容存储")
+                        Text("兼容 AWS S3、Cloudflare R2、MinIO、阿里云 OSS、腾讯云 COS 及其他遵循 S3 协议的云存储服务。（图片 ✓，视频 ✓）")
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                     }
                 }
             }
-
-            // MARK: - Upload History
-            Section {
-                if uploads.isEmpty {
-                    Text(L("No uploads yet."))
-                        .foregroundColor(.secondary)
-                } else {
-                    ForEach(Array(uploads.enumerated()), id: \.offset) { _, upload in
-                        VStack(alignment: .leading, spacing: 4) {
-                            if let provider = upload["provider"], !provider.isEmpty {
-                                Text(providerDisplayName(for: provider))
-                                    .font(.caption.weight(.semibold))
-                                    .foregroundColor(.secondary)
-                            }
-                            if let link = upload["link"] {
-                                uploadRow(tag: "URL", value: link)
-                            }
-                            if let deleteURL = upload["deleteURL"], !deleteURL.isEmpty {
-                                uploadRow(tag: "DEL", value: deleteURL)
-                            }
-                        }
-                        .padding(.vertical, 2)
-                    }
-                }
-            } header: {
-                Text(L("Upload History"))
-            }
         }
         .formStyle(.grouped)
-        .onAppear {
-            normalizePickerSelections()
-            refreshGDriveStatus()
-            loadUploads()
-        }
-        .onChange(of: imgbbAPIKey) { value in
-            KeychainStore.setString(value, forKey: "upload.imgbb.apiKey", legacyUserDefaultsKey: "imgbbAPIKey")
-        }
-        .onChange(of: s3AccessKeyID) { value in
-            KeychainStore.setString(value, forKey: "upload.s3.accessKeyID", legacyUserDefaultsKey: "s3AccessKeyID")
-        }
-        .onChange(of: s3SecretAccessKey) { value in
-            KeychainStore.setString(value, forKey: "upload.s3.secretAccessKey", legacyUserDefaultsKey: "s3SecretAccessKey")
-        }
     }
 
-    // MARK: - Upload Row
+    // MARK: - History Content
 
     @ViewBuilder
-    private func uploadRow(tag: String, value: String) -> some View {
-        HStack {
-            Text(tag)
-                .font(.caption.weight(.semibold))
-                .foregroundColor(.secondary)
-                .frame(width: 30, alignment: .leading)
-            Text(value)
-                .font(.system(.caption, design: .monospaced))
-                .foregroundColor(tag == "URL" ? .primary : .secondary)
-                .lineLimit(1)
-                .truncationMode(.middle)
-            Spacer()
-            Button(L("Copy")) {
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(value, forType: .string)
-            }
-            .controlSize(.small)
-        }
+    private var historyContent: some View {
+        UploadHistoryGridView()
+            .frame(maxHeight: 400)
     }
 
     // MARK: - Actions
@@ -280,23 +262,6 @@ struct UploadsSettingsView: View {
                 s3StatusMessage = error.localizedDescription
                 s3StatusColor = .red
             }
-        }
-    }
-
-    private func loadUploads() {
-        uploads = Array(UploadHistoryStore.load().reversed())
-    }
-
-    private func providerDisplayName(for provider: String) -> String {
-        switch provider {
-        case "imgbb":
-            return "ImgBB"
-        case "s3":
-            return L("S3 / R2 / MinIO")
-        case "gdrive":
-            return "Google Drive"
-        default:
-            return provider
         }
     }
 }
