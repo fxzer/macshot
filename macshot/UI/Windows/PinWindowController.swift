@@ -173,6 +173,7 @@ private class PinView: NSView {
     private var zoomLabel: NSTextField?
     private var trackingArea: NSTrackingArea?
     private var isHovering = false
+    private var showsBorderAndCorner = true
 
     var zoomPercent: Int = 100 {
         didSet {
@@ -285,27 +286,43 @@ private class PinView: NSView {
     }
 
     override func draw(_ dirtyRect: NSRect) {
-        let path = NSBezierPath(roundedRect: bounds, xRadius: 6, yRadius: 6)
-        path.addClip()
-        image.draw(in: bounds, from: .zero, operation: .copy, fraction: 1.0)
+        if showsBorderAndCorner {
+            let path = NSBezierPath(roundedRect: bounds, xRadius: 6, yRadius: 6)
+            path.addClip()
+            image.draw(in: bounds, from: .zero, operation: .copy, fraction: 1.0)
 
-        // Subtle border
-        NSColor.white.withAlphaComponent(0.3).setStroke()
-        let border = NSBezierPath(roundedRect: bounds.insetBy(dx: 0.5, dy: 0.5), xRadius: 6, yRadius: 6)
-        border.lineWidth = 1
-        border.stroke()
+            // Subtle border
+            NSColor.white.withAlphaComponent(0.3).setStroke()
+            let border = NSBezierPath(roundedRect: bounds.insetBy(dx: 0.5, dy: 0.5), xRadius: 6, yRadius: 6)
+            border.lineWidth = 1
+            border.stroke()
+        } else {
+            // No clipping, no border - just draw the image directly
+            image.draw(in: bounds, from: .zero, operation: .copy, fraction: 1.0)
+        }
     }
 
     // Right-click context menu
     override func menu(for event: NSEvent) -> NSMenu? {
         let menu = NSMenu()
-        menu.addItem(withTitle: "Copy to Clipboard", action: #selector(copyImage), keyEquivalent: "c")
-        menu.addItem(withTitle: "Save As...", action: #selector(saveImage), keyEquivalent: "s")
+
+        let copyItem = menu.addItem(withTitle: NSLocalizedString("Copy to Clipboard", comment: ""), action: #selector(copyImage), keyEquivalent: "c")
+        copyItem.target = self
+
+        let saveItem = menu.addItem(withTitle: NSLocalizedString("Save As...", comment: ""), action: #selector(saveImage), keyEquivalent: "s")
+        saveItem.target = self
+
         menu.addItem(NSMenuItem.separator())
-        menu.addItem(withTitle: "Close", action: #selector(closeClicked), keyEquivalent: "")
-        for item in menu.items {
-            item.target = self
-        }
+
+        let borderToggleTitle = showsBorderAndCorner ? NSLocalizedString("Hide Border & Corner", comment: "") : NSLocalizedString("Show Border & Corner", comment: "")
+        let borderItem = menu.addItem(withTitle: borderToggleTitle, action: #selector(toggleBorderAndCorner), keyEquivalent: "")
+        borderItem.target = self
+
+        menu.addItem(NSMenuItem.separator())
+
+        let closeItem = menu.addItem(withTitle: NSLocalizedString("Close", comment: ""), action: #selector(closeClicked), keyEquivalent: "")
+        closeItem.target = self
+
         return menu
     }
 
@@ -328,6 +345,11 @@ private class PinView: NSView {
                 SaveDirectoryAccess.save(url: url.deletingLastPathComponent())
             }
         }
+    }
+
+    @objc private func toggleBorderAndCorner() {
+        showsBorderAndCorner.toggle()
+        needsDisplay = true
     }
 
     override func mouseDown(with event: NSEvent) {

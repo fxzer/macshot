@@ -93,6 +93,8 @@
 "Translate" = "翻譯";
 "Auto-Redact sensitive data" = "自動遮蔽敏感資料";
 "Move Selection" = "移動選取範圍";
+"Hide Border & Corner" = "隱藏圓角和邊框";
+"Show Border & Corner" = "顯示圓角和邊框";
 /* Toolbar - Recording */
 "Start Recording" = "開始錄製";
 "Cancel Recording" = "取消錄製";

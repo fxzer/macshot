@@ -134,12 +134,14 @@ struct UploadsSettingsView: View {
                     }
                 }
             }
-        }
-        .formStyle(.grouped)
 
-        // MARK: - Upload History
-        UploadHistoryGridView(selectedProvider: uploadProvider)
+            // MARK: - Upload History
+            Section {
+                UploadHistoryRow()
+            }
+        }
     }
+        .formStyle(.grouped)
         .onAppear {
             normalizePickerSelections()
             refreshGDriveStatus()
@@ -229,6 +231,169 @@ struct UploadsSettingsView: View {
             case .failure(let error):
                 s3StatusMessage = error.localizedDescription
                 s3StatusColor = .red
+            }
+        }
+    }
+}
+
+// MARK: - Upload History Row
+
+struct UploadHistoryRow: View {
+    @AppStorage("uploadProvider") private var uploadProvider = "imgbb"
+    @State private var showPopover = false
+    @State private var historyCount = 0
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Text("上传历史")
+            Spacer()
+            Text(countText)
+                .foregroundColor(.secondary)
+                .lineLimit(1)
+            Button("查看") {
+                showPopover.toggle()
+                loadHistoryCount()
+            }
+            .popover(isPresented: $showPopover, arrowEdge: .bottom) {
+                UploadHistoryPopoverView()
+                    .frame(width: 480, height: 400)
+                    .onAppear {
+                        loadHistoryCount()
+                    }
+            }
+        }
+        .onAppear {
+            loadHistoryCount()
+        }
+    }
+
+    private var countText: String {
+        if historyCount == 0 {
+            return "暂无记录"
+        } else if historyCount == 1 {
+            return "1 条记录"
+        } else {
+            return "\(historyCount) 条记录"
+        }
+    }
+
+    private func loadHistoryCount() {
+        let uploads = UploadHistoryStore.load()
+        let filtered = uploads.filter { $0["provider"] == uploadProvider }
+        historyCount = filtered.count
+    }
+}
+
+// MARK: - Upload History Popover View
+
+struct UploadHistoryPopoverView: View {
+    @AppStorage("uploadProvider") private var uploadProvider = "imgbb"
+    @State private var history: [UploadHistoryItem] = []
+    @State private var isLoading = false
+
+    // 固定 5 列网格，间距 2px
+    let columns = [GridItem(.flexible(), spacing: 2),
+                   GridItem(.flexible(), spacing: 2),
+                   GridItem(.flexible(), spacing: 2),
+                   GridItem(.flexible(), spacing: 2),
+                   GridItem(.flexible(), spacing: 2)]
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // 顶栏：清空按钮
+            HStack {
+                Spacer()
+                Button(role: .destructive) {
+                    clearAllHistory()
+                } label: {
+                    Text("清空记录")
+                }
+                .disabled(history.isEmpty)
+            }
+            .padding(.horizontal)
+            .padding(.vertical, 8)
+
+            Divider()
+
+            // 网格内容
+            if isLoading {
+                ProgressView("加载中...")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if history.isEmpty {
+                VStack(spacing: 12) {
+                    Image(systemName: "tray")
+                        .font(.system(size: 48))
+                        .foregroundColor(.secondary)
+                    Text("暂无上传记录")
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                ScrollView {
+                    LazyVGrid(columns: columns, spacing: 2) {
+                        ForEach(history) { item in
+                            UploadHistoryCell(item: item)
+                        }
+                    }
+                    .padding(8)
+                }
+            }
+        }
+        .onAppear {
+            loadHistory()
+        }
+    }
+
+    private func loadHistory() {
+        isLoading = true
+
+        Task {
+            let uploads = UploadHistoryStore.load()
+            let filtered = uploads.filter { $0["provider"] == uploadProvider }
+
+            let items = filtered.map { dict -> UploadHistoryItem in
+                let id = dict["id"] ?? UUID().uuidString
+                return UploadHistoryItem(
+                    id: id,
+                    provider: dict["provider"] ?? "unknown",
+                    link: dict["link"] ?? "",
+                    deleteURL: dict["deleteURL"] ?? "",
+                    timestamp: Date()
+                )
+            }
+
+            await MainActor.run {
+                self.history = items
+                self.isLoading = false
+            }
+        }
+    }
+
+    private func clearAllHistory() {
+        let fileManager = FileManager.default
+        guard let appSupportURL = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
+            return
+        }
+
+        let historyDir = appSupportURL.appendingPathComponent("com.fxzer.macshot/history")
+
+        Task.detached(priority: .background) {
+            do {
+                if fileManager.fileExists(atPath: historyDir.path) {
+                    try fileManager.removeItem(at: historyDir)
+                }
+                try fileManager.createDirectory(at: historyDir, withIntermediateDirectories: true)
+
+                let emptyIndexURL = historyDir.appendingPathComponent("index.json")
+                try "[]".write(to: emptyIndexURL, atomically: true, encoding: .utf8)
+
+                await MainActor.run {
+                    withAnimation {
+                        self.history.removeAll()
+                    }
+                }
+            } catch {
+                print("清理历史缓存失败: \(error.localizedDescription)")
             }
         }
     }

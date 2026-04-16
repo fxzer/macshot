@@ -113,6 +113,8 @@
 "Auto-Redact" = "Auto-Redact";
 "Auto-Redact sensitive data" = "Auto-Redact sensitive data";
 "Move Selection" = "Move Selection";
+"Hide Border & Corner" = "Hide Border & Corner";
+"Show Border & Corner" = "Show Border & Corner";
 
 /* Toolbar - Recording */
 "Start Recording" = "Start Recording";

@@ -112,6 +112,8 @@
 "Auto-Redact" = "自动遮蔽";
 "Auto-Redact sensitive data" = "自动遮蔽敏感数据";
 "Move Selection" = "移动选区";
+"Hide Border & Corner" = "隐藏圆角和边框";
+"Show Border & Corner" = "显示圆角和边框";
 
 /* Toolbar - Recording */
 "Start Recording" = "开始录制";
