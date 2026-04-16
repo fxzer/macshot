@@ -216,6 +216,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             // Use custom click handler so we can dismiss modals before showing the menu
             button.target = self
             button.action = #selector(statusBarIconClicked(_:))
+            button.sendAction(on: [.leftMouseUp, .rightMouseUp])
             // Disable highlight to prevent icon from turning white when clicked
             (button.cell as? NSButtonCell)?.highlightsBy = []
         }
@@ -230,20 +231,42 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             NSApp.stopModal()
             modalWin.close()
             DispatchQueue.main.async { [weak self] in
-                guard let self = self, let menu = self.statusBarMenu else { return }
-                self.statusItem.menu = menu
+                self?.showStatusBarMenu()
             }
         } else {
-            // No modal — show menu normally via standard NSStatusItem path
-            guard let menu = statusBarMenu else { return }
-            statusItem.menu = menu
+            // No modal — show menu directly
+            showStatusBarMenu()
         }
+    }
+
+    private func showStatusBarMenu() {
+        guard let menu = statusBarMenu, let button = statusItem.button else { return }
+
+        // Get the button's screen frame
+        let window = button.window
+        let buttonFrame = button.frame
+        let screenFrame = window?.convertToScreen(buttonFrame) ?? .zero
+
+        // Calculate menu position (below the status bar)
+        let menuPoint = NSPoint(x: screenFrame.minX, y: screenFrame.minY - 5)
+
+        // Temporarily remove action to avoid recursion
+        let oldAction = button.action
+        let oldTarget = button.target
+        button.action = nil
+        button.target = nil
+
+        // Show menu at calculated position
+        menu.popUp(positioning: nil, at: menuPoint, in: nil)
+
+        // Restore action
+        button.action = oldAction
+        button.target = oldTarget
     }
 
     private func rebuildStatusBarMenu() {
         let menu = NSMenu()
         menu.autoenablesItems = false
-        menu.delegate = self
 
         let captureAreaItem = NSMenuItem(title: L("Capture Area"), action: #selector(captureScreen), keyEquivalent: "")
         captureAreaItem.target = self
@@ -2106,13 +2129,6 @@ extension AppDelegate: PinWindowControllerDelegate {
 // MARK: - NSMenuDelegate (Recent Captures)
 
 extension AppDelegate: NSMenuDelegate {
-    func menuDidClose(_ menu: NSMenu) {
-        // Clear the status bar menu when it closes to avoid flickering
-        if menu == statusBarMenu {
-            statusItem.menu = nil
-        }
-    }
-
     func menuNeedsUpdate(_ menu: NSMenu) {
         // Only rebuild the history submenu, not the main status bar menu
         guard menu == historyMenu else { return }
