@@ -280,12 +280,14 @@ class UploadToastController {
         NSColor.systemGreen.setFill()
         circlePath.fill()
 
-        // Draw white checkmark
+        // Draw white checkmark (corrected direction)
         let checkmarkPath = NSBezierPath()
-        checkmarkPath.move(to: NSPoint(x: 8, y: 14))
-        checkmarkPath.line(to: NSPoint(x: 12, y: 18))
-        checkmarkPath.line(to: NSPoint(x: 20, y: 10))
+        checkmarkPath.move(to: NSPoint(x: 7, y: 14))   // Left point
+        checkmarkPath.line(to: NSPoint(x: 12, y: 19))  // Middle bottom
+        checkmarkPath.line(to: NSPoint(x: 21, y: 10))  // Right top
         checkmarkPath.lineWidth = 2.5
+        checkmarkPath.lineCapStyle = .round
+        checkmarkPath.lineJoinStyle = .round
         NSColor.white.setStroke()
         checkmarkPath.stroke()
 
