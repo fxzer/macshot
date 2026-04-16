@@ -166,7 +166,7 @@ struct InterfaceSettingsView: View {
                 HStack {
                     Text(L("Preview size"))
                     Spacer()
-                    Slider(value: $thumbnailScale, in: 0.5...2.0, step: 0.1)
+                    Slider(value: $thumbnailScale, in: 0.5...1.5, step: 0.1)
                         .frame(width: 300)
                     Text(scalePercentString)
                         .foregroundColor(.secondary)

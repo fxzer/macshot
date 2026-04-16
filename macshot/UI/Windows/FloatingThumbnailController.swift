@@ -231,9 +231,30 @@ private class ThumbnailView: NSView {
 
     private var hoveredRect: NSRect = .zero
 
-    private let cornerR: CGFloat = 28   // corner button circle radius
-    private let centerBtnW: CGFloat = 110
-    private let centerBtnH: CGFloat = 32
+    // Base button sizes at default thumbnail scale (1.0 = 240x160)
+    private let baseCornerR: CGFloat = 28
+    private let baseCenterBtnW: CGFloat = 110
+    private let baseCenterBtnH: CGFloat = 32
+
+    // Computed button sizes based on thumbnail scale (no minimum - allow full scaling)
+    private var scale: CGFloat {
+        thumbSize.width / 240  // 240 is default width
+    }
+    private var cornerR: CGFloat {
+        baseCornerR * scale
+    }
+    private var centerBtnW: CGFloat {
+        baseCenterBtnW * scale
+    }
+    private var centerBtnH: CGFloat {
+        baseCenterBtnH * scale
+    }
+    private var btnSpacing: CGFloat {
+        8 * scale  // Space between Copy and Save buttons
+    }
+    private var cornerPad: CGFloat {
+        10 * scale  // Distance from corner to circle center
+    }
 
     init(image: NSImage, thumbSize: NSSize) {
         self.image = image
@@ -336,14 +357,12 @@ private class ThumbnailView: NSView {
         NSColor.black.withAlphaComponent(0.45).setFill()
         NSBezierPath(roundedRect: r, xRadius: cr, yRadius: cr).fill()
 
-        let pad: CGFloat = 10   // distance from corner to circle center
-
-        // Corner button definitions: (center, symbol, keyPath to write rect)
+        // Corner button definitions: (center, symbol)
         let cornerDefs: [(NSPoint, String)] = [
-            (NSPoint(x: r.minX + pad + cornerR/2, y: r.maxY - pad - cornerR/2), "xmark"),
-            (NSPoint(x: r.maxX - pad - cornerR/2, y: r.maxY - pad - cornerR/2), "pin.fill"),
-            (NSPoint(x: r.minX + pad + cornerR/2, y: r.minY + pad + cornerR/2), "pencil"),
-            (NSPoint(x: r.maxX - pad - cornerR/2, y: r.minY + pad + cornerR/2), "icloud.and.arrow.up"),
+            (NSPoint(x: r.minX + cornerPad + cornerR/2, y: r.maxY - cornerPad - cornerR/2), "xmark"),
+            (NSPoint(x: r.maxX - cornerPad - cornerR/2, y: r.maxY - cornerPad - cornerR/2), "pin.fill"),
+            (NSPoint(x: r.minX + cornerPad + cornerR/2, y: r.minY + cornerPad + cornerR/2), "pencil"),
+            (NSPoint(x: r.maxX - cornerPad - cornerR/2, y: r.minY + cornerPad + cornerR/2), "icloud.and.arrow.up"),
         ]
 
         var cornerRects: [NSRect] = []
@@ -360,15 +379,18 @@ private class ThumbnailView: NSView {
             circlePath.stroke()
 
             if let sym = NSImage(systemSymbolName: symbol, accessibilityDescription: nil) {
-                let cfg = NSImage.SymbolConfiguration(pointSize: 11, weight: .semibold)
+                // Scale icon size with button
+                let iconScale = scale
+                let cfg = NSImage.SymbolConfiguration(pointSize: 11 * iconScale, weight: .semibold)
                 let colored = sym.withSymbolConfiguration(cfg) ?? sym
                 let tinted = tintedWhite(colored)
-                let iconSize = NSSize(width: 13, height: 13)
+                let iconSize = NSSize(width: 13 * iconScale, height: 13 * iconScale)
                 let iconRect = NSRect(x: center.x - iconSize.width/2, y: center.y - iconSize.height/2,
                                      width: iconSize.width, height: iconSize.height)
                 tinted.draw(in: iconRect, from: NSRect.zero, operation: .sourceOver, fraction: 1.0)
             }
         }
+
         if cornerRects.count == 4 {
             closeBtnRect  = cornerRects[0]
             pinBtnRect    = cornerRects[1]
@@ -377,11 +399,11 @@ private class ThumbnailView: NSView {
         }
 
         // Center action buttons: Copy + Save
-        let totalH = centerBtnH * 2 + 8
+        let totalH = centerBtnH * 2 + btnSpacing
         let btnsY = r.midY - totalH/2
 
-        let copyRect = NSRect(x: r.midX - centerBtnW/2, y: btnsY + centerBtnH + 8, width: centerBtnW, height: centerBtnH)
-        let saveRect = NSRect(x: r.midX - centerBtnW/2, y: btnsY,                  width: centerBtnW, height: centerBtnH)
+        let copyRect = NSRect(x: r.midX - centerBtnW/2, y: btnsY + centerBtnH + btnSpacing, width: centerBtnW, height: centerBtnH)
+        let saveRect = NSRect(x: r.midX - centerBtnW/2, y: btnsY,                                  width: centerBtnW, height: centerBtnH)
         copyBtnRect = copyRect
         saveBtnRect = saveRect
 
@@ -395,8 +417,10 @@ private class ThumbnailView: NSView {
             }
             bg.fill()
 
+            // Scale font size with button
+            let fontSize = max(9, 13 * scale)
             let attrs: [NSAttributedString.Key: Any] = [
-                .font: NSFont.systemFont(ofSize: 13, weight: .medium),
+                .font: NSFont.systemFont(ofSize: fontSize, weight: .medium),
                 .foregroundColor: isHit ? NSColor.black : NSColor(white: 0.1, alpha: 1),
             ]
             let str = title as NSString
