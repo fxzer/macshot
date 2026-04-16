@@ -295,13 +295,12 @@ struct UploadHistoryPopoverView: View {
                    GridItem(.flexible(), spacing: 2)]
 
     var body: some View {
-        HStack(spacing: 0) {
-            // 左侧：服务商名和清空按钮
-            VStack(alignment: .leading, spacing: 12) {
+        VStack(spacing: 0) {
+            // 头部：服务商名 + 清空按钮
+            HStack {
                 Text(providerDisplayName)
                     .font(.headline)
                     .foregroundColor(.primary)
-                    .frame(maxWidth: 120, alignment: .leading)
 
                 Spacer()
 
@@ -313,14 +312,12 @@ struct UploadHistoryPopoverView: View {
                 }
                 .disabled(history.isEmpty)
             }
-            .frame(width: 140)
+            .padding(.horizontal)
             .padding(.vertical, 12)
-            .background(Color(nsColor: .controlBackgroundColor))
 
             Divider()
-                .frame(width: 1)
 
-            // 右侧：网格内容
+            // 网格内容
             if isLoading {
                 ProgressView("加载中...")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
