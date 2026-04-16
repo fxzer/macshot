@@ -351,23 +351,26 @@ extension DetachedEditorWindowController: OverlayViewDelegate {
     func overlayViewDidRequestOCR() {
         guard let image = overlayView?.captureSelectedRegion(),
               let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return }
+        let shouldShowWindow = UserDefaults.standard.bool(forKey: "ocrShowWindow")
+        if shouldShowWindow {
+            ocrController?.close()
+            let ocr = OCRResultController.loading()
+            ocrController = ocr
+            ocr.show()
+        }
         let request = VisionOCR.makeTextRecognitionRequest { [weak self] req, _ in
             let lines = (req.results as? [VNRecognizedTextObservation])?.compactMap { $0.topCandidates(1).first?.string } ?? []
             let text = lines.joined(separator: "\n")
             DispatchQueue.main.async {
                 guard let self = self else { return }
                 let shouldCopy = UserDefaults.standard.bool(forKey: "ocrCopyToClipboard")
-                let shouldShowWindow = UserDefaults.standard.bool(forKey: "ocrShowWindow")
 
                 if shouldCopy && !text.isEmpty {
                     NSPasteboard.general.clearContents()
                     NSPasteboard.general.setString(text, forType: .string)
                 }
                 if shouldShowWindow {
-                    self.ocrController?.close()
-                    let ocr = OCRResultController(text: text, image: image)
-                    self.ocrController = ocr
-                    ocr.show()
+                    self.ocrController?.showRecognizedText(text)
                 }
             }
         }
@@ -626,7 +629,8 @@ private class AddCaptureOverlayHandler: NSObject, OverlayWindowControllerDelegat
         dismissOverlays()
         onCapture?(image)
     }
-    func overlayDidRequestOCR(_ controller: OverlayWindowController, text: String, image: NSImage?) {}
+    func overlayDidStartOCR(_ controller: OverlayWindowController) {}
+    func overlayDidFinishOCR(_ controller: OverlayWindowController, text: String) {}
     func overlayDidRequestUpload(_ controller: OverlayWindowController, image: NSImage) {}
     func overlayDidRequestStartRecording(_ controller: OverlayWindowController, rect: NSRect, screen: NSScreen) {}
     func overlayDidRequestStopRecording(_ controller: OverlayWindowController) {}

@@ -1648,10 +1648,20 @@ extension AppDelegate: OverlayWindowControllerDelegate {
         }
     }
 
-    func overlayDidRequestOCR(_ controller: OverlayWindowController, text: String, image: NSImage?) {
-        let shouldCopy = UserDefaults.standard.bool(forKey: "ocrCopyToClipboard")
+    func overlayDidStartOCR(_ controller: OverlayWindowController) {
         let shouldShowWindow = UserDefaults.standard.bool(forKey: "ocrShowWindow")
         dismissOverlays(refocusPreviousApp: !shouldShowWindow)
+
+        guard shouldShowWindow else { return }
+        ocrController?.close()
+        let ocr = OCRResultController.loading()
+        ocrController = ocr
+        ocr.show()
+    }
+
+    func overlayDidFinishOCR(_ controller: OverlayWindowController, text: String) {
+        let shouldCopy = UserDefaults.standard.bool(forKey: "ocrCopyToClipboard")
+        let shouldShowWindow = UserDefaults.standard.bool(forKey: "ocrShowWindow")
 
         if shouldCopy && !text.isEmpty {
             NSPasteboard.general.clearContents()
@@ -1659,10 +1669,7 @@ extension AppDelegate: OverlayWindowControllerDelegate {
         }
 
         if shouldShowWindow {
-            ocrController?.close()
-            let ocr = OCRResultController(text: text, image: image)
-            ocrController = ocr
-            ocr.show()
+            ocrController?.showRecognizedText(text)
         }
     }
 

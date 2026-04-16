@@ -8,24 +8,35 @@ class OCRResultController: NSObject {
     private var translateButton: NSButton?
     private var langPopup: NSPopUpButton?
     private var copyButton: NSButton?
+    private var aiSearchButton: NSButton?
     private var spinnerView: NSProgressIndicator?
 
     private var originalText: String
     private var isShowingTranslation = false
+    private var isLoading = false
+    private var hasDetectedText = false
 
-    init(text: String, image: NSImage?) {
+    init(text: String, isLoading: Bool = false) {
         self.originalText = text
+        self.isLoading = isLoading
         super.init()
-        buildWindow(text: text, image: image)
+        buildWindow(text: text)
+        if isLoading {
+            applyLoadingState()
+        } else {
+            showRecognizedText(text)
+        }
+    }
+
+    static func loading() -> OCRResultController {
+        OCRResultController(text: "", isLoading: true)
     }
 
     // MARK: - Build
 
-    private func buildWindow(text: String, image: NSImage?) {
-        let W: CGFloat = 720
+    private func buildWindow(text: String) {
+        let W: CGFloat = 520
         let H: CGFloat = 460
-        let previewW: CGFloat = image != nil ? 240 : 0
-        let gap: CGFloat = 0
 
         let screen = NSScreen.main ?? NSScreen.screens[0]
         let origin = NSPoint(
@@ -44,49 +55,20 @@ class OCRResultController: NSObject {
         panel.isReleasedWhenClosed = false
         panel.becomesKeyOnlyIfNeeded = false
         panel.hidesOnDeactivate = false
-        panel.minSize = NSSize(width: 480, height: 300)
+        panel.minSize = NSSize(width: 420, height: 300)
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.isMovableByWindowBackground = false
 
         let cv = NSView(frame: NSRect(x: 0, y: 0, width: W, height: H))
         cv.autoresizingMask = [.width, .height]
 
-        // ── Left: image preview ──────────────────────────────
-        if let image = image {
-            let previewContainer = NSView(frame: NSRect(x: 0, y: 0, width: previewW, height: H))
-            previewContainer.autoresizingMask = [.height]
-            previewContainer.wantsLayer = true
-            previewContainer.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.25).cgColor
-            cv.addSubview(previewContainer)
-
-            let imgView = NSImageView(frame: previewContainer.bounds.insetBy(dx: 12, dy: 12))
-            imgView.image = image
-            imgView.imageScaling = .scaleProportionallyUpOrDown
-            imgView.imageAlignment = .alignCenter
-            imgView.wantsLayer = true
-            imgView.layer?.cornerRadius = 6
-            imgView.layer?.masksToBounds = true
-            imgView.autoresizingMask = [.width, .height]
-            previewContainer.addSubview(imgView)
-
-            // Vertical separator
-            let sep = NSBox(frame: NSRect(x: previewW, y: 0, width: 1, height: H))
-            sep.boxType = .custom
-            sep.borderColor = NSColor.separatorColor
-            sep.fillColor = NSColor.separatorColor
-            sep.borderWidth = 0
-            sep.autoresizingMask = [.height]
-            cv.addSubview(sep)
-        }
-
-        // ── Right: text area + controls ──────────────────────
-        let rightX = previewW + gap
-        let rightW = W - rightX
+        let contentX: CGFloat = 0
+        let contentW = W
         let footerH: CGFloat = 52
         let headerH: CGFloat = 44
 
         // Header bar (language selector + stats)
-        let header = NSView(frame: NSRect(x: rightX, y: H - headerH, width: rightW, height: headerH))
+        let header = NSView(frame: NSRect(x: contentX, y: H - headerH, width: contentW, height: headerH))
         header.autoresizingMask = [.width, .minYMargin]
         cv.addSubview(header)
 
@@ -118,33 +100,33 @@ class OCRResultController: NSObject {
         let countLbl = NSTextField(labelWithString: String(format: L("%d chars · %d words"), charCount, wordCount))
         countLbl.font = NSFont.systemFont(ofSize: 11)
         countLbl.textColor = .tertiaryLabelColor
-        countLbl.frame = NSRect(x: rightW - 180, y: (headerH - 14) / 2, width: 168, height: 14)
+        countLbl.frame = NSRect(x: contentW - 180, y: (headerH - 14) / 2, width: 168, height: 14)
         countLbl.alignment = .right
         countLbl.autoresizingMask = [.minXMargin]
         header.addSubview(countLbl)
         self.charCountLabel = countLbl
 
         // Header separator
-        let headerSep = NSBox(frame: NSRect(x: rightX, y: H - headerH - 1, width: rightW, height: 1))
+        let headerSep = NSBox(frame: NSRect(x: contentX, y: H - headerH - 1, width: contentW, height: 1))
         headerSep.boxType = .separator
         headerSep.autoresizingMask = [.width, .minYMargin]
         cv.addSubview(headerSep)
 
         // Footer separator
-        let footerSep = NSBox(frame: NSRect(x: rightX, y: footerH, width: rightW, height: 1))
+        let footerSep = NSBox(frame: NSRect(x: contentX, y: footerH, width: contentW, height: 1))
         footerSep.boxType = .separator
         footerSep.autoresizingMask = [.width]
         cv.addSubview(footerSep)
 
         // Footer bar
-        let footer = NSView(frame: NSRect(x: rightX, y: 0, width: rightW, height: footerH))
+        let footer = NSView(frame: NSRect(x: contentX, y: 0, width: contentW, height: footerH))
         footer.autoresizingMask = [.width]
         cv.addSubview(footer)
 
         // Copy button (primary, right-aligned)
         let copyBtn = NSButton(title: L("Copy") + "  ⌘↩", target: self, action: #selector(copyAll))
         copyBtn.bezelStyle = .rounded
-        copyBtn.frame = NSRect(x: rightW - 110, y: (footerH - 28) / 2, width: 100, height: 28)
+        copyBtn.frame = NSRect(x: contentW - 110, y: (footerH - 28) / 2, width: 100, height: 28)
         copyBtn.autoresizingMask = [.minXMargin]
         copyBtn.keyEquivalent = "\r"
         copyBtn.keyEquivalentModifierMask = [.command]
@@ -155,20 +137,21 @@ class OCRResultController: NSObject {
         // AI Search button
         let aiSearchBtn = NSButton(title: L("AI Search"), target: self, action: #selector(openAISearch))
         aiSearchBtn.bezelStyle = .rounded
-        aiSearchBtn.frame = NSRect(x: rightW - 220, y: (footerH - 28) / 2, width: 100, height: 28)
+        aiSearchBtn.frame = NSRect(x: contentW - 220, y: (footerH - 28) / 2, width: 100, height: 28)
         aiSearchBtn.autoresizingMask = [.minXMargin]
         footer.addSubview(aiSearchBtn)
+        self.aiSearchButton = aiSearchBtn
 
         // Translate button
         let translateBtn = NSButton(title: L("Translate"), target: self, action: #selector(toggleTranslate))
         translateBtn.bezelStyle = .rounded
-        translateBtn.frame = NSRect(x: rightW - 330, y: (footerH - 28) / 2, width: 100, height: 28)
+        translateBtn.frame = NSRect(x: contentW - 330, y: (footerH - 28) / 2, width: 100, height: 28)
         translateBtn.autoresizingMask = [.minXMargin]
         footer.addSubview(translateBtn)
         self.translateButton = translateBtn
 
         // Spinner (hidden)
-        let spinner = NSProgressIndicator(frame: NSRect(x: rightW - 350, y: (footerH - 16) / 2, width: 16, height: 16))
+        let spinner = NSProgressIndicator(frame: NSRect(x: contentW - 350, y: (footerH - 16) / 2, width: 16, height: 16))
         spinner.style = .spinning
         spinner.controlSize = .small
         spinner.isIndeterminate = true
@@ -180,14 +163,14 @@ class OCRResultController: NSObject {
         // Scrollable text view
         let textAreaY = footerH + 1
         let textAreaH = H - headerH - 1 - footerH - 1
-        let scrollView = NSScrollView(frame: NSRect(x: rightX, y: textAreaY, width: rightW, height: textAreaH))
+        let scrollView = NSScrollView(frame: NSRect(x: contentX, y: textAreaY, width: contentW, height: textAreaH))
         scrollView.autoresizingMask = [.width, .height]
         scrollView.hasVerticalScroller = true
         scrollView.borderType = .noBorder
         scrollView.drawsBackground = false
         cv.addSubview(scrollView)
 
-        let tv = NSTextView(frame: NSRect(x: 0, y: 0, width: rightW, height: textAreaH))
+        let tv = NSTextView(frame: NSRect(x: 0, y: 0, width: contentW, height: textAreaH))
         tv.isEditable = true
         tv.isSelectable = true
         tv.isRichText = false
@@ -199,12 +182,6 @@ class OCRResultController: NSObject {
         tv.textContainer?.widthTracksTextView = true
         tv.autoresizingMask = [.width, .height]
         tv.drawsBackground = false
-        tv.string = text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            ? L("(No text detected in the selected area)")
-            : text
-        if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            tv.textColor = .secondaryLabelColor
-        }
         tv.usesFindBar = true
         scrollView.documentView = tv
         self.textView = tv
@@ -221,7 +198,8 @@ class OCRResultController: NSObject {
         DispatchQueue.main.async { [weak self] in
             guard let self = self, let tv = self.textView else { return }
             self.window?.makeFirstResponder(tv)
-            tv.selectAll(nil)
+            tv.setSelectedRange(NSRange(location: 0, length: 0))
+            tv.scrollRangeToVisible(NSRange(location: 0, length: 0))
         }
     }
 
@@ -237,14 +215,14 @@ class OCRResultController: NSObject {
     // MARK: - Actions
 
     @objc private func copyAll() {
-        guard let text = textView?.string, !text.isEmpty else { return }
+        guard hasDetectedText, let text = textView?.string, !text.isEmpty else { return }
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
         close()
     }
 
     @objc private func openAISearch() {
-        guard let text = textView?.string, !text.isEmpty else { return }
+        guard hasDetectedText, let text = textView?.string, !text.isEmpty else { return }
         guard let encoded = text.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
               let url = URL(string: "https://www.google.com/search?q=\(encoded)&csuir=1&udm=50") else { return }
         NSWorkspace.shared.open(url)
@@ -261,6 +239,7 @@ class OCRResultController: NSObject {
     }
 
     @objc private func toggleTranslate() {
+        guard !isLoading, hasDetectedText else { return }
         if isShowingTranslation {
             restoreOriginal()
         } else {
@@ -300,7 +279,9 @@ class OCRResultController: NSObject {
     private func performTranslation(targetLang: String) {
         guard let tv = textView else { return }
         let sourceText = isShowingTranslation ? originalText : tv.string
-        guard !sourceText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+        guard !isLoading,
+              hasDetectedText,
+              !sourceText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
               !sourceText.hasPrefix("(No text") else { return }
 
         translateButton?.isEnabled = false
@@ -350,13 +331,70 @@ class OCRResultController: NSObject {
         charCountLabel?.stringValue = String(format: L("%d chars · %d words"), chars, words)
     }
 
+    func showRecognizedText(_ text: String) {
+        isLoading = false
+        isShowingTranslation = false
+        originalText = text
+
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let displayText = trimmed.isEmpty ? L("(No text detected in the selected area)") : text
+
+        textView?.string = displayText
+        textView?.textColor = trimmed.isEmpty ? .secondaryLabelColor : .labelColor
+        textView?.isEditable = true
+        textView?.setSelectedRange(NSRange(location: 0, length: 0))
+        textView?.scrollRangeToVisible(NSRange(location: 0, length: 0))
+
+        hasDetectedText = !trimmed.isEmpty
+        translateButton?.title = L("Translate")
+        spinnerView?.stopAnimation(nil)
+        spinnerView?.isHidden = true
+        updateActionAvailability()
+        updateCharCount(for: trimmed)
+    }
+
+    private func applyLoadingState() {
+        isLoading = true
+        isShowingTranslation = false
+        originalText = ""
+        hasDetectedText = false
+
+        textView?.string = L("Recognizing text...")
+        textView?.textColor = .secondaryLabelColor
+        textView?.isEditable = false
+        textView?.setSelectedRange(NSRange(location: 0, length: 0))
+        textView?.scrollRangeToVisible(NSRange(location: 0, length: 0))
+
+        charCountLabel?.stringValue = L("Recognizing text...")
+        translateButton?.title = L("Translate")
+        spinnerView?.isHidden = false
+        spinnerView?.startAnimation(nil)
+        updateActionAvailability()
+    }
+
+    private func updateActionAvailability() {
+        let canUseResultActions = !isLoading && hasDetectedText
+        copyButton?.isEnabled = canUseResultActions
+        aiSearchButton?.isEnabled = canUseResultActions
+        translateButton?.isEnabled = canUseResultActions
+        langPopup?.isEnabled = !isLoading
+    }
+
     func updateLocalization() {
         window?.title = L("Text Recognition")
         copyButton?.title = L("Copy")
-        translateButton?.title = isShowingTranslation ? L("Show Original") : L("Translate")
-        // Update char count label
-        if let tv = textView, let text = tv.textStorage?.string {
-            updateCharCount(for: text)
+        aiSearchButton?.title = L("AI Search")
+        if isLoading {
+            applyLoadingState()
+        } else {
+            translateButton?.title = isShowingTranslation ? L("Show Original") : L("Translate")
+            if let tv = textView, let text = tv.textStorage?.string, hasDetectedText {
+                updateCharCount(for: text)
+            } else {
+                textView?.string = L("(No text detected in the selected area)")
+                textView?.textColor = .secondaryLabelColor
+                updateCharCount(for: "")
+            }
         }
     }
 }

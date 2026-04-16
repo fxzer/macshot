@@ -440,6 +440,7 @@
 "Show Original" = "Show Original";
 "Translation Failed" = "Translation Failed";
 "Translation" = "Translation";
+"Recognizing text..." = "Recognizing text...";
 "(No text detected in the selected area)" = "(No text detected in the selected area)";
 
 /* Upload Toast */

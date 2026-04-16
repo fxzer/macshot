@@ -421,6 +421,7 @@
 "Show Original" = "显示原文";
 "Translation Failed" = "翻译失败";
 "Translation" = "翻译";
+"Recognizing text..." = "识别中...";
 "(No text detected in the selected area)" = "（未在选定区域中检测到文字）";
 
 /* Upload Toast */

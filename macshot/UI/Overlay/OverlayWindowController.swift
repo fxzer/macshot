@@ -25,7 +25,8 @@ protocol OverlayWindowControllerDelegate: AnyObject {
         windowTitle: String?
     )
     func overlayDidRequestPin(_ controller: OverlayWindowController, image: NSImage, at globalOrigin: NSPoint)
-    func overlayDidRequestOCR(_ controller: OverlayWindowController, text: String, image: NSImage?)
+    func overlayDidStartOCR(_ controller: OverlayWindowController)
+    func overlayDidFinishOCR(_ controller: OverlayWindowController, text: String)
     func overlayDidRequestUpload(_ controller: OverlayWindowController, image: NSImage)
     func overlayDidRequestStartRecording(
         _ controller: OverlayWindowController, rect: NSRect, screen: NSScreen)
@@ -450,8 +451,10 @@ extension OverlayWindowController: OverlayViewDelegate {
             return
         }
 
-        let request = VisionOCR.makeTextRecognitionRequest { [weak self] request, error in
-            guard let self = self else { return }
+        playCopySound()
+        overlayDelegate?.overlayDidStartOCR(self)
+
+        let request = VisionOCR.makeTextRecognitionRequest { [self] request, error in
             var lines: [String] = []
             if let observations = request.results as? [VNRecognizedTextObservation] {
                 for observation in observations {
@@ -461,11 +464,8 @@ extension OverlayWindowController: OverlayViewDelegate {
                 }
             }
             let text = lines.joined(separator: "\n")
-            let capturedImage = image  // capture before dismiss
             DispatchQueue.main.async {
-                self.playCopySound()
-                self.dismiss()
-                self.overlayDelegate?.overlayDidRequestOCR(self, text: text, image: capturedImage)
+                self.overlayDelegate?.overlayDidFinishOCR(self, text: text)
             }
         }
 
