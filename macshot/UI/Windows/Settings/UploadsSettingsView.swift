@@ -295,23 +295,32 @@ struct UploadHistoryPopoverView: View {
                    GridItem(.flexible(), spacing: 2)]
 
     var body: some View {
-        VStack(spacing: 0) {
-            // 顶栏：清空按钮
-            HStack {
+        HStack(spacing: 0) {
+            // 左侧：服务商名和清空按钮
+            VStack(alignment: .leading, spacing: 12) {
+                Text(providerDisplayName)
+                    .font(.headline)
+                    .foregroundColor(.primary)
+                    .frame(maxWidth: 120, alignment: .leading)
+
                 Spacer()
+
                 Button(role: .destructive) {
                     clearAllHistory()
                 } label: {
-                    Text("清空记录")
+                    Text("清空历史")
+                        .foregroundColor(.red)
                 }
                 .disabled(history.isEmpty)
             }
-            .padding(.horizontal)
-            .padding(.vertical, 8)
+            .frame(width: 140)
+            .padding(.vertical, 12)
+            .background(Color(nsColor: .controlBackgroundColor))
 
             Divider()
+                .frame(width: 1)
 
-            // 网格内容
+            // 右侧：网格内容
             if isLoading {
                 ProgressView("加载中...")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -338,6 +347,15 @@ struct UploadHistoryPopoverView: View {
         }
         .onAppear {
             loadHistory()
+        }
+    }
+
+    private var providerDisplayName: String {
+        switch uploadProvider {
+        case "imgbb": return "ImgBB"
+        case "gdrive": return "Google Drive"
+        case "s3": return "S3 兼容存储"
+        default: return uploadProvider
         }
     }
 

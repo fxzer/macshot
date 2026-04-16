@@ -32,18 +32,6 @@ struct UploadHistoryCell: View {
                 openLink()
             }
 
-            VStack {
-                Spacer()
-                Text(item.providerName)
-                    .font(.caption2)
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 4)
-                    .background(.black.opacity(0.6))
-                    .cornerRadius(4)
-                    .padding(.bottom, 6)
-            }
-
             if isHovering || showCopyCheckmark {
                 Button(action: {
                     copyLink()
