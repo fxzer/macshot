@@ -46,9 +46,12 @@ class UploadToastController {
         contentView.onClicked = { [weak self] in self?.animateOut() }
         panel.contentView = contentView
 
-        // App icon
+        // Success icon using SF Symbols
         let icon = NSImageView(frame: NSRect(x: 14, y: (toastHeight - 28) / 2, width: 28, height: 28))
-        icon.image = createCheckmarkIcon()
+        if let checkmarkIcon = NSImage(systemSymbolName: "checkmark.circle.fill", accessibilityDescription: "Success") {
+            icon.image = checkmarkIcon
+            icon.contentTintColor = .systemGreen
+        }
         icon.imageScaling = .scaleProportionallyUpOrDown
         contentView.addSubview(icon)
         self.iconView = icon
@@ -265,34 +268,6 @@ class UploadToastController {
 
     func updateLocalization() {
         (window?.contentView as? ToastBackgroundView)?.needsDisplay = true
-    }
-
-    // MARK: - Icon Generation
-
-    private func createCheckmarkIcon() -> NSImage {
-        let size = NSSize(width: 28, height: 28)
-        let image = NSImage(size: size)
-        image.lockFocus()
-
-        // Draw green circle background
-        let circleRect = NSRect(origin: .zero, size: size)
-        let circlePath = NSBezierPath(ovalIn: circleRect.insetBy(dx: 1, dy: 1))
-        NSColor.systemGreen.setFill()
-        circlePath.fill()
-
-        // Draw white checkmark (corrected direction)
-        let checkmarkPath = NSBezierPath()
-        checkmarkPath.move(to: NSPoint(x: 7, y: 14))   // Left point
-        checkmarkPath.line(to: NSPoint(x: 12, y: 19))  // Middle bottom
-        checkmarkPath.line(to: NSPoint(x: 21, y: 10))  // Right top
-        checkmarkPath.lineWidth = 2.5
-        checkmarkPath.lineCapStyle = .round
-        checkmarkPath.lineJoinStyle = .round
-        NSColor.white.setStroke()
-        checkmarkPath.stroke()
-
-        image.unlockFocus()
-        return image
     }
 }
 
