@@ -216,8 +216,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             // Use custom click handler so we can dismiss modals before showing the menu
             button.target = self
             button.action = #selector(statusBarIconClicked(_:))
-            button.sendAction(on: [.leftMouseDown, .rightMouseDown])
-            (button.cell as? NSButtonCell)?.highlightsBy = .pushInCellMask
+            // Disable highlight to prevent icon from turning white when clicked
+            (button.cell as? NSButtonCell)?.highlightsBy = []
         }
     }
 
@@ -231,23 +231,19 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             modalWin.close()
             DispatchQueue.main.async { [weak self] in
                 guard let self = self, let menu = self.statusBarMenu else { return }
-                // Show via the standard statusItem path so it looks native (no arrow)
                 self.statusItem.menu = menu
-                sender.performClick(nil)
-                self.statusItem.menu = nil
             }
         } else {
             // No modal — show menu normally via standard NSStatusItem path
             guard let menu = statusBarMenu else { return }
             statusItem.menu = menu
-            sender.performClick(nil)
-            statusItem.menu = nil
         }
     }
 
     private func rebuildStatusBarMenu() {
         let menu = NSMenu()
         menu.autoenablesItems = false
+        menu.delegate = self
 
         let captureAreaItem = NSMenuItem(title: L("Capture Area"), action: #selector(captureScreen), keyEquivalent: "")
         captureAreaItem.target = self
@@ -2110,6 +2106,13 @@ extension AppDelegate: PinWindowControllerDelegate {
 // MARK: - NSMenuDelegate (Recent Captures)
 
 extension AppDelegate: NSMenuDelegate {
+    func menuDidClose(_ menu: NSMenu) {
+        // Clear the status bar menu when it closes to avoid flickering
+        if menu == statusBarMenu {
+            statusItem.menu = nil
+        }
+    }
+
     func menuNeedsUpdate(_ menu: NSMenu) {
         // Only rebuild the history submenu, not the main status bar menu
         guard menu == historyMenu else { return }
