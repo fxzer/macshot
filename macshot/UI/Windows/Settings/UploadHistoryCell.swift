@@ -32,26 +32,38 @@ struct UploadHistoryCell: View {
                 openLink()
             }
 
-            if isHovering || showCopyCheckmark {
-                Button(action: {
-                    copyLink()
-                }) {
-                    overlayButtonIcon(
-                        systemName: showCopyCheckmark ? "checkmark.circle.fill" : "doc.on.doc",
-                        foregroundColor: showCopyCheckmark ? .green : .white
-                    )
+            // 悬浮时的复制按钮
+            VStack {
+                HStack {
+                    Spacer()
+                    if isHovering || showCopyCheckmark {
+                        Button(action: {
+                            copyLink()
+                        }) {
+                            overlayButtonIcon(
+                                systemName: showCopyCheckmark ? "checkmark.circle.fill" : "doc.on.doc",
+                                foregroundColor: showCopyCheckmark ? .green : .white
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        .padding(6)
+                    }
                 }
-                .buttonStyle(.plain)
-                .transition(.scale.combined(with: .opacity))
-                .padding(6)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                Spacer()
             }
+            .opacity(isHovering || showCopyCheckmark ? 1 : 0)
+            .animation(.easeOut(duration: 0.12), value: isHovering)
+            .animation(.easeOut(duration: 0.2), value: showCopyCheckmark)
         }
         .frame(width: 80, height: 80)
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
+        .contentShape(RoundedRectangle(cornerRadius: cornerRadius))
         .onHover { hovering in
-            withAnimation(.easeInOut(duration: 0.15)) {
-                isHovering = hovering
+            isHovering = hovering
+            if hovering {
+                NSCursor.pointingHand.push()
+            } else {
+                NSCursor.pop()
             }
         }
     }

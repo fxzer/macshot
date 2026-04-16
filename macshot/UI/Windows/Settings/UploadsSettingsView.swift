@@ -335,6 +335,7 @@ struct UploadHistoryPopoverView: View {
                     LazyVGrid(columns: columns, spacing: 2) {
                         ForEach(history) { item in
                             UploadHistoryCell(item: item)
+                                .padding(.bottom, 8)
                         }
                     }
                     .padding(.horizontal, 8)
