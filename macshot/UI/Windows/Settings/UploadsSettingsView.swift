@@ -51,7 +51,7 @@ struct UploadsSettingsView: View {
             }
             .pickerStyle(.segmented)
             .padding(.horizontal)
-            .padding(.top, 12)
+            .padding(.top, 8)
             .padding(.bottom, 8)
 
             // 内容区域
@@ -179,6 +179,7 @@ struct UploadsSettingsView: View {
             }
         }
         .formStyle(.grouped)
+        .padding(.top, -20)
     }
 
     // MARK: - History Content
