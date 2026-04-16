@@ -48,7 +48,7 @@ class UploadToastController {
 
         // App icon
         let icon = NSImageView(frame: NSRect(x: 14, y: (toastHeight - 28) / 2, width: 28, height: 28))
-        icon.image = NSApp.applicationIconImage
+        icon.image = createCheckmarkIcon()
         icon.imageScaling = .scaleProportionallyUpOrDown
         contentView.addSubview(icon)
         self.iconView = icon
@@ -265,6 +265,32 @@ class UploadToastController {
 
     func updateLocalization() {
         (window?.contentView as? ToastBackgroundView)?.needsDisplay = true
+    }
+
+    // MARK: - Icon Generation
+
+    private func createCheckmarkIcon() -> NSImage {
+        let size = NSSize(width: 28, height: 28)
+        let image = NSImage(size: size)
+        image.lockFocus()
+
+        // Draw green circle background
+        let circleRect = NSRect(origin: .zero, size: size)
+        let circlePath = NSBezierPath(ovalIn: circleRect.insetBy(dx: 1, dy: 1))
+        NSColor.systemGreen.setFill()
+        circlePath.fill()
+
+        // Draw white checkmark
+        let checkmarkPath = NSBezierPath()
+        checkmarkPath.move(to: NSPoint(x: 8, y: 14))
+        checkmarkPath.line(to: NSPoint(x: 12, y: 18))
+        checkmarkPath.line(to: NSPoint(x: 20, y: 10))
+        checkmarkPath.lineWidth = 2.5
+        NSColor.white.setStroke()
+        checkmarkPath.stroke()
+
+        image.unlockFocus()
+        return image
     }
 }
 
