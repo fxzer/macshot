@@ -93,11 +93,12 @@ class OverlayView: NSView {
 
     var screenshotImage: NSImage? {
         didSet {
-            loupeSourceCGImage = screenshotImage?.cgImage(forProposedRect: nil, context: nil, hints: nil)
-            // Ensure UI updates happen on main thread
+            _loupeSourceCGImage = nil
+            // Set needsDisplay synchronously so the first frame includes the
+            // screenshot image — avoids a blank overlay flash.
+            needsDisplay = true
+            // Defer color sampler magnifier until the view is in a window.
             DispatchQueue.main.async {
-                self.needsDisplay = true
-                // Show color sampler magnifier when screenshot is set (in idle state)
                 if self.state == .idle && self.screenshotImage != nil {
                     self.showColorSamplerMagnifier()
                 }
@@ -109,11 +110,27 @@ class OverlayView: NSView {
     /// Using NSImage.cgImage(forProposedRect:) can return CGImages in different pixel formats
     /// (e.g., 16-bit float on Retina), which causes color sampling inaccuracies.
     private var originalCGImage: CGImage?
-    private var loupeSourceCGImage: CGImage?
+    private var _loupeSourceCGImage: CGImage?
+    /// Loupe source image — lazily computed on first access to avoid
+    /// expensive cgImage(forProposedRect:) in the screenshotImage setter.
+    private var loupeSourceCGImage: CGImage? {
+        if _loupeSourceCGImage == nil, let image = screenshotImage {
+            _loupeSourceCGImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil)
+        }
+        return _loupeSourceCGImage
+    }
 
     /// Set the original CGImage for accurate color sampling.
     func setOriginalCGImage(_ cgImage: CGImage) {
         self.originalCGImage = cgImage
+    }
+
+    /// Update stored CGImages with a converted (8-bit BGRA, sRGB) version.
+    /// Called after deferred background conversion completes — ensures color
+    /// sampling and loupe rendering use accurate pixel values.
+    func updateColorAccurateImage(_ cgImage: CGImage) {
+        originalCGImage = cgImage
+        _loupeSourceCGImage = cgImage
     }
 
     // State

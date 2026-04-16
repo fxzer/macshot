@@ -57,6 +57,9 @@ class OverlayWindowController {
     private var overlayView: OverlayView?
     private var overlayWindow: OverlayWindow?
     private var shareDelegate: SharePickerDelegate?
+    /// Raw capture image kept for deferred 8-bit BGRA conversion.
+    /// Released after the background conversion starts.
+    private var rawCaptureImage: CGImage?
     private var shareDismissTime: Date = .distantPast
     var windowNumber: CGWindowID {
         overlayWindow.map { CGWindowID($0.windowNumber) } ?? CGWindowID.max
@@ -102,6 +105,7 @@ class OverlayWindowController {
         window.contentView = view
         self.overlayWindow = window
         self.overlayView = view
+        self.rawCaptureImage = capture.image
     }
 
     func showOverlay() {
@@ -113,12 +117,34 @@ class OverlayWindowController {
         if let view = overlayView {
             window.makeFirstResponder(view)
         }
+        // Convert to 8-bit BGRA in background for accurate color sampling.
+        // The overlay is already visible with the GPU-native image.
+        prepareCaptureImageInBackground()
     }
 
     func makeKey() {
         overlayWindow?.makeKeyAndOrderFront(nil)
         if let view = overlayView {
             overlayWindow?.makeFirstResponder(view)
+        }
+    }
+
+    /// Convert the raw capture image to 8-bit BGRA / sRGB in the background.
+    /// The overlay is already displayed with the GPU-native image — this ensures
+    /// color sampling, loupe, and CPU-side pixel operations use accurate values.
+    private func prepareCaptureImageInBackground() {
+        guard let rawImage = rawCaptureImage else { return }
+        rawCaptureImage = nil  // release reference
+        // Already 8-bit (macOS 12-13 CGWindowListCreateImage path) — nothing to convert.
+        guard rawImage.bitsPerComponent > 8 else { return }
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let converted = ScreenCaptureManager.convertTo8BitBGRA(rawImage)
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                if let converted = converted {
+                    self.overlayView?.updateColorAccurateImage(converted)
+                }
+            }
         }
     }
 

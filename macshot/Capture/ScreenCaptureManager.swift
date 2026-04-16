@@ -152,11 +152,12 @@ class ScreenCaptureManager {
                                 guard let image = try? await SCScreenshotManager.captureImage(
                                     contentFilter: filter, configuration: config
                                 ) else { return nil }
-                                // SCScreenshotManager returns ARGB16F (GPU-native). Convert to
-                                // 8-bit BGRA here on the background thread so the first draw()
-                                // on the main thread is instant (no vImage pixel conversion).
-                                let cpuImage = Self.copyTo8BitBGRA(image) ?? image
-                                return ScreenCapture(screen: screen, image: cpuImage)
+                                // Skip expensive pixel conversion on the capture path —
+                                // CoreAnimation composites the GPU-native ARGB16F image
+                                // directly without CPU readback. Convert to 8-bit BGRA
+                                // asynchronously after the overlay is visible for accurate
+                                // color sampling and CPU-side pixel operations.
+                                return ScreenCapture(screen: screen, image: image)
                             } else {
                                 // macOS 12.3–13.x: use CGWindowListCreateImage which returns
                                 // a CGImage directly — no pixel buffer format ambiguity.
@@ -199,7 +200,7 @@ class ScreenCaptureManager {
     /// to standard hex color codes (#RRGGBB) and that color sampling is accurate regardless
     /// of the display's native color space (e.g. Display P3).
     /// CoreGraphics will automatically convert sRGB images to the display profile when drawing.
-    private static func copyTo8BitBGRA(_ src: CGImage) -> CGImage? {
+    static func convertTo8BitBGRA(_ src: CGImage) -> CGImage? {
         let w = src.width
         let h = src.height
         // Force sRGB so pixel values match standard hex/RGB color codes.
@@ -256,7 +257,7 @@ class ScreenCaptureManager {
             guard let image = try? await SCScreenshotManager.captureImage(
                 contentFilter: filter, configuration: config
             ) else { return nil }
-            return copyTo8BitBGRA(image) ?? image
+            return Self.convertTo8BitBGRA(image) ?? image
         } else {
             // macOS 12.3–13.x: CGWindowListCreateImage targeting the specific window
             return CGWindowListCreateImage(
