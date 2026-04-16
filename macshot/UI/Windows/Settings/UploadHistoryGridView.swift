@@ -37,7 +37,7 @@ struct UploadHistoryGridView: View {
                 }
                 .disabled(history.isEmpty)
             }
-            .padding(.horizontal)
+            .padding(.horizontal, 8)
             .padding(.top, 8)
             .padding(.bottom, 8)
 
@@ -60,7 +60,7 @@ struct UploadHistoryGridView: View {
                         UploadHistoryCell(item: item)
                     }
                 }
-                .padding(.horizontal, 12)
+                .padding(.horizontal, 8)
                 .padding(.vertical, 8)
             }
         }
