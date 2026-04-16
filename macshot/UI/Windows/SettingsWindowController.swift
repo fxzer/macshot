@@ -4,6 +4,26 @@ import SwiftUI
 /// Settings window that intercepts Cmd+Q to close itself instead of quitting the app.
 private class SettingsWindow: NSWindow {
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        // Status-bar windows do not get the standard Edit menu handling,
+        // so forward common text-editing shortcuts to the active field editor.
+        if let textResponder = firstResponder as? NSTextView {
+            let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+            if flags == .command {
+                switch event.keyCode {
+                case 8:  textResponder.copy(nil); return true  // C
+                case 7:  textResponder.cut(nil); return true  // X
+                case 9:  textResponder.paste(nil); return true  // V
+                case 0:  textResponder.selectAll(nil); return true  // A
+                case 6:  textResponder.undoManager?.undo(); return true  // Z
+                default: break
+                }
+            }
+            if flags == [.command, .shift], event.keyCode == 6 {  // Z
+                textResponder.undoManager?.redo()
+                return true
+            }
+        }
+
         if event.modifierFlags.contains(.command) && event.keyCode == 12 {  // Q
             close()
             return true

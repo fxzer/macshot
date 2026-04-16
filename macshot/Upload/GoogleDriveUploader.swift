@@ -10,12 +10,15 @@ final class GoogleDriveUploader: NSObject, ASWebAuthenticationPresentationContex
     static let shared = GoogleDriveUploader()
     private let tokenKeychainKey = "upload.gdrive.tokens"
 
-    // GCP OAuth iOS client — no secret needed for native apps using PKCE
-    private let clientID = "92758256085-8gkpg2b9to7bu7to0vgh9c7af755hp5d.apps.googleusercontent.com"
+    // Your Google OAuth client ID - create at https://console.cloud.google.com/
+    // Application type: Desktop app
+    private let clientID = "423880796342-i7u2qecp4oc6ce44l66tdegoc5g931dp.apps.googleusercontent.com"
     /// Reversed client ID used as custom URL scheme for OAuth redirect.
     private var callbackScheme: String {
         clientID.components(separatedBy: ".").reversed().joined(separator: ".")
     }
+    /// OAuth scopes for Google Drive access.
+    /// Using drive.file scope which is less restrictive and works better with test apps.
     private let scopes = "https://www.googleapis.com/auth/drive.file"
 
     private let tokenURL = "https://oauth2.googleapis.com/token"
@@ -51,11 +54,21 @@ final class GoogleDriveUploader: NSObject, ASWebAuthenticationPresentationContex
         UserDefaults.standard.string(forKey: "gdriveUserEmail")
     }
 
+    /// Last sign-in error message (for display in UI)
+    static var lastSignInError: String?
+
     /// Start the OAuth2 sign-in flow using ASWebAuthenticationSession.
     func signIn(from window: NSWindow?, completion: @escaping (Bool) -> Void) {
+        Self.lastSignInError = nil
+        NSLog("[GoogleDrive] Starting sign in flow...")
+        NSLog("[GoogleDrive] Starting sign in flow...")
         let codeVerifier = generateCodeVerifier()
         let codeChallenge = generateCodeChallenge(from: codeVerifier)
         let redirectURI = "\(callbackScheme):/oauthredirect"
+
+        NSLog("[GoogleDrive] Client ID: \(clientID)")
+        NSLog("[GoogleDrive] Callback scheme: \(callbackScheme)")
+        NSLog("[GoogleDrive] Redirect URI: \(redirectURI)")
 
         var components = URLComponents(string: "https://accounts.google.com/o/oauth2/v2/auth")!
         components.queryItems = [
@@ -76,12 +89,47 @@ final class GoogleDriveUploader: NSObject, ASWebAuthenticationPresentationContex
             guard let self = self else { return }
             self.authSession = nil
 
-            guard let callbackURL = callbackURL, error == nil,
-                  let urlComponents = URLComponents(url: callbackURL, resolvingAgainstBaseURL: false),
-                  let code = urlComponents.queryItems?.first(where: { $0.name == "code" })?.value else {
+            NSLog("[GoogleDrive] OAuth callback triggered")
+            if let error = error {
+                let nsError = error as NSError
+                NSLog("[GoogleDrive] OAuth error: \(error.localizedDescription)")
+                NSLog("[GoogleDrive] Error domain: \(nsError.domain)")
+                NSLog("[GoogleDrive] Error code: \(nsError.code)")
+                NSLog("[GoogleDrive] Error userInfo: \(nsError.userInfo)")
+
+                // 检查是否是用户取消
+                if nsError.domain == "com.apple.AuthenticationServices" && nsError.code == 1 {
+                    NSLog("[GoogleDrive] User cancelled authentication")
+                    Self.lastSignInError = "用户取消了登录"
+                } else {
+                    // 其他错误，可能是配置问题
+                    let errorMsg = """
+                    OAuth 错误: \(error.localizedDescription)
+                    错误代码: \(nsError.code)
+                    可能原因:
+                    1. 未添加测试用户
+                    2. OAuth 同意屏幕配置不完整
+                    3. URL Scheme 配置错误
+                    """
+                    Self.lastSignInError = errorMsg
+                }
+
                 DispatchQueue.main.async { completion(false) }
                 return
             }
+
+            guard let callbackURL = callbackURL,
+                  let urlComponents = URLComponents(url: callbackURL, resolvingAgainstBaseURL: false),
+                  let code = urlComponents.queryItems?.first(where: { $0.name == "code" })?.value else {
+                NSLog("[GoogleDrive] Failed to extract auth code from callback")
+                if let callbackURL = callbackURL {
+                    NSLog("[GoogleDrive] Callback URL: \(callbackURL.absoluteString)")
+                }
+                DispatchQueue.main.async { completion(false) }
+                return
+            }
+
+            NSLog("[GoogleDrive] Auth code received, exchanging for token...")
             self.exchangeCodeWithRedirect(code, codeVerifier: codeVerifier, redirectURI: redirectURI, completion: completion)
         }
         session.presentationContextProvider = self
@@ -154,7 +202,9 @@ final class GoogleDriveUploader: NSObject, ASWebAuthenticationPresentationContex
     // MARK: - OAuth Token Exchange
 
     private func exchangeCodeWithRedirect(_ code: String, codeVerifier: String, redirectURI: String, completion: @escaping (Bool) -> Void) {
+        NSLog("[GoogleDrive] Exchanging auth code for token...")
         guard let tokenURL = url(from: tokenURL) else {
+            NSLog("[GoogleDrive] Invalid token URL")
             completion(false)
             return
         }
@@ -179,15 +229,43 @@ final class GoogleDriveUploader: NSObject, ASWebAuthenticationPresentationContex
 
         URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
             guard let self = self else { return }
-            guard let data = data, error == nil,
-                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let accessToken = json["access_token"] as? String else {
+
+            if let error = error {
+                NSLog("[GoogleDrive] Token exchange error: \(error.localizedDescription)")
                 DispatchQueue.main.async { completion(false) }
                 return
             }
 
+            let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
+            NSLog("[GoogleDrive] Token exchange response status: \(statusCode)")
+
+            guard let data = data else {
+                NSLog("[GoogleDrive] No data in token response")
+                DispatchQueue.main.async { completion(false) }
+                return
+            }
+
+            if let responseString = String(data: data, encoding: .utf8) {
+                NSLog("[GoogleDrive] Token response: \(responseString)")
+            }
+
+            guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                NSLog("[GoogleDrive] Failed to parse token response")
+                DispatchQueue.main.async { completion(false) }
+                return
+            }
+
+            guard let accessToken = json["access_token"] as? String else {
+                NSLog("[GoogleDrive] No access_token in response")
+                DispatchQueue.main.async { completion(false) }
+                return
+            }
+
+            NSLog("[GoogleDrive] Access token received successfully")
+
             let refreshToken = json["refresh_token"] as? String ?? self.loadRefreshToken()
             guard let finalRefreshToken = refreshToken else {
+                NSLog("[GoogleDrive] No refresh token available")
                 DispatchQueue.main.async { completion(false) }
                 return
             }

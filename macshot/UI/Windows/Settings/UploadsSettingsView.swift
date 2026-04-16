@@ -21,6 +21,7 @@ struct UploadsSettingsView: View {
     // Google Drive state
     @State private var gdriveEmail: String = ""
     @State private var gdriveSignedIn: Bool = false
+    @State private var gdriveErrorMessage: String = ""
 
     // S3 test state
     @State private var s3Testing = false
@@ -81,6 +82,12 @@ struct UploadsSettingsView: View {
                     }
                     Button(gdriveSignedIn ? L("Sign Out") : L("Sign In with Google")) {
                         gdriveSignInAction()
+                    }
+                    if !gdriveErrorMessage.isEmpty {
+                        Text(gdriveErrorMessage)
+                            .font(.caption)
+                            .foregroundColor(.red)
+                            .padding(.top, 4)
                     }
                 } header: {
                     VStack(alignment: .leading, spacing: 4) {
@@ -214,20 +221,37 @@ struct UploadsSettingsView: View {
     }
 
     private func gdriveSignInAction() {
+        gdriveErrorMessage = "" // 清除之前的错误
+        NSLog("[Settings] gdriveSignInAction called, isSignedIn: \(GoogleDriveUploader.shared.isSignedIn)")
+
         if GoogleDriveUploader.shared.isSignedIn {
+            NSLog("[Settings] Signing out...")
             GoogleDriveUploader.shared.signOut()
             refreshGDriveStatus()
         } else {
+            NSLog("[Settings] Starting sign in...")
             let window = NSApp.windows.first { $0.title == L("macshot Settings") }
             GoogleDriveUploader.shared.signIn(from: window) { [self] success in
+                NSLog("[Settings] Sign in completion called with success: \(success)")
                 guard success else {
+                    NSLog("[Settings] Sign in failed, refreshing status")
+
+                    // 显示详细的错误信息
+                    if let error = GoogleDriveUploader.lastSignInError {
+                        gdriveErrorMessage = error
+                    } else {
+                        gdriveErrorMessage = "登录失败，请查看控制台日志了解详情"
+                    }
                     refreshGDriveStatus()
                     return
                 }
+                NSLog("[Settings] Sign in succeeded!")
+                gdriveErrorMessage = ""
                 window?.makeKeyAndOrderFront(nil)
                 gdriveSignedIn = true
                 GoogleDriveUploader.shared.fetchUserEmail { [self] in
                     gdriveEmail = GoogleDriveUploader.shared.userEmail ?? ""
+                    NSLog("[Settings] Email fetched: \(gdriveEmail)")
                 }
             }
         }
