@@ -5,6 +5,9 @@ enum KeychainStore {
 
     private static let service = Bundle.main.bundleIdentifier ?? "com.fxzer.macshot.macshot"
 
+    // Legacy UserDefaults key prefix for Data fallback (used for non-string data like JSON tokens)
+    private static let userDefaultsDataPrefix = "_data_"
+
     static func string(forKey key: String, legacyUserDefaultsKey: String? = nil) -> String? {
         guard let data = data(forKey: key, legacyUserDefaultsKey: legacyUserDefaultsKey),
               let value = String(data: data, encoding: .utf8) else { return nil }
@@ -34,24 +37,52 @@ enum KeychainStore {
             return existing
         }
 
-        guard let legacyUserDefaultsKey,
-              let legacy = UserDefaults.standard.string(forKey: legacyUserDefaultsKey),
-              !legacy.isEmpty else { return nil }
-
-        let data = Data(legacy.utf8)
-        if setData(data, forKey: key) {
-            UserDefaults.standard.removeObject(forKey: legacyUserDefaultsKey)
+        // Try legacy string UserDefaults key
+        if let legacyUserDefaultsKey,
+           let legacy = UserDefaults.standard.string(forKey: legacyUserDefaultsKey),
+           !legacy.isEmpty {
+            let data = Data(legacy.utf8)
+            if setData(data, forKey: key) {
+                UserDefaults.standard.removeObject(forKey: legacyUserDefaultsKey)
+            }
+            return data
         }
-        return data
+
+        // Try fallback UserDefaults Data key (base64 encoded)
+        let fallbackKey = userDefaultsDataPrefix + key
+        if let fallbackBase64 = UserDefaults.standard.string(forKey: fallbackKey),
+           !fallbackBase64.isEmpty,
+           let fallbackData = Data(base64Encoded: fallbackBase64) {
+            // Try to migrate back to Keychain
+            if setData(fallbackData, forKey: key) {
+                UserDefaults.standard.removeObject(forKey: fallbackKey)
+            }
+            return fallbackData
+        }
+
+        return nil
     }
 
     @discardableResult
     static func setData(_ data: Data?, forKey key: String) -> Bool {
+        let didPersist: Bool
         if let data {
-            return writeValue(data, forKey: key)
+            didPersist = writeValue(data, forKey: key)
         } else {
-            return deleteValue(forKey: key)
+            didPersist = deleteValue(forKey: key)
         }
+
+        // Fallback to UserDefaults if Keychain write failed
+        if !didPersist, let data {
+            let fallbackKey = userDefaultsDataPrefix + key
+            UserDefaults.standard.set(data.base64EncodedString(), forKey: fallbackKey)
+        } else if didPersist {
+            // Clean up UserDefaults fallback if Keychain succeeded
+            let fallbackKey = userDefaultsDataPrefix + key
+            UserDefaults.standard.removeObject(forKey: fallbackKey)
+        }
+
+        return didPersist
     }
 
     @discardableResult

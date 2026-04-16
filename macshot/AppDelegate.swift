@@ -1172,7 +1172,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
                     UploadHistoryStore.append(
                         link: uploadResult.link,
                         deleteURL: uploadResult.deleteURL,
-                        provider: provider
+                        provider: provider,
+                        thumbnail: image
                     )
 
                     toast.showSuccess(link: uploadResult.link, deleteURL: uploadResult.deleteURL)
