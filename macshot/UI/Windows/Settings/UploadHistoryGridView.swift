@@ -2,12 +2,11 @@ import SwiftUI
 
 /// Upload history grid view with filtering and virtualization
 struct UploadHistoryGridView: View {
-    @State private var selectedFilter: UploadFilter = .all
+    let selectedProvider: String
     @State private var history: [UploadHistoryItem] = []
     @State private var isLoading = false
-    @Environment(\.dismiss) private var dismiss
 
-    // 固定 5 列网格
+    // 固定 5 列网格，图片尺寸 80px
     let columns = [GridItem(.flexible(), spacing: 4),
                    GridItem(.flexible(), spacing: 4),
                    GridItem(.flexible(), spacing: 4),
@@ -16,18 +15,11 @@ struct UploadHistoryGridView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // 顶栏：筛选器 + 清空按钮
+            // 顶栏：标题 + 清空按钮
             HStack(alignment: .center) {
-                Picker("", selection: $selectedFilter) {
-                    ForEach(UploadFilter.allCases, id: \.self) { filter in
-                        Text(filter.rawValue).tag(filter)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .frame(maxWidth: 300)
-                .onChange(of: selectedFilter) { _ in
-                    loadHistory()
-                }
+                Text("上传历史")
+                    .font(.headline)
+                    .foregroundColor(.primary)
 
                 Spacer()
 
@@ -38,8 +30,8 @@ struct UploadHistoryGridView: View {
                 }
                 .disabled(history.isEmpty)
             }
-            .padding(.horizontal, 8)
-            .padding(.top, 8)
+            .padding(.horizontal)
+            .padding(.top, 12)
             .padding(.bottom, 8)
 
             // 虚拟化自适应网格
@@ -61,11 +53,14 @@ struct UploadHistoryGridView: View {
                         UploadHistoryCell(item: item)
                     }
                 }
-                .padding(.horizontal, 8)
+                .padding(.horizontal, 12)
                 .padding(.vertical, 8)
             }
         }
         .onAppear {
+            loadHistory()
+        }
+        .onChange(of: selectedProvider) { _ in
             loadHistory()
         }
     }
@@ -77,18 +72,8 @@ struct UploadHistoryGridView: View {
             // 从 UserDefaults 加载上传历史
             let uploads = UploadHistoryStore.load()
 
-            // 根据筛选条件过滤
-            let filtered: [[String: String]]
-            switch selectedFilter {
-            case .all:
-                filtered = uploads
-            case .gdrive:
-                filtered = uploads.filter { $0["provider"] == "gdrive" }
-            case .imgbb:
-                filtered = uploads.filter { $0["provider"] == "imgbb" }
-            case .s3:
-                filtered = uploads.filter { $0["provider"] == "s3" }
-            }
+            // 根据 selectedProvider 过滤
+            let filtered = uploads.filter { $0["provider"] == selectedProvider }
 
             // 转换为 UploadHistoryItem
             let items = filtered.map { dict -> UploadHistoryItem in
@@ -141,10 +126,3 @@ struct UploadHistoryGridView: View {
     }
 }
 
-/// Upload filter options
-enum UploadFilter: String, CaseIterable {
-    case all = "全部"
-    case gdrive = "Google Drive"
-    case imgbb = "ImgBB"
-    case s3 = "S3"
-}

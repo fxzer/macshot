@@ -35,22 +35,23 @@ struct UploadsSettingsView: View {
     }
 
     var body: some View {
-        Form {
-            // MARK: - Upload Service
-            Section {
-                Toggle(L("Confirm before uploading"), isOn: $uploadConfirmEnabled)
-                Picker(L("Upload provider"), selection: $uploadProvider) {
-                    Text("ImgBB").tag("imgbb")
-                    Text("Google Drive").tag("gdrive")
-                    Text("S3 兼容存储").tag("s3")
-                }
-            } header: {
-                Text(L("Upload Service"))
-            }
-
-            // MARK: - Service Configuration (dynamic)
-            if uploadProvider == "imgbb" {
+        VStack(spacing: 0) {
+            Form {
+                // MARK: - Upload Service
                 Section {
+                    Toggle(L("Confirm before uploading"), isOn: $uploadConfirmEnabled)
+                    Picker(L("Upload provider"), selection: $uploadProvider) {
+                        Text("ImgBB").tag("imgbb")
+                        Text("Google Drive").tag("gdrive")
+                        Text("S3 兼容存储").tag("s3")
+                    }
+                } header: {
+                    Text(L("Upload Service"))
+                }
+
+                // MARK: - Service Configuration (dynamic)
+                if uploadProvider == "imgbb" {
+                    Section {
                     SecureField(L("API key"), text: $imgbbAPIKey, prompt: Text(L("Paste your API key")))
                         .font(.system(.body, design: .monospaced))
                 } header: {
@@ -133,16 +134,12 @@ struct UploadsSettingsView: View {
                     }
                 }
             }
-
-            // MARK: - Upload History
-            Section {
-                UploadHistoryGridView()
-                    .frame(maxHeight: 340)
-            } header: {
-                Text("上传历史")
-            }
         }
         .formStyle(.grouped)
+
+        // MARK: - Upload History
+        UploadHistoryGridView(selectedProvider: uploadProvider)
+    }
         .onAppear {
             normalizePickerSelections()
             refreshGDriveStatus()

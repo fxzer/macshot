@@ -59,7 +59,7 @@ struct UploadHistoryCell: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
             }
         }
-        .frame(width: 100, height: 100)
+        .frame(width: 80, height: 80)
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
         .onHover { hovering in
             withAnimation(.easeInOut(duration: 0.15)) {
