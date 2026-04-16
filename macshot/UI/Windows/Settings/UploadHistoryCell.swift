@@ -5,7 +5,8 @@ struct UploadHistoryCell: View {
     let item: UploadHistoryItem
     @State private var isHovering = false
     @State private var showPreview = false
-    @State private var showCopyFeedback = false
+    @State private var showCopyCheckmark = false
+    @State private var showDeleteCheckmark = false
 
     var body: some View {
         ZStack(alignment: .topLeading) {
@@ -48,13 +49,14 @@ struct UploadHistoryCell: View {
             VStack {
                 HStack {
                     Spacer()
-                    if isHovering {
+                    if isHovering || showCopyCheckmark || showDeleteCheckmark {
+                        // 复制主链接按钮
                         Button(action: {
                             copyLink()
                         }) {
-                            Image(systemName: "doc.on.doc")
+                            Image(systemName: showCopyCheckmark ? "checkmark.circle.fill" : "doc.on.doc")
                                 .font(.title3)
-                                .foregroundColor(.white)
+                                .foregroundColor(showCopyCheckmark ? .green : .white)
                                 .padding(6)
                                 .background(.black.opacity(0.6))
                                 .clipShape(Circle())
@@ -67,9 +69,9 @@ struct UploadHistoryCell: View {
                             Button(action: {
                                 copyDeleteURL()
                             }) {
-                                Image(systemName: "link.badge.minus")
+                                Image(systemName: showDeleteCheckmark ? "checkmark.circle.fill" : "link.badge.minus")
                                     .font(.title3)
-                                    .foregroundColor(.pink)
+                                    .foregroundColor(showDeleteCheckmark ? .green : .pink)
                                     .padding(6)
                                     .background(.black.opacity(0.6))
                                     .clipShape(Circle())
@@ -85,25 +87,6 @@ struct UploadHistoryCell: View {
                 Spacer()
                 Spacer()
             }
-
-            // 复制成功反馈
-            if showCopyFeedback {
-                VStack {
-                    Spacer()
-                    HStack {
-                        Spacer()
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundColor(.green)
-                            .font(.title3)
-                        Text("已复制")
-                            .font(.caption2)
-                            .foregroundColor(.white)
-                        Spacer()
-                    }
-                    .padding(.bottom, 8)
-                }
-                .transition(.opacity)
-            }
         }
         .onHover { hovering in
             withAnimation(.easeInOut(duration: 0.15)) {
@@ -118,12 +101,12 @@ struct UploadHistoryCell: View {
 
         // 显示反馈
         withAnimation(.easeOut(duration: 0.2)) {
-            showCopyFeedback = true
+            showCopyCheckmark = true
         }
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
             withAnimation {
-                showCopyFeedback = false
+                showCopyCheckmark = false
             }
         }
     }
@@ -134,12 +117,12 @@ struct UploadHistoryCell: View {
 
         // 显示反馈
         withAnimation(.easeOut(duration: 0.2)) {
-            showCopyFeedback = true
+            showDeleteCheckmark = true
         }
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
             withAnimation {
-                showCopyFeedback = false
+                showDeleteCheckmark = false
             }
         }
     }
