@@ -32,13 +32,16 @@ reset_tcc_service() {
 }
 
 DO_CLEAN=0
+DO_RESET_PERMISSIONS=0  # 默认不重置权限，避免每次打包都要重新授权
 for arg in "$@"; do
     case "$arg" in
         --clean) DO_CLEAN=1 ;;
+        --reset-permissions) DO_RESET_PERMISSIONS=1 ;;
         -h|--help)
-            echo "用法: $(basename "$0") [--clean]"
+            echo "用法: $(basename "$0") [--clean] [--reset-permissions]"
             echo "  默认: 增量构建（快）；若缺少 Sparkle.xcframework 会自动清理 SPM 工件并重解析"
             echo "  --clean: clean build（等价于全量重编，慢，怀疑缓存坏了再用）"
+            echo "  --reset-permissions: 重置应用权限（需要重新授权屏幕录制等）"
             exit 0
             ;;
     esac
@@ -75,13 +78,17 @@ rm -rf "$ROOT_DIR/macshot-dev.app"
 rm -rf ~/Desktop/macshot-backup-* 2>/dev/null || true
 echo "   ✅ 已清理"
 
-# 3. 清理旧权限系统
-echo "📍 步骤 3/5: 清理旧权限系统..."
-echo "   Bundle ID: $BUNDLE_ID"
-reset_tcc_service "All" "$BUNDLE_ID"
-reset_tcc_service "ScreenCapture" "$BUNDLE_ID"
-reset_tcc_service "Microphone" "$BUNDLE_ID"
-reset_tcc_service "Camera" "$BUNDLE_ID"
+# 3. 清理旧权限系统（仅在 --reset-permissions 时执行）
+if [ "$DO_RESET_PERMISSIONS" -eq 1 ]; then
+    echo "📍 步骤 3/5: 清理旧权限系统..."
+    echo "   Bundle ID: $BUNDLE_ID"
+    reset_tcc_service "All" "$BUNDLE_ID"
+    reset_tcc_service "ScreenCapture" "$BUNDLE_ID"
+    reset_tcc_service "Microphone" "$BUNDLE_ID"
+    reset_tcc_service "Camera" "$BUNDLE_ID"
+else
+    echo "📍 步骤 3/5: 跳过权限清理（保留已有授权）"
+fi
 
 # 4. 构建
 # Sparkle 为 SPM binaryTarget：若 artifacts 目录残缺（常见报错：找不到 Sparkle.xcframework），
