@@ -43,6 +43,45 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     private var statusBarMenu: NSMenu?
     private var lastStatusBarInteractionScreen: NSScreen?
 
+    private enum CaptureTriggerOrigin: String {
+        case menuBar = "menu"
+        case hotkey = "hotkey"
+        case external = "external"
+
+        var preparationWaitNanoseconds: UInt64 {
+            switch self {
+            case .menuBar:
+                return 45_000_000
+            case .hotkey, .external:
+                return 60_000_000
+            }
+        }
+    }
+
+    private struct PreparedCaptureState {
+        let captures: [ScreenCapture]
+        let excludedWindowNumbers: [CGWindowID]
+        let completedAt: CFAbsoluteTime
+        let requestID: UUID
+
+        func isUsable(now: CFAbsoluteTime, excludedWindowNumbers: [CGWindowID]) -> Bool {
+            self.excludedWindowNumbers == excludedWindowNumbers
+                && (now - completedAt) <= AppDelegate.preparedCaptureTTL
+        }
+    }
+
+    private struct InFlightCapturePreparation {
+        let requestID: UUID
+        let excludedWindowNumbers: [CGWindowID]
+        let startedAt: CFAbsoluteTime
+        let origin: CaptureTriggerOrigin
+    }
+
+    nonisolated(unsafe) private static let preparedCaptureTTL: CFTimeInterval = 0.6
+    private var preparedCaptureState: PreparedCaptureState?
+    private var inFlightCapturePreparation: InFlightCapturePreparation?
+    private var pendingCaptureTriggerOrigin: CaptureTriggerOrigin = .menuBar
+
     /// Shared capture sound — loaded once, reused everywhere.
     static let captureSound: NSSound? = {
         let path = "/System/Library/Components/CoreAudio.component/Contents/SharedSupport/SystemSounds/system/Screen Capture.aif"
@@ -50,6 +89,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     }()
 
     func applicationDidFinishLaunching(_ aNotification: Notification) {
+        // macshot is a menu bar agent (LSUIElement) with no persistent windows.
+        // Without this, AppKit's AutomaticTermination kills the process after
+        // every overlay dismissal because it sees no visible windows.
+        ProcessInfo.processInfo.disableAutomaticTermination("macshot is a menu bar agent")
+
         // Prevent multiple instances — if already running, activate the existing one and quit
         let bundleID = Bundle.main.bundleIdentifier ?? "com.fxzer.macshot.macshot"
         let running = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID)
@@ -385,28 +429,28 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     private func registerHotkey() {
         HotkeyManager.shared.registerAll(
             captureArea: { [weak self] in
-                DispatchQueue.main.async { self?.startCapture(fromMenu: false) }
+                DispatchQueue.main.async { self?.beginAreaCapture(triggerOrigin: .hotkey) }
             },
             captureFullScreen: { [weak self] in
-                DispatchQueue.main.async { self?.captureFullScreen() }
+                DispatchQueue.main.async { self?.beginFullScreenCapture(triggerOrigin: .hotkey) }
             },
             recordArea: { [weak self] in
-                DispatchQueue.main.async { self?.recordArea() }
+                DispatchQueue.main.async { self?.beginAreaRecording(triggerOrigin: .hotkey) }
             },
             recordScreen: { [weak self] in
-                DispatchQueue.main.async { self?.recordFullScreen() }
+                DispatchQueue.main.async { self?.beginFullScreenRecording(triggerOrigin: .hotkey) }
             },
             historyOverlay: { [weak self] in
                 DispatchQueue.main.async { self?.showHistoryOverlay() }
             },
             captureOCR: { [weak self] in
-                DispatchQueue.main.async { self?.captureOCR() }
+                DispatchQueue.main.async { self?.beginOCRCapture(triggerOrigin: .hotkey) }
             },
             quickCapture: { [weak self] in
-                DispatchQueue.main.async { self?.quickCapture() }
+                DispatchQueue.main.async { self?.beginQuickCapture(triggerOrigin: .hotkey) }
             },
             scrollCapture: { [weak self] in
-                DispatchQueue.main.async { self?.scrollCapture() }
+                DispatchQueue.main.async { self?.beginScrollCapture(triggerOrigin: .hotkey) }
             },
             openFromClipboard: { [weak self] in
                 DispatchQueue.main.async { self?.openImageFromClipboard() }
@@ -472,13 +516,105 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
 
     // MARK: - Capture
 
+    private func currentCaptureExcludedWindowNumbers() -> [CGWindowID] {
+        Array(Set(thumbnailControllers.compactMap { $0.windowNumber })).sorted()
+    }
+
+    /// Kick off a background capture early so menu and hotkey paths can reuse it if it
+    /// finishes quickly enough. Results expire almost immediately to avoid stale content.
+    private func requestCapturePreparation(origin: CaptureTriggerOrigin,
+                                           excludedWindowNumbers: [CGWindowID]? = nil) {
+        let excludeIDs = excludedWindowNumbers ?? currentCaptureExcludedWindowNumbers()
+        let now = CFAbsoluteTimeGetCurrent()
+
+        if let prepared = preparedCaptureState,
+           prepared.isUsable(now: now, excludedWindowNumbers: excludeIDs) {
+            return
+        }
+
+        if let inFlight = inFlightCapturePreparation,
+           inFlight.excludedWindowNumbers == excludeIDs {
+            return
+        }
+
+        let requestID = UUID()
+        let startedAt = CFAbsoluteTimeGetCurrent()
+        inFlightCapturePreparation = InFlightCapturePreparation(
+            requestID: requestID,
+            excludedWindowNumbers: excludeIDs,
+            startedAt: startedAt,
+            origin: origin
+        )
+        preparedCaptureState = nil
+
+        NSLog("[PERF] capture preparation BEGIN origin=\(origin.rawValue)")
+        ScreenCaptureManager.captureAllScreens(excludingWindowNumbers: excludeIDs) { [weak self] captures in
+            guard let self = self else { return }
+            guard let inFlight = self.inFlightCapturePreparation,
+                  inFlight.requestID == requestID else { return }
+
+            self.inFlightCapturePreparation = nil
+            guard !captures.isEmpty else {
+                NSLog("[PERF] capture preparation FAILED origin=\(origin.rawValue)")
+                return
+            }
+
+            self.preparedCaptureState = PreparedCaptureState(
+                captures: captures,
+                excludedWindowNumbers: excludeIDs,
+                completedAt: CFAbsoluteTimeGetCurrent(),
+                requestID: requestID
+            )
+            NSLog(
+                "[PERF] capture preparation READY origin=\(origin.rawValue) elapsed=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - startedAt) * 1000))ms"
+            )
+        }
+    }
+
+    private func consumePreparedCapture(excludedWindowNumbers: [CGWindowID]) -> [ScreenCapture]? {
+        let now = CFAbsoluteTimeGetCurrent()
+        guard let prepared = preparedCaptureState else { return nil }
+        guard prepared.isUsable(now: now, excludedWindowNumbers: excludedWindowNumbers) else {
+            preparedCaptureState = nil
+            return nil
+        }
+        preparedCaptureState = nil
+        return prepared.captures
+    }
+
+    private func waitForPreparedCapture(excludedWindowNumbers: [CGWindowID],
+                                        timeoutNanoseconds: UInt64) async -> [ScreenCapture]? {
+        guard let request = inFlightCapturePreparation,
+              request.excludedWindowNumbers == excludedWindowNumbers else { return nil }
+
+        let deadline = DispatchTime.now().uptimeNanoseconds + timeoutNanoseconds
+        while DispatchTime.now().uptimeNanoseconds < deadline {
+            if let captures = consumePreparedCapture(excludedWindowNumbers: excludedWindowNumbers) {
+                return captures
+            }
+            if inFlightCapturePreparation?.requestID != request.requestID {
+                break
+            }
+            try? await Task.sleep(nanoseconds: 5_000_000)
+        }
+        return consumePreparedCapture(excludedWindowNumbers: excludedWindowNumbers)
+    }
+
     @objc private func captureScreen() {
-        startCapture(fromMenu: true)
+        beginAreaCapture(triggerOrigin: .menuBar)
+    }
+
+    private func beginAreaCapture(triggerOrigin: CaptureTriggerOrigin) {
+        startCapture(triggerOrigin: triggerOrigin)
     }
 
     @objc private func captureFullScreen() {
+        beginFullScreenCapture(triggerOrigin: .menuBar)
+    }
+
+    private func beginFullScreenCapture(triggerOrigin: CaptureTriggerOrigin) {
         pendingFullScreen = true
-        startCapture(fromMenu: true)
+        startCapture(triggerOrigin: triggerOrigin)
     }
 
     @objc private func showHistoryOverlay() {
@@ -496,31 +632,51 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     }
 
     @objc private func captureOCR() {
+        beginOCRCapture(triggerOrigin: .menuBar)
+    }
+
+    private func beginOCRCapture(triggerOrigin: CaptureTriggerOrigin) {
         pendingOCRMode = true
-        startCapture(fromMenu: true)
+        startCapture(triggerOrigin: triggerOrigin)
     }
 
     @objc private func quickCapture() {
+        beginQuickCapture(triggerOrigin: .menuBar)
+    }
+
+    private func beginQuickCapture(triggerOrigin: CaptureTriggerOrigin) {
         pendingQuickCaptureMode = true
-        startCapture(fromMenu: true)
+        startCapture(triggerOrigin: triggerOrigin)
     }
 
     @objc private func scrollCapture() {
+        beginScrollCapture(triggerOrigin: .menuBar)
+    }
+
+    private func beginScrollCapture(triggerOrigin: CaptureTriggerOrigin) {
         pendingScrollCaptureMode = true
-        startCapture(fromMenu: true)
+        startCapture(triggerOrigin: triggerOrigin)
     }
 
     @objc private func recordArea() {
+        beginAreaRecording(triggerOrigin: .menuBar)
+    }
+
+    private func beginAreaRecording(triggerOrigin: CaptureTriggerOrigin) {
         pendingRecordMode = true
-        startCapture(fromMenu: true)
+        startCapture(triggerOrigin: triggerOrigin)
     }
 
     @objc private func recordFullScreen() {
+        beginFullScreenRecording(triggerOrigin: .menuBar)
+    }
+
+    private func beginFullScreenRecording(triggerOrigin: CaptureTriggerOrigin) {
         pendingFullScreenRecord = true
         if UserDefaults.standard.integer(forKey: "captureDelaySeconds") > 0 {
             pendingFullScreenRecordAutoStart = true
         }
-        startCapture(fromMenu: true)
+        startCapture(triggerOrigin: triggerOrigin)
     }
 
     @objc private func setDelaySeconds(_ sender: NSMenuItem) {
@@ -533,20 +689,28 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         }
     }
 
-    private func startCapture(fromMenu: Bool = false) {
+    private func startCapture(triggerOrigin: CaptureTriggerOrigin) {
         guard !isCapturing else { return }
         // Don't allow captures while recording
         guard recordingEngine == nil else { return }
         isCapturing = true
+        pendingCaptureTriggerOrigin = triggerOrigin
+        let t0 = CFAbsoluteTimeGetCurrent()
+        NSLog("[PERF] startCapture BEGIN origin=\(triggerOrigin.rawValue) t=\(t0)")
 
         // Track which screen the menu interaction occurred on for positioning dialogs
-        if fromMenu {
+        if triggerOrigin == .menuBar {
             lastStatusBarInteractionScreen = NSScreen.screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) })
         }
 
         // Kick off SCShareableContent enumeration early — the cache will be ready
         // by the time performCapture() needs it (covers hotkey path where menu wasn't opened)
         ScreenCaptureManager.prewarm()
+
+        let delay = UserDefaults.standard.integer(forKey: "captureDelaySeconds")
+        if delay == 0 {
+            requestCapturePreparation(origin: triggerOrigin)
+        }
 
         // When "remember last tool" is off, clear persisted effects/beautify
         // so new OverlayView instances start clean
@@ -567,18 +731,16 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         previousApp = frontmostApp
         capturedWindowTitle = nil
 
+        NSLog("[PERF] startCapture: prewarm + dismissOverlays + hideThumbnails BEGIN")
         dismissOverlays()
-
-        // Hide floating thumbnails so they don't visually flash on the overlay.
-        // They're also excluded via ScreenCaptureKit's excludingWindows filter
-        // in performCapture() so they never appear in the captured image.
         for tc in thumbnailControllers { tc.hideWindow() }
+        NSLog("[PERF] startCapture: dismissOverlays + hideThumbnails DONE elapsed=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - t0) * 1000))ms")
+        isCapturing = true
 
-        let delay = UserDefaults.standard.integer(forKey: "captureDelaySeconds")
         if delay > 0 {
             showPreCaptureCountdown(seconds: delay)
         } else {
-            performCapture()
+            performCapture(t0: t0, triggerOrigin: triggerOrigin)
         }
     }
 
@@ -630,7 +792,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
                     self?.delayCountdownWindow?.orderOut(nil)
                     self?.delayCountdownWindow = nil
                     self?.removeDelayEscMonitors()
-                    self?.performCapture()
+                    let origin = self?.pendingCaptureTriggerOrigin ?? .menuBar
+                    self?.performCapture(triggerOrigin: origin)
                 }
             } else {
                 countdownView.remaining = remaining
@@ -659,12 +822,46 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         pendingScrollCaptureMode = false
     }
 
-    private func performCapture() {
-        // Exclude floating thumbnail windows so they never appear in captures,
-        // even if the window server hasn't fully recomposited after orderOut.
-        let excludeIDs = thumbnailControllers.compactMap { $0.windowNumber }
+    private func performCapture(t0: CFAbsoluteTime = 0, triggerOrigin: CaptureTriggerOrigin = .menuBar) {
+        NSLog("[PERF] performCapture BEGIN elapsed=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - t0) * 1000))ms")
+
+        let excludeIDs = currentCaptureExcludedWindowNumbers()
+
+        if let prepared = consumePreparedCapture(excludedWindowNumbers: excludeIDs) {
+            NSLog("[PERF] performCapture: using PREPARED images elapsed=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - t0) * 1000))ms")
+            showOverlays(for: prepared, t0: t0)
+            return
+        }
+
+        if let inFlight = inFlightCapturePreparation,
+           inFlight.excludedWindowNumbers == excludeIDs {
+            NSLog(
+                "[PERF] performCapture: waiting for prepared capture origin=\(inFlight.origin.rawValue) started=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - inFlight.startedAt) * 1000))ms ago"
+            )
+            Task { @MainActor [weak self] in
+                guard let self = self else { return }
+                if let prepared = await self.waitForPreparedCapture(
+                    excludedWindowNumbers: excludeIDs,
+                    timeoutNanoseconds: triggerOrigin.preparationWaitNanoseconds
+                ) {
+                    NSLog("[PERF] performCapture: prepared capture completed within wait window")
+                    self.showOverlays(for: prepared, t0: t0)
+                } else {
+                    self.startLiveCapture(excludedWindowNumbers: excludeIDs, t0: t0)
+                }
+            }
+            return
+        }
+
+        startLiveCapture(excludedWindowNumbers: excludeIDs, t0: t0)
+    }
+
+    private func startLiveCapture(excludedWindowNumbers excludeIDs: [CGWindowID], t0: CFAbsoluteTime) {
+        NSLog("[PERF] performCapture: no prepared result, calling captureAllScreens...")
+        let captureT0 = CFAbsoluteTimeGetCurrent()
         ScreenCaptureManager.captureAllScreens(excludingWindowNumbers: excludeIDs) { [weak self] captures in
             guard let self = self else { return }
+            NSLog("[PERF] captureAllScreens callback: \(captures.count) captures, elapsed=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - t0) * 1000))ms (capture itself=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - captureT0) * 1000))ms)")
 
             if captures.isEmpty {
                 self.isCapturing = false
@@ -673,51 +870,64 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
                 return
             }
 
-            for capture in captures {
-                let controller = OverlayWindowController(capture: capture)
-                controller.overlayDelegate = self
-                controller.capturedWindowTitle = self.capturedWindowTitle
-                if self.pendingRecordMode {
-                    controller.setAutoRecordMode()
-                }
-                if self.pendingOCRMode {
-                    controller.setAutoOCRMode()
-                }
-                if self.pendingQuickCaptureMode {
-                    controller.setAutoQuickSaveMode()
-                }
-                if self.pendingScrollCaptureMode {
-                    controller.setAutoScrollCaptureMode()
-                }
-                controller.showOverlay()
-                let mouseScreen = NSScreen.screens.first { $0.frame.contains(NSEvent.mouseLocation) }
-                let isMouseScreen = (capture.screen == mouseScreen) || (mouseScreen == nil && capture.screen == NSScreen.main)
-                if (self.pendingFullScreen || self.pendingFullScreenRecord) && isMouseScreen {
-                    controller.applyFullScreenSelection()
-                }
-                if self.pendingFullScreenRecord && isMouseScreen {
-                    // Enter recording mode in the overlay (shows recording toolbar)
-                    controller.enterRecordingMode()
-                    if self.pendingFullScreenRecordAutoStart {
-                        controller.autoStartRecording()
-                    }
-                }
-                self.overlayControllers.append(controller)
-            }
-
-            NSApp.activate(ignoringOtherApps: true)
-
-            self.pendingRecordMode = false
-            self.pendingFullScreenRecordAutoStart = false
-            self.pendingOCRMode = false
-            self.pendingQuickCaptureMode = false
-            self.pendingScrollCaptureMode = false
-            if !self.pendingFullScreen && !self.pendingFullScreenRecord {
-                self.restoreLastSelectionIfNeeded(controllers: self.overlayControllers)
-            }
-            self.pendingFullScreen = false
-            self.pendingFullScreenRecord = false
+            self.showOverlays(for: captures, t0: t0)
         }
+    }
+
+    /// Shared overlay creation + display logic for both pre-capture and live-capture paths.
+    private func showOverlays(for captures: [ScreenCapture], t0: CFAbsoluteTime = 0) {
+        NSLog("[PERF] creating OverlayWindowControllers...")
+        let createT0 = CFAbsoluteTimeGetCurrent()
+        for capture in captures {
+            let controller = OverlayWindowController(capture: capture)
+            controller.overlayDelegate = self
+            controller.capturedWindowTitle = self.capturedWindowTitle
+            controller.onFirstFrameShown = {
+                NSLog("[PERF] first overlay frame drawn elapsed=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - t0) * 1000))ms screen=\(capture.screen.localizedName)")
+            }
+            if self.pendingRecordMode {
+                controller.setAutoRecordMode()
+            }
+            if self.pendingOCRMode {
+                controller.setAutoOCRMode()
+            }
+            if self.pendingQuickCaptureMode {
+                controller.setAutoQuickSaveMode()
+            }
+            if self.pendingScrollCaptureMode {
+                controller.setAutoScrollCaptureMode()
+            }
+            controller.showOverlay()
+            let mouseScreen = NSScreen.screens.first { $0.frame.contains(NSEvent.mouseLocation) }
+            let isMouseScreen = (capture.screen == mouseScreen) || (mouseScreen == nil && capture.screen == NSScreen.main)
+            if (self.pendingFullScreen || self.pendingFullScreenRecord) && isMouseScreen {
+                controller.applyFullScreenSelection()
+            }
+            if self.pendingFullScreenRecord && isMouseScreen {
+                // Enter recording mode in the overlay (shows recording toolbar)
+                controller.enterRecordingMode()
+                if self.pendingFullScreenRecordAutoStart {
+                    controller.autoStartRecording()
+                }
+            }
+            self.overlayControllers.append(controller)
+        }
+        NSLog("[PERF] OverlayWindowControllers created+shown elapsed=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - createT0) * 1000))ms")
+
+        NSLog("[PERF] TOTAL startCapture→overlay visible: \(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - t0) * 1000))ms")
+
+        NSApp.activate(ignoringOtherApps: true)
+
+        pendingRecordMode = false
+        pendingFullScreenRecordAutoStart = false
+        pendingOCRMode = false
+        pendingQuickCaptureMode = false
+        pendingScrollCaptureMode = false
+        if !pendingFullScreen && !pendingFullScreenRecord {
+            restoreLastSelectionIfNeeded(controllers: overlayControllers)
+        }
+        pendingFullScreen = false
+        pendingFullScreenRecord = false
     }
 
     private func restoreLastSelectionIfNeeded(controllers: [OverlayWindowController]) {
@@ -1274,13 +1484,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     private func handleURLSchemeAction(_ url: URL) {
         guard let action = url.host else { return }
         switch action {
-        case "capture":             captureScreen()
-        case "capture-fullscreen":  captureFullScreen()
-        case "quick-capture":       quickCapture()
-        case "ocr":                 captureOCR()
-        case "record":              recordArea()
-        case "record-fullscreen":   recordFullScreen()
-        case "scroll-capture":      scrollCapture()
+        case "capture":             beginAreaCapture(triggerOrigin: .external)
+        case "capture-fullscreen":  beginFullScreenCapture(triggerOrigin: .external)
+        case "quick-capture":       beginQuickCapture(triggerOrigin: .external)
+        case "ocr":                 beginOCRCapture(triggerOrigin: .external)
+        case "record":              beginAreaRecording(triggerOrigin: .external)
+        case "record-fullscreen":   beginFullScreenRecording(triggerOrigin: .external)
+        case "scroll-capture":      beginScrollCapture(triggerOrigin: .external)
         case "history":             showHistoryOverlay()
         case "settings":            openSettings()
         case "stop-recording":      stopRecording()

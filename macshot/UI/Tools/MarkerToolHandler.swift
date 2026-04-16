@@ -8,6 +8,21 @@ final class MarkerToolHandler: AnnotationToolHandler {
 
     let tool: AnnotationTool = .marker
 
+    private struct MarkerPerfSession {
+        let startedAt: CFAbsoluteTime
+        let smartMode: Bool
+        let initialStrokeWidth: CGFloat
+        var updateCount: Int = 0
+        var maxPointCount: Int = 0
+        var didLogLongStrokeProgress = false
+        var eagerOCRStartedAt: CFAbsoluteTime?
+        var eagerOCRElapsedMs: Double?
+        var snapOCRStartedAt: CFAbsoluteTime?
+        var snapOCRElapsedMs: Double?
+        var usedCachedOCRForSnap = false
+        var observationCount = 0
+    }
+
     /// Shift-constrain direction for freeform drawing. 0 = undecided, 1 = horizontal, 2 = vertical.
     private var freeformShiftDirection: Int = 0
     /// The point where shift-constrain started (where the user first held Shift mid-stroke).
@@ -16,6 +31,8 @@ final class MarkerToolHandler: AnnotationToolHandler {
     /// Cached OCR observations for the current selection, to avoid re-running OCR on every stroke.
     private var cachedObservations: [VNRecognizedTextObservation]?
     private var cachedSelectionRect: NSRect = .zero
+    private var perfSession: MarkerPerfSession?
+    private var ocrInFlight = false
 
     var cursor: NSCursor? { nil }  // dot preview replaces system cursor in normal mode
 
@@ -52,6 +69,11 @@ final class MarkerToolHandler: AnnotationToolHandler {
                 strokeWidth = lineH + 4
             }
         }
+        perfSession = MarkerPerfSession(
+            startedAt: CFAbsoluteTimeGetCurrent(),
+            smartMode: canvas.smartMarkerEnabled,
+            initialStrokeWidth: strokeWidth
+        )
         let annotation = Annotation(
             tool: .marker,
             startPoint: point,
@@ -102,6 +124,20 @@ final class MarkerToolHandler: AnnotationToolHandler {
 
         annotation.endPoint = clampedPoint
         annotation.points?.append(clampedPoint)
+
+        if var session = perfSession {
+            session.updateCount += 1
+            let pointCount = annotation.points?.count ?? 0
+            session.maxPointCount = max(session.maxPointCount, pointCount)
+            let elapsedMs = (CFAbsoluteTimeGetCurrent() - session.startedAt) * 1000
+            if !session.didLogLongStrokeProgress, elapsedMs >= 150, pointCount >= 120 {
+                NSLog(
+                    "[PERF][Marker] stroke in progress elapsed=\(String(format: "%.1f", elapsedMs))ms points=\(pointCount) updates=\(session.updateCount) smart=\(session.smartMode ? 1 : 0)"
+                )
+                session.didLogLongStrokeProgress = true
+            }
+            perfSession = session
+        }
     }
 
     func finish(canvas: AnnotationCanvas) {
@@ -125,6 +161,7 @@ final class MarkerToolHandler: AnnotationToolHandler {
                 canvas.drawingCursorPoint = lastPt
             }
             commitAnnotation(annotation, canvas: canvas)
+            finalizePerfSession(annotation: annotation, status: "committed")
         }
         freeformShiftDirection = 0
     }
@@ -151,11 +188,14 @@ final class MarkerToolHandler: AnnotationToolHandler {
 
         // Use cached observations if selection hasn't changed
         if cachedObservations != nil && cachedSelectionRect == selectionRect {
+            perfSession?.usedCachedOCRForSnap = true
             applySmartSnap(annotation: annotation, observations: cachedObservations!,
                            strokeMinX: minX, strokeMaxX: maxX, strokeY: strokeY,
                            selectionRect: selectionRect, canvas: canvas)
             return
         }
+
+        perfSession?.snapOCRStartedAt = CFAbsoluteTimeGetCurrent()
 
         // Crop selection to CGImage for OCR
         let regionImage = NSImage(size: selectionRect.size, flipped: false) { _ in
@@ -175,6 +215,9 @@ final class MarkerToolHandler: AnnotationToolHandler {
             guard let self = self, let canvas = canvas else { return }
             let observations = request.results as? [VNRecognizedTextObservation] ?? []
             DispatchQueue.main.async {
+                if let startedAt = self.perfSession?.snapOCRStartedAt {
+                    self.perfSession?.snapOCRElapsedMs = (CFAbsoluteTimeGetCurrent() - startedAt) * 1000
+                }
                 self.cachedObservations = observations
                 self.cachedSelectionRect = selectionRect
                 self.applySmartSnap(annotation: annotation, observations: observations,
@@ -244,12 +287,12 @@ final class MarkerToolHandler: AnnotationToolHandler {
         if let lastPt = annotation.points?.last {
             canvas.drawingCursorPoint = lastPt
         }
+        perfSession?.observationCount = observations.count
         commitAnnotation(annotation, canvas: canvas)
+        finalizePerfSession(annotation: annotation, status: bestObservation != nil ? "smart-snapped" : "smart-fallback")
     }
 
     // MARK: - Live text line height detection
-
-    private var ocrInFlight = false
 
     /// Eagerly start OCR if not already cached. Called on mouseMoved in smart marker mode.
     func ensureOCRCache(canvas: AnnotationCanvas) {
@@ -259,6 +302,7 @@ final class MarkerToolHandler: AnnotationToolHandler {
         guard let screenshot = canvas.screenshotImage else { return }
 
         ocrInFlight = true
+        perfSession?.eagerOCRStartedAt = CFAbsoluteTimeGetCurrent()
         let captureDrawRect = canvas.captureDrawRect
 
         let regionImage = NSImage(size: selectionRect.size, flipped: false) { _ in
@@ -277,8 +321,12 @@ final class MarkerToolHandler: AnnotationToolHandler {
         let request = VisionOCR.makeTextRecognitionRequest { [weak self] request, _ in
             let observations = request.results as? [VNRecognizedTextObservation] ?? []
             DispatchQueue.main.async { [weak self] in
+                if let startedAt = self?.perfSession?.eagerOCRStartedAt {
+                    self?.perfSession?.eagerOCRElapsedMs = (CFAbsoluteTimeGetCurrent() - startedAt) * 1000
+                }
                 self?.cachedObservations = observations
                 self?.cachedSelectionRect = selectionRect
+                self?.perfSession?.observationCount = observations.count
                 self?.ocrInFlight = false
             }
         }
@@ -317,5 +365,17 @@ final class MarkerToolHandler: AnnotationToolHandler {
             }
         }
         return bestHeight
+    }
+
+    private func finalizePerfSession(annotation: Annotation, status: String) {
+        guard let session = perfSession else { return }
+        let totalElapsedMs = (CFAbsoluteTimeGetCurrent() - session.startedAt) * 1000
+        let finalPointCount = annotation.points?.count ?? 0
+        let eagerOCR = session.eagerOCRElapsedMs.map { String(format: "%.1f", $0) } ?? "-"
+        let snapOCR = session.snapOCRElapsedMs.map { String(format: "%.1f", $0) } ?? "-"
+        NSLog(
+            "[PERF][Marker] stroke finished status=\(status) total=\(String(format: "%.1f", totalElapsedMs))ms updates=\(session.updateCount) points=\(finalPointCount) peakPoints=\(session.maxPointCount) strokeWidth=\(String(format: "%.1f", annotation.strokeWidth)) smart=\(session.smartMode ? 1 : 0) eagerOCR=\(eagerOCR)ms snapOCR=\(snapOCR)ms cachedSnap=\(session.usedCachedOCRForSnap ? 1 : 0) observations=\(session.observationCount)"
+        )
+        perfSession = nil
     }
 }

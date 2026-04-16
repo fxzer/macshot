@@ -82,6 +82,8 @@ class OverlayView: NSView {
     // MARK: - Properties
 
     weak var overlayDelegate: OverlayViewDelegate?
+    var onFirstFrameDrawn: (() -> Void)?
+    private var hasEmittedFirstFrame = false
 
     /// When true, hides overlay-only toolbar buttons (record, delay, cancel, move, scroll capture).
     /// Override point for subclasses. EditorView returns true.
@@ -738,7 +740,18 @@ class OverlayView: NSView {
 
     private func drawCurrentAnnotationIfNeeded(in context: NSGraphicsContext) {
         guard shouldDrawCurrentAnnotationInline else { return }
-        currentAnnotation?.draw(in: context)
+        guard let annotation = currentAnnotation else { return }
+        let shouldMeasureMarkerDraw = annotation.tool == .marker
+        let startedAt = shouldMeasureMarkerDraw ? CFAbsoluteTimeGetCurrent() : 0
+        annotation.draw(in: context)
+        if shouldMeasureMarkerDraw {
+            let elapsedMs = (CFAbsoluteTimeGetCurrent() - startedAt) * 1000
+            if elapsedMs >= 8 {
+                NSLog(
+                    "[PERF][Marker] live draw slow elapsed=\(String(format: "%.1f", elapsedMs))ms points=\(annotation.points?.count ?? 0) strokeWidth=\(String(format: "%.1f", annotation.strokeWidth)) smart=\(smartMarkerEnabled ? 1 : 0)"
+                )
+            }
+        }
     }
     private var autoMeasureBitmapW: Int = 0
     private var autoMeasureBitmapH: Int = 0
@@ -1991,6 +2004,14 @@ class OverlayView: NSView {
             // Skip annotation drawing if the editor already drew them via the cached composite.
             let editorDrawnFromCache = (self as? EditorView)?.drewFromCompositeCache ?? false
 
+            var hasCanvasGraphicsState = false
+            func beginCanvasGraphicsStateIfNeeded() {
+                guard !hasCanvasGraphicsState else { return }
+                context.saveGraphicsState()
+                applyCanvasTransform(to: context)
+                hasCanvasGraphicsState = true
+            }
+
             if !editorDrawnFromCache {
                 // Use cached annotation layer whenever possible — even during active
                 // drawing. Committed annotations don't change while a new stroke is
@@ -2000,16 +2021,14 @@ class OverlayView: NSView {
                     if (isDraggingAnnotation || isResizingAnnotation || isRotatingAnnotation || isScrollAdjustingProperty),
                        let staticLayer = cachedAnnotationLayerExcludingSelected {
                         // During drag/resize/scroll-adjust: draw cached static annotations + selected ones live
-                        context.saveGraphicsState()
-                        applyCanvasTransform(to: context)
+                        beginCanvasGraphicsStateIfNeeded()
                         staticLayer.draw(in: bounds, from: .zero, operation: .sourceOver, fraction: 1.0)
                         for annotation in selectedAnnotations {
                             annotation.draw(in: context)
                         }
                     } else {
                         let layer = annotationLayerImage()
-                        context.saveGraphicsState()
-                        applyCanvasTransform(to: context)
+                        beginCanvasGraphicsStateIfNeeded()
                         layer.draw(in: bounds, from: .zero, operation: .sourceOver, fraction: 1.0)
                     }
                 } else if !annotations.isEmpty {
@@ -2026,8 +2045,7 @@ class OverlayView: NSView {
                     // Draw user annotations unclipped — strokes can continue past the selection border.
                     // Censor annotations (pixelate/blur) render first so other annotations
                     // always appear on top of blurred regions.
-                    context.saveGraphicsState()
-                    applyCanvasTransform(to: context)
+                    beginCanvasGraphicsStateIfNeeded()
                     for annotation in annotations where annotation.tool != .translateOverlay && annotation.tool == .pixelate {
                         annotation.draw(in: context)
                     }
@@ -2037,8 +2055,7 @@ class OverlayView: NSView {
                 }
             } else {
                 // Still need the canvas transform for active drawing and overlays below
-                context.saveGraphicsState()
-                applyCanvasTransform(to: context)
+                beginCanvasGraphicsStateIfNeeded()
             }
             drawCurrentAnnotationIfNeeded(in: context)
             autoMeasurePreview?.draw(in: context)
@@ -2121,7 +2138,9 @@ class OverlayView: NSView {
                 border.stroke()
             }
 
-            context.restoreGraphicsState()
+            if hasCanvasGraphicsState {
+                context.restoreGraphicsState()
+            }
 
             // (Text move handle removed — standard annotation chrome handles movement)
 
@@ -2508,6 +2527,12 @@ class OverlayView: NSView {
 
         // Instant tooltip for hovered toolbar button
         drawHoveredTooltip()
+
+        if !hasEmittedFirstFrame {
+            hasEmittedFirstFrame = true
+            onFirstFrameDrawn?()
+            onFirstFrameDrawn = nil
+        }
 
     }
     private static let helperFont = NSFont.systemFont(ofSize: 13, weight: .medium)
@@ -7896,6 +7921,7 @@ class OverlayView: NSView {
                 }
             }
         }
+
     }
 
     func handleToolbarAction(_ action: ToolbarButtonAction, mousePoint: NSPoint = .zero) {
@@ -9537,6 +9563,7 @@ class OverlayView: NSView {
     /// Incrementally add a newly committed annotation onto a previous cache snapshot.
     /// Avoids a full rebuild which can cause a visible lag (cursor disappears for a frame).
     func appendToAnnotationCache(_ annotation: Annotation, previousCache: NSImage) {
+        let startedAt = annotation.tool == .marker ? CFAbsoluteTimeGetCurrent() : 0
         guard let existingCG = previousCache.cgImage(forProposedRect: nil, context: nil, hints: nil)
         else { return }
 
@@ -9566,6 +9593,14 @@ class OverlayView: NSView {
         guard let cgImage = cgCtx.makeImage() else { return }
         let newImage = NSImage(cgImage: cgImage, size: size)
         setCachedAnnotationLayer(newImage)
+        if annotation.tool == .marker {
+            let elapsedMs = (CFAbsoluteTimeGetCurrent() - startedAt) * 1000
+            if elapsedMs >= 8 {
+                NSLog(
+                    "[PERF][Marker] append cache slow elapsed=\(String(format: "%.1f", elapsedMs))ms points=\(annotation.points?.count ?? 0) strokeWidth=\(String(format: "%.1f", annotation.strokeWidth))"
+                )
+            }
+        }
     }
 
     /// Build annotation layer excluding specific annotations (used during drag/resize).

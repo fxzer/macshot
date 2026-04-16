@@ -57,6 +57,7 @@ class OverlayWindowController {
     private var overlayView: OverlayView?
     private var overlayWindow: OverlayWindow?
     private var shareDelegate: SharePickerDelegate?
+    var onFirstFrameShown: (() -> Void)?
     /// Raw capture image kept for deferred 8-bit BGRA conversion.
     /// Released after the background conversion starts.
     private var rawCaptureImage: CGImage?
@@ -106,14 +107,20 @@ class OverlayWindowController {
         self.overlayWindow = window
         self.overlayView = view
         self.rawCaptureImage = capture.image
+        view.onFirstFrameDrawn = { [weak self] in
+            self?.onFirstFrameShown?()
+            self?.onFirstFrameShown = nil
+        }
     }
 
     func showOverlay() {
         guard let window = overlayWindow else { return }
+        NSLog("[PERF] showOverlay: makeKeyAndOrderFront BEGIN")
         // Show immediately; do not call displayIfNeeded() here — it blocks the main thread
         // until the full frame is rendered and makes the hotkey→drag path feel sluggish.
         overlayView?.needsDisplay = true
         window.makeKeyAndOrderFront(nil)
+        NSLog("[PERF] showOverlay: makeKeyAndOrderFront DONE")
         if let view = overlayView {
             window.makeFirstResponder(view)
         }
