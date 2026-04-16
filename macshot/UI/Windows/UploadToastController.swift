@@ -120,14 +120,19 @@ class UploadToastController {
             attributes: [.font: linkFont]
         ).size
         let linkH = max(16, ceil(linkTextSize.height))
-        let toastHeight = max(64, linkH + 42)
+
+        // 布局常量
+        let topPadding: CGFloat = 12
+        let titleHeight: CGFloat = 18
+        let titleLinkSpacing: CGFloat = 4
+        let bottomPadding: CGFloat = 12
+        let toastHeight = max(56, topPadding + titleHeight + titleLinkSpacing + linkH + bottomPadding)
 
         // Resize and reposition (stay top-center)
         let screen = NSScreen.main ?? NSScreen.screens[0]
         let visibleFrame = screen.visibleFrame
-        let topPadding: CGFloat = 12
         let x = screen.frame.midX - toastWidth / 2
-        let y = visibleFrame.maxY - toastHeight - topPadding
+        let y = visibleFrame.maxY - toastHeight - 12
 
         NSAnimationContext.runAnimationGroup { ctx in
             ctx.duration = 0.15
@@ -136,21 +141,26 @@ class UploadToastController {
         contentView.frame = NSRect(origin: .zero, size: NSSize(width: toastWidth, height: toastHeight))
         contentView.needsDisplay = true
 
-        // Reposition icon
-        iconView?.frame = NSRect(x: 14, y: (toastHeight - 28) / 2, width: 28, height: 28)
+        // 垂直居中计算
+        let centerY = toastHeight / 2
 
-        // Title
+        // Reposition icon
+        iconView?.frame = NSRect(x: 14, y: centerY - 14, width: 28, height: 28)
+
+        // Title (顶部位置)
+        let titleY = toastHeight - topPadding - titleHeight
         let titleLabel = NSTextField(labelWithString: L("URL copied to the clipboard"))
-        titleLabel.frame = NSRect(x: 50, y: toastHeight - 28, width: toastWidth - 140, height: 18)
+        titleLabel.frame = NSRect(x: 50, y: titleY, width: toastWidth - 140, height: titleHeight)
         titleLabel.font = NSFont.systemFont(ofSize: 13, weight: .semibold)
         titleLabel.textColor = .labelColor
         titleLabel.lineBreakMode = .byTruncatingTail
         contentView.addSubview(titleLabel)
         self.statusLabel = titleLabel
 
-        // Link (subtitle) - single line with truncation
+        // Link (紧跟标题下方)
+        let linkY = titleY - titleLinkSpacing - linkH
         let linkLabel = NSTextField(labelWithString: link)
-        linkLabel.frame = NSRect(x: 50, y: 10, width: toastWidth - 140, height: linkH)
+        linkLabel.frame = NSRect(x: 50, y: linkY, width: toastWidth - 140, height: linkH)
         linkLabel.font = linkFont
         linkLabel.textColor = .secondaryLabelColor
         linkLabel.lineBreakMode = .byTruncatingMiddle
@@ -158,8 +168,8 @@ class UploadToastController {
         contentView.addSubview(linkLabel)
         self.linkLabel = linkLabel
 
-        // "Open" button (native-looking, right side)
-        let btn = NSButton(frame: NSRect(x: toastWidth - 76, y: (toastHeight - 28) / 2, width: 62, height: 28))
+        // "Open" button (垂直居中，右侧)
+        let btn = NSButton(frame: NSRect(x: toastWidth - 76, y: centerY - 14, width: 62, height: 28))
         btn.title = L("Open")
         btn.bezelStyle = .rounded
         btn.font = NSFont.systemFont(ofSize: 12, weight: .medium)
