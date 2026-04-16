@@ -24,7 +24,7 @@ protocol OverlayWindowControllerDelegate: AnyObject {
         context: CaptureCompletionContext,
         windowTitle: String?
     )
-    func overlayDidRequestPin(_ controller: OverlayWindowController, image: NSImage)
+    func overlayDidRequestPin(_ controller: OverlayWindowController, image: NSImage, at globalOrigin: NSPoint)
     func overlayDidRequestOCR(_ controller: OverlayWindowController, text: String, image: NSImage?)
     func overlayDidRequestUpload(_ controller: OverlayWindowController, image: NSImage)
     func overlayDidRequestStartRecording(
@@ -421,8 +421,20 @@ extension OverlayWindowController: OverlayViewDelegate {
         guard var image = captureRegion() else { return }
         image = applyBeautifyIfNeeded(image) ?? image
         playCopySound()
+        
+        // 计算选区的全局位置
+        let globalOrigin: NSPoint
+        if let win = overlayWindow {
+            let selRect = overlayView?.selectionRect ?? .zero
+            let screenRect = win.convertToScreen(selRect)
+            // 使用选区左下角作为 Pin 窗口的位置
+            globalOrigin = screenRect.origin
+        } else {
+            globalOrigin = .zero
+        }
+        
         dismiss()
-        overlayDelegate?.overlayDidRequestPin(self, image: image)
+        overlayDelegate?.overlayDidRequestPin(self, image: image, at: globalOrigin)
     }
 
     func overlayViewDidRequestOCR() {

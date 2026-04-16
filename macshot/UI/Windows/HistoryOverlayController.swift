@@ -885,6 +885,11 @@ private final class HistoryPanelView: NSView, NSDraggingSource {
         }
 
         switch event.keyCode {
+        case 49: // Space - Quick Look
+            if selectedIndex >= 0, selectedIndex < filteredCount {
+                let globalIndex = filteredIndex(at: selectedIndex)
+                controller?.quickLook(index: globalIndex)
+            }
         case 123: // Left arrow
             if selectedIndex > 0 {
                 selectedIndex -= 1

@@ -1,5 +1,6 @@
 import Foundation
 import AppKit
+import Combine
 
 enum UploadHistoryStore {
 
@@ -25,6 +26,9 @@ enum UploadHistoryStore {
             "deleteURL": deleteURL,
         ])
         UserDefaults.standard.set(history, forKey: unifiedKey)
+
+        // 通知共享实例更新
+        shared.refresh()
     }
 
     static func load() -> [[String: String]] {
@@ -109,5 +113,25 @@ enum UploadHistoryStore {
         }
 
         return thumbnailURL
+    }
+
+    /// 共享实例，用于 SwiftUI 视图订阅更新
+    static let shared = UploadHistoryModel()
+}
+
+/// ObservableObject 包装器，提供响应式访问
+class UploadHistoryModel: ObservableObject {
+    @Published private(set) var history: [[String: String]] = []
+
+    init() {
+        refresh()
+    }
+
+    func refresh() {
+        history = UploadHistoryStore.load()
+    }
+
+    func count(for provider: String) -> Int {
+        history.filter { $0["provider"] == provider }.count
     }
 }

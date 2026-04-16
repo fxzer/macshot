@@ -11,21 +11,26 @@ enum KeychainStore {
         return value
     }
 
-    static func setString(_ value: String?, forKey key: String, legacyUserDefaultsKey: String? = nil) {
+    @discardableResult
+    static func setString(_ value: String?, forKey key: String, legacyUserDefaultsKey: String? = nil) -> Bool {
+        let didPersist: Bool
         if let value, !value.isEmpty {
-            setData(Data(value.utf8), forKey: key)
+            didPersist = setData(Data(value.utf8), forKey: key)
         } else {
-            deleteValue(forKey: key)
+            didPersist = deleteValue(forKey: key)
         }
         if let legacyUserDefaultsKey {
-            UserDefaults.standard.removeObject(forKey: legacyUserDefaultsKey)
+            if let value, !value.isEmpty, !didPersist {
+                UserDefaults.standard.set(value, forKey: legacyUserDefaultsKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: legacyUserDefaultsKey)
+            }
         }
+        return didPersist
     }
 
     static func data(forKey key: String, legacyUserDefaultsKey: String? = nil) -> Data? {
         if let existing = readValue(forKey: key) {
-            // 自动迁移旧格式数据到新格式
-            migrateIfNeeded(data: existing, forKey: key)
             return existing
         }
 
@@ -34,22 +39,26 @@ enum KeychainStore {
               !legacy.isEmpty else { return nil }
 
         let data = Data(legacy.utf8)
-        setData(data, forKey: key)
-        UserDefaults.standard.removeObject(forKey: legacyUserDefaultsKey)
+        if setData(data, forKey: key) {
+            UserDefaults.standard.removeObject(forKey: legacyUserDefaultsKey)
+        }
         return data
     }
 
-    static func setData(_ data: Data?, forKey key: String) {
+    @discardableResult
+    static func setData(_ data: Data?, forKey key: String) -> Bool {
         if let data {
-            writeValue(data, forKey: key)
+            return writeValue(data, forKey: key)
         } else {
-            deleteValue(forKey: key)
+            return deleteValue(forKey: key)
         }
     }
 
-    static func deleteValue(forKey key: String) {
+    @discardableResult
+    static func deleteValue(forKey key: String) -> Bool {
         let query = baseQuery(forKey: key)
-        SecItemDelete(query as CFDictionary)
+        let status = SecItemDelete(query as CFDictionary)
+        return status == errSecSuccess || status == errSecItemNotFound
     }
 
     private static func readValue(forKey key: String) -> Data? {
@@ -63,10 +72,11 @@ enum KeychainStore {
         return result as? Data
     }
 
-    private static func writeValue(_ data: Data, forKey key: String) {
+    private static func writeValue(_ data: Data, forKey key: String) -> Bool {
         let query = baseQuery(forKey: key)
 
         // 创建访问控制：允许应用在解锁后访问，无需用户交互确认
+        // 注意：使用 kSecAttrAccessControl 时，不能再设置 kSecAttrAccessible
         let accessControl = SecAccessControlCreateWithFlags(
             kCFAllocatorDefault,
             kSecAttrAccessibleAfterFirstUnlock,
@@ -74,32 +84,38 @@ enum KeychainStore {
             nil
         )
 
-        var attrs: [String: Any] = [
-            kSecValueData as String: data,
-            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock,
-        ]
+        let attrs: [String: Any]
         if let accessControl {
-            attrs[kSecAttrAccessControl as String] = accessControl
+            attrs = [
+                kSecValueData as String: data,
+                kSecAttrAccessControl as String: accessControl,
+            ]
+        } else {
+            // Fallback 如果无法创建 accessControl
+            attrs = [
+                kSecValueData as String: data,
+                kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock,
+            ]
         }
 
-        let status = SecItemUpdate(query as CFDictionary, attrs as CFDictionary)
-        if status == errSecItemNotFound {
-            var addQuery = query
-            for (k, v) in attrs {
-                addQuery[k] = v
+        let updateStatus = SecItemUpdate(query as CFDictionary, attrs as CFDictionary)
+        if updateStatus == errSecSuccess {
+            return true
+        }
+
+        if updateStatus != errSecItemNotFound {
+            let deleteStatus = SecItemDelete(query as CFDictionary)
+            guard deleteStatus == errSecSuccess || deleteStatus == errSecItemNotFound else {
+                return false
             }
-            SecItemAdd(addQuery as CFDictionary, nil)
         }
-    }
 
-    /// 迁移旧格式数据到新格式（添加访问控制）
-    private static func migrateIfNeeded(data: Data, forKey key: String) {
-        // 删除旧项
-        let query = baseQuery(forKey: key)
-        SecItemDelete(query as CFDictionary)
-
-        // 用新格式重新写入
-        writeValue(data, forKey: key)
+        var addQuery = query
+        for (k, v) in attrs {
+            addQuery[k] = v
+        }
+        let addStatus = SecItemAdd(addQuery as CFDictionary, nil)
+        return addStatus == errSecSuccess
     }
 
     private static func baseQuery(forKey key: String) -> [String: Any] {

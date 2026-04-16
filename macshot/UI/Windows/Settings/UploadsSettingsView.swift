@@ -24,14 +24,49 @@ struct UploadsSettingsView: View {
 
     // S3 test state
     @State private var s3Testing = false
-    @State private var s3StatusMessage = ""
-    @State private var s3StatusColor: Color = .secondary
 
     init() {
         // Load secrets during init to avoid repeated Keychain access
         _imgbbAPIKey = State(initialValue: KeychainStore.string(forKey: "upload.imgbb.apiKey", legacyUserDefaultsKey: "imgbbAPIKey") ?? "")
         _s3AccessKeyID = State(initialValue: KeychainStore.string(forKey: "upload.s3.accessKeyID", legacyUserDefaultsKey: "s3AccessKeyID") ?? "")
         _s3SecretAccessKey = State(initialValue: KeychainStore.string(forKey: "upload.s3.secretAccessKey", legacyUserDefaultsKey: "s3SecretAccessKey") ?? "")
+    }
+
+    private var imgbbAPIKeyBinding: Binding<String> {
+        Binding(
+            get: { imgbbAPIKey },
+            set: { value in
+                imgbbAPIKey = value
+                KeychainStore.setString(value, forKey: "upload.imgbb.apiKey", legacyUserDefaultsKey: "imgbbAPIKey")
+            }
+        )
+    }
+
+    private var s3AccessKeyIDBinding: Binding<String> {
+        Binding(
+            get: { s3AccessKeyID },
+            set: { value in
+                s3AccessKeyID = value
+                KeychainStore.setString(value, forKey: "upload.s3.accessKeyID", legacyUserDefaultsKey: "s3AccessKeyID")
+            }
+        )
+    }
+
+    private var s3SecretAccessKeyBinding: Binding<String> {
+        Binding(
+            get: { s3SecretAccessKey },
+            set: { value in
+                s3SecretAccessKey = value
+                KeychainStore.setString(value, forKey: "upload.s3.secretAccessKey", legacyUserDefaultsKey: "s3SecretAccessKey")
+            }
+        )
+    }
+
+    private var isS3TestAvailable: Bool {
+        !s3Endpoint.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+        !s3Bucket.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+        !s3AccessKeyID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+        !s3SecretAccessKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     var body: some View {
@@ -53,103 +88,84 @@ struct UploadsSettingsView: View {
                 // MARK: - Service Configuration (dynamic)
                 if uploadProvider == "imgbb" {
                     Section {
-                    SecureField(L("API key"), text: $imgbbAPIKey, prompt: Text(L("Paste your API key")))
-                        .font(.system(.body, design: .monospaced))
-                } header: {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(L("ImgBB Configuration"))
-                        HStack(spacing: 4) {
-                            Text(L("Accessible in mainland China. Get your free API key at "))
-                            Link("imgbb.com", destination: URL(string: "https://api.imgbb.com/")!)
-                                .foregroundStyle(Color.settingsSystemAccent)
-                            Text(L(". (Images ✓, Videos ✗)"))
-                        }
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                    }
-                }
-            }
-
-            if uploadProvider == "gdrive" {
-                Section {
-                    HStack {
-                        Text(L("Account"))
-                        Spacer()
-                        Text(gdriveSignedIn ? (gdriveEmail.isEmpty ? L("Signed in") : gdriveEmail) : L("Not signed in"))
-                            .foregroundColor(gdriveSignedIn ? .primary : .secondary)
-                    }
-                    Button(gdriveSignedIn ? L("Sign Out") : L("Sign In with Google")) {
-                        gdriveSignInAction()
-                    }
-                    if !gdriveErrorMessage.isEmpty {
-                        Text(gdriveErrorMessage)
-                            .font(.caption)
-                            .foregroundColor(.red)
-                            .padding(.top, 4)
-                    }
-                } header: {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(L("Google Drive Configuration"))
-                        Text(L("Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private. (Images ✓, Videos ✓)"))
+                        TextField(L("API key"), text: imgbbAPIKeyBinding, prompt: Text(L("Paste your API key")))
+                            .font(.system(.body, design: .monospaced))
+                    } header: {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(L("ImgBB Configuration"))
+                            HStack(spacing: 4) {
+                                Text(L("Accessible in mainland China. Get your free API key at "))
+                                Link("imgbb.com", destination: URL(string: "https://api.imgbb.com/")!)
+                                    .foregroundStyle(Color.settingsSystemAccent)
+                                Text(L(". (Images ✓, Videos ✗)"))
+                            }
                             .font(.subheadline)
                             .foregroundColor(.secondary)
+                        }
                     }
                 }
-            }
 
-            if uploadProvider == "s3" {
-                Section {
-                    TextField(L("Endpoint"), text: $s3Endpoint, prompt: Text("https://abc123.r2.cloudflarestorage.com"))
-                        .font(.system(.body, design: .monospaced))
-                    TextField(L("Region"), text: $s3Region, prompt: Text("auto"))
-                        .font(.system(.body, design: .monospaced))
-                    TextField(L("Bucket"), text: $s3Bucket, prompt: Text("my-bucket"))
-                        .font(.system(.body, design: .monospaced))
-                    TextField(L("Access Key"), text: $s3AccessKeyID, prompt: Text("AKIAIOSFODNN7EXAMPLE"))
-                        .font(.system(.body, design: .monospaced))
-                    SecureField(L("Secret Key"), text: $s3SecretAccessKey, prompt: Text("wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"))
-                        .font(.system(.body, design: .monospaced))
-                    TextField(L("Public URL"), text: $s3PublicURLBase, prompt: Text("https://cdn.example.com"))
-                        .font(.system(.body, design: .monospaced))
-                    TextField(L("Path Prefix"), text: $s3PathPrefix, prompt: Text("screenshots/"))
-                        .font(.system(.body, design: .monospaced))
-                    HStack {
-                        Text(L("Connection Test"))
-                        Spacer()
-                        Button(L("Test")) {
+                if uploadProvider == "gdrive" {
+                    Section {
+                        HStack {
+                            Text(L("Account"))
+                            Spacer()
+                            Text(gdriveSignedIn ? (gdriveEmail.isEmpty ? L("Signed in") : gdriveEmail) : L("Not signed in"))
+                                .foregroundColor(gdriveSignedIn ? .primary : .secondary)
+                        }
+                        Button(gdriveSignedIn ? L("Sign Out") : L("Sign In with Google")) {
+                            gdriveSignInAction()
+                        }
+                        if !gdriveErrorMessage.isEmpty {
+                            Text(gdriveErrorMessage)
+                                .font(.caption)
+                                .foregroundColor(.red)
+                                .padding(.top, 4)
+                        }
+                    } header: {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(L("Google Drive Configuration"))
+                            Text(L("Files are uploaded to a \"macshot\" folder in your Google Drive. Everything stays private. (Images ✓, Videos ✓)"))
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                }
+
+                if uploadProvider == "s3" {
+                    Section {
+                        TextField(L("Endpoint"), text: $s3Endpoint, prompt: Text("https://abc123.r2.cloudflarestorage.com"))
+                            .font(.system(.body, design: .monospaced))
+                        TextField(L("Region"), text: $s3Region, prompt: Text("auto"))
+                            .font(.system(.body, design: .monospaced))
+                        TextField(L("Bucket"), text: $s3Bucket, prompt: Text("my-bucket"))
+                            .font(.system(.body, design: .monospaced))
+                        TextField(L("Access Key"), text: s3AccessKeyIDBinding, prompt: Text("AKIAIOSFODNN7EXAMPLE"))
+                            .font(.system(.body, design: .monospaced))
+                        TextField(L("Secret Key"), text: s3SecretAccessKeyBinding, prompt: Text("wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"))
+                            .font(.system(.body, design: .monospaced))
+                        TextField(L("Public URL"), text: $s3PublicURLBase, prompt: Text("https://cdn.example.com"))
+                            .font(.system(.body, design: .monospaced))
+                        TextField(L("Path Prefix"), text: $s3PathPrefix, prompt: Text("screenshots/"))
+                            .font(.system(.body, design: .monospaced))
+                        S3ConnectionTestRow(testing: $s3Testing, isAvailable: isS3TestAvailable) {
                             s3TestConnection()
                         }
-                        .disabled(s3Testing)
-                        if !s3StatusMessage.isEmpty {
-                            Text(s3StatusMessage)
-                                .font(.footnote)
-                                .foregroundColor(s3StatusColor)
+                    } header: {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("S3 兼容存储")
+                            Text("兼容 AWS S3、Cloudflare R2、MinIO、阿里云 OSS、腾讯云 COS 及其他遵循 S3 协议的云存储服务。（图片 ✓，视频 ✓）")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
                         }
-                    }
-                } header: {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("S3 兼容存储")
-                        Text("兼容 AWS S3、Cloudflare R2、MinIO、阿里云 OSS、腾讯云 COS 及其他遵循 S3 协议的云存储服务。（图片 ✓，视频 ✓）")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
                     }
                 }
             }
         }
-    }
         .formStyle(.grouped)
         .onAppear {
             normalizePickerSelections()
             refreshGDriveStatus()
-        }
-        .onChange(of: imgbbAPIKey) { value in
-            KeychainStore.setString(value, forKey: "upload.imgbb.apiKey", legacyUserDefaultsKey: "imgbbAPIKey")
-        }
-        .onChange(of: s3AccessKeyID) { value in
-            KeychainStore.setString(value, forKey: "upload.s3.accessKeyID", legacyUserDefaultsKey: "s3AccessKeyID")
-        }
-        .onChange(of: s3SecretAccessKey) { value in
-            KeychainStore.setString(value, forKey: "upload.s3.secretAccessKey", legacyUserDefaultsKey: "s3SecretAccessKey")
         }
     }
 
@@ -207,27 +223,52 @@ struct UploadsSettingsView: View {
 
     private func s3TestConnection() {
         guard S3Uploader.shared.isConfigured else {
-            s3StatusMessage = L("Fill in endpoint, bucket, and credentials first")
-            s3StatusColor = .orange
+            showAlert(title: "S3 测试", message: "请先填写端点、存储桶和凭证")
             return
         }
 
         s3Testing = true
-        s3StatusMessage = L("Testing...")
-        s3StatusColor = .secondary
 
         let testData = Data("macshot connection test".utf8)
         let testKey = ".macshot_test_\(UUID().uuidString.prefix(8)).txt"
         S3Uploader.shared.upload(data: testData, filename: testKey, contentType: "text/plain") { result in
             s3Testing = false
-            switch result {
-            case .success:
-                s3StatusMessage = L("Connection successful!")
-                s3StatusColor = .green
-            case .failure(let error):
-                s3StatusMessage = error.localizedDescription
-                s3StatusColor = .red
+            DispatchQueue.main.async {
+                switch result {
+                case .success:
+                    showAlert(title: "S3 测试", message: "连接成功！")
+                case .failure(let error):
+                    showAlert(title: "S3 测试失败", message: error.localizedDescription)
+                }
             }
+        }
+    }
+
+    private func showAlert(title: String, message: String) {
+        let alert = NSAlert()
+        alert.messageText = title
+        alert.informativeText = message
+        alert.alertStyle = .informational
+        alert.addButton(withTitle: "确定")
+        alert.runModal()
+    }
+}
+
+// MARK: - S3 Connection Test Row
+
+struct S3ConnectionTestRow: View {
+    @Binding var testing: Bool
+    let isAvailable: Bool
+    let onTest: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Text("连接测试")
+            Spacer()
+            Button(testing ? "测试中..." : "测试") {
+                onTest()
+            }
+            .disabled(testing || !isAvailable)
         }
     }
 }
@@ -237,7 +278,7 @@ struct UploadsSettingsView: View {
 struct UploadHistoryRow: View {
     @AppStorage("uploadProvider") private var uploadProvider = "imgbb"
     @State private var showPopover = false
-    @State private var historyCount = 0
+    @ObservedObject private var historyStore = UploadHistoryStore.shared
 
     var body: some View {
         HStack(spacing: 12) {
@@ -248,35 +289,23 @@ struct UploadHistoryRow: View {
                 .lineLimit(1)
             Button("查看") {
                 showPopover.toggle()
-                loadHistoryCount()
             }
             .popover(isPresented: $showPopover, arrowEdge: .bottom) {
                 UploadHistoryPopoverView()
                     .frame(width: 480, height: 400)
-                    .onAppear {
-                        loadHistoryCount()
-                    }
             }
-        }
-        .onAppear {
-            loadHistoryCount()
         }
     }
 
     private var countText: String {
-        if historyCount == 0 {
+        let count = historyStore.count(for: uploadProvider)
+        if count == 0 {
             return "暂无记录"
-        } else if historyCount == 1 {
+        } else if count == 1 {
             return "1 条记录"
         } else {
-            return "\(historyCount) 条记录"
+            return "\(count) 条记录"
         }
-    }
-
-    private func loadHistoryCount() {
-        let uploads = UploadHistoryStore.load()
-        let filtered = uploads.filter { $0["provider"] == uploadProvider }
-        historyCount = filtered.count
     }
 }
 
@@ -284,8 +313,8 @@ struct UploadHistoryRow: View {
 
 struct UploadHistoryPopoverView: View {
     @AppStorage("uploadProvider") private var uploadProvider = "imgbb"
+    @ObservedObject private var historyStore = UploadHistoryStore.shared
     @State private var history: [UploadHistoryItem] = []
-    @State private var isLoading = false
 
     // 固定 5 列网格，间距 2px
     let columns = [GridItem(.flexible(), spacing: 2),
@@ -304,11 +333,10 @@ struct UploadHistoryPopoverView: View {
 
                 Spacer()
 
-                Button(role: .destructive) {
+                Button {
                     clearAllHistory()
                 } label: {
                     Text("清空历史")
-                        .foregroundColor(.red)
                 }
                 .disabled(history.isEmpty)
             }
@@ -318,10 +346,7 @@ struct UploadHistoryPopoverView: View {
             Divider()
 
             // 网格内容
-            if isLoading {
-                ProgressView("加载中...")
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else if history.isEmpty {
+            if history.isEmpty {
                 VStack(spacing: 12) {
                     Image(systemName: "tray")
                         .font(.system(size: 48))
@@ -346,6 +371,9 @@ struct UploadHistoryPopoverView: View {
         .onAppear {
             loadHistory()
         }
+        .onChange(of: historyStore.history) { _ in
+            loadHistory()
+        }
     }
 
     private var providerDisplayName: String {
@@ -358,27 +386,16 @@ struct UploadHistoryPopoverView: View {
     }
 
     private func loadHistory() {
-        isLoading = true
-
-        Task {
-            let uploads = UploadHistoryStore.load()
-            let filtered = uploads.filter { $0["provider"] == uploadProvider }
-
-            let items = filtered.map { dict -> UploadHistoryItem in
-                let id = dict["id"] ?? UUID().uuidString
-                return UploadHistoryItem(
-                    id: id,
-                    provider: dict["provider"] ?? "unknown",
-                    link: dict["link"] ?? "",
-                    deleteURL: dict["deleteURL"] ?? "",
-                    timestamp: Date()
-                )
-            }
-
-            await MainActor.run {
-                self.history = items
-                self.isLoading = false
-            }
+        let filtered = historyStore.history.filter { $0["provider"] == uploadProvider }
+        history = filtered.map { dict -> UploadHistoryItem in
+            let id = dict["id"] ?? UUID().uuidString
+            return UploadHistoryItem(
+                id: id,
+                provider: dict["provider"] ?? "unknown",
+                link: dict["link"] ?? "",
+                deleteURL: dict["deleteURL"] ?? "",
+                timestamp: Date()
+            )
         }
     }
 
@@ -397,13 +414,10 @@ struct UploadHistoryPopoverView: View {
                 }
                 try fileManager.createDirectory(at: historyDir, withIntermediateDirectories: true)
 
-                let emptyIndexURL = historyDir.appendingPathComponent("index.json")
-                try "[]".write(to: emptyIndexURL, atomically: true, encoding: .utf8)
-
+                // 清空 UserDefaults 中的历史
                 await MainActor.run {
-                    withAnimation {
-                        self.history.removeAll()
-                    }
+                    UserDefaults.standard.set([], forKey: "uploadHistory")
+                    UploadHistoryStore.shared.refresh()
                 }
             } catch {
                 print("清理历史缓存失败: \(error.localizedDescription)")

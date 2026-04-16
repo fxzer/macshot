@@ -178,7 +178,15 @@ class UploadToastController {
         spinner?.stopAnimation(nil)
         spinner?.removeFromSuperview()
         spinner = nil
-        iconView?.isHidden = false
+
+        // 切换为失败图标
+        if let icon = iconView {
+            if let xmarkIcon = NSImage(systemSymbolName: "xmark.circle.fill", accessibilityDescription: "Error") {
+                icon.image = xmarkIcon
+                icon.contentTintColor = .systemRed
+            }
+            icon.isHidden = false
+        }
 
         guard let panel = window, let contentView = panel.contentView else { return }
 

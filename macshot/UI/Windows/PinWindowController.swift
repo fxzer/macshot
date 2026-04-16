@@ -15,11 +15,13 @@ class PinWindowController {
     private var pinView: PinView?
     private let image: NSImage
     private let initialWindowSize: NSSize
+    private let initialOrigin: NSPoint?
     private static let minScale: CGFloat = 0.1
     private static let maxScale: CGFloat = 5.0
 
-    init(image: NSImage) {
+    init(image: NSImage, at origin: NSPoint? = nil) {
         self.image = image
+        self.initialOrigin = origin
 
         let size = image.size
         let screen = NSScreen.main ?? NSScreen.screens[0]
@@ -32,13 +34,19 @@ class PinWindowController {
         let windowSize = NSSize(width: size.width * scale, height: size.height * scale)
         self.initialWindowSize = windowSize
 
-        let origin = NSPoint(
-            x: screenFrame.midX - windowSize.width / 2,
-            y: screenFrame.midY - windowSize.height / 2
-        )
+        // Use provided origin, or center on screen
+        let windowOrigin: NSPoint
+        if let origin = origin {
+            windowOrigin = origin
+        } else {
+            windowOrigin = NSPoint(
+                x: screenFrame.midX - windowSize.width / 2,
+                y: screenFrame.midY - windowSize.height / 2
+            )
+        }
 
         let panel = PinPanel(
-            contentRect: NSRect(origin: origin, size: windowSize),
+            contentRect: NSRect(origin: windowOrigin, size: windowSize),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
@@ -173,7 +181,7 @@ private class PinView: NSView {
     private var zoomLabel: NSTextField?
     private var trackingArea: NSTrackingArea?
     private var isHovering = false
-    private var showsBorderAndCorner = true
+    private var showsDecorations = true  // Controls corner, border, and shadow together
 
     var zoomPercent: Int = 100 {
         didSet {
@@ -286,18 +294,21 @@ private class PinView: NSView {
     }
 
     override func draw(_ dirtyRect: NSRect) {
-        if showsBorderAndCorner {
+        if showsDecorations {
+            // Apply clipping path with rounded corners
             let path = NSBezierPath(roundedRect: bounds, xRadius: 6, yRadius: 6)
             path.addClip()
+
+            // Draw the image
             image.draw(in: bounds, from: .zero, operation: .copy, fraction: 1.0)
 
-            // Subtle border
+            // Draw border
             NSColor.white.withAlphaComponent(0.3).setStroke()
             let border = NSBezierPath(roundedRect: bounds.insetBy(dx: 0.5, dy: 0.5), xRadius: 6, yRadius: 6)
             border.lineWidth = 1
             border.stroke()
         } else {
-            // No clipping, no border - just draw the image directly
+            // No decorations - just draw the image directly
             image.draw(in: bounds, from: .zero, operation: .copy, fraction: 1.0)
         }
     }
@@ -314,9 +325,10 @@ private class PinView: NSView {
 
         menu.addItem(NSMenuItem.separator())
 
-        let borderToggleTitle = showsBorderAndCorner ? NSLocalizedString("Hide Border & Corner", comment: "") : NSLocalizedString("Show Border & Corner", comment: "")
-        let borderItem = menu.addItem(withTitle: borderToggleTitle, action: #selector(toggleBorderAndCorner), keyEquivalent: "")
-        borderItem.target = self
+        // Decorations toggle (corner + border + shadow together)
+        let decorationsTitle = showsDecorations ? NSLocalizedString("Hide Decorations", comment: "") : NSLocalizedString("Show Decorations", comment: "")
+        let decorationsItem = menu.addItem(withTitle: decorationsTitle, action: #selector(toggleDecorations), keyEquivalent: "")
+        decorationsItem.target = self
 
         menu.addItem(NSMenuItem.separator())
 
@@ -347,9 +359,13 @@ private class PinView: NSView {
         }
     }
 
-    @objc private func toggleBorderAndCorner() {
-        showsBorderAndCorner.toggle()
+    @objc private func toggleDecorations() {
+        showsDecorations.toggle()
         needsDisplay = true
+
+        // Update window shadow
+        guard let window = window as? NSPanel else { return }
+        window.hasShadow = showsDecorations
     }
 
     override func mouseDown(with event: NSEvent) {

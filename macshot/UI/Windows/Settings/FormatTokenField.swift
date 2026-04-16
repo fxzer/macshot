@@ -359,17 +359,18 @@ private struct SaveLocationPopoverView: View {
                         action: onBrowseRecording
                     )
 
-                    HStack(spacing: 8) {
+                    HStack {
+                        Text(L("GIF uses the recording folder."))
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+
                         Spacer()
+
                         Button(L("Clear")) {
                             onClearRecording()
                         }
                         .disabled(recordingPath == L("Same as screenshots"))
                     }
-
-                    Text(L("GIF uses the recording folder."))
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
                 }
             }
         }
@@ -602,7 +603,7 @@ private struct VariablePaletteTokenView: View {
         if isInserted {
             return Color.accentColor.opacity(0.18)
         }
-        return isHovered ? Color.accentColor.opacity(0.16) : Color(nsColor: .controlBackgroundColor)
+        return isHovered ? Color.accentColor.opacity(0.10) : Color(nsColor: .controlBackgroundColor)
     }
 
     private var borderColor: Color {
@@ -658,7 +659,7 @@ private struct SymbolPaletteTokenView: View {
         if isInserted {
             return Color.accentColor.opacity(0.18)
         }
-        return isHovered ? Color.accentColor.opacity(0.16) : Color(nsColor: .controlBackgroundColor)
+        return isHovered ? Color.accentColor.opacity(0.10) : Color(nsColor: .controlBackgroundColor)
     }
 
     private var borderColor: Color {
