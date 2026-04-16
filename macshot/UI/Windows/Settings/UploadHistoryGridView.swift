@@ -89,8 +89,10 @@ struct UploadHistoryGridView: View {
 
             // 转换为 UploadHistoryItem
             let items = filtered.map { dict -> UploadHistoryItem in
-                UploadHistoryItem(
-                    id: UUID().uuidString,
+                // 使用存储的 ID，如果没有则生成新 ID（兼容旧数据）
+                let id = dict["id"] ?? UUID().uuidString
+                return UploadHistoryItem(
+                    id: id,
                     provider: dict["provider"] ?? "unknown",
                     link: dict["link"] ?? "",
                     deleteURL: dict["deleteURL"] ?? "",

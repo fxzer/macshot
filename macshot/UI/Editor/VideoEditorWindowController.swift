@@ -1270,7 +1270,11 @@ private final class VideoEditorView: NSView {
             case .success(let link):
                 NSPasteboard.general.clearContents()
                 NSPasteboard.general.setString(link, forType: .string)
-                UploadHistoryStore.append(link: link, provider: provider)
+
+                // 使用第一帧缩略图
+                let thumbnail = self?.thumbnailImages.first
+                UploadHistoryStore.append(link: link, provider: provider, thumbnail: thumbnail)
+
                 self?.showStatus(L("Uploaded! Link copied."))
             case .failure(let error):
                 self?.showStatus(String(format: L("Upload failed: %@"), error.localizedDescription), isError: true)

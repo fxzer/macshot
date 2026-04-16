@@ -128,19 +128,8 @@ struct UploadHistoryCell: View {
     }
 
     private func loadThumbnailImage() -> NSImage? {
-        // 从历史缓存加载缩略图
-        let fileManager = FileManager.default
-        guard let appSupportURL = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
-            return nil
-        }
-
-        let historyDir = appSupportURL.appendingPathComponent("com.fxzer.macshot/history")
-        let thumbnailDir = historyDir.appendingPathComponent("thumbnails")
-
-        // 使用 ID 作为文件名
-        let thumbnailURL = thumbnailDir.appendingPathComponent("\(item.id).jpg")
-
-        guard fileManager.fileExists(atPath: thumbnailURL.path) else {
+        // 使用 UploadHistoryStore 的方法获取缩略图 URL
+        guard let thumbnailURL = UploadHistoryStore.getThumbnailURL(id: item.id) else {
             return nil
         }
 

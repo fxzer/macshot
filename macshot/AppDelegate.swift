@@ -1139,7 +1139,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
                     let pasteboard = NSPasteboard.general
                     pasteboard.clearContents()
                     pasteboard.setString(link, forType: .string)
-                    UploadHistoryStore.append(link: link, provider: provider)
+                    UploadHistoryStore.append(link: link, provider: provider, thumbnail: image)
                     toast.showSuccess(link: link, deleteURL: "")
                 case .failure(let error):
                     toast.showError(message: error.localizedDescription)
@@ -1155,7 +1155,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
                     let pasteboard = NSPasteboard.general
                     pasteboard.clearContents()
                     pasteboard.setString(link, forType: .string)
-                    UploadHistoryStore.append(link: link, provider: provider)
+                    UploadHistoryStore.append(link: link, provider: provider, thumbnail: image)
                     toast.showSuccess(link: link, deleteURL: "")
                 case .failure(let error):
                     toast.showError(message: error.localizedDescription)
