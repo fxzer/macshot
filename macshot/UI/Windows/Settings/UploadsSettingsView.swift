@@ -63,6 +63,12 @@ struct UploadsSettingsView: View {
         }
         .onAppear {
             normalizePickerSelections()
+            refreshGDriveStatus()
+        }
+        .onChange(of: selectedTab) { _ in
+            if selectedTab == .configuration {
+                refreshGDriveStatus()
+            }
         }
         .onChange(of: imgbbAPIKey) { value in
             KeychainStore.setString(value, forKey: "upload.imgbb.apiKey", legacyUserDefaultsKey: "imgbbAPIKey")
