@@ -7,8 +7,11 @@ struct UploadHistoryGridView: View {
     @State private var isLoading = false
     @Environment(\.dismiss) private var dismiss
 
-    // 自适应网格：每个 item 最小 100px，最大 120px
-    let columns = [GridItem(.adaptive(minimum: 100, maximum: 120), spacing: 16)]
+    // 固定 4 列网格
+    let columns = [GridItem(.flexible(), spacing: 8),
+                   GridItem(.flexible(), spacing: 8),
+                   GridItem(.flexible(), spacing: 8),
+                   GridItem(.flexible(), spacing: 8)]
 
     var body: some View {
         VStack(spacing: 0) {
@@ -52,14 +55,13 @@ struct UploadHistoryGridView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                ScrollView {
-                    LazyVGrid(columns: columns, spacing: 16) {
-                        ForEach(history) { item in
-                            UploadHistoryCell(item: item)
-                        }
+                LazyVGrid(columns: columns, spacing: 8) {
+                    ForEach(history) { item in
+                        UploadHistoryCell(item: item)
                     }
-                    .padding()
                 }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
             }
         }
         .onAppear {

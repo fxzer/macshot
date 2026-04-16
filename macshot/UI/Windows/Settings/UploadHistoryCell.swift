@@ -29,6 +29,10 @@ struct UploadHistoryCell: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .onTapGesture {
+                // 点击打开浏览器
+                openLink()
+            }
 
             VStack {
                 Spacer()
@@ -43,7 +47,7 @@ struct UploadHistoryCell: View {
             }
 
             if isHovering || showCopyCheckmark || showDeleteCheckmark {
-                HStack(spacing: 6) {
+                VStack(spacing: 4) {
                     Button(action: {
                         copyLink()
                     }) {
@@ -129,6 +133,11 @@ struct UploadHistoryCell: View {
         }
 
         return NSImage(contentsOf: thumbnailURL)
+    }
+
+    private func openLink() {
+        guard let url = URL(string: item.link) else { return }
+        NSWorkspace.shared.open(url)
     }
 }
 
