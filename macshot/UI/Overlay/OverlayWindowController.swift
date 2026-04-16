@@ -483,15 +483,36 @@ extension OverlayWindowController: OverlayViewDelegate {
             return
         }
 
+        // Performance diagnostics
+        let startTime = Date()
+
         guard var image = captureRegion() else { return }
+        let captureTime = Date().timeIntervalSince(startTime)
+        NSLog("[Share] captureRegion: \(String(format: "%.0f", captureTime * 1000))ms")
+
         image = applyBeautifyIfNeeded(image) ?? image
-        guard let imageData = ImageEncoder.encode(image) else { return }
+        let beautifyTime = Date().timeIntervalSince(startTime)
+        NSLog("[Share] applyBeautifyIfNeeded: \(String(format: "%.0f", beautifyTime * 1000))ms (delta: \(String(format: "%.0f", (beautifyTime - captureTime) * 1000))ms)")
+
+        // Use PNG for sharing (fast encoding, WebP picture preset is too slow: 8+ seconds)
+        // PNG encoding takes ~50-100ms vs WebP's 8+ seconds with picture preset
+        guard let tiffData = image.tiffRepresentation,
+              let bitmap = NSBitmapImageRep(data: tiffData),
+              let pngData = bitmap.representation(using: .png, properties: [:]) else {
+            return
+        }
+        let encodeTime = Date().timeIntervalSince(startTime)
+        NSLog("[Share] PNG encode: \(String(format: "%.0f", encodeTime * 1000))ms (delta: \(String(format: "%.0f", (encodeTime - beautifyTime) * 1000))ms)")
+
         let tempURL = FilenameTemplateEngine.uniqueDestinationURL(
             in: URL(fileURLWithPath: NSTemporaryDirectory()),
             baseName: FilenameTemplateEngine.makeBaseName(kind: .screenshot),
-            fileExtension: ImageEncoder.fileExtension
+            fileExtension: "png"
         )
-        try? imageData.write(to: tempURL)
+        try? pngData.write(to: tempURL)
+        let writeTime = Date().timeIntervalSince(startTime)
+        NSLog("[Share] write to temp file: \(String(format: "%.0f", writeTime * 1000))ms (delta: \(String(format: "%.0f", (writeTime - encodeTime) * 1000))ms)")
+        NSLog("[Share] Total preparation time: \(String(format: "%.0f", writeTime * 1000))ms")
 
         // Get the screen position of the share button
         let screenRect: NSRect
