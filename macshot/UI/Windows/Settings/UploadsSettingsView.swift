@@ -1,14 +1,6 @@
 import SwiftUI
 
-enum UploadTab: String {
-    case configuration = "配置"
-    case history = "历史"
-}
-
 struct UploadsSettingsView: View {
-    // Tab selection
-    @State private var selectedTab: UploadTab = .configuration
-
     // Provider
     @AppStorage("uploadProvider") private var uploadProvider = "imgbb"
     @AppStorage("uploadConfirmEnabled") private var uploadConfirmEnabled = true
@@ -43,55 +35,15 @@ struct UploadsSettingsView: View {
     }
 
     var body: some View {
-        Group {
-            if selectedTab == .configuration {
-                configurationContent
-            } else {
-                historyContent
-            }
-        }
-        .onAppear {
-            normalizePickerSelections()
-            refreshGDriveStatus()
-        }
-        .onChange(of: selectedTab) { _ in
-            if selectedTab == .configuration {
-                refreshGDriveStatus()
-            }
-        }
-        .onChange(of: imgbbAPIKey) { value in
-            KeychainStore.setString(value, forKey: "upload.imgbb.apiKey", legacyUserDefaultsKey: "imgbbAPIKey")
-        }
-        .onChange(of: s3AccessKeyID) { value in
-            KeychainStore.setString(value, forKey: "upload.s3.accessKeyID", legacyUserDefaultsKey: "s3AccessKeyID")
-        }
-        .onChange(of: s3SecretAccessKey) { value in
-            KeychainStore.setString(value, forKey: "upload.s3.secretAccessKey", legacyUserDefaultsKey: "s3SecretAccessKey")
-        }
-    }
-
-    // MARK: - Configuration Content
-
-    @ViewBuilder
-    private var configurationContent: some View {
         Form {
-            // MARK: - Tab Switcher
-            Section {
-                Picker("", selection: $selectedTab) {
-                    Text("配置").tag(UploadTab.configuration)
-                    Text("历史").tag(UploadTab.history)
-                }
-                .pickerStyle(.segmented)
-            }
-
             // MARK: - Upload Service
             Section {
+                Toggle(L("Confirm before uploading"), isOn: $uploadConfirmEnabled)
                 Picker(L("Upload provider"), selection: $uploadProvider) {
                     Text("ImgBB").tag("imgbb")
                     Text("Google Drive").tag("gdrive")
                     Text("S3 兼容存储").tag("s3")
                 }
-                Toggle(L("Confirm before uploading"), isOn: $uploadConfirmEnabled)
             } header: {
                 Text(L("Upload Service"))
             }
@@ -181,31 +133,29 @@ struct UploadsSettingsView: View {
                     }
                 }
             }
+
+            // MARK: - Upload History
+            Section {
+                UploadHistoryGridView()
+                    .frame(maxHeight: 300)
+            } header: {
+                Text("上传历史")
+            }
         }
         .formStyle(.grouped)
-    }
-
-    // MARK: - History Content
-
-    @ViewBuilder
-    private var historyContent: some View {
-        VStack(spacing: 0) {
-            // 分段切换（与配置 Form 的样式一致）
-            HStack {
-                Picker("", selection: $selectedTab) {
-                    Text("配置").tag(UploadTab.configuration)
-                    Text("历史").tag(UploadTab.history)
-                }
-                .pickerStyle(.segmented)
-            }
-            .padding()
-            .background(Color(NSColor.controlBackgroundColor))
-
-            // 历史网格内容
-            UploadHistoryGridView()
-                .frame(maxHeight: 400)
+        .onAppear {
+            normalizePickerSelections()
+            refreshGDriveStatus()
         }
-        .background(Color(NSColor.controlBackgroundColor))
+        .onChange(of: imgbbAPIKey) { value in
+            KeychainStore.setString(value, forKey: "upload.imgbb.apiKey", legacyUserDefaultsKey: "imgbbAPIKey")
+        }
+        .onChange(of: s3AccessKeyID) { value in
+            KeychainStore.setString(value, forKey: "upload.s3.accessKeyID", legacyUserDefaultsKey: "s3AccessKeyID")
+        }
+        .onChange(of: s3SecretAccessKey) { value in
+            KeychainStore.setString(value, forKey: "upload.s3.secretAccessKey", legacyUserDefaultsKey: "s3SecretAccessKey")
+        }
     }
 
     // MARK: - Actions
