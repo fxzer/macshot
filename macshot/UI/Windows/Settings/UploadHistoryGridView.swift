@@ -16,7 +16,7 @@ struct UploadHistoryGridView: View {
     var body: some View {
         VStack(spacing: 0) {
             // 顶栏：筛选器 + 清空按钮
-            HStack {
+            HStack(alignment: .center) {
                 Picker("", selection: $selectedFilter) {
                     ForEach(UploadFilter.allCases, id: \.self) { filter in
                         Text(filter.rawValue).tag(filter)
@@ -33,7 +33,7 @@ struct UploadHistoryGridView: View {
                 Button(role: .destructive) {
                     clearAllHistory()
                 } label: {
-                    Label("清空记录", systemImage: "trash")
+                    Text("清空记录")
                 }
                 .disabled(history.isEmpty)
             }

@@ -4,9 +4,7 @@ import SwiftUI
 struct UploadHistoryCell: View {
     let item: UploadHistoryItem
     @State private var isHovering = false
-    @State private var showPreview = false
     @State private var showCopyCheckmark = false
-    @State private var showDeleteCheckmark = false
 
     var body: some View {
         let cornerRadius: CGFloat = 8
@@ -46,32 +44,17 @@ struct UploadHistoryCell: View {
                     .padding(.bottom, 6)
             }
 
-            if isHovering || showCopyCheckmark || showDeleteCheckmark {
-                VStack(spacing: 4) {
-                    Button(action: {
-                        copyLink()
-                    }) {
-                        overlayButtonIcon(
-                            systemName: showCopyCheckmark ? "checkmark.circle.fill" : "doc.on.doc",
-                            foregroundColor: showCopyCheckmark ? .green : .white
-                        )
-                    }
-                    .buttonStyle(.plain)
-                    .transition(.scale.combined(with: .opacity))
-
-                    if !item.deleteURL.isEmpty {
-                        Button(action: {
-                            copyDeleteURL()
-                        }) {
-                            overlayButtonIcon(
-                                systemName: showDeleteCheckmark ? "checkmark.circle.fill" : "link.badge.minus",
-                                foregroundColor: showDeleteCheckmark ? .green : .pink
-                            )
-                        }
-                        .buttonStyle(.plain)
-                        .transition(.scale.combined(with: .opacity))
-                    }
+            if isHovering || showCopyCheckmark {
+                Button(action: {
+                    copyLink()
+                }) {
+                    overlayButtonIcon(
+                        systemName: showCopyCheckmark ? "checkmark.circle.fill" : "doc.on.doc",
+                        foregroundColor: showCopyCheckmark ? .green : .white
+                    )
                 }
+                .buttonStyle(.plain)
+                .transition(.scale.combined(with: .opacity))
                 .padding(6)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
             }
@@ -110,22 +93,6 @@ struct UploadHistoryCell: View {
         }
     }
 
-    private func copyDeleteURL() {
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(item.deleteURL, forType: .string)
-
-        // 显示反馈
-        withAnimation(.easeOut(duration: 0.2)) {
-            showDeleteCheckmark = true
-        }
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
-            withAnimation {
-                showDeleteCheckmark = false
-            }
-        }
-    }
-
     private func loadThumbnailImage() -> NSImage? {
         // 使用 UploadHistoryStore 的方法获取缩略图 URL
         guard let thumbnailURL = UploadHistoryStore.getThumbnailURL(id: item.id) else {
@@ -136,7 +103,9 @@ struct UploadHistoryCell: View {
     }
 
     private func openLink() {
-        guard let url = URL(string: item.link) else { return }
+        // imgbb 用 deleteURL（如果有的话），其他用 link
+        let urlString = (item.provider == "imgbb" && !item.deleteURL.isEmpty) ? item.deleteURL : item.link
+        guard let url = URL(string: urlString) else { return }
         NSWorkspace.shared.open(url)
     }
 }

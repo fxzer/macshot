@@ -137,7 +137,7 @@ struct UploadsSettingsView: View {
             // MARK: - Upload History
             Section {
                 UploadHistoryGridView()
-                    .frame(maxHeight: 300)
+                    .frame(maxHeight: 340)
             } header: {
                 Text("上传历史")
             }
