@@ -45,6 +45,7 @@ struct UploadsSettingsView: View {
                         Text("Google Drive").tag("gdrive")
                         Text("S3 兼容存储").tag("s3")
                     }
+                    UploadHistoryRow()
                 } header: {
                     Text(L("Upload Service"))
                 }
@@ -133,11 +134,6 @@ struct UploadsSettingsView: View {
                             .foregroundColor(.secondary)
                     }
                 }
-            }
-
-            // MARK: - Upload History
-            Section {
-                UploadHistoryRow()
             }
         }
     }
@@ -335,7 +331,8 @@ struct UploadHistoryPopoverView: View {
                             UploadHistoryCell(item: item)
                         }
                     }
-                    .padding(8)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 16)
                 }
             }
         }
