@@ -798,6 +798,10 @@ class OverlayView: NSView {
     private var cachedAnnotationLayer: NSImage? = nil
     /// During drag/resize, this holds a cache of all annotations EXCEPT the ones being manipulated.
     private var cachedAnnotationLayerExcludingSelected: NSImage? = nil
+    /// Newly committed annotations that are drawn live until we rebuild the full cache during idle time.
+    private var pendingAnnotationCacheAnnotations: [Annotation] = []
+    private var deferredAnnotationCacheRefreshWorkItem: DispatchWorkItem?
+    private let deferredAnnotationCacheRefreshDelay: TimeInterval = 0.18
     private var cachedOpaqueRect: NSRect?  // cached opaque content bounds of screenshotImage
 
     // MARK: - Memory Cache Management
@@ -843,8 +847,74 @@ class OverlayView: NSView {
 
     /// Invalidate cache with memory tracking
     private func invalidateAnnotationCaches() {
+        deferredAnnotationCacheRefreshWorkItem?.cancel()
+        deferredAnnotationCacheRefreshWorkItem = nil
+        pendingAnnotationCacheAnnotations.removeAll()
         setCachedAnnotationLayer(nil)
         setCachedAnnotationLayerExcludingSelected(nil)
+    }
+
+    private func queuePendingAnnotationCacheAnnotation(_ annotation: Annotation) {
+        if pendingAnnotationCacheAnnotations.contains(where: { $0 === annotation }) { return }
+        pendingAnnotationCacheAnnotations.append(annotation)
+    }
+
+    private func drawAnnotationListLive(_ annotations: [Annotation], in context: NSGraphicsContext) {
+        for annotation in annotations where annotation.tool == .pixelate {
+            annotation.draw(in: context)
+        }
+        for annotation in annotations where annotation.tool != .pixelate {
+            annotation.draw(in: context)
+        }
+    }
+
+    private func drawPendingAnnotationCacheAnnotations(
+        in context: NSGraphicsContext,
+        excludingSelected: Bool
+    ) {
+        let annotationsToDraw: [Annotation]
+        if excludingSelected {
+            annotationsToDraw = pendingAnnotationCacheAnnotations.filter { pending in
+                !selectedAnnotations.contains(where: { $0 === pending })
+            }
+        } else {
+            annotationsToDraw = pendingAnnotationCacheAnnotations
+        }
+        guard !annotationsToDraw.isEmpty else { return }
+        drawAnnotationListLive(annotationsToDraw, in: context)
+    }
+
+    private var shouldDrawAnnotationsLiveUntilCacheRefresh: Bool {
+        cachedAnnotationLayer == nil && !pendingAnnotationCacheAnnotations.isEmpty
+    }
+
+    private func rebuildAnnotationCacheNow(reason: String) {
+        deferredAnnotationCacheRefreshWorkItem?.cancel()
+        deferredAnnotationCacheRefreshWorkItem = nil
+        let startedAt = CFAbsoluteTimeGetCurrent()
+        let image = renderAnnotationBitmap(annotations: annotations)
+        setCachedAnnotationLayer(image)
+        pendingAnnotationCacheAnnotations.removeAll()
+        let elapsedMs = (CFAbsoluteTimeGetCurrent() - startedAt) * 1000
+        if elapsedMs >= 8 {
+            NSLog(
+                "[PERF][Marker] deferred cache rebuild reason=\(reason) elapsed=\(String(format: "%.1f", elapsedMs))ms annotations=\(annotations.count)"
+            )
+        }
+    }
+
+    private func scheduleDeferredAnnotationCacheRefresh(reason: String) {
+        deferredAnnotationCacheRefreshWorkItem?.cancel()
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self = self else { return }
+            self.rebuildAnnotationCacheNow(reason: reason)
+            self.needsDisplay = true
+        }
+        deferredAnnotationCacheRefreshWorkItem = workItem
+        DispatchQueue.main.asyncAfter(
+            deadline: .now() + deferredAnnotationCacheRefreshDelay,
+            execute: workItem
+        )
     }
 
     var isTranslating: Bool = false
@@ -1341,11 +1411,13 @@ class OverlayView: NSView {
     private var shouldDrawActiveDrawingCursorPreview: Bool {
         guard supportsDrawingCursorPreview(for: currentTool),
             drawingCursorPoint != .zero,
-            currentAnnotation == nil,
             !isDraggingAnnotation,
             !isResizingAnnotation,
             !isRotatingAnnotation
         else { return false }
+        if let annotation = currentAnnotation, annotation.tool != .marker {
+            return false
+        }
         return true
     }
 
@@ -2018,11 +2090,15 @@ class OverlayView: NSView {
                 // being drawn, so re-iterating them every frame wastes CPU and causes
                 // event coalescing (fewer mouse events → over-smoothed strokes).
                 if !annotations.isEmpty && !isEditorMode {
-                    if (isDraggingAnnotation || isResizingAnnotation || isRotatingAnnotation || isScrollAdjustingProperty),
+                    if shouldDrawAnnotationsLiveUntilCacheRefresh {
+                        beginCanvasGraphicsStateIfNeeded()
+                        drawAnnotationListLive(annotations, in: context)
+                    } else if (isDraggingAnnotation || isResizingAnnotation || isRotatingAnnotation || isScrollAdjustingProperty),
                        let staticLayer = cachedAnnotationLayerExcludingSelected {
                         // During drag/resize/scroll-adjust: draw cached static annotations + selected ones live
                         beginCanvasGraphicsStateIfNeeded()
                         staticLayer.draw(in: bounds, from: .zero, operation: .sourceOver, fraction: 1.0)
+                        drawPendingAnnotationCacheAnnotations(in: context, excludingSelected: true)
                         for annotation in selectedAnnotations {
                             annotation.draw(in: context)
                         }
@@ -2030,6 +2106,7 @@ class OverlayView: NSView {
                         let layer = annotationLayerImage()
                         beginCanvasGraphicsStateIfNeeded()
                         layer.draw(in: bounds, from: .zero, operation: .sourceOver, fraction: 1.0)
+                        drawPendingAnnotationCacheAnnotations(in: context, excludingSelected: false)
                     }
                 } else if !annotations.isEmpty {
                     // Editor mode: no annotation layer cache, draw individually.
@@ -6579,6 +6656,9 @@ class OverlayView: NSView {
                     updateAnnotation(
                         at: canvasPoint, shiftHeld: event.modifierFlags.contains(.shift))
                 }
+                if currentAnnotation?.tool == .marker {
+                    drawingCursorPoint = canvasPoint
+                }
                 lastDragPoint = canvasPoint
                 if let annotation = currentAnnotation,
                     toolHandlers[annotation.tool]?.requiresDisplayRefreshDuringDrag ?? true
@@ -9555,10 +9635,33 @@ class OverlayView: NSView {
         if let cached = cachedAnnotationLayer { return cached }
         let image = renderAnnotationBitmap(annotations: annotations)
         setCachedAnnotationLayer(image)
+        pendingAnnotationCacheAnnotations.removeAll()
         return image
     }
 
     var annotationLayerCache: NSImage? { cachedAnnotationLayer }
+
+    func updateAnnotationCacheAfterCommit(of annotation: Annotation, previousCache: NSImage?) {
+        if annotation.tool == .marker {
+            queuePendingAnnotationCacheAnnotation(annotation)
+            scheduleDeferredAnnotationCacheRefresh(reason: "marker-idle")
+            return
+        }
+
+        if !pendingAnnotationCacheAnnotations.isEmpty {
+            queuePendingAnnotationCacheAnnotation(annotation)
+            scheduleDeferredAnnotationCacheRefresh(reason: "cache-dirty")
+            return
+        }
+
+        if let prev = previousCache {
+            appendToAnnotationCache(annotation, previousCache: prev)
+            pendingAnnotationCacheAnnotations.removeAll { $0 === annotation }
+        } else {
+            queuePendingAnnotationCacheAnnotation(annotation)
+            scheduleDeferredAnnotationCacheRefresh(reason: "cache-miss")
+        }
+    }
 
     /// Incrementally add a newly committed annotation onto a previous cache snapshot.
     /// Avoids a full rebuild which can cause a visible lag (cursor disappears for a frame).

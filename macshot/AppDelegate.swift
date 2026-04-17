@@ -1112,7 +1112,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         annotationData: CaptureAnnotationData?,
         historyEntryID: String?,
         windowTitle: String?,
-        context: CaptureCompletionContext
+        context: CaptureCompletionContext,
+        pinOrigin: NSPoint? = nil
     ) {
         let actions = PostCaptureActionPreferences.screenshotActions
 
@@ -1127,7 +1128,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             showUploadProgress(image: image)
         }
         if actions.pinToScreen {
-            showPin(image: image)
+            if let pinOrigin {
+                let pin = PinWindowController(image: image, at: pinOrigin)
+                pin.delegate = self
+                pin.show()
+                pinControllers.append(pin)
+            } else {
+                showPin(image: image)
+            }
         }
         if actions.openEditor {
             if let data = annotationData {
@@ -1553,7 +1561,8 @@ extension AppDelegate: OverlayWindowControllerDelegate {
         capturedImage: NSImage?,
         annotationData: CaptureAnnotationData?,
         context: CaptureCompletionContext,
-        windowTitle: String?
+        windowTitle: String?,
+        pinOrigin: NSPoint?
     ) {
         dismissOverlays()
         if let image = capturedImage {
@@ -1569,7 +1578,8 @@ extension AppDelegate: OverlayWindowControllerDelegate {
                     annotationData: annotationData,
                     historyEntryID: entryID,
                     windowTitle: windowTitle,
-                    context: context
+                    context: context,
+                    pinOrigin: pinOrigin
                 )
             }
         }

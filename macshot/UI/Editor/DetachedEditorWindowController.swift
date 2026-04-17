@@ -614,7 +614,8 @@ private class AddCaptureOverlayHandler: NSObject, OverlayWindowControllerDelegat
         capturedImage: NSImage?,
         annotationData: CaptureAnnotationData?,
         context: CaptureCompletionContext,
-        windowTitle: String?
+        windowTitle: String?,
+        pinOrigin: NSPoint?
     ) {
         let image = capturedImage ?? overlayCrossScreenImage(controller)
         dismissOverlays()

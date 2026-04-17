@@ -71,8 +71,8 @@ protocol AnnotationCanvas: AnyObject {
 
     /// The current annotation layer cache (may be nil).
     var annotationLayerCache: NSImage? { get }
-    /// Incrementally add a newly committed annotation to the cached annotation layer.
-    func appendToAnnotationCache(_ annotation: Annotation, previousCache: NSImage)
+    /// Update the committed annotation cache after a new annotation is finalized.
+    func updateAnnotationCacheAfterCommit(of annotation: Annotation, previousCache: NSImage?)
 
     // Magnified callout preview
     func beginMagnifiedCalloutPreview(sourcePoint: NSPoint, color: NSColor)
@@ -139,11 +139,7 @@ extension AnnotationToolHandler {
         canvas.activeAnnotation = nil
         canvas.snapGuideX = nil
         canvas.snapGuideY = nil
-        // Incrementally draw the new annotation onto the previous cache
-        // instead of rebuilding from scratch (avoids cursor flicker on commit).
-        if let prev = previousCache {
-            canvas.appendToAnnotationCache(annotation, previousCache: prev)
-        }
+        canvas.updateAnnotationCacheAfterCommit(of: annotation, previousCache: previousCache)
         canvas.setNeedsDisplay()
 
         // Auto-select the newly created annotation so user can immediately adjust
