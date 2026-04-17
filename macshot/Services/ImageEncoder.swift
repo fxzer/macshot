@@ -102,6 +102,10 @@ enum ImageEncoder {
 
     // MARK: - Encoding
 
+    static func encode(_ asset: CaptureImageAsset, source: CaptureImageExportSource = .display) -> Data? {
+        encode(asset.image(for: source))
+    }
+
     /// Encode an NSImage to Data in the configured format.
     static func encode(_ image: NSImage) -> Data? {
         guard let bitmap = makeBitmap(image) else { return nil }
@@ -191,6 +195,10 @@ enum ImageEncoder {
     }
 
     // MARK: - Clipboard
+
+    static func copyToClipboard(_ asset: CaptureImageAsset, source: CaptureImageExportSource = .display) {
+        copyToClipboard(asset.image(for: source))
+    }
 
     /// Copy image to pasteboard as PNG.
     /// Explicitly sets PNG data so receiving apps (browsers, editors) get
