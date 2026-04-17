@@ -795,6 +795,7 @@ private final class BeautifyPopoverView: NSView {
         ov.beautifyEnabled = sender.state == .on
         UserDefaults.standard.set(ov.beautifyEnabled, forKey: "beautifyEnabled")
         ov.cachedCompositedImage = nil
+        ov.updateEditorFrameForBeautify()
         ov.rebuildToolbarLayout()
         ov.needsDisplay = true
     }
@@ -804,6 +805,7 @@ private final class BeautifyPopoverView: NSView {
         ov.beautifyMode = sender.selectedSegment == 0 ? .window : .rounded
         UserDefaults.standard.set(ov.beautifyMode.rawValue, forKey: "beautifyMode")
         ov.cachedCompositedImage = nil
+        ov.updateEditorFrameForBeautify()
         ov.rebuildToolbarLayout()
         ov.needsDisplay = true
     }
@@ -811,16 +813,19 @@ private final class BeautifyPopoverView: NSView {
     @objc private func sliderChanged(_ sender: NSSlider) {
         guard let ov = overlayView else { return }
         let value = CGFloat(sender.floatValue)
+        var affectsEditorFrame = false
         switch sender.tag {
         case 900:
             ov.beautifyPadding = value
             UserDefaults.standard.set(sender.doubleValue, forKey: "beautifyPadding")
+            affectsEditorFrame = true
         case 901:
             ov.beautifyCornerRadius = value
             UserDefaults.standard.set(sender.doubleValue, forKey: "beautifyCornerRadius")
         case 902:
             ov.beautifyShadowRadius = value
             UserDefaults.standard.set(sender.doubleValue, forKey: "beautifyShadowRadius")
+            affectsEditorFrame = true
         case 903:
             ov.beautifyBackgroundBlur = value
             UserDefaults.standard.set(sender.doubleValue, forKey: "beautifyBgBlur")
@@ -830,6 +835,7 @@ private final class BeautifyPopoverView: NSView {
         if let label = viewWithTag(sender.tag + 100) as? NSTextField {
             label.stringValue = "\(Int(sender.floatValue))"
         }
+        if affectsEditorFrame { ov.updateEditorFrameForBeautify() }
         ov.cachedCompositedImage = nil
         ov.needsDisplay = true
     }

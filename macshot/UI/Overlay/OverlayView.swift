@@ -569,6 +569,10 @@ class OverlayView: NSView {
     }
 
     // Beautify
+    /// Drawing offset applied in editor mode when beautify is active.
+    /// Shifts all canvas-space drawing so the expanded beautify rect fits within the document view.
+    var beautifyEditorOffset: NSPoint = .zero
+
     var beautifyEnabled: Bool = UserDefaults.standard.bool(forKey: "beautifyEnabled")
     var beautifyStyleIndex: Int = UserDefaults.standard.integer(
         forKey: "beautifyStyleIndex")
@@ -630,6 +634,39 @@ class OverlayView: NSView {
             backgroundBlur: beautifyBackgroundBlur,
             cachedBackgroundCGImage: beautifyStyleIndex == -1 ? cachedBeautifyBgCGImage : nil
         )
+    }
+
+    /// Resize the editor document view to fit the beautify-expanded rect.
+    /// When beautify is on, the frame grows and `beautifyEditorOffset` is set so
+    /// `applyEditorTransform` shifts all drawing to keep the expanded rect within bounds.
+    /// When beautify is off, the frame and offset revert to the base image size.
+    func updateEditorFrameForBeautify() {
+        guard isEditorMode, let image = screenshotImage else { return }
+        let imgSize = image.size
+
+        if beautifyEnabled {
+            let config = beautifyConfig
+            let pad = config.padding
+            let shadowRadius = config.shadowRadius
+            let shadowOffset = min(shadowRadius * 0.4, 10)
+            let shadowBleed = shadowRadius + shadowOffset
+            let titleBarH: CGFloat = (config.mode == .window && !selectionIsWindowSnap) ? 28 : 0
+
+            let marginX = pad + shadowBleed
+            let marginBottom = pad + shadowBleed
+            let marginTop = pad + shadowBleed + titleBarH
+
+            let newW = imgSize.width + marginX * 2
+            let newH = imgSize.height + marginBottom + marginTop
+
+            beautifyEditorOffset = NSPoint(x: marginX, y: marginBottom)
+            frame.size = NSSize(width: newW, height: newH)
+        } else {
+            beautifyEditorOffset = .zero
+            frame.size = imgSize
+        }
+        cachedCompositedImage = nil
+        needsDisplay = true
     }
 
     // Image effects
@@ -4773,6 +4810,7 @@ class OverlayView: NSView {
         // Resize view frame to match new image size (scroll view re-centers automatically)
         if isInsideScrollView {
             frame.size = croppedPointSize
+            updateEditorFrameForBeautify()
             enclosingScrollView?.magnification = 1.0
             // Update top bar size label
             if let topBar = chromeParentView?.subviews.compactMap({ $0 as? EditorTopBarView }).first
@@ -9740,6 +9778,7 @@ class OverlayView: NSView {
             if isEditorMode {
                 selectionRect = NSRect(origin: .zero, size: previousImage.size)
                 if isInsideScrollView { frame.size = previousImage.size }
+                updateEditorFrameForBeautify()
             }
             cachedCompositedImage = nil
             resetZoom()
@@ -9801,6 +9840,7 @@ class OverlayView: NSView {
             if isEditorMode {
                 selectionRect = NSRect(origin: .zero, size: redoImage.size)
                 if isInsideScrollView { frame.size = redoImage.size }
+                updateEditorFrameForBeautify()
             }
             cachedCompositedImage = nil
             if !isInsideScrollView { resetZoom() }

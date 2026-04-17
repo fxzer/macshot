@@ -47,10 +47,31 @@ class EditorView: OverlayView {
     override func shouldDrawSelectionBorder() -> Bool { false }
     override func shouldDrawSizeLabel() -> Bool { false }
 
-    // MARK: - Coordinate transforms (identity — scroll view handles everything)
+    // MARK: - Coordinate transforms
+    // Base: identity (scroll view handles zoom/pan).
+    // When beautify is active, a translation offset is applied so the expanded
+    // beautify rect fits within the enlarged document view frame.
 
     override func adjustPointForEditor(_ p: NSPoint) -> NSPoint { p }
-    override func applyEditorTransform(to context: NSGraphicsContext) {}
+
+    override func applyEditorTransform(to context: NSGraphicsContext) {
+        let off = beautifyEditorOffset
+        if off != .zero {
+            context.cgContext.translateBy(x: off.x, y: off.y)
+        }
+    }
+
+    override func viewToCanvas(_ p: NSPoint) -> NSPoint {
+        let off = beautifyEditorOffset
+        if off == .zero { return p }
+        return NSPoint(x: p.x - off.x, y: p.y - off.y)
+    }
+
+    override func canvasToView(_ p: NSPoint) -> NSPoint {
+        let off = beautifyEditorOffset
+        if off == .zero { return p }
+        return NSPoint(x: p.x + off.x, y: p.y + off.y)
+    }
 
     // MARK: - Cursor (arrow outside image, tool cursor inside)
 
@@ -62,7 +83,8 @@ class EditorView: OverlayView {
 
     override func mouseMoved(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
-        if selectionRect.contains(point) {
+        let canvasPoint = viewToCanvas(point)
+        if selectionRect.contains(canvasPoint) {
             super.mouseMoved(with: event)
         } else {
             NSCursor.arrow.set()

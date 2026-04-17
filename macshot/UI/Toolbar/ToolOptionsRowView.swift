@@ -1138,10 +1138,12 @@ class ToolOptionsRowView: NSView {
             let modeSeg = NSSegmentedControl(labels: [L("Window"), L("Rounded")], trackingMode: .selectOne,
                                              target: self, action: #selector(beautifyModeChanged(_:)))
             modeSeg.selectedSegment = ov.beautifyMode == .window ? 0 : 1
-            modeSeg.frame = NSRect(x: curX, y: (rowHeight - 22) / 2, width: 90, height: 22)
+            modeSeg.font = NSFont.systemFont(ofSize: 10, weight: .medium)
             (modeSeg.cell as? NSSegmentedCell)?.segmentStyle = .roundRect
+            modeSeg.sizeToFit()
+            modeSeg.frame = NSRect(x: curX, y: (rowHeight - 22) / 2, width: modeSeg.frame.width, height: 22)
             addSubview(modeSeg)
-            curX += 90
+            curX += modeSeg.frame.width
 
             curX = addSeparator(at: curX)
         }

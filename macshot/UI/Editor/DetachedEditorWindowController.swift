@@ -63,9 +63,9 @@ class DetachedEditorWindowController: NSObject, NSWindowDelegate {
         let minH: CGFloat = 400
         let maxW = screenFrame.width * 0.9
         let maxH = screenFrame.height * 0.9
-        // Add space for top bar (32), bottom toolbar (44), options row (40), right toolbar (46), padding
+        // Add space for top bar, bottom toolbar (44), options row (40), right toolbar (46), padding
         let chromeW: CGFloat = 46 + 60    // right toolbar + horizontal padding
-        let chromeH: CGFloat = 32 + 44 + 40 + 40  // top bar + bottom toolbar + options row + padding
+        let chromeH: CGFloat = EditorTopBarView.height + 44 + 40 + 40  // top bar + bottom toolbar + options row + padding
         let winW = min(maxW, max(minW, imgSize.width + chromeW))
         let winH = min(maxH, max(minH, imgSize.height + chromeH))
 
@@ -168,6 +168,8 @@ class DetachedEditorWindowController: NSObject, NSWindowDelegate {
 
         view.applySelection(NSRect(origin: .zero, size: imgSize))
         if !annotations.isEmpty { view.setAnnotations(annotations) }
+        // Expand document view if beautify is already enabled
+        view.updateEditorFrameForBeautify()
 
         // Snapshot undo depth as the "clean" state for unsaved changes detection
         lastSavedUndoDepth = view.undoStack.count
