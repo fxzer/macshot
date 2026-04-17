@@ -131,7 +131,8 @@ extension OverlayView {
 
     private func showColorCopiedToast(_ colorString: String, format: ColorSamplerMagnifierView.ColorFormat) {
         let formatName = format.displayName
-        showOverlayError(String(format: L("Copied %@"), "\(formatName): \(colorString)"))
+        let message = String(format: L("Copied %@"), "\(formatName): \(colorString)")
+        showColorCopiedHint(message, colorString: colorString)
     }
 
     // MARK: - Event Handling

@@ -898,6 +898,12 @@ class OverlayView: NSView {
     // Overlay error message
     private var overlayErrorMessage: String? = nil
 
+    // Overlay hint message
+    private var overlayHintMessage: String? = nil
+    private var overlayHintOpacity: CGFloat = 0.0
+    private var overlayHintColorString: String? = nil  // Color value for color copy hint
+    private var overlayHintFadeTimer: Timer? = nil
+
     // Instant tooltip for hovered toolbar button
     private var hoveredTooltip: String?
     private var hoveredTooltipButtonView: ToolbarButtonView?
@@ -2447,7 +2453,7 @@ class OverlayView: NSView {
             }
         }
 
-        // Overlay error message
+        // Overlay error message (red background for actual errors)
         if let errorMsg = overlayErrorMessage {
             let attrs: [NSAttributedString.Key: Any] = [
                 .font: NSFont.systemFont(ofSize: 13, weight: .medium),
@@ -2461,8 +2467,11 @@ class OverlayView: NSView {
             let msgX = bounds.midX - msgW / 2
             let msgY = bounds.maxY - msgH - 40
             let msgRect = NSRect(x: msgX, y: msgY, width: msgW, height: msgH)
+
+            // Red background for error messages
             NSColor(red: 0.8, green: 0.2, blue: 0.2, alpha: 0.9).setFill()
             NSBezierPath(roundedRect: msgRect, xRadius: 8, yRadius: 8).fill()
+
             str.draw(
                 at: NSPoint(x: msgRect.minX + padding, y: msgRect.minY + padding / 2),
                 withAttributes: attrs)
@@ -2476,17 +2485,42 @@ class OverlayView: NSView {
             ]
             let str = hintMsg as NSString
             let strSize = str.size(withAttributes: attrs)
+
+            // Color swatch size and spacing
+            let colorSwatchSize: CGFloat = 20
+            let colorSwatchPadding: CGFloat = 8
+            let hasColorSwatch = overlayHintColorString != nil
+
             let padding: CGFloat = 12
-            let hintW = strSize.width + padding * 2
-            let hintH = strSize.height + padding
+            let hintW = strSize.width + padding * 2 + (hasColorSwatch ? colorSwatchSize + colorSwatchPadding : 0)
+            let hintH = max(strSize.height + padding, colorSwatchSize + padding)
             let hintX = bounds.midX - hintW / 2
             let hintY = bounds.maxY - hintH - 40
             let hintRect = NSRect(x: hintX, y: hintY, width: hintW, height: hintH)
+
             NSColor.black.withAlphaComponent(overlayHintOpacity * 0.7).setFill()
             NSBezierPath(roundedRect: hintRect, xRadius: 8, yRadius: 8).fill()
+
+            // Draw text
+            let textY = hintRect.minY + (hintH - strSize.height) / 2
             str.draw(
-                at: NSPoint(x: hintRect.minX + padding, y: hintRect.minY + padding / 2),
+                at: NSPoint(x: hintRect.minX + padding, y: textY),
                 withAttributes: attrs)
+
+            // Draw color swatch if color string is available
+            if let colorString = overlayHintColorString, let color = NSColor(hex: colorString) {
+                let swatchX = hintRect.minX + padding + strSize.width + colorSwatchPadding
+                let swatchY = hintRect.minY + (hintH - colorSwatchSize) / 2
+                let swatchRect = NSRect(x: swatchX, y: swatchY, width: colorSwatchSize, height: colorSwatchSize)
+
+                // Draw swatch background with the actual color
+                color.setFill()
+                NSBezierPath(roundedRect: swatchRect, xRadius: 4, yRadius: 4).fill()
+
+                // Draw swatch border
+                NSColor.white.withAlphaComponent(0.3 * overlayHintOpacity).setStroke()
+                NSBezierPath(roundedRect: swatchRect, xRadius: 4, yRadius: 4).stroke()
+            }
         }
 
         // Aspect ratio lock hint (only show on the monitor where the mouse is located)
@@ -5318,13 +5352,23 @@ class OverlayView: NSView {
 
     // MARK: - Overlay Hint
 
-    private var overlayHintMessage: String? = nil
-    private var overlayHintOpacity: CGFloat = 0.0
-    private var overlayHintFadeTimer: Timer? = nil
-
     func showOverlayHint(_ message: String) {
         overlayHintFadeTimer?.invalidate()
         overlayHintMessage = message
+        overlayHintColorString = nil  // Clear color string for normal hints
+        overlayHintOpacity = 1.0
+        needsDisplay = true
+        overlayHintFadeTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: false) {
+            [weak self] _ in
+            self?.fadeOutOverlayHint()
+        }
+    }
+
+    /// Show a hint message for color copying with a color swatch.
+    func showColorCopiedHint(_ message: String, colorString: String) {
+        overlayHintFadeTimer?.invalidate()
+        overlayHintMessage = message
+        overlayHintColorString = colorString
         overlayHintOpacity = 1.0
         needsDisplay = true
         overlayHintFadeTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: false) {
@@ -5336,6 +5380,7 @@ class OverlayView: NSView {
     private func fadeOutOverlayHint() {
         overlayHintOpacity = 0.0
         overlayHintMessage = nil
+        overlayHintColorString = nil
         needsDisplay = true
     }
 
@@ -8423,7 +8468,7 @@ class OverlayView: NSView {
                     let nextSlot = selectedColorSlot + 1
                     if nextSlot < customColors.count { selectedColorSlot = nextSlot }
                 }
-                showOverlayHint(String(format: L("Set color %@"), result.hex))
+                showColorCopiedHint(String(format: L("Set color %@"), result.hex), colorString: result.hex)
                 rebuildToolbarLayout()
                 needsDisplay = true
             }
@@ -10077,6 +10122,8 @@ class OverlayView: NSView {
         overlayErrorTimer?.invalidate()
         overlayErrorTimer = nil
         overlayErrorMessage = nil
+        overlayHintMessage = nil
+        overlayHintColorString = nil
         barcodeDetector.cancel()
         hoveredWindowRect = nil
         isRecording = false
