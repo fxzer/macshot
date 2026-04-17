@@ -5469,7 +5469,9 @@ class OverlayView: NSView {
             selectedTool: currentTool, selectedColor: currentColor,
             beautifyEnabled: beautifyEnabled, beautifyStyleIndex: beautifyStyleIndex,
             hasAnnotations: movableAnnotations, isRecording: isRecording,
-            effectsActive: effectsActive
+            effectsActive: effectsActive,
+            canUndo: !undoStack.isEmpty, canRedo: !redoStack.isEmpty,
+            isEditorMode: isEditorMode
         )
         rightButtons = ToolbarLayout.rightButtons(
             beautifyEnabled: beautifyEnabled, beautifyStyleIndex: beautifyStyleIndex,
@@ -5532,14 +5534,6 @@ class OverlayView: NSView {
             }
             rightStripView?.onHover = { [weak self] action, hovered in
                 self?.handleToolbarButtonHover(action, hovered: hovered, strip: self?.rightStripView)
-            }
-        }
-        // Move button needs onMouseDown for press-and-drag (synchronous tracking loop)
-        for strip in [topStripView, rightStripView] {
-            for bv in strip?.buttonViews ?? [] {
-            if case .moveSelection = bv.action, bv.onMouseDown == nil {
-                bv.onMouseDown = { [weak self] _ in self?.handleToolbarAction(.moveSelection) }
-            }
             }
         }
 
@@ -8169,10 +8163,8 @@ class OverlayView: NSView {
         switch action {
         case .sessionCancel:
             overlayDelegate?.overlayViewDidCancel()
-        case .sessionUndo:
-            undo()
-        case .sessionRedo:
-            redo()
+        case .sessionUndo, .sessionRedo:
+            break  // No longer used - undo/redo moved to bottom toolbar
         case .tool(let tool):
             commitTextFieldIfNeeded()
             showBeautifyInOptionsRow = false  // switch back to tool options
@@ -8219,43 +8211,6 @@ class OverlayView: NSView {
             showColorPickerPopover(target: .drawColor, anchorView: colorBtn)
         case .sizeDisplay:
             break
-        case .moveSelection:
-            guard let win = window else { break }
-            clearStampPreview()
-            clearLoupePreview()
-            clearDrawingCursorPreview()
-            // Moving breaks window snap — revert to normal beautify mode
-            if selectionIsWindowSnap {
-                selectionIsWindowSnap = false
-                snappedWindowID = nil
-                snappedWindowImage = nil
-                rebuildToolbarLayout()
-            }
-            // Show drag hint tooltip
-            hoveredTooltip = L("Drag to reposition")
-            needsDisplay = true
-            displayIfNeeded()
-            // Synchronous drag loop: tracks mouse from button press until release
-            let startPoint = convert(win.mouseLocationOutsideOfEventStream, from: nil)
-            let offset = NSPoint(x: startPoint.x - selectionRect.origin.x, y: startPoint.y - selectionRect.origin.y)
-            let hasWebcam = webcamSetupPreview != nil
-            while true {
-                guard let event = win.nextEvent(matching: [.leftMouseDragged, .leftMouseUp]) else { break }
-                let point = convert(event.locationInWindow, from: nil)
-                selectionRect.origin = NSPoint(x: point.x - offset.x, y: point.y - offset.y)
-                if hasWebcam { repositionWebcamSetupPreview() }
-                needsDisplay = true
-                displayIfNeeded()
-                if event.type == .leftMouseUp { break }
-            }
-            // Restore original tooltip and reset button pressed state
-            hoveredTooltip = hoveredTooltipButtonView?.tooltipText
-            if let moveBtn = rightStripView?.buttonViews.first(where: { if case .moveSelection = $0.action { return true }; return false }) {
-                moveBtn.isPressed = false
-                moveBtn.needsDisplay = true
-            }
-            scheduleBarcodeDetection()
-            needsDisplay = true
         case .undo:
             undo()
         case .redo:
@@ -8308,6 +8263,8 @@ class OverlayView: NSView {
             }
         case .invertColors:
             invertImageColors()
+        case .moveSelection:
+            break  // No longer supported - use canvas drag instead
         case .effects:
             let btn = rightStripView?.buttonViews.first { if case .effects = $0.action { return true } else { return false } }
             showEffectsPopover(anchorView: btn)

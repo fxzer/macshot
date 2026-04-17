@@ -39,7 +39,7 @@ struct ToolsSettingsView: View {
     private let effectActions: [(tag: Int, label: String)] = [
         (1011, L("Invert Colors")),
         (1013, L("Adjust")),
-        (1004, L("Beautify")),
+        (1004, L("Share Card")),
         (1005, L("Remove Background")),
         (1006, L("Auto-Redact")),
     ]

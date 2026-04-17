@@ -85,6 +85,10 @@ class ToolOptionsRowView: NSView {
     /// Update color swatches in-place without rebuilding the entire row.
     func updateSwatchColors() {
         guard let ov = overlayView else { return }
+        // Draw color swatch (tag 974)
+        if let swatch = viewWithTag(974) {
+            swatch.layer?.backgroundColor = (editingAnnotation?.color ?? ov.currentColor).cgColor
+        }
         // Text background swatch (tag 975)
         if let swatch = viewWithTag(975) {
             swatch.layer?.backgroundColor = ov.textEditor.bgColor.cgColor
@@ -137,9 +141,14 @@ class ToolOptionsRowView: NSView {
             return
         }
 
+        if supportsDrawColor(tool) {
+            curX = addDrawColorControl(at: curX, tool: tool, ov: ov)
+        }
+
         // ── Stroke width slider (most drawing tools) ──
         let hasStroke = [.pencil, .line, .arrow, .rectangle, .ellipse, .marker, .number, .loupe].contains(tool)
         if hasStroke {
+            if curX > padding { curX = addSeparator(at: curX) }
             curX = addStrokeSlider(at: curX, tool: tool, ov: ov)
         }
 
@@ -246,11 +255,13 @@ class ToolOptionsRowView: NSView {
 
         // ── Text formatting ──
         if tool == .text {
+            if supportsDrawColor(tool) { curX = addSeparator(at: curX) }
             curX = addTextOptions(at: curX, ov: ov)
         }
 
         // ── Measure px/pt toggle ──
         if tool == .measure {
+            if supportsDrawColor(tool) { curX = addSeparator(at: curX) }
             curX = addMeasureToggle(at: curX, ov: ov)
         }
 
@@ -295,6 +306,44 @@ class ToolOptionsRowView: NSView {
         sep.layer?.backgroundColor = ToolbarLayout.iconColor.withAlphaComponent(0.1).cgColor
         addSubview(sep)
         return x + 13
+    }
+
+    private func supportsDrawColor(_ tool: AnnotationTool) -> Bool {
+        switch tool {
+        case .pencil, .line, .arrow, .rectangle, .ellipse, .marker, .number, .measure, .text:
+            return true
+        default:
+            return false
+        }
+    }
+
+    private func addDrawColorControl(at x: CGFloat, tool: AnnotationTool, ov: OverlayView) -> CGFloat {
+        var curX = x
+
+        let label = NSTextField(labelWithString: L("Color"))
+        label.font = NSFont.systemFont(ofSize: 9.5, weight: .medium)
+        label.textColor = ToolbarLayout.iconColor.withAlphaComponent(0.4)
+        label.sizeToFit()
+        label.frame.origin = NSPoint(x: curX, y: (rowHeight - label.frame.height) / 2)
+        addSubview(label)
+        curX += label.frame.width + 4
+
+        let swatchSize: CGFloat = 18
+        let swatch = NSButton(frame: NSRect(x: curX, y: (rowHeight - swatchSize) / 2, width: swatchSize, height: swatchSize))
+        swatch.title = ""
+        swatch.isBordered = false
+        swatch.wantsLayer = true
+        swatch.layer?.backgroundColor = (editingAnnotation?.color ?? ov.currentColor).cgColor
+        swatch.layer?.cornerRadius = 3
+        swatch.layer?.borderWidth = 1.5
+        swatch.layer?.borderColor = ToolbarLayout.iconColor.withAlphaComponent(0.4).cgColor
+        swatch.tag = 974
+        swatch.target = self
+        swatch.action = #selector(drawColorClicked(_:))
+        addSubview(swatch)
+        curX += swatchSize
+
+        return curX
     }
 
     private func addStrokeSlider(at x: CGFloat, tool: AnnotationTool, ov: OverlayView) -> CGFloat {
@@ -1268,6 +1317,12 @@ class ToolOptionsRowView: NSView {
         ov.beautifyEnabled = sender.state == .on
         UserDefaults.standard.set(ov.beautifyEnabled, forKey: "beautifyEnabled")
         ov.needsDisplay = true
+    }
+
+    @objc private func drawColorClicked(_ sender: NSButton) {
+        if PopoverHelper.isVisible { PopoverHelper.dismiss(); return }
+        guard let ov = overlayView else { return }
+        ov.showColorPickerPopover(target: .drawColor, anchorView: sender)
     }
 
     private func addHintLabel(at x: CGFloat, text: String) -> CGFloat {

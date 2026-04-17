@@ -6,6 +6,8 @@ class EditorTopBarView: NSView {
 
     weak var overlayView: OverlayView?
     private var sizeLabel: NSTextField!
+    private var undoButton: NSButton!
+    private var redoButton: NSButton!
     private var zoomButton: NSButton!
     private var doneButton: NSButton?
     var onDone: (() -> Void)?
@@ -19,7 +21,12 @@ class EditorTopBarView: NSView {
         sizeLabel = makeLabel("")
         sizeLabel.font = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium)
         sizeLabel.textColor = ToolbarLayout.iconColor.withAlphaComponent(0.45)
+        sizeLabel.alignment = .right
+        sizeLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
+        sizeLabel.setContentHuggingPriority(.required, for: .horizontal)
 
+        undoButton = makeButton("arrow.uturn.backward", tooltip: L("Undo"), action: #selector(undoClicked))
+        redoButton = makeButton("arrow.uturn.forward", tooltip: L("Redo"), action: #selector(redoClicked))
         let cropBtn = makeButton("crop", tooltip: L("Crop"), action: #selector(cropClicked))
         let flipHBtn = makeButton("arrow.left.and.right.righttriangle.left.righttriangle.right", tooltip: L("Flip Horizontal"), action: #selector(flipHClicked))
         let flipVBtn = makeButton("arrow.up.and.down.righttriangle.up.righttriangle.down", tooltip: L("Flip Vertical"), action: #selector(flipVClicked))
@@ -43,7 +50,7 @@ class EditorTopBarView: NSView {
         addSubview(border)
 
         // Layout with constraints
-        for v: NSView in [sizeLabel, cropBtn, flipHBtn, flipVBtn, addCaptureBtn, zoomButton] {
+        for v: NSView in [sizeLabel, undoButton, redoButton, cropBtn, flipHBtn, flipVBtn, addCaptureBtn, zoomButton] {
             v.translatesAutoresizingMaskIntoConstraints = false
             addSubview(v)
         }
@@ -51,10 +58,23 @@ class EditorTopBarView: NSView {
         NSLayoutConstraint.activate([
             heightAnchor.constraint(equalToConstant: 32),
 
-            sizeLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
+            sizeLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
             sizeLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
 
-            cropBtn.leadingAnchor.constraint(equalTo: sizeLabel.trailingAnchor, constant: 16),
+            zoomButton.trailingAnchor.constraint(equalTo: sizeLabel.leadingAnchor, constant: -12),
+            zoomButton.centerYAnchor.constraint(equalTo: centerYAnchor),
+
+            undoButton.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
+            undoButton.centerYAnchor.constraint(equalTo: centerYAnchor),
+            undoButton.widthAnchor.constraint(equalToConstant: 24),
+            undoButton.heightAnchor.constraint(equalToConstant: 22),
+
+            redoButton.leadingAnchor.constraint(equalTo: undoButton.trailingAnchor, constant: 4),
+            redoButton.centerYAnchor.constraint(equalTo: centerYAnchor),
+            redoButton.widthAnchor.constraint(equalToConstant: 24),
+            redoButton.heightAnchor.constraint(equalToConstant: 22),
+
+            cropBtn.leadingAnchor.constraint(equalTo: redoButton.trailingAnchor, constant: 12),
             cropBtn.centerYAnchor.constraint(equalTo: centerYAnchor),
             cropBtn.widthAnchor.constraint(equalToConstant: 24),
             cropBtn.heightAnchor.constraint(equalToConstant: 22),
@@ -73,15 +93,15 @@ class EditorTopBarView: NSView {
             addCaptureBtn.centerYAnchor.constraint(equalTo: centerYAnchor),
             addCaptureBtn.widthAnchor.constraint(equalToConstant: 24),
             addCaptureBtn.heightAnchor.constraint(equalToConstant: 22),
-
-            zoomButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
-            zoomButton.centerYAnchor.constraint(equalTo: centerYAnchor),
+            addCaptureBtn.trailingAnchor.constraint(lessThanOrEqualTo: zoomButton.leadingAnchor, constant: -16),
 
             border.leadingAnchor.constraint(equalTo: leadingAnchor),
             border.trailingAnchor.constraint(equalTo: trailingAnchor),
             border.bottomAnchor.constraint(equalTo: bottomAnchor),
             border.heightAnchor.constraint(equalToConstant: 0.5),
         ])
+
+        updateUndoRedo(canUndo: false, canRedo: false)
     }
 
     required init?(coder: NSCoder) { fatalError() }
@@ -99,6 +119,12 @@ class EditorTopBarView: NSView {
         return btn
     }
 
+    private func applyToolbarButtonState(_ button: NSButton, enabled: Bool) {
+        button.isEnabled = enabled
+        button.contentTintColor = ToolbarLayout.iconColor.withAlphaComponent(enabled ? 0.85 : 0.28)
+        button.alphaValue = enabled ? 1.0 : 0.7
+    }
+
     private func makeLabel(_ text: String) -> NSTextField {
         let label = NSTextField(labelWithString: text)
         label.isEditable = false
@@ -113,6 +139,11 @@ class EditorTopBarView: NSView {
 
     func updateZoom(_ magnification: CGFloat) {
         zoomButton.title = "\(Int(magnification * 100))% ▾"
+    }
+
+    func updateUndoRedo(canUndo: Bool, canRedo: Bool) {
+        applyToolbarButtonState(undoButton, enabled: canUndo)
+        applyToolbarButtonState(redoButton, enabled: canRedo)
     }
 
     // MARK: - Zoom dropdown
@@ -234,6 +265,9 @@ class EditorTopBarView: NSView {
     }
 
     @objc private func doneClicked() { onDone?() }
+
+    @objc private func undoClicked() { overlayView?.undo() }
+    @objc private func redoClicked() { overlayView?.redo() }
 
     @objc private func cropClicked() {
         guard let ov = overlayView else { return }
