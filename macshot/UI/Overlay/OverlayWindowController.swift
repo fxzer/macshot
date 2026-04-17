@@ -59,9 +59,7 @@ class OverlayWindowController {
     private var overlayWindow: OverlayWindow?
     private var shareDelegate: SharePickerDelegate?
     var onFirstFrameShown: (() -> Void)?
-    /// Raw capture image kept for deferred 8-bit BGRA conversion.
-    /// Released after the background conversion starts.
-    private var rawCaptureImage: CGImage?
+    private var captureAsset: CaptureImageAsset?
     private var shareDismissTime: Date = .distantPast
     var windowNumber: CGWindowID {
         overlayWindow.map { CGWindowID($0.windowNumber) } ?? CGWindowID.max
@@ -97,9 +95,9 @@ class OverlayWindowController {
         window.isReleasedWhenClosed = false
 
         let view = OverlayView()
-        let nsImage = NSImage(cgImage: capture.image, size: screen.frame.size)
+        let nsImage = capture.asset.displayImage
         view.screenshotImage = nsImage
-        view.setOriginalCGImage(capture.image)  // Store original CGImage for accurate color sampling
+        view.setDisplayCGImage(capture.asset.displayCGImage)
         view.frame = NSRect(origin: .zero, size: screen.frame.size)
         view.autoresizingMask = [.width, .height]
         view.overlayDelegate = self
@@ -107,7 +105,7 @@ class OverlayWindowController {
         window.contentView = view
         self.overlayWindow = window
         self.overlayView = view
-        self.rawCaptureImage = capture.image
+        self.captureAsset = capture.asset
         view.onFirstFrameDrawn = { [weak self] in
             self?.onFirstFrameShown?()
             self?.onFirstFrameShown = nil
@@ -125,8 +123,8 @@ class OverlayWindowController {
         if let view = overlayView {
             window.makeFirstResponder(view)
         }
-        // Convert to 8-bit BGRA in background for accurate color sampling.
-        // The overlay is already visible with the GPU-native image.
+        // Build the standardized sampling image in the background while the
+        // original display image is already visible.
         prepareCaptureImageInBackground()
     }
 
@@ -137,22 +135,16 @@ class OverlayWindowController {
         }
     }
 
-    /// Convert the raw capture image to 8-bit BGRA / sRGB in the background.
-    /// The overlay is already displayed with the GPU-native image — this ensures
-    /// color sampling, loupe, and CPU-side pixel operations use accurate values.
     private func prepareCaptureImageInBackground() {
-        guard let rawImage = rawCaptureImage else { return }
-        rawCaptureImage = nil  // release reference
-        // Already 8-bit (macOS 12-13 CGWindowListCreateImage path) — nothing to convert.
-        guard rawImage.bitsPerComponent > 8 else { return }
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            let converted = ScreenCaptureManager.convertTo8BitBGRA(rawImage)
-            DispatchQueue.main.async {
-                guard let self = self else { return }
-                if let converted = converted {
-                    self.overlayView?.updateColorAccurateImage(converted)
-                }
-            }
+        guard let captureAsset else { return }
+        guard CaptureImageAsset.needsStandardizedColorImage(
+            bitsPerComponent: captureAsset.displayCGImage.bitsPerComponent
+        ) else {
+            overlayView?.setColorSamplingCGImage(captureAsset.displayCGImage)
+            return
+        }
+        captureAsset.preloadColorSamplingImage { [weak self] converted in
+            self?.overlayView?.setColorSamplingCGImage(converted)
         }
     }
 

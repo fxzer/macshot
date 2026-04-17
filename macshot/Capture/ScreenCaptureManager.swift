@@ -3,10 +3,19 @@ import ScreenCaptureKit
 
 struct ScreenCapture {
     let screen: NSScreen
-    let image: CGImage
+    let asset: CaptureImageAsset
 }
 
 class ScreenCaptureManager {
+
+    private static func makeAsset(screen: NSScreen, image: CGImage) -> CaptureImageAsset {
+        CaptureImageAsset(
+            displayCGImage: image,
+            pointSize: screen.frame.size
+        ) { rawImage in
+            convertTo8BitBGRA(rawImage)
+        }
+    }
 
     // MARK: - SCShareableContent cache
 
@@ -213,11 +222,6 @@ class ScreenCaptureManager {
                                 config.height = display.height * scale
                                 config.showsCursor = UserDefaults.standard.bool(forKey: "captureCursor")
                                 config.captureResolution = .best
-                                // Force sRGB output so pixel values match standard hex color codes.
-                                // Without this, SCKit uses the display's native ICC profile
-                                // (e.g. "Mi Monitor", "Redmi Monitor"), producing different
-                                // color values for the same on-screen color on different displays.
-                                config.colorSpaceName = CGColorSpace.sRGB
 
                                 guard let image = try? await SCScreenshotManager.captureImage(
                                     contentFilter: filter, configuration: config
@@ -228,7 +232,10 @@ class ScreenCaptureManager {
                                 // directly without CPU readback. Convert to 8-bit BGRA
                                 // asynchronously after the overlay is visible for accurate
                                 // color sampling and CPU-side pixel operations.
-                                return ScreenCapture(screen: screen, image: image)
+                                return ScreenCapture(
+                                    screen: screen,
+                                    asset: makeAsset(screen: screen, image: image)
+                                )
                             } else {
                                 // macOS 12.3–13.x: use CGWindowListCreateImage which returns
                                 // a CGImage directly — no pixel buffer format ambiguity.
@@ -243,7 +250,10 @@ class ScreenCaptureManager {
                                 guard let image = CGWindowListCreateImage(
                                     cgRect, .optionAll, kCGNullWindowID, .bestResolution
                                 ) else { return nil }
-                                return ScreenCapture(screen: screen, image: image)
+                                return ScreenCapture(
+                                    screen: screen,
+                                    asset: makeAsset(screen: screen, image: image)
+                                )
                             }
                         }
                     }
@@ -323,13 +333,11 @@ class ScreenCaptureManager {
             config.height = Int(scWindow.frame.height) * scale
             config.showsCursor = false
             config.captureResolution = .best
-            // Force sRGB output — see captureAllScreens for rationale.
-            config.colorSpaceName = CGColorSpace.sRGB
 
             guard let image = try? await SCScreenshotManager.captureImage(
                 contentFilter: filter, configuration: config
             ) else { return nil }
-            return Self.convertTo8BitBGRA(image) ?? image
+            return image
         } else {
             // macOS 12.3–13.x: CGWindowListCreateImage targeting the specific window
             return CGWindowListCreateImage(

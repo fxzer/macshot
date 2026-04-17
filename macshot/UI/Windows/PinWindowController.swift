@@ -13,26 +13,20 @@ class PinWindowController {
 
     private var window: NSPanel?
     private var pinView: PinView?
+    private let imageAsset: CaptureImageAsset
     private let image: NSImage
-    private let initialWindowSize: NSSize
-    private let initialOrigin: NSPoint?
-    private static let minScale: CGFloat = 0.1
-    private static let maxScale: CGFloat = 5.0
 
-    init(image: NSImage, at origin: NSPoint? = nil) {
-        self.image = image
-        self.initialOrigin = origin
+    init(imageAsset: CaptureImageAsset, at origin: NSPoint? = nil) {
+        self.imageAsset = imageAsset
+        self.image = imageAsset.displayImage
 
-        let size = image.size
+        let size = imageAsset.displaySize
         let screen = NSScreen.main ?? NSScreen.screens[0]
         let screenFrame = screen.visibleFrame
 
         // Center on screen, cap at 80% of screen size
-        let maxW = screenFrame.width * 0.8
-        let maxH = screenFrame.height * 0.8
-        let scale = min(1.0, min(maxW / size.width, maxH / size.height))
-        let windowSize = NSSize(width: size.width * scale, height: size.height * scale)
-        self.initialWindowSize = windowSize
+        let scale = PinWindowSizing.fittedScale(imageSize: size, visibleFrame: screenFrame)
+        let windowSize = PinWindowSizing.windowSize(imageSize: size, scale: scale)
 
         // Use provided origin, or center on screen
         let windowOrigin: NSPoint
@@ -63,7 +57,7 @@ class PinWindowController {
         // Allow scroll/magnify events to reach the view even when panel is not key
         panel.becomesKeyOnlyIfNeeded = true
 
-        let view = PinView(image: image)
+        let view = PinView(imageAsset: imageAsset)
         view.frame = NSRect(origin: .zero, size: windowSize)
         view.autoresizingMask = [.width, .height]
         view.onClose = { [weak self] in
@@ -78,10 +72,82 @@ class PinWindowController {
         view.onResetZoom = { [weak self] in
             self?.resetZoom()
         }
+        view.zoomPercent = Int(round(scale * 100))
 
         panel.contentView = view
         self.window = panel
         self.pinView = view
+    }
+
+    convenience init(image: NSImage, at origin: NSPoint? = nil) {
+        self.init(imageAsset: Self.makeImageAsset(from: image), at: origin)
+    }
+
+    private static func makeImageAsset(from image: NSImage) -> CaptureImageAsset {
+        let standardizer: @Sendable (CGImage) -> CGImage? = { rawImage in
+            ScreenCaptureManager.convertTo8BitBGRA(rawImage)
+        }
+
+        if let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) {
+            return CaptureImageAsset(
+                displayCGImage: cgImage,
+                pointSize: image.size,
+                standardizer: standardizer
+            )
+        }
+
+        if let tiffData = image.tiffRepresentation,
+           let bitmap = NSBitmapImageRep(data: tiffData),
+           let cgImage = bitmap.cgImage {
+            return CaptureImageAsset(
+                displayCGImage: cgImage,
+                pointSize: image.size,
+                standardizer: standardizer
+            )
+        }
+
+        let description = NSStringFromSize(image.size)
+        assertionFailure("PinWindowController 无法从 NSImage 创建 CGImage，已退回透明占位图。size=\(description)")
+        NSLog("[macshot] PinWindowController: failed to create CGImage for pinned image, using transparent placeholder. size=\(description)")
+
+        return CaptureImageAsset(
+            displayCGImage: makeFallbackDisplayImage(size: image.size),
+            pointSize: image.size,
+            standardizer: standardizer
+        )
+    }
+
+    private static func makeFallbackDisplayImage(size: NSSize) -> CGImage {
+        let width = max(1, Int(round(size.width)))
+        let height = max(1, Int(round(size.height)))
+        let colorSpace = CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB()
+        let bitmapInfo = CGImageAlphaInfo.premultipliedLast.rawValue
+        guard let context = CGContext(
+            data: nil,
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bytesPerRow: width * 4,
+            space: colorSpace,
+            bitmapInfo: bitmapInfo
+        ),
+        let image = context.makeImage() else {
+            let provider = CGDataProvider(data: Data([0, 0, 0, 0]) as CFData)!
+            return CGImage(
+                width: 1,
+                height: 1,
+                bitsPerComponent: 8,
+                bitsPerPixel: 32,
+                bytesPerRow: 4,
+                space: colorSpace,
+                bitmapInfo: CGBitmapInfo(rawValue: bitmapInfo),
+                provider: provider,
+                decode: nil,
+                shouldInterpolate: false,
+                intent: .defaultIntent
+            )!
+        }
+        return image
     }
 
     private func zoom(by factor: CGFloat, around viewPoint: NSPoint) {
@@ -90,14 +156,11 @@ class PinWindowController {
         let oldSize = oldFrame.size
 
         // Compute new size, clamped
-        let currentScale = oldSize.width / initialWindowSize.width
-        let newScale = min(Self.maxScale, max(Self.minScale, currentScale * factor))
+        let currentScale = oldSize.width / imageAsset.displaySize.width
+        let newScale = PinWindowSizing.clampedScale(currentScale * factor)
         if abs(newScale - currentScale) < 0.001 { return }
 
-        let newSize = NSSize(
-            width: round(initialWindowSize.width * newScale),
-            height: round(initialWindowSize.height * newScale)
-        )
+        let newSize = PinWindowSizing.windowSize(imageSize: imageAsset.displaySize, scale: newScale)
 
         // Anchor: the screen point under the cursor stays fixed
         let cursorScreenPoint = NSPoint(
@@ -120,11 +183,15 @@ class PinWindowController {
         let oldFrame = window.frame
         let centerX = oldFrame.midX
         let centerY = oldFrame.midY
-        let newOrigin = NSPoint(
-            x: centerX - initialWindowSize.width / 2,
-            y: centerY - initialWindowSize.height / 2
+        let oneToOneSize = PinWindowSizing.windowSize(
+            imageSize: imageAsset.displaySize,
+            scale: PinWindowSizing.oneToOneScale
         )
-        window.setFrame(NSRect(origin: newOrigin, size: initialWindowSize), display: true)
+        let newOrigin = NSPoint(
+            x: centerX - oneToOneSize.width / 2,
+            y: centerY - oneToOneSize.height / 2
+        )
+        window.setFrame(NSRect(origin: newOrigin, size: oneToOneSize), display: true)
         pinView?.zoomPercent = 100
     }
 
@@ -141,7 +208,7 @@ class PinWindowController {
     }
 
     private func openInEditor() {
-        DetachedEditorWindowController.open(image: image)
+        DetachedEditorWindowController.open(image: imageAsset.displayImage)
         close()
     }
 
@@ -175,6 +242,7 @@ private class PinView: NSView {
     var onZoom: ((CGFloat, NSPoint) -> Void)?
     var onResetZoom: (() -> Void)?
 
+    private let imageAsset: CaptureImageAsset
     private let image: NSImage
     private var closeButton: NSButton?
     private var editButton: NSButton?
@@ -191,8 +259,9 @@ private class PinView: NSView {
         }
     }
 
-    init(image: NSImage) {
-        self.image = image
+    init(imageAsset: CaptureImageAsset) {
+        self.imageAsset = imageAsset
+        self.image = imageAsset.displayImage
         super.init(frame: .zero)
         setupButtons()
     }
@@ -279,7 +348,6 @@ private class PinView: NSView {
         // Close button top-right, edit button to its left, zoom label to its left
         let btnSize: CGFloat = 24
         let btnY = bounds.maxY - 30
-        let btnCenterY = btnY + btnSize / 2
         closeButton?.frame = NSRect(x: bounds.maxX - 30, y: btnY, width: btnSize, height: btnSize)
         editButton?.frame  = NSRect(x: bounds.maxX - 58, y: btnY, width: btnSize, height: btnSize)
         if let label = zoomLabel {
@@ -339,11 +407,11 @@ private class PinView: NSView {
     }
 
     @objc private func copyImage() {
-        ImageEncoder.copyToClipboard(image)
+        ImageEncoder.copyToClipboard(imageAsset, source: .display)
     }
 
     @objc private func saveImage() {
-        guard let imageData = ImageEncoder.encode(image) else { return }
+        guard let imageData = ImageEncoder.encode(imageAsset, source: .display) else { return }
 
         let savePanel = NSSavePanel()
         savePanel.allowedContentTypes = [ImageEncoder.utType]

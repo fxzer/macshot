@@ -108,29 +108,50 @@ class OverlayView: NSView {
         }
     }
 
-    /// Store the original CGImage for accurate color sampling.
-    /// Using NSImage.cgImage(forProposedRect:) can return CGImages in different pixel formats
-    /// (e.g., 16-bit float on Retina), which causes color sampling inaccuracies.
+    /// Display image used for on-screen preview.
+    private var displayCGImage: CGImage?
+    /// Standardized image used for color sampling and loupe reads.
     private var originalCGImage: CGImage?
+    private var colorSamplingCGImage: CGImage?
     private var _loupeSourceCGImage: CGImage?
     /// Loupe source image — lazily computed on first access to avoid
     /// expensive cgImage(forProposedRect:) in the screenshotImage setter.
     private var loupeSourceCGImage: CGImage? {
-        if _loupeSourceCGImage == nil, let image = screenshotImage {
-            _loupeSourceCGImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil)
+        if _loupeSourceCGImage == nil {
+            _loupeSourceCGImage = colorSamplingCGImage
+                ?? displayCGImage
+                ?? screenshotImage?.cgImage(forProposedRect: nil, context: nil, hints: nil)
         }
         return _loupeSourceCGImage
     }
 
-    /// Set the original CGImage for accurate color sampling.
+    func setDisplayCGImage(_ cgImage: CGImage) {
+        displayCGImage = cgImage
+        if colorSamplingCGImage == nil {
+            originalCGImage = cgImage
+        }
+        _loupeSourceCGImage = nil
+    }
+
     func setOriginalCGImage(_ cgImage: CGImage) {
+        setDisplayCGImage(cgImage)
         self.originalCGImage = cgImage
     }
 
-    /// Update stored CGImages with a converted (8-bit BGRA, sRGB) version.
-    /// Called after deferred background conversion completes — ensures color
-    /// sampling and loupe rendering use accurate pixel values.
+    func setColorSamplingCGImage(_ cgImage: CGImage) {
+        colorSamplingCGImage = cgImage
+        originalCGImage = cgImage
+        _loupeSourceCGImage = cgImage
+    }
+
     func updateColorAccurateImage(_ cgImage: CGImage) {
+        setColorSamplingCGImage(cgImage)
+    }
+
+    private func replaceScreenshotImage(_ cgImage: CGImage, size: NSSize) {
+        screenshotImage = NSImage(cgImage: cgImage, size: size)
+        displayCGImage = cgImage
+        colorSamplingCGImage = cgImage
         originalCGImage = cgImage
         _loupeSourceCGImage = cgImage
     }
@@ -3438,8 +3459,7 @@ class OverlayView: NSView {
         ctx.draw(cgImage, in: CGRect(x: 0, y: 0, width: w, height: h))
         guard let flipped = ctx.makeImage() else { return }
 
-        screenshotImage = NSImage(cgImage: flipped, size: original.size)
-        originalCGImage = flipped  // Update original CGImage for accurate color sampling
+        replaceScreenshotImage(flipped, size: original.size)
 
         // Mirror annotation X coordinates around the image center
         let imgW = original.size.width
@@ -3487,8 +3507,7 @@ class OverlayView: NSView {
         ctx.draw(cgImage, in: CGRect(x: 0, y: 0, width: w, height: h))
         guard let flipped = ctx.makeImage() else { return }
 
-        screenshotImage = NSImage(cgImage: flipped, size: original.size)
-        originalCGImage = flipped  // Update original CGImage for accurate color sampling
+        replaceScreenshotImage(flipped, size: original.size)
 
         // Mirror annotation Y coordinates around the image center
         for ann in annotations {
@@ -3613,8 +3632,7 @@ class OverlayView: NSView {
         undoStack.append(.imageTransform(previousImage: prevImage, annotationOffsets: offsets))
 
         let newNSImage = NSImage(cgImage: newCG, size: NSSize(width: newPtW, height: newPtH))
-        screenshotImage = newNSImage
-        originalCGImage = newCG  // Update original CGImage for accurate color sampling
+        replaceScreenshotImage(newCG, size: newNSImage.size)
         cachedOpaqueRect = nil  // invalidate — image content changed
 
         // Shift all annotations so they align with the new origin
@@ -3699,8 +3717,7 @@ class OverlayView: NSView {
 
         guard let inverted = Self.sharedCIContext.createCGImage(output, from: output.extent) else { return }
 
-        screenshotImage = NSImage(cgImage: inverted, size: original.size)
-        originalCGImage = inverted  // Update original CGImage for accurate color sampling
+        replaceScreenshotImage(inverted, size: original.size)
         cachedCompositedImage = nil
         needsDisplay = true
     }
@@ -4660,8 +4677,7 @@ class OverlayView: NSView {
         let croppedPointSize = NSSize(
             width: CGFloat(croppedCG.width) / pixScale,
             height: CGFloat(croppedCG.height) / pixScale)
-        screenshotImage = NSImage(cgImage: croppedCG, size: croppedPointSize)
-        originalCGImage = croppedCG  // Update original CGImage for accurate color sampling
+        replaceScreenshotImage(croppedCG, size: croppedPointSize)
 
         // Update selectionRect to match new image size
         selectionRect = NSRect(origin: .zero, size: croppedPointSize)
