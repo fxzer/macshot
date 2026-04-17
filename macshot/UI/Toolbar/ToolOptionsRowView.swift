@@ -1095,31 +1095,31 @@ class ToolOptionsRowView: NSView {
 
         // Mode toggle: Window / Rounded — hidden for snapped windows (always uses native chrome)
         if !isSnap {
-            let modeSeg = NSSegmentedControl(labels: ["W", "R"], trackingMode: .selectOne,
+            let modeSeg = NSSegmentedControl(labels: [L("Window"), L("Rounded")], trackingMode: .selectOne,
                                              target: self, action: #selector(beautifyModeChanged(_:)))
             modeSeg.selectedSegment = ov.beautifyMode == .window ? 0 : 1
-            modeSeg.frame = NSRect(x: curX, y: (rowHeight - 22) / 2, width: 56, height: 22)
+            modeSeg.frame = NSRect(x: curX, y: (rowHeight - 22) / 2, width: 90, height: 22)
             (modeSeg.cell as? NSSegmentedCell)?.segmentStyle = .roundRect
             addSubview(modeSeg)
-            curX += 56
+            curX += 90
 
             curX = addSeparator(at: curX)
         }
 
         // Padding slider
-        curX = addBeautifySlider(at: curX, label: L("Padding"), value: ov.beautifyPadding, min: 16, max: 96, action: #selector(beautifyPaddingChanged(_:)))
+        curX = addBeautifySlider(at: curX, label: L("Padding"), value: ov.beautifyPadding, min: 16, max: 96, action: #selector(beautifyPaddingChanged(_:)), tag: 900)
 
         // Corner radius slider — hidden for snapped windows (native corners are baked in)
         if !isSnap {
-            curX = addBeautifySlider(at: curX, label: L("Radius"), value: ov.beautifyCornerRadius, min: 0, max: 30, action: #selector(beautifyCornerChanged(_:)))
+            curX = addBeautifySlider(at: curX, label: L("Radius"), value: ov.beautifyCornerRadius, min: 0, max: 30, action: #selector(beautifyCornerChanged(_:)), tag: 901)
         }
 
         // Shadow slider
-        curX = addBeautifySlider(at: curX, label: L("Shadow"), value: ov.beautifyShadowRadius, min: 0, max: 100, action: #selector(beautifyShadowChanged(_:)))
+        curX = addBeautifySlider(at: curX, label: L("Shadow"), value: ov.beautifyShadowRadius, min: 0, max: 100, action: #selector(beautifyShadowChanged(_:)), tag: 902)
 
         // Blur slider — only shown for custom image backgrounds
         if ov.beautifyStyleIndex == -1 {
-            curX = addBeautifySlider(at: curX, label: L("Blur"), value: ov.beautifyBackgroundBlur, min: 0, max: 50, action: #selector(beautifyBlurChanged(_:)))
+            curX = addBeautifySlider(at: curX, label: L("Blur"), value: ov.beautifyBackgroundBlur, min: 0, max: 50, action: #selector(beautifyBlurChanged(_:)), tag: 903)
         }
 
         curX = addSeparator(at: curX)
@@ -1170,7 +1170,7 @@ class ToolOptionsRowView: NSView {
         return curX
     }
 
-    private func addBeautifySlider(at x: CGFloat, label: String, value: CGFloat, min: CGFloat, max: CGFloat, action: Selector) -> CGFloat {
+    private func addBeautifySlider(at x: CGFloat, label: String, value: CGFloat, min: CGFloat, max: CGFloat, action: Selector, tag: Int) -> CGFloat {
         var curX = x
         let lbl = NSTextField(labelWithString: label)
         lbl.font = NSFont.systemFont(ofSize: 9, weight: .medium)
@@ -1184,8 +1184,19 @@ class ToolOptionsRowView: NSView {
                               target: self, action: action)
         slider.frame = NSRect(x: curX, y: (rowHeight - 18) / 2, width: 60, height: 18)
         slider.isContinuous = true
+        slider.tag = tag
         addSubview(slider)
         curX += 64
+
+        // Value label
+        let valLabel = NSTextField(labelWithString: "\(Int(value))")
+        valLabel.font = NSFont.monospacedDigitSystemFont(ofSize: 10, weight: .medium)
+        valLabel.textColor = ToolbarLayout.iconColor.withAlphaComponent(0.6)
+        valLabel.alignment = .right
+        valLabel.frame = NSRect(x: curX, y: (rowHeight - 14) / 2, width: 28, height: 14)
+        valLabel.tag = tag + 100  // value label tag = slider tag + 100
+        addSubview(valLabel)
+        curX += 32
 
         return curX
     }
@@ -1203,6 +1214,9 @@ class ToolOptionsRowView: NSView {
         guard let ov = overlayView else { return }
         ov.beautifyPadding = CGFloat(sender.floatValue)
         UserDefaults.standard.set(sender.doubleValue, forKey: "beautifyPadding")
+        if let label = viewWithTag(sender.tag + 100) as? NSTextField {
+            label.stringValue = "\(Int(sender.floatValue))"
+        }
         ov.needsDisplay = true
     }
 
@@ -1210,6 +1224,9 @@ class ToolOptionsRowView: NSView {
         guard let ov = overlayView else { return }
         ov.beautifyCornerRadius = CGFloat(sender.floatValue)
         UserDefaults.standard.set(sender.doubleValue, forKey: "beautifyCornerRadius")
+        if let label = viewWithTag(sender.tag + 100) as? NSTextField {
+            label.stringValue = "\(Int(sender.floatValue))"
+        }
         ov.needsDisplay = true
     }
 
@@ -1217,6 +1234,9 @@ class ToolOptionsRowView: NSView {
         guard let ov = overlayView else { return }
         ov.beautifyShadowRadius = CGFloat(sender.floatValue)
         UserDefaults.standard.set(sender.doubleValue, forKey: "beautifyShadowRadius")
+        if let label = viewWithTag(sender.tag + 100) as? NSTextField {
+            label.stringValue = "\(Int(sender.floatValue))"
+        }
         ov.needsDisplay = true
     }
 
@@ -1224,6 +1244,9 @@ class ToolOptionsRowView: NSView {
         guard let ov = overlayView else { return }
         ov.beautifyBackgroundBlur = CGFloat(sender.floatValue)
         UserDefaults.standard.set(sender.doubleValue, forKey: "beautifyBgBlur")
+        if let label = viewWithTag(sender.tag + 100) as? NSTextField {
+            label.stringValue = "\(Int(sender.floatValue))"
+        }
         ov.cachedCompositedImage = nil
         ov.needsDisplay = true
     }
