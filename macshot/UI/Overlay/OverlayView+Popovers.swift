@@ -844,7 +844,8 @@ private class InlineGradientPickerView: NSView {
     private let styles = BeautifyRenderer.styles
     private let cols = 8  // 改为8列
     private let swSize: CGFloat = 28
-    private let padding: CGFloat = 8
+    /// 仅上下内边距；水平方向与 `BeautifyPopoverView` 的 x:14 + 宽 252 对齐，避免与分段控件/滑块行错位或超出 280 宽弹窗
+    private let paddingV: CGFloat = 8
     private let gap: CGFloat = 4
 
     private var hasCustomImage: Bool {
@@ -856,8 +857,8 @@ private class InlineGradientPickerView: NSView {
         let hasCustom = UserDefaults.standard.data(forKey: "beautifyCustomBgImageData") != nil
         let total = BeautifyRenderer.styles.count + (hasCustom ? 1 : 0) + 1
         let rows = (total + 7) / 8  // 8列
-        let w = padding * 2 + CGFloat(8) * swSize + CGFloat(7) * gap
-        let h = padding * 2 + CGFloat(rows) * swSize + CGFloat(max(0, rows - 1)) * gap
+        let w = CGFloat(cols) * swSize + CGFloat(cols - 1) * gap
+        let h = paddingV * 2 + CGFloat(rows) * swSize + CGFloat(max(0, rows - 1)) * gap
         super.init(frame: NSRect(x: 0, y: 0, width: w, height: h))
     }
 
@@ -868,8 +869,8 @@ private class InlineGradientPickerView: NSView {
     private func rectForIndex(_ i: Int) -> NSRect {
         let col = i % cols
         let row = i / cols
-        let sx = padding + CGFloat(col) * (swSize + gap)
-        let sy = padding + CGFloat(row) * (swSize + gap)
+        let sx = CGFloat(col) * (swSize + gap)
+        let sy = paddingV + CGFloat(row) * (swSize + gap)
         return NSRect(x: sx, y: sy, width: swSize, height: swSize)
     }
 
