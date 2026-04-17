@@ -98,10 +98,10 @@ class DetachedEditorWindowController: NSObject, NSWindowDelegate {
         }
 
         // NSScrollView for native zoom/pan/centering.
-        // The scroll view is inset from the top by the top bar height (32pt) so the
+        // The scroll view is inset from the top by the top bar height so the
         // scrollbar and content don't go behind the top bar. Bottom/right toolbars
         // are handled via content insets since their sizes are dynamic.
-        let topBarHeight: CGFloat = 32
+        let topBarHeight = EditorTopBarView.height
         let scrollView = NSScrollView(frame: NSRect(x: 0, y: 0, width: winW, height: winH - topBarHeight))
         scrollView.autoresizingMask = [.width, .height]
         scrollView.hasVerticalScroller = true
@@ -136,8 +136,13 @@ class DetachedEditorWindowController: NSObject, NSWindowDelegate {
         container.addSubview(scrollView)
 
         // Top bar — real NSView pinned to top of container
-        let topBar = EditorTopBarView(frame: NSRect(x: 0, y: winH - 32, width: winW, height: 32))
+        let topBar = EditorTopBarView(frame: NSRect(x: 0, y: winH - topBarHeight, width: winW, height: topBarHeight))
         topBar.overlayView = view
+        topBar.onTooltipChange = { [weak view] tooltip, btn in
+            view?.hoveredTooltip = tooltip
+            view?.hoveredTooltipButtonView = btn
+            view?.needsDisplay = true
+        }
         container.addSubview(topBar)
         self.topBar = topBar
 
@@ -346,6 +351,9 @@ extension DetachedEditorWindowController: OverlayViewDelegate {
         playCopySound()
         (NSApp.delegate as? AppDelegate)?.showPin(image: image)
         autoSaveToHistoryIfNeeded(compositedImage: image)
+
+        // 固定后关闭编辑器窗口
+        window?.close()
     }
 
     func overlayViewDidRequestOCR() {

@@ -132,15 +132,6 @@ class ToolOptionsRowView: NSView {
         currentTool = tool
         var curX: CGFloat = padding
 
-        // ── Beautify options (overrides tool options when active) ──
-        if ov.showBeautifyInOptionsRow {
-            curX = addBeautifyOptions(at: curX, ov: ov)
-            let totalW = max(curX + padding, 200)
-            contentWidth = totalW
-            frame.size = NSSize(width: totalW, height: rowHeight)
-            return
-        }
-
         if supportsDrawColor(tool) {
             curX = addDrawColorControl(at: curX, tool: tool, ov: ov)
         }

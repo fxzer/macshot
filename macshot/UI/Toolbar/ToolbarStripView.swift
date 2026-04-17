@@ -19,8 +19,8 @@ class ToolbarStripView: NSView {
     var onHover: ((ToolbarButtonAction, Bool) -> Void)?
     var horizontalSeparatorAfterIndices: Set<Int> = []
 
-    private let padding: CGFloat = 4
-    private let spacing: CGFloat = 2
+    private let padding: CGFloat = ToolbarLayout.toolbarPadding
+    private let spacing: CGFloat = ToolbarLayout.buttonSpacing
     private let separatorSpacing: CGFloat = 6  // Extra spacing around separators
 
     init(orientation: Orientation) {
@@ -49,7 +49,6 @@ class ToolbarStripView: NSView {
 
             let bv = ToolbarButtonView(action: data.action, sfSymbol: data.sfSymbol, tooltip: data.tooltip)
             bv.isOn = data.isSelected
-            bv.isEnabled = data.isEnabled
             bv.tintColor = data.tintColor
             bv.swatchColor = data.bgColor
             bv.hasContextMenu = data.hasContextMenu
@@ -102,9 +101,8 @@ class ToolbarStripView: NSView {
                 x += btnSize + spacing
                 maxWidth += btnSize + spacing
 
-                // 容器1：绘图工具（10个，索引0-9）+ 分隔线 + 撤销/重做（2个，索引10-11）
-                // 在第10个按钮（索引9，测量工具）后添加分隔线
-                if index == 9 && separatorIndex < separatorViews.count {
+                // 检查是否需要在这个按钮后添加分隔线
+                if horizontalSeparatorAfterIndices.contains(index) && separatorIndex < separatorViews.count {
                     let sep = separatorViews[separatorIndex]
                     x += separatorSpacing
                     let sepSize = sep.intrinsicContentSize
@@ -113,15 +111,8 @@ class ToolbarStripView: NSView {
                     maxWidth += sepSize.width + separatorSpacing * 2
                     separatorIndex += 1
                 }
-
-                // 容器1和容器2之间：16px 大间距
-                // 容器1结束于索引11（撤销/重做），容器2开始于索引12
-                if index == 11 {
-                    x += 16  // 大间距
-                    maxWidth += 16
-                }
             }
-            frame.size = NSSize(width: maxWidth + padding, height: btnSize + padding * 2)
+            frame.size = NSSize(width: maxWidth, height: btnSize + padding * 2)
 
         case .vertical:
             var sepRun = 0

@@ -94,7 +94,7 @@
 "Pin" = "固定";
 "Pin (floating window)" = "固定（浮动窗口）";
 "OCR" = "OCR";
-"OCR Text" = "OCR 文字";
+"OCR Text" = "OCR";
 "OCR (extract text)" = "OCR（提取文字）";
 "Upload" = "上传";
 "Share" = "共享";
@@ -102,6 +102,9 @@
 "Redo" = "重做";
 "Close" = "关闭";
 "Remove Background" = "抠图";
+"Background" = "背景";
+"Background Image" = "背景图";
+"Choose Image" = "选择图片";
 "Beautify" = "风格化";
 "Adjust" = "调色";
 "Adjust (Image Effects)" = "调色";
@@ -191,7 +194,7 @@
 "Interface Options" = "界面选项";
 "Window" = "窗口";
 "Rounded" = "圆角";
-"Share Card" = "分享卡片";
+"Wrap" = "包装";
 "Application" = "应用";
 "Tools" = "工具";
 "Recording" = "录制";

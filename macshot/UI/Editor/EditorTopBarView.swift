@@ -5,12 +5,15 @@ import Cocoa
 class EditorTopBarView: NSView {
 
     weak var overlayView: OverlayView?
+    var onTooltipChange: ((String?, NSView?) -> Void)?
+    static let height: CGFloat = ToolbarLayout.stripThickness
+
     private var sizeLabel: NSTextField!
-    private var undoButton: NSButton!
-    private var redoButton: NSButton!
     private var zoomButton: NSButton!
     private var doneButton: NSButton?
     var onDone: (() -> Void)?
+
+    private var tooltips: [NSButton: String] = [:]
 
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -25,8 +28,6 @@ class EditorTopBarView: NSView {
         sizeLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
         sizeLabel.setContentHuggingPriority(.required, for: .horizontal)
 
-        undoButton = makeButton("arrow.uturn.backward", tooltip: L("Undo"), action: #selector(undoClicked))
-        redoButton = makeButton("arrow.uturn.forward", tooltip: L("Redo"), action: #selector(redoClicked))
         let cropBtn = makeButton("crop", tooltip: L("Crop"), action: #selector(cropClicked))
         let flipHBtn = makeButton("arrow.left.and.right.righttriangle.left.righttriangle.right", tooltip: L("Flip Horizontal"), action: #selector(flipHClicked))
         let flipVBtn = makeButton("arrow.up.and.down.righttriangle.up.righttriangle.down", tooltip: L("Flip Vertical"), action: #selector(flipVClicked))
@@ -50,13 +51,13 @@ class EditorTopBarView: NSView {
         addSubview(border)
 
         // Layout with constraints
-        for v: NSView in [sizeLabel, undoButton, redoButton, cropBtn, flipHBtn, flipVBtn, addCaptureBtn, zoomButton] {
+        for v: NSView in [sizeLabel, cropBtn, flipHBtn, flipVBtn, addCaptureBtn, zoomButton] {
             v.translatesAutoresizingMaskIntoConstraints = false
             addSubview(v)
         }
 
         NSLayoutConstraint.activate([
-            heightAnchor.constraint(equalToConstant: 32),
+            heightAnchor.constraint(equalToConstant: Self.height),
 
             sizeLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
             sizeLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
@@ -64,35 +65,25 @@ class EditorTopBarView: NSView {
             zoomButton.trailingAnchor.constraint(equalTo: sizeLabel.leadingAnchor, constant: -12),
             zoomButton.centerYAnchor.constraint(equalTo: centerYAnchor),
 
-            undoButton.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
-            undoButton.centerYAnchor.constraint(equalTo: centerYAnchor),
-            undoButton.widthAnchor.constraint(equalToConstant: 24),
-            undoButton.heightAnchor.constraint(equalToConstant: 22),
-
-            redoButton.leadingAnchor.constraint(equalTo: undoButton.trailingAnchor, constant: 4),
-            redoButton.centerYAnchor.constraint(equalTo: centerYAnchor),
-            redoButton.widthAnchor.constraint(equalToConstant: 24),
-            redoButton.heightAnchor.constraint(equalToConstant: 22),
-
-            cropBtn.leadingAnchor.constraint(equalTo: redoButton.trailingAnchor, constant: 12),
+            cropBtn.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
             cropBtn.centerYAnchor.constraint(equalTo: centerYAnchor),
-            cropBtn.widthAnchor.constraint(equalToConstant: 24),
-            cropBtn.heightAnchor.constraint(equalToConstant: 22),
+            cropBtn.widthAnchor.constraint(equalToConstant: ToolbarLayout.buttonSize),
+            cropBtn.heightAnchor.constraint(equalToConstant: ToolbarLayout.buttonSize),
 
             flipHBtn.leadingAnchor.constraint(equalTo: cropBtn.trailingAnchor, constant: 4),
             flipHBtn.centerYAnchor.constraint(equalTo: centerYAnchor),
-            flipHBtn.widthAnchor.constraint(equalToConstant: 24),
-            flipHBtn.heightAnchor.constraint(equalToConstant: 22),
+            flipHBtn.widthAnchor.constraint(equalToConstant: ToolbarLayout.buttonSize),
+            flipHBtn.heightAnchor.constraint(equalToConstant: ToolbarLayout.buttonSize),
 
             flipVBtn.leadingAnchor.constraint(equalTo: flipHBtn.trailingAnchor, constant: 4),
             flipVBtn.centerYAnchor.constraint(equalTo: centerYAnchor),
-            flipVBtn.widthAnchor.constraint(equalToConstant: 24),
-            flipVBtn.heightAnchor.constraint(equalToConstant: 22),
+            flipVBtn.widthAnchor.constraint(equalToConstant: ToolbarLayout.buttonSize),
+            flipVBtn.heightAnchor.constraint(equalToConstant: ToolbarLayout.buttonSize),
 
             addCaptureBtn.leadingAnchor.constraint(equalTo: flipVBtn.trailingAnchor, constant: 12),
             addCaptureBtn.centerYAnchor.constraint(equalTo: centerYAnchor),
-            addCaptureBtn.widthAnchor.constraint(equalToConstant: 24),
-            addCaptureBtn.heightAnchor.constraint(equalToConstant: 22),
+            addCaptureBtn.widthAnchor.constraint(equalToConstant: ToolbarLayout.buttonSize),
+            addCaptureBtn.heightAnchor.constraint(equalToConstant: ToolbarLayout.buttonSize),
             addCaptureBtn.trailingAnchor.constraint(lessThanOrEqualTo: zoomButton.leadingAnchor, constant: -16),
 
             border.leadingAnchor.constraint(equalTo: leadingAnchor),
@@ -100,29 +91,29 @@ class EditorTopBarView: NSView {
             border.bottomAnchor.constraint(equalTo: bottomAnchor),
             border.heightAnchor.constraint(equalToConstant: 0.5),
         ])
-
-        updateUndoRedo(canUndo: false, canRedo: false)
     }
 
     required init?(coder: NSCoder) { fatalError() }
 
     private func makeButton(_ symbol: String, tooltip: String, action: Selector) -> NSButton {
-        let btn = NSButton()
+        let btn = HoverTrackingButton()
         btn.bezelStyle = .recessed
         btn.isBordered = false
-        btn.image = NSImage(systemSymbolName: symbol, accessibilityDescription: tooltip)?
-            .withSymbolConfiguration(.init(pointSize: 13, weight: .medium))
+        btn.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)?
+            .withSymbolConfiguration(.init(pointSize: ToolbarLayout.iconPointSize, weight: .medium))
         btn.contentTintColor = ToolbarLayout.iconColor.withAlphaComponent(0.85)
-        btn.toolTip = tooltip
+        tooltips[btn] = tooltip
         btn.target = self
         btn.action = action
+        btn.onHover = { [weak self, weak btn] hovered in
+            guard let self, let btn else { return }
+            if hovered, let tooltip = self.tooltips[btn] {
+                self.onTooltipChange?(tooltip, btn)
+            } else {
+                self.onTooltipChange?(nil, nil)
+            }
+        }
         return btn
-    }
-
-    private func applyToolbarButtonState(_ button: NSButton, enabled: Bool) {
-        button.isEnabled = enabled
-        button.contentTintColor = ToolbarLayout.iconColor.withAlphaComponent(enabled ? 0.85 : 0.28)
-        button.alphaValue = enabled ? 1.0 : 0.7
     }
 
     private func makeLabel(_ text: String) -> NSTextField {
@@ -139,11 +130,6 @@ class EditorTopBarView: NSView {
 
     func updateZoom(_ magnification: CGFloat) {
         zoomButton.title = "\(Int(magnification * 100))% ▾"
-    }
-
-    func updateUndoRedo(canUndo: Bool, canRedo: Bool) {
-        applyToolbarButtonState(undoButton, enabled: canUndo)
-        applyToolbarButtonState(redoButton, enabled: canRedo)
     }
 
     // MARK: - Zoom dropdown
@@ -266,9 +252,6 @@ class EditorTopBarView: NSView {
 
     @objc private func doneClicked() { onDone?() }
 
-    @objc private func undoClicked() { overlayView?.undo() }
-    @objc private func redoClicked() { overlayView?.redo() }
-
     @objc private func cropClicked() {
         guard let ov = overlayView else { return }
         ov.currentTool = ov.currentTool == .crop ? .arrow : .crop
@@ -282,5 +265,33 @@ class EditorTopBarView: NSView {
 
     override func resetCursorRects() {
         addCursorRect(bounds, cursor: .arrow)
+    }
+}
+
+private final class HoverTrackingButton: NSButton {
+    var onHover: ((Bool) -> Void)?
+    private var trackingArea: NSTrackingArea?
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let trackingArea {
+            removeTrackingArea(trackingArea)
+        }
+        let area = NSTrackingArea(
+            rect: bounds,
+            options: [.mouseEnteredAndExited, .activeInActiveApp],
+            owner: self,
+            userInfo: nil
+        )
+        addTrackingArea(area)
+        trackingArea = area
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        onHover?(true)
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        onHover?(false)
     }
 }

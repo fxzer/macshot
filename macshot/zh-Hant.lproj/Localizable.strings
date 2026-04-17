@@ -76,7 +76,7 @@
 "Pin" = "釘選";
 "Pin (floating window)" = "釘選（浮動視窗）";
 "OCR" = "OCR";
-"OCR Text" = "OCR 文字辨識";
+"OCR Text" = "OCR";
 "OCR (extract text)" = "OCR（擷取文字）";
 "Upload" = "上傳";
 "Share" = "分享";
@@ -84,6 +84,10 @@
 "Redo" = "重做";
 "Close" = "關閉";
 "Remove Background" = "移除背景";
+"Background" = "背景";
+"Background Image" = "背景圖";
+"Choose Image" = "選擇圖片";
+"Wrap" = "包裝";
 "Beautify" = "美化";
 "Adjust" = "調整";
 "Adjust (Image Effects)" = "調整（影像效果）";

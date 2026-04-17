@@ -632,8 +632,6 @@ class OverlayView: NSView {
         )
     }
 
-    var showBeautifyInOptionsRow: Bool = false
-
     // Image effects
     var effectsPreset: ImageEffectPreset =
         ImageEffectPreset(rawValue: UserDefaults.standard.integer(forKey: "effectsPreset")) ?? .none
@@ -979,8 +977,8 @@ class OverlayView: NSView {
     private var overlayHintFadeTimer: Timer? = nil
 
     // Instant tooltip for hovered toolbar button
-    private var hoveredTooltip: String?
-    private var hoveredTooltipButtonView: ToolbarButtonView?
+    var hoveredTooltip: String?
+    var hoveredTooltipButtonView: NSView?
     private var editorTooltipView: NSView?
     private var overlayErrorTimer: Timer? = nil
 
@@ -1402,7 +1400,6 @@ class OverlayView: NSView {
             currentStampImage != nil,
             state == .selected,
             !isRecording,
-            !showBeautifyInOptionsRow,
             pointIsInSelection(viewPoint),
             !isPointOnChrome(viewPoint)
         else { return false }
@@ -1413,7 +1410,6 @@ class OverlayView: NSView {
         guard currentTool == .loupe,
             state == .selected,
             !isRecording,
-            !showBeautifyInOptionsRow,
             pointIsInSelection(viewPoint),
             !isPointOnChrome(viewPoint)
         else { return false }
@@ -1786,7 +1782,7 @@ class OverlayView: NSView {
             }
 
             // Body hover — open hand (skip for pencil where click still draws immediately)
-            if currentTool != .pencil {
+            if currentTool != .select {
                 let canvasPoint = viewToCanvas(point)
                 if let selected = selectedAnnotation, selected.hitTest(point: canvasPoint) {
                     NSCursor.openHand.set()
@@ -3420,7 +3416,7 @@ class OverlayView: NSView {
         case .text:
             return true
         default:
-            return showBeautifyInOptionsRow
+            return false
         }
     }
 
@@ -3640,7 +3636,7 @@ class OverlayView: NSView {
         redoStack.removeAll()
         cachedCompositedImage = nil
 
-        // Auto-select so user can adjust immediately (matches commitAnnotation behavior)
+        // Auto-switch to pencil so user can draw or select annotations to adjust
         currentTool = .select
         selectedAnnotation = ann
 
@@ -5470,13 +5466,13 @@ class OverlayView: NSView {
             beautifyEnabled: beautifyEnabled, beautifyStyleIndex: beautifyStyleIndex,
             hasAnnotations: movableAnnotations, isRecording: isRecording,
             effectsActive: effectsActive,
-            canUndo: !undoStack.isEmpty, canRedo: !redoStack.isEmpty,
             isEditorMode: isEditorMode
         )
         rightButtons = ToolbarLayout.rightButtons(
+            selectedTool: currentTool,
             beautifyEnabled: beautifyEnabled, beautifyStyleIndex: beautifyStyleIndex,
             hasAnnotations: movableAnnotations, effectsActive: effectsActive,
-            beautifyPanelVisible: showBeautifyInOptionsRow, translateEnabled: translateEnabled,
+            translateEnabled: translateEnabled,
             isRecording: isRecording,
             isEditorMode: isEditorMode)
 
@@ -5489,7 +5485,7 @@ class OverlayView: NSView {
         }
         if bottomStripView == nil {
             let strip = ToolbarStripView(orientation: .horizontal)
-            strip.horizontalSeparatorAfterIndices = [3, 7]
+            strip.horizontalSeparatorAfterIndices = [3, 7]  // 每组4个工具后添加分割线
             parent.addSubview(strip)
             bottomStripView = strip
         }
@@ -5512,6 +5508,9 @@ class OverlayView: NSView {
             }
         }
         // Update existing buttons if count matches, rebuild only if structure changed
+        // 每组4个工具后添加分割线：索引3（marker后）、索引7（loupe后）、撤销前（倒数第3个）
+        let separatorIndex = max(0, bottomButtons.count - 3)
+        bottomStripView?.horizontalSeparatorAfterIndices = bottomButtons.count >= 3 ? [3, 7, separatorIndex] : []
         if bottomStripView?.buttonViews.count == bottomButtons.count && bottomStripView?.buttonViews.count ?? 0 > 0 {
             bottomStripView?.updateState(from: bottomButtons)
         } else {
@@ -5534,6 +5533,15 @@ class OverlayView: NSView {
             }
             rightStripView?.onHover = { [weak self] action, hovered in
                 self?.handleToolbarButtonHover(action, hovered: hovered, strip: self?.rightStripView)
+            }
+        }
+
+        // Move button needs onMouseDown for press-and-drag (synchronous tracking loop)
+        for strip in [topStripView, rightStripView] {
+            for bv in strip?.buttonViews ?? [] {
+                if case .moveSelection = bv.action, bv.onMouseDown == nil {
+                    bv.onMouseDown = { [weak self] _ in self?.handleToolbarAction(.moveSelection) }
+                }
             }
         }
 
@@ -5576,7 +5584,6 @@ class OverlayView: NSView {
                 }
             }
         }
-        findTopBar()?.updateUndoRedo(canUndo: canUndo, canRedo: canRedo)
     }
 
     /// Coalesced async toolbar rebuild — avoids blocking event handling (e.g. mouseUp after marquee).
@@ -5648,10 +5655,24 @@ class OverlayView: NSView {
             let cb = chromeParentView?.bounds ?? bounds
             topStripView?.frame.origin = NSPoint(x: cb.midX - topSize.width / 2, y: cb.maxY - topSize.height - 20)
             topStripView?.autoresizingMask = [.minXMargin, .maxXMargin, .minYMargin]
-            bottomStrip.frame.origin = NSPoint(x: cb.midX - bottomSize.width / 2, y: 20)
+
+            // 底部工具栏
+            let container1Width = bottomSize.width
+            bottomStrip.frame.origin = NSPoint(x: cb.midX - container1Width / 2, y: 8)
             bottomStrip.autoresizingMask = [.minXMargin, .maxXMargin, .maxYMargin]
-            rightStrip.frame.origin = NSPoint(
-                x: cb.maxX - rightSize.width - 20, y: cb.maxY - rightSize.height - 36)
+
+            // 右侧工具栏放在顶部工具栏下方 8px
+            // 右侧工具栏：顶部工具栏底部向下 8px
+            if let topStrip = topStripView {
+                let topBarBottom = topStrip.frame.minY
+                rightStrip.frame.origin = NSPoint(
+                    x: cb.maxX - rightSize.width - 8,
+                    y: topBarBottom - 24 - rightSize.height)
+            } else {
+                rightStrip.frame.origin = NSPoint(
+                    x: cb.maxX - rightSize.width - 8,
+                    y: cb.maxY - topSize.height - 20 - 8 - rightSize.height)
+            }
             rightStrip.autoresizingMask = [.minXMargin, .minYMargin]
         } else {
             let rowHeight = toolOptionsRowView?.frame.height ?? 34
@@ -5802,9 +5823,8 @@ class OverlayView: NSView {
                 // Use the wider of the bottom bar and the row's natural content width
                 let rowW = max(bottomBarRect.width, row.contentWidth)
                 row.frame.size.width = rowW
-                // In editor mode, center the options row the same way as the bottom bar
-                let cb = chromeParentView?.bounds ?? bounds
-                let rowX = max(4, cb.midX - rowW / 2)
+                let alignmentRect = bottomBarRect
+                let rowX = max(4, alignmentRect.midX - rowW / 2)
                 row.frame.origin = NSPoint(x: rowX, y: bottomBarRect.maxY + 2)
                 row.autoresizingMask = [.minXMargin, .maxXMargin, .maxYMargin]
             } else {
@@ -7814,10 +7834,16 @@ class OverlayView: NSView {
         let tipH = textSize.height + pad
 
         let btnFrame = btn.convert(btn.bounds, to: parent)
+        let isTopBar = btn.superview is EditorTopBarView
         let isBottomBar = btn.superview === bottomStripView
         let tipRect: NSRect
 
-        if isBottomBar {
+        if isTopBar {
+            let stripFrame = btn.superview?.frame ?? .zero
+            var tipY = stripFrame.minY - tipH - 4
+            if tipY < parent.bounds.minY + 2 { tipY = stripFrame.maxY + 4 }
+            tipRect = NSRect(x: btnFrame.midX - tipW / 2, y: tipY, width: tipW, height: tipH)
+        } else if isBottomBar {
             let stripFrame = bottomStripView?.frame ?? .zero
             var tipY = stripFrame.maxY + 4
             if tipY + tipH > parent.bounds.maxY - 2 { tipY = stripFrame.minY - tipH - 4 }
@@ -8159,16 +8185,21 @@ class OverlayView: NSView {
         toolOptionsRowView?.updateSwatchColors()
     }
 
+    func beautifyToolbarAnchorView() -> NSView? {
+        rightStripView?.buttonViews.first { if case .beautify = $0.action { return true } else { return false } }
+    }
+
     func handleToolbarAction(_ action: ToolbarButtonAction, mousePoint: NSPoint = .zero) {
         switch action {
         case .sessionCancel:
             overlayDelegate?.overlayViewDidCancel()
-        case .sessionUndo, .sessionRedo:
-            break  // No longer used - undo/redo moved to bottom toolbar
+        case .sessionUndo:
+            undo()
+        case .sessionRedo:
+            redo()
         case .tool(let tool):
             commitTextFieldIfNeeded()
-            showBeautifyInOptionsRow = false  // switch back to tool options
-            // If clicking the same tool that's already active, switch back to select tool
+            // If clicking the same tool that's already active, switch back to pencil tool
             if currentTool == tool {
                 currentTool = .select
             } else {
@@ -8196,7 +8227,7 @@ class OverlayView: NSView {
             if currentTool != .loupe {
                 clearLoupePreview()
             }
-            if currentTool != .pencil && currentTool != .marker {
+            if currentTool != .select && currentTool != .marker {
                 clearDrawingCursorPreview()
             }
             // Update tool options row to reflect the new tool
@@ -8211,6 +8242,43 @@ class OverlayView: NSView {
             showColorPickerPopover(target: .drawColor, anchorView: colorBtn)
         case .sizeDisplay:
             break
+        case .moveSelection:
+            guard let win = window else { break }
+            clearStampPreview()
+            clearLoupePreview()
+            clearDrawingCursorPreview()
+            // Moving breaks window snap — revert to normal beautify mode
+            if selectionIsWindowSnap {
+                selectionIsWindowSnap = false
+                snappedWindowID = nil
+                snappedWindowImage = nil
+                rebuildToolbarLayout()
+            }
+            // Show drag hint tooltip
+            hoveredTooltip = L("Drag to reposition")
+            needsDisplay = true
+            displayIfNeeded()
+            // Synchronous drag loop: tracks mouse from button press until release
+            let startPoint = convert(win.mouseLocationOutsideOfEventStream, from: nil)
+            let offset = NSPoint(x: startPoint.x - selectionRect.origin.x, y: startPoint.y - selectionRect.origin.y)
+            let hasWebcam = webcamSetupPreview != nil
+            while true {
+                guard let event = win.nextEvent(matching: [.leftMouseDragged, .leftMouseUp]) else { break }
+                let point = convert(event.locationInWindow, from: nil)
+                selectionRect.origin = NSPoint(x: point.x - offset.x, y: point.y - offset.y)
+                if hasWebcam { repositionWebcamSetupPreview() }
+                needsDisplay = true
+                displayIfNeeded()
+                if event.type == .leftMouseUp { break }
+            }
+            // Clear tooltip and reset button pressed state
+            hoveredTooltip = nil
+            if let moveBtn = rightStripView?.buttonViews.first(where: { if case .moveSelection = $0.action { return true }; return false }) {
+                moveBtn.isPressed = false
+                moveBtn.needsDisplay = true
+            }
+            scheduleBarcodeDetection()
+            needsDisplay = true
         case .undo:
             undo()
         case .redo:
@@ -8263,24 +8331,12 @@ class OverlayView: NSView {
             }
         case .invertColors:
             invertImageColors()
-        case .moveSelection:
-            break  // No longer supported - use canvas drag instead
         case .effects:
             let btn = rightStripView?.buttonViews.first { if case .effects = $0.action { return true } else { return false } }
             showEffectsPopover(anchorView: btn)
         case .beautify:
-            commitTextFieldIfNeeded()
-            clearStampPreview()
-            clearLoupePreview()
-            clearDrawingCursorPreview()
-            // Auto-enable beautify on first click in this session
-            if !beautifyEnabled {
-                beautifyEnabled = true
-                UserDefaults.standard.set(true, forKey: "beautifyEnabled")
-                startBeautifyToolbarAnimation()
-            }
-            showBeautifyInOptionsRow = true
-            needsDisplay = true
+            let btn = rightStripView?.buttonViews.first { if case .beautify = $0.action { return true } else { return false } }
+            showBeautifyPopover(anchorView: btn)
         case .beautifyStyle:
             beautifyStyleIndex = (beautifyStyleIndex + 1) % BeautifyRenderer.styles.count
             UserDefaults.standard.set(beautifyStyleIndex, forKey: "beautifyStyleIndex")
@@ -9186,7 +9242,7 @@ class OverlayView: NSView {
 
             if !event.isARepeat {
                 let isDraggingAnnotation =
-                    currentAnnotation != nil && currentAnnotation!.tool != .pencil
+                    currentAnnotation != nil && currentAnnotation!.tool != .select
                     && currentAnnotation!.tool != .marker
                 let isDraggingNewSelection = state == .selecting
 
@@ -10107,7 +10163,7 @@ class OverlayView: NSView {
 
     func activeStrokeWidthForTool(_ tool: AnnotationTool) -> CGFloat {
         switch tool {
-        case .pencil: return currentPencilStrokeWidth
+        case .select: return currentPencilStrokeWidth
         case .line: return currentLineStrokeWidth
         case .arrow: return currentArrowStrokeWidth
         case .number: return currentNumberSize
@@ -10119,7 +10175,7 @@ class OverlayView: NSView {
 
     func setActiveStrokeWidth(_ value: CGFloat, for tool: AnnotationTool) {
         switch tool {
-        case .pencil:
+        case .select:
             currentPencilStrokeWidth = value
             UserDefaults.standard.set(Double(value), forKey: "pencilStrokeWidth")
         case .line:
@@ -10408,7 +10464,7 @@ extension OverlayView: AnnotationCanvas {
 
     func initialStrokeWidth(for tool: AnnotationTool) -> CGFloat {
         switch tool {
-        case .pencil:
+        case .select:
             return currentPencilStrokeWidth
         case .line:
             return currentLineStrokeWidth
