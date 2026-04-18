@@ -179,7 +179,7 @@ final class GoogleDriveUploader: NSObject, ASWebAuthenticationPresentationContex
             completion(.failure(Self.error("Failed to encode image")))
             return
         }
-        let filename = "Screenshot \(Self.timestamp()).png"
+        let filename = FilenameTemplateEngine.makeFilename(kind: .screenshot, fileExtension: "png")
         upload(data: pngData, filename: filename, mimeType: "image/png", completion: completion)
     }
 
@@ -670,11 +670,5 @@ final class GoogleDriveUploader: NSObject, ASWebAuthenticationPresentationContex
 
     private static func error(_ msg: String) -> NSError {
         NSError(domain: "GoogleDriveUploader", code: 1, userInfo: [NSLocalizedDescriptionKey: msg])
-    }
-
-    private static func timestamp() -> String {
-        let f = DateFormatter()
-        f.dateFormat = "yyyy-MM-dd_HH-mm-ss"
-        return f.string(from: Date())
     }
 }
