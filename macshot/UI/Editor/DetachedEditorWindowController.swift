@@ -63,11 +63,26 @@ class DetachedEditorWindowController: NSObject, NSWindowDelegate {
         let minH: CGFloat = 400
         let maxW = screenFrame.width * 0.9
         let maxH = screenFrame.height * 0.9
-        // Add space for top bar, bottom toolbar (44), options row (40), right toolbar (46), padding
-        let chromeW: CGFloat = 46 + 60    // right toolbar + horizontal padding
-        let chromeH: CGFloat = EditorTopBarView.height + 44 + 40 + 40  // top bar + bottom toolbar + options row + padding
-        let winW = min(maxW, max(minW, imgSize.width + chromeW))
-        let winH = min(maxH, max(minH, imgSize.height + chromeH))
+
+        let insetsRight: CGFloat = 50
+        let insetsBottom: CGFloat = 84
+        let safeMargin: CGFloat = 24
+
+        let chromeW = insetsRight + safeMargin * 2
+        let chromeH = EditorTopBarView.height + insetsBottom + safeMargin * 2
+
+        let initialBeautify = !disableBeautifyOnOpen && UserDefaults.standard.bool(forKey: "beautifyEnabled")
+        var initialLogicalSize = imgSize
+
+        if initialBeautify {
+             let pad = CGFloat(UserDefaults.standard.object(forKey: "beautifyPadding") as? Double ?? 48)
+             let modeRaw = UserDefaults.standard.integer(forKey: "beautifyMode")
+             let titleBar = modeRaw == 0 ? 28.0 : 0.0
+             initialLogicalSize = NSSize(width: imgSize.width + pad * 2, height: imgSize.height + pad * 2 + titleBar)
+        }
+
+        let winW = min(maxW, max(minW, initialLogicalSize.width + chromeW))
+        let winH = min(maxH, max(minH, initialLogicalSize.height + chromeH))
 
         let win = EditorWindow(
             contentRect: NSRect(x: screenFrame.midX - winW/2,
@@ -84,8 +99,11 @@ class DetachedEditorWindowController: NSObject, NSWindowDelegate {
         win.delegate = self
         win.collectionBehavior = [.fullScreenAuxiliary]
 
+        self.window = win
+
         // Create EditorView as the document view inside an NSScrollView
         let view = EditorView()
+        self.overlayView = view
         view.frame = NSRect(origin: .zero, size: imgSize)
         view.autoresizingMask = []  // fixed size — scroll view handles viewport
         view.screenshotImage = image
@@ -184,8 +202,20 @@ class DetachedEditorWindowController: NSObject, NSWindowDelegate {
             docView.scroll(NSPoint(x: 0, y: docView.frame.maxY))
         }
 
-        self.window = win
-        self.overlayView = view
+        NotificationCenter.default.addObserver(forName: NSWindow.didResizeNotification, object: win, queue: .main) { [weak self, weak view] _ in
+            if let view = view {
+                self?.enforceAspectFitVisibility(logicalSize: view.logicalSize)
+            }
+        }
+
+        // Run one final perfectly-settled layout check asynchronously.
+        // AppKit may adjust the window size very slightly during or immediately after
+        // makeKeyAndOrderFront when presenting constraints, which otherwise misses the initial check and triggers native scrollbars.
+        DispatchQueue.main.async { [weak self, weak view] in
+            if let view = view {
+                self?.enforceAspectFitVisibility(logicalSize: view.logicalSize)
+            }
+        }
     }
 
     // MARK: - NSWindowDelegate
@@ -307,11 +337,43 @@ class DetachedEditorWindowController: NSObject, NSWindowDelegate {
         }
         return result
     }
+
+    private func enforceAspectFitVisibility(logicalSize: NSSize) {
+        guard let window = self.window,
+              let container = window.contentView,
+              let scrollView = container.subviews.compactMap({ $0 as? NSScrollView }).first else {
+            return
+        }
+
+        // NSScrollView uses contentInsets to leave room for the bottom and right toolbars.
+        // We add an extra 24px (12px on each side) of safe breathing room.
+        let safeMargin: CGFloat = 24.0
+
+        let visibleWidth = scrollView.frame.width - scrollView.contentInsets.left - scrollView.contentInsets.right - safeMargin
+        let visibleHeight = scrollView.frame.height - scrollView.contentInsets.top - scrollView.contentInsets.bottom - safeMargin
+
+        guard visibleWidth > 0, visibleHeight > 0, logicalSize.width > 0, logicalSize.height > 0 else {
+            return
+        }
+
+        let scaleX = visibleWidth / logicalSize.width
+        let scaleY = visibleHeight / logicalSize.height
+        let targetScale = min(scaleX, scaleY)
+
+        // Don't upscale past 1.0; only downscale to fit
+        let finalScale = min(targetScale, 1.0)
+        
+        scrollView.magnification = finalScale
+    }
 }
 
 // MARK: - OverlayViewDelegate
 
 extension DetachedEditorWindowController: OverlayViewDelegate {
+    func overlayViewLogicalSizeDidChange(_ size: NSSize) {
+        enforceAspectFitVisibility(logicalSize: size)
+    }
+
     func overlayViewDidFinishSelection(_ rect: NSRect) {}
     func overlayViewSelectionDidChange(_ rect: NSRect) {}
     func overlayViewDidBeginSelection() {}

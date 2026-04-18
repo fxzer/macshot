@@ -484,6 +484,16 @@ extension OverlayWindowController: OverlayViewDelegate {
             return
         }
 
+        // 如果有其他popover打开，先关闭它
+        if PopoverHelper.isVisible {
+            PopoverHelper.dismiss()
+            // 延迟打开共享面板，让旧的先完全关闭
+            DispatchQueue.main.async { [weak self] in
+                self?.overlayViewDidRequestShare(anchorView: anchorView)
+            }
+            return
+        }
+
         // Performance diagnostics
         let startTime = Date()
 
@@ -558,11 +568,12 @@ extension OverlayWindowController: OverlayViewDelegate {
         picker.delegate = delegate
 
         // Show anchored to the button in the overlay view
+        // 使用侧边弹出方向，与包装和调色工具保持一致
         if let anchor = anchorView {
-            picker.show(relativeTo: anchor.bounds, of: anchor, preferredEdge: .minY)
+            picker.show(relativeTo: anchor.bounds, of: anchor, preferredEdge: .minX)
         } else if let view = overlayView {
             let center = NSRect(x: view.bounds.midX - 1, y: view.bounds.midY - 1, width: 2, height: 2)
-            picker.show(relativeTo: center, of: view, preferredEdge: .minY)
+            picker.show(relativeTo: center, of: view, preferredEdge: .minX)
         }
     }
 

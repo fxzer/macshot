@@ -33,6 +33,11 @@ protocol OverlayViewDelegate: AnyObject {
     func overlayViewDidRequestAddCapture()
     func overlayViewDidChangeAspectRatioLock()
     func overlayViewDidChangeMouseLocation()
+    func overlayViewLogicalSizeDidChange(_ size: NSSize)
+}
+
+extension OverlayViewDelegate {
+    func overlayViewLogicalSizeDidChange(_ size: NSSize) {}
 }
 
 /// An entry in the undo/redo history.
@@ -636,37 +641,46 @@ class OverlayView: NSView {
         )
     }
 
+    var logicalSize: NSSize {
+        guard let image = screenshotImage else { return .zero }
+        let imgSize = image.size
+        if isEditorMode && beautifyEnabled {
+            let config = beautifyConfig
+            let pad = config.padding
+            let titleBarH: CGFloat = (config.mode == .window && !selectionIsWindowSnap) ? 28 : 0
+
+            return NSSize(width: imgSize.width + pad * 2, height: imgSize.height + pad * 2 + titleBarH)
+        }
+        return imgSize
+    }
+
     /// Resize the editor document view to fit the beautify-expanded rect.
     /// When beautify is on, the frame grows and `beautifyEditorOffset` is set so
     /// `applyEditorTransform` shifts all drawing to keep the expanded rect within bounds.
     /// When beautify is off, the frame and offset revert to the base image size.
     func updateEditorFrameForBeautify() {
-        guard isEditorMode, let image = screenshotImage else { return }
-        let imgSize = image.size
+        guard isEditorMode else { return }
+
+        let targetSize = logicalSize
 
         if beautifyEnabled {
             let config = beautifyConfig
-            let pad = config.padding
-            let shadowRadius = config.shadowRadius
-            let shadowOffset = min(shadowRadius * 0.4, 10)
-            let shadowBleed = shadowRadius + shadowOffset
-            let titleBarH: CGFloat = (config.mode == .window && !selectionIsWindowSnap) ? 28 : 0
-
-            let marginX = pad + shadowBleed
-            let marginBottom = pad + shadowBleed
-            let marginTop = pad + shadowBleed + titleBarH
-
-            let newW = imgSize.width + marginX * 2
-            let newH = imgSize.height + marginBottom + marginTop
-
-            beautifyEditorOffset = NSPoint(x: marginX, y: marginBottom)
-            frame.size = NSSize(width: newW, height: newH)
+            beautifyEditorOffset = NSPoint(x: config.padding, y: config.padding)
         } else {
             beautifyEditorOffset = .zero
-            frame.size = imgSize
         }
+
+        if isInsideScrollView, let sv = enclosingScrollView {
+            frame.size = NSSize(width: targetSize.width * sv.magnification, height: targetSize.height * sv.magnification)
+            bounds.size = targetSize
+        } else {
+            frame.size = targetSize
+            bounds.size = targetSize
+        }
+
         cachedCompositedImage = nil
         needsDisplay = true
+        overlayDelegate?.overlayViewLogicalSizeDidChange(targetSize)
     }
 
     // Image effects
@@ -8275,8 +8289,15 @@ class OverlayView: NSView {
             currentTool = .loupe
             needsDisplay = true
         case .color:
-            if PopoverHelper.isVisible { PopoverHelper.dismiss(); break }
             let colorBtn = bottomStripView?.buttonViews.first { if case .color = $0.action { return true }; return false }
+            if PopoverHelper.isVisible {
+                PopoverHelper.dismiss()
+                // 延迟打开新的popover，让旧的先完全关闭
+                DispatchQueue.main.async { [weak self] in
+                    self?.showColorPickerPopover(target: .drawColor, anchorView: colorBtn)
+                }
+                break
+            }
             showColorPickerPopover(target: .drawColor, anchorView: colorBtn)
         case .sizeDisplay:
             break
@@ -8444,9 +8465,7 @@ class OverlayView: NSView {
     }
 
     /// Push a property change undo entry. Called by ToolOptionsRowView when editing completes.
-    func updateBeautifySwatch(styleIndex: Int) {
-        toolOptionsRowView?.updateBeautifySwatch(styleIndex: styleIndex)
-    }
+
 
     func pushPropertyChangeUndo(annotation: Annotation, snapshot: Annotation) {
         undoStack.append(.propertyChange(annotation: annotation, snapshot: snapshot))
