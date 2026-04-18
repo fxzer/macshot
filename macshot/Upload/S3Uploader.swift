@@ -53,7 +53,7 @@ final class S3Uploader {
             completion(.failure(S3Error.encodingFailed))
             return
         }
-        let filename = "Screenshot \(Self.timestamp()).png"
+        let filename = FilenameTemplateEngine.makeFilename(kind: .screenshot, fileExtension: "png")
         upload(data: pngData, filename: filename, contentType: "image/png", completion: completion)
     }
 
@@ -250,12 +250,6 @@ final class S3Uploader {
     }
 
     // MARK: - Helpers
-
-    private static func timestamp() -> String {
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd_HH-mm-ss"
-        return df.string(from: Date())
-    }
 
     private static func extractXMLError(_ body: String) -> String? {
         // Simple extraction of <Message>...</Message> from S3 XML error responses
