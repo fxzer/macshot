@@ -13,8 +13,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     private var overlayControllers: [OverlayWindowController] = []
     private var settingsController: SettingsWindowController?
     private var onboardingController: PermissionOnboardingController?
-    private var pinControllers: [PinWindowController] = []
-    private var thumbnailControllers: [FloatingThumbnailController] = []
+
+    // 使用弱引用集合避免循环引用
+    private weak var pinControllers: WeakControllerSet<PinWindowController> = WeakControllerSet()
+    private weak var thumbnailControllers: WeakControllerSet<FloatingThumbnailController> = WeakControllerSet()
     private var ocrController: OCRResultController?
     private var historyMenu: NSMenu?
     private var historyOverlayController: HistoryOverlayController?
@@ -517,7 +519,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     // MARK: - Capture
 
     private func currentCaptureExcludedWindowNumbers() -> [CGWindowID] {
-        Array(Set(thumbnailControllers.compactMap { $0.windowNumber })).sorted()
+        Array(Set(thumbnailControllers.allObjects.compactMap { $0.windowNumber })).sorted()
     }
 
     /// Kick off a background capture early so menu and hotkey paths can reuse it if it
@@ -733,7 +735,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
 
         NSLog("[PERF] startCapture: prewarm + dismissOverlays + hideThumbnails BEGIN")
         dismissOverlays()
-        for tc in thumbnailControllers { tc.hideWindow() }
+        for tc in thumbnailControllers.allObjects { tc.hideWindow() }
         NSLog("[PERF] startCapture: dismissOverlays + hideThumbnails DONE elapsed=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - t0) * 1000))ms")
         isCapturing = true
 
@@ -966,7 +968,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         }
         isCapturing = false
         // Restore hidden thumbnails
-        for tc in thumbnailControllers { tc.showWindow() }
+        for tc in thumbnailControllers.allObjects { tc.showWindow() }
         if refocusPreviousApp {
             returnFocusIfNeeded()
         }
@@ -1038,12 +1040,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         controller.onSaveAll = { [weak self] in
             self?.saveAllThumbnailsToFolder()
         }
-        thumbnailControllers.append(controller)
+        thumbnailControllers.add(controller)
         controller.show(atY: yOrigin)
     }
 
     private func saveAllThumbnailsToFolder() {
-        let images = thumbnailControllers.map { $0.image }
+        let images = thumbnailControllers.allObjects.map { $0.image }
         guard !images.isEmpty else { return }
 
         let panel = NSOpenPanel()
@@ -1086,7 +1088,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         let padding: CGFloat = 16
         let gap: CGFloat = 8
         var y = screen.visibleFrame.minY + padding
-        for c in thumbnailControllers {
+        for c in thumbnailControllers.allObjects {
             let h = c.windowFrame.height  // height doesn't change, only Y moves
             c.moveTo(y: y)
             y += h + gap
@@ -1095,7 +1097,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
 
     /// Update a floating thumbnail's image if it matches the given history entry.
     func refreshThumbnail(for entryID: String, image: NSImage) {
-        for tc in thumbnailControllers where tc.historyEntryID == entryID {
+        for tc in thumbnailControllers.allObjects where tc.historyEntryID == entryID {
             tc.updateImage(image)
         }
     }
@@ -1132,7 +1134,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
                 let pin = PinWindowController(image: image, at: pinOrigin)
                 pin.delegate = self
                 pin.show()
-                pinControllers.append(pin)
+                pinControllers.add(pin)
             } else {
                 showPin(image: image)
             }
@@ -1322,12 +1324,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         historyOverlayController?.updateLocalization()
 
         // Update floating thumbnails
-        for thumbnail in thumbnailControllers {
+        for thumbnail in thumbnailControllers.allObjects {
             thumbnail.updateLocalization()
         }
 
         // Update pin windows
-        for pin in pinControllers {
+        for pin in pinControllers.allObjects {
             pin.updateLocalization()
         }
 
