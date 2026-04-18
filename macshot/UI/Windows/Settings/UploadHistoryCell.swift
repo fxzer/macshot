@@ -9,33 +9,34 @@ struct UploadHistoryCell: View {
     var body: some View {
         let cornerRadius: CGFloat = 8
 
-        ZStack {
-            // 1. 缩略图 - 尝试从历史缓存加载
-            let thumbnailImage = loadThumbnailImage()
-            Group {
-                if let nsImage = thumbnailImage {
-                    Image(nsImage: nsImage)
-                        .resizable()
-                        .scaledToFill()
-                } else {
-                    RoundedRectangle(cornerRadius: cornerRadius)
-                        .fill(Color.gray.opacity(0.2))
-                        .overlay(
-                            Image(systemName: "photo")
-                                .foregroundColor(.secondary)
-                        )
-                }
+        // 缩略图
+        let thumbnailImage = loadThumbnailImage()
+        let baseView: some View = Group {
+            if let nsImage = thumbnailImage {
+                Image(nsImage: nsImage)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .fill(Color.gray.opacity(0.2))
+                    .overlay(
+                        Image(systemName: "photo")
+                            .foregroundColor(.secondary)
+                    )
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+
+        // 完整的卡片视图，使用 overlay 来定位复制按钮
+        return baseView
+            .frame(width: 80, height: 80)
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
+            .contentShape(Rectangle()) // 确保整个区域可点击
             .onTapGesture {
-                // 点击打开浏览器
                 openLink()
             }
-
-            // 悬浮时的复制按钮
-            VStack {
-                HStack {
-                    Spacer()
+            .overlay(alignment: .topTrailing) {
+                // 复制按钮 - 使用 overlay + topTrailing 确保始终相对于卡片右上角定位
+                Group {
                     if isHovering || showCopyCheckmark {
                         Button(action: {
                             copyLink()
@@ -46,20 +47,17 @@ struct UploadHistoryCell: View {
                             )
                         }
                         .buttonStyle(.plain)
-                        .padding(6)
+                        .padding(8) // 距离边缘8px
                     }
                 }
-                Spacer()
+                .frame(width: 80, height: 80, alignment: .topTrailing)
             }
-            .opacity(isHovering || showCopyCheckmark ? 1 : 0)
-            .animation(.easeOut(duration: 0.12), value: isHovering)
+            .onHover { hovering in
+                withAnimation(.easeOut(duration: 0.12)) {
+                    isHovering = hovering
+                }
+            }
             .animation(.easeOut(duration: 0.2), value: showCopyCheckmark)
-        }
-        .frame(width: 80, height: 80)
-        .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
-        .onHover { hovering in
-            isHovering = hovering
-        }
     }
 
     private func overlayButtonIcon(systemName: String, foregroundColor: Color) -> some View {
