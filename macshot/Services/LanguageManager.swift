@@ -8,50 +8,15 @@ final class LanguageManager {
 
     static let changedNotification = Notification.Name("LanguageManagerDidChange")
 
-    /// Language code -> display name (in that language)
+    /// Shipped UI localizations (Settings picker + bundle resolution).
     static let availableLanguages: [(code: String, name: String)] = [
-        ("system", "System Default"),
-        ("ar", "العربية"),
-        ("bg", "Български"),
-        ("bn", "বাংলা"),
-        ("ca", "Català"),
-        ("cs", "Čeština"),
-        ("da", "Dansk"),
-        ("de", "Deutsch"),
-        ("el", "Ελληνικά"),
         ("en", "English"),
-        ("es", "Español"),
-        ("fa", "فارسی"),
-        ("fi", "Suomi"),
-        ("fil", "Filipino"),
-        ("fr", "Français"),
-        ("he", "עברית"),
-        ("hi", "हिन्दी"),
-        ("hr", "Hrvatski"),
-        ("hu", "Magyar"),
-        ("id", "Bahasa Indonesia"),
-        ("it", "Italiano"),
-        ("ja", "日本語"),
-        ("ko", "한국어"),
-        ("ms", "Bahasa Melayu"),
-        ("nb", "Norsk bokmål"),
-        ("nl", "Nederlands"),
-        ("pl", "Polski"),
-        ("pt", "Português"),
-        ("pt-BR", "Português (Brasil)"),
-        ("ro", "Română"),
-        ("ru", "Русский"),
-        ("sk", "Slovenčina"),
-        ("sr", "Српски"),
-        ("sv", "Svenska"),
-        ("ta", "தமிழ்"),
-        ("th", "ไทย"),
-        ("tr", "Türkçe"),
-        ("uk", "Українська"),
-        ("vi", "Tiếng Việt"),
         ("zh-Hans", "简体中文"),
-        ("zh-Hant", "繁體中文"),
     ]
+
+    private static var supportedLanguageCodes: Set<String> {
+        Set(availableLanguages.map(\.code))
+    }
 
     private var bundle: Bundle = .main
 
@@ -69,28 +34,32 @@ final class LanguageManager {
         }
     }
 
-    /// Resolves the actual language code (never "system").
+    /// Resolves the bundle language code (always `en` or `zh-Hans`).
     var resolvedLanguage: String {
         let lang = currentLanguage
         if lang == "system" {
-            // Find first system language we support
-            let supported = Self.availableLanguages.map(\.code).filter { $0 != "system" }
-            for preferred in Locale.preferredLanguages {
-                // Check full code first (e.g. "zh-Hans"), then base language (e.g. "de")
-                let normalized = preferred.replacingOccurrences(of: "_", with: "-")
-                if supported.contains(normalized) { return normalized }
-                // Try with script subtag (zh-Hans-CN -> zh-Hans)
-                let parts = normalized.split(separator: "-")
-                if parts.count >= 2 {
-                    let withScript = "\(parts[0])-\(parts[1])"
-                    if supported.contains(withScript) { return withScript }
-                }
-                let base = String(parts[0])
-                if supported.contains(base) { return base }
-            }
-            return "en"
+            return Self.resolvedLanguageMatchingSystemLocale()
         }
-        return lang
+        if Self.supportedLanguageCodes.contains(lang) {
+            return lang
+        }
+        return "en"
+    }
+
+    private static func resolvedLanguageMatchingSystemLocale() -> String {
+        for preferred in Locale.preferredLanguages {
+            let normalized = preferred.replacingOccurrences(of: "_", with: "-")
+            if supportedLanguageCodes.contains(normalized) { return normalized }
+            let parts = normalized.split(separator: "-")
+            if parts.count >= 2 {
+                let withScript = "\(parts[0])-\(parts[1])"
+                if supportedLanguageCodes.contains(withScript) { return withScript }
+            }
+            let base = String(parts[0])
+            if base == "zh" { return "zh-Hans" }
+            if base == "en" { return "en" }
+        }
+        return "en"
     }
 
     func localizedString(_ key: String) -> String {

@@ -31,8 +31,9 @@ struct InterfaceSettingsView: View {
     @State private var previewKind: FilenameOutputKind = .screenshot
 
     init() {
-        let currentLang = LanguageManager.shared.currentLanguage
-        let idx = LanguageManager.availableLanguages.firstIndex(where: { $0.code == currentLang }) ?? 0
+        let langs = LanguageManager.availableLanguages
+        let resolved = LanguageManager.shared.resolvedLanguage
+        let idx = langs.firstIndex(where: { $0.code == resolved }) ?? 0
         _selectedLanguageIndex = State(initialValue: idx)
         _accentColor = State(initialValue: Color(nsColor: ToolbarLayout.accentColor))
         _iconColor = State(initialValue: Color(nsColor: ToolbarLayout.iconColor))
@@ -249,6 +250,11 @@ struct InterfaceSettingsView: View {
     }
 
     private func normalizePickerSelections() {
+        let langs = LanguageManager.availableLanguages
+        let resolved = LanguageManager.shared.resolvedLanguage
+        if let idx = langs.firstIndex(where: { $0.code == resolved }) {
+            selectedLanguageIndex = idx
+        }
         thumbnailAutoDismiss = normalized(
             thumbnailAutoDismiss,
             allowed: [0, 5, 10, 15, 30, 45, 60, 120, 300, 600],
