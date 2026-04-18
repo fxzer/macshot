@@ -82,6 +82,7 @@
 "Magnify (Loupe)" = "放大镜";
 "Color Sampler" = "取色器";
 "Color Picker" = "取色";
+"Copy Color" = "取色";
 "Select & Edit" = "选择";
 "Color" = "颜色";
 
@@ -157,10 +158,10 @@
 /* Overlay / Canvas */
 "Click a window  ·  Drag for custom area  ·  F for full screen" = "点按窗口  ·  拖拽自定义区域  ·  F 全屏";
 "  (Tab to toggle)" = "  (Tab 切换)";
-"Window snap: " = "窗口吸附：";
+"Window snap: " = "窗口吸附";
 "Drag to select  ·  Click for full screen" = "拖拽选择  ·  点按全屏捕获";
 "Release to annotate and edit" = "松开以标注和编辑";
-"Window snap:" = "窗口吸附：";
+"Window snap:" = "窗口吸附";
 "ON" = "开";
 "OFF" = "关";
 "Tab to toggle" = "Tab 切换";
@@ -708,3 +709,5 @@
 "Could not detect source language. Try selecting more text." = "无法检测源语言。请尝试选择更多文本。";
 "Apple Translation timed out. The language pack may need to be downloaded in System Settings." = "Apple 翻译超时。语言包可能需要在系统设置中下载。";
 "Apple Translation failed: %@. You can switch to Google Translate in Settings." = "Apple 翻译失败：%@。你可以在设置中切换到 Google 翻译。";
+"Press number keys to lock selection ratio" = "点按数字按键，锁定选区比例";
+"Free" = "自由";

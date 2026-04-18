@@ -625,3 +625,5 @@
 "Could not detect source language. Try selecting more text." = "無法偵測源語言。請嘗試選擇更多文字。";
 "Apple Translation timed out. The language pack may need to be downloaded in System Settings." = "Apple 翻譯逾時。語言包可能需要在系統設定中下載。";
 "Apple Translation failed: %@. You can switch to Google Translate in Settings." = "Apple 翻譯失敗：%@。您可以在設定中切換到 Google 翻譯。";
+"Press number keys to lock selection ratio" = "點按數字按鍵，鎖定選區比例";
+"Free" = "自由";

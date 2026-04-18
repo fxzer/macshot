@@ -2745,13 +2745,14 @@ class OverlayView: NSView {
         let keyBorderColor = NSColor.white.withAlphaComponent(0.25)
 
         // Key box dimensions - match text height
-        let keyPadding: CGFloat = 6
+        let keyPadding: CGFloat = 4
         let keyCornerRadius: CGFloat = 4
         let keySpacing: CGFloat = 3
 
         // Helper to draw a key box
-        func drawKey(_ text: String, at origin: NSPoint) -> NSRect {
-            let attrs: [NSAttributedString.Key: Any] = [.font: keyFont, .foregroundColor: NSColor.white]
+        func drawKey(_ text: String, at origin: NSPoint, highlight: Bool = false) -> NSRect {
+            let color = highlight ? NSColor.systemGreen : NSColor.white
+            let attrs: [NSAttributedString.Key: Any] = [.font: keyFont, .foregroundColor: color]
             let size = (text as NSString).size(withAttributes: attrs)
             // Match text height exactly
             let rect = NSRect(
@@ -2774,7 +2775,7 @@ class OverlayView: NSView {
             // Draw key text
             let textPoint = NSPoint(
                 x: rect.midX - size.width / 2,
-                y: rect.minY + 1  // Slight adjustment for vertical centering
+                y: rect.minY
             )
             (text as NSString).draw(at: textPoint, withAttributes: attrs)
 
@@ -2796,57 +2797,80 @@ class OverlayView: NSView {
         // Calculate content
         var lines: [(elements: [(type: String, text: String, width: CGFloat)], height: CGFloat)] = []
 
-        // Line 1: 拖拽/点击窗口 + 窗口吸附 + Tab
         var line1Elements: [(type: String, text: String, width: CGFloat)] = []
-        let modeText = windowSnapEnabled ? L("Click window") : L("Drag to select")
+        let modeText = (windowSnapEnabled ? L("Click window") : L("Drag to select")) + " · "
         let modeSize = (modeText as NSString).size(withAttributes: [.font: baseFont, .foregroundColor: labelColor])
         line1Elements.append(("label", modeText, modeSize.width))
 
-        line1Elements.append(("label", "  " + L("Window snap:"), (L("Window snap:") as NSString).size(withAttributes: [.font: baseFont, .foregroundColor: labelColor]).width))
+        let snapLabel = L("Window snap:") + " "
+        line1Elements.append(("label", snapLabel, (snapLabel as NSString).size(withAttributes: [.font: baseFont, .foregroundColor: labelColor]).width))
         line1Elements.append(("state", snapText, (snapText as NSString).size(withAttributes: [.font: keyFont, .foregroundColor: snapColor]).width))
-        line1Elements.append(("label", " (" + L("Tab to toggle") + ")", (L("Tab to toggle") as NSString).size(withAttributes: [.font: baseFont, .foregroundColor: labelColor]).width))
+        // 不再插入空白 label，仅保留与 Tab 键帽之间的 keySpacing，避免 Tab 离开关过远
+        line1Elements.append(("key", "Tab", ("Tab" as NSString).size(withAttributes: [.font: keyFont]).width))
 
         lines.append((line1Elements, 14))
 
-        // Line 2+: 比例锁定快捷键（动态生成）
+        // Line 2: F 全屏 & C 取色 & ESC 关闭
+        var fullscreenElements: [(type: String, text: String, width: CGFloat)] = []
+        fullscreenElements.append(("key", "F", ("F" as NSString).size(withAttributes: [.font: keyFont]).width))
+        fullscreenElements.append(("label", L("Fullscreen"), (L("Fullscreen") as NSString).size(withAttributes: [.font: baseFont, .foregroundColor: labelColor]).width))
+        
+        let spacer = "  "
+        fullscreenElements.append(("label", spacer, (spacer as NSString).size(withAttributes: [.font: baseFont]).width))
+        
+        fullscreenElements.append(("key", "C", ("C" as NSString).size(withAttributes: [.font: keyFont]).width))
+        fullscreenElements.append(("label", L("Copy Color"), (L("Copy Color") as NSString).size(withAttributes: [.font: baseFont, .foregroundColor: labelColor]).width))
+        
+        fullscreenElements.append(("label", spacer, (spacer as NSString).size(withAttributes: [.font: baseFont]).width))
+        
+        fullscreenElements.append(("key", "Esc", ("Esc" as NSString).size(withAttributes: [.font: keyFont]).width))
+        fullscreenElements.append(("label", L("Close"), (L("Close") as NSString).size(withAttributes: [.font: baseFont, .foregroundColor: labelColor]).width))
+        
+        lines.append((fullscreenElements, 14))
+
+        // Divider 1
+        lines.append(([(type: "divider", text: "", width: 0)], 0))
+
+        // Line 3: 比例锁定标题
+        let ratioHeaderLabel = L("Press number keys to lock selection ratio")
+        lines.append((
+            [(type: "label", text: ratioHeaderLabel, width: (ratioHeaderLabel as NSString).size(withAttributes: [.font: baseFont, .foregroundColor: labelColor]).width)],
+            14
+        ))
+
+        // Line 3+: 比例锁定快捷键（完全按网格对齐）
         let ratioItems = aspectRatioShortcutItems(includeInvert: true)
-        let ratioChunks = stride(from: 0, to: ratioItems.count, by: 4).map { start in
-            Array(ratioItems[start..<min(start + 4, ratioItems.count)])
+        let ratioChunks = stride(from: 0, to: ratioItems.count, by: 3).map { start in
+            Array(ratioItems[start..<min(start + 3, ratioItems.count)])
         }
+        
+        let fixedLabelWidth: CGFloat = 40.0
 
-        for (index, chunk) in ratioChunks.enumerated() {
+        for chunk in ratioChunks {
             var ratioLineElements: [(type: String, text: String, width: CGFloat)] = []
-            if index == 0 {
-                let ratioLabel = L("Ratio:")
-                ratioLineElements.append((
-                    "label",
-                    ratioLabel,
-                    (ratioLabel as NSString).size(withAttributes: [.font: baseFont, .foregroundColor: labelColor]).width
-                ))
-            }
 
-            for item in chunk {
+            for (idx, item) in chunk.enumerated() {
                 ratioLineElements.append((
                     "key",
                     item.key,
                     (item.key as NSString).size(withAttributes: [.font: keyFont]).width
                 ))
+                
+                let isLastInChunk = idx == chunk.count - 1
+                let labelW: CGFloat = isLastInChunk ? (item.label as NSString).size(withAttributes: [.font: baseFont, .foregroundColor: labelColor]).width : fixedLabelWidth
+                
                 ratioLineElements.append((
-                    "label",
+                    isLastInChunk ? "label" : "fixed_label",
                     item.label,
-                    (item.label as NSString).size(withAttributes: [.font: baseFont, .foregroundColor: labelColor]).width
+                    labelW
                 ))
             }
 
             lines.append((ratioLineElements, 14))
         }
 
-        // Line 4: F 全屏
-        var line4Elements: [(type: String, text: String, width: CGFloat)] = []
-        line4Elements.append(("key", "F", ("F" as NSString).size(withAttributes: [.font: keyFont]).width))
-        line4Elements.append(("label", L("Fullscreen"), (L("Fullscreen") as NSString).size(withAttributes: [.font: baseFont, .foregroundColor: labelColor]).width))
-
-        lines.append((line4Elements, 14))
+        // Divider 2
+        lines.append(([(type: "divider", text: "", width: 0)], 0))
 
         // Line 5: 选区记忆提示
         var line5Elements: [(type: String, text: String, width: CGFloat)] = []
@@ -2856,7 +2880,9 @@ class OverlayView: NSView {
             rememberPrefix,
             (rememberPrefix as NSString).size(withAttributes: [.font: baseFont, .foregroundColor: labelColor]).width
         ))
-        line5Elements.append(("key", "`", ("`" as NSString).size(withAttributes: [.font: keyFont]).width))
+        let rememberSelectionEnabled = UserDefaults.standard.bool(forKey: "rememberLastSelection")
+        let memoryKeyType = rememberSelectionEnabled ? "active_key" : "key"
+        line5Elements.append((memoryKeyType, "`", ("`" as NSString).size(withAttributes: [.font: keyFont]).width))
         let rememberSuffix = L("remember this area")
         line5Elements.append((
             "label",
@@ -2870,7 +2896,7 @@ class OverlayView: NSView {
         for line in lines {
             var lineWidth: CGFloat = 0
             for (i, elem) in line.elements.enumerated() {
-                if elem.type == "key" {
+                if elem.type == "key" || elem.type == "active_key" {
                     lineWidth += elem.width + keyPadding * 2 + keySpacing
                 } else if elem.type == "state" {
                     lineWidth += elem.width + keySpacing
@@ -2910,6 +2936,13 @@ class OverlayView: NSView {
 
             for (i, elem) in line.elements.enumerated() {
                 switch elem.type {
+                case "divider":
+                    NSColor.white.withAlphaComponent(0.15).set()
+                    let dividerRect = NSRect(x: bgX + bgPadding, y: currentY + 14, width: maxWidth, height: 1)
+                    NSBezierPath(rect: dividerRect).fill()
+                case "active_key":
+                    let keyRect = drawKey(elem.text, at: NSPoint(x: currentX, y: currentY), highlight: true)
+                    currentX += keyRect.width + keySpacing
                 case "key":
                     let keyRect = drawKey(elem.text, at: NSPoint(x: currentX, y: currentY))
                     currentX += keyRect.width + keySpacing
@@ -2921,6 +2954,9 @@ class OverlayView: NSView {
                     let stateSize = (elem.text as NSString).size(withAttributes: stateAttrs)
                     (elem.text as NSString).draw(at: NSPoint(x: currentX, y: currentY), withAttributes: stateAttrs)
                     currentX += stateSize.width + keySpacing
+                case "fixed_label":
+                    _ = drawLabel(elem.text, at: NSPoint(x: currentX, y: currentY))
+                    currentX += elem.width + (i < line.elements.count - 1 ? keySpacing : 0)
                 default:
                     let labelRect = drawLabel(elem.text, at: NSPoint(x: currentX, y: currentY))
                     currentX += labelRect.width + (i < line.elements.count - 1 ? keySpacing : 0)
@@ -9643,18 +9679,18 @@ class OverlayView: NSView {
     // MARK: - Aspect Ratio Lock Helpers
 
     private func aspectRatioShortcutItems(includeInvert: Bool) -> [(key: String, label: String)] {
-        var items: [(key: String, label: String)] = [
-            (AspectRatioShortcutManager.cancelKeyValue.uppercased(), L("Free"))
-        ]
+        var items: [(key: String, label: String)] = []
+
+        if includeInvert {
+            items.append((AspectRatioShortcutManager.invertKeyValue.uppercased(), L("Invert")))
+        }
+
+        items.append((AspectRatioShortcutManager.cancelKeyValue.uppercased(), L("Free")))
 
         for ratio in AspectRatioPreferences.allRatios {
             let key = AspectRatioShortcutManager.key(for: ratio.id).uppercased()
             guard !key.isEmpty else { continue }
             items.append((key, ratio.displayName))
-        }
-
-        if includeInvert {
-            items.append((AspectRatioShortcutManager.invertKeyValue.uppercased(), L("Invert")))
         }
 
         return items
