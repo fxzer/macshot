@@ -311,9 +311,6 @@ class OverlayView: NSView {
 
     // Aspect Ratio Lock
     private(set) var aspectRatioLock: AspectRatioLock = .none
-    private var aspectRatioHintOpacity: CGFloat = 0.0
-    private var aspectRatioHintFadeTimer: Timer?
-    private var isCancellingAspectRatioLock: Bool = false  // 跟踪是否正在取消锁定
 
     // Aspect ratio change observers
     private var aspectRatioObserver: NSObjectProtocol?
@@ -828,11 +825,17 @@ class OverlayView: NSView {
     /// Estimated current cache memory usage
     private var estimatedCacheMemory: Int = 0
 
-    /// Estimate memory size of an NSImage based on its TIFF representation
+    /// Estimate memory size of an NSImage based on its pixel dimensions (RGBA, 4 bytes/pixel).
+    /// Avoids expensive tiffRepresentation which triggers full rasterization.
     private func estimateImageSize(_ image: NSImage?) -> Int {
-        guard let image = image,
-              let tiffRep = image.tiffRepresentation else { return 0 }
-        return tiffRep.count
+        guard let image = image else { return 0 }
+        // Use pixel dimensions from the first bitmap rep, or fall back to logical size × 2 (Retina)
+        if let rep = image.representations.first {
+            let pw = rep.pixelsWide > 0 ? rep.pixelsWide : Int(image.size.width * 2)
+            let ph = rep.pixelsHigh > 0 ? rep.pixelsHigh : Int(image.size.height * 2)
+            return pw * ph * 4  // RGBA
+        }
+        return Int(image.size.width * image.size.height * 4 * 4)  // worst-case: 2x Retina
     }
 
     private func recalculateCacheMemoryUsage() {
@@ -1270,9 +1273,6 @@ class OverlayView: NSView {
 
         scrollPropertyAdjustTimer?.invalidate()
         scrollPropertyAdjustTimer = nil
-
-        aspectRatioHintFadeTimer?.invalidate()
-        aspectRatioHintFadeTimer = nil
 
         longPressTimer?.invalidate()
         longPressTimer = nil
@@ -2073,12 +2073,7 @@ class OverlayView: NSView {
                     // Censor annotations (pixelate/blur) render first so other annotations
                     // always appear on top of blurred regions.
                     beginCanvasGraphicsStateIfNeeded()
-                    for annotation in annotations where annotation.tool != .translateOverlay && annotation.tool == .pixelate {
-                        annotation.draw(in: context)
-                    }
-                    for annotation in annotations where annotation.tool != .translateOverlay && annotation.tool != .pixelate {
-                        annotation.draw(in: context)
-                    }
+                    drawAnnotationListLive(annotations.filter { $0.tool != .translateOverlay }, in: context)
                 }
             } else {
                 // Still need the canvas transform for active drawing and overlays below
@@ -2254,8 +2249,7 @@ class OverlayView: NSView {
                 let effectsImage = effectsProcessedScreenshot(screenshot)
                 effectsImage.draw(in: captureDrawRect, from: .zero, operation: .copy, fraction: 1.0)
                 // Re-draw annotations on top (censor first, then everything else)
-                for annotation in annotations where annotation.tool == .pixelate { annotation.draw(in: context) }
-                for annotation in annotations where annotation.tool != .pixelate { annotation.draw(in: context) }
+                drawAnnotationListLive(annotations, in: context)
                 drawCurrentAnnotationIfNeeded(in: context)
                 context.restoreGraphicsState()
 
@@ -2477,7 +2471,8 @@ class OverlayView: NSView {
                 withAttributes: attrs)
         }
 
-        // Overlay hint message (black semi-transparent background, like aspect ratio hint)
+        // Overlay hint message (black semi-transparent background)
+        // Show on the screen where the event was triggered (key window)
         if overlayHintOpacity > 0.01, let hintMsg = overlayHintMessage {
             let attrs: [NSAttributedString.Key: Any] = [
                 .font: NSFont.systemFont(ofSize: 13, weight: .medium),
@@ -2521,56 +2516,6 @@ class OverlayView: NSView {
                 NSColor.white.withAlphaComponent(0.3 * overlayHintOpacity).setStroke()
                 NSBezierPath(roundedRect: swatchRect, xRadius: 4, yRadius: 4).stroke()
             }
-        }
-
-        // Aspect ratio lock hint (only show on the monitor where the mouse is located)
-        if aspectRatioHintOpacity > 0.01 && isMouseOnCurrentScreen() {
-            let hintText: String
-            if isCancellingAspectRatioLock {
-                hintText = L("Aspect ratio lock cleared")
-            } else if aspectRatioLock == .none {
-                hintText = String(
-                    format: L("Aspect ratio shortcuts: %@"),
-                    aspectRatioShortcutItems(includeInvert: true)
-                        .map { "\($0.key)=\($0.label)" }
-                        .joined(separator: "  ")
-                )
-            } else {
-                if aspectRatioLock == .oneToOne {
-                    hintText = String(
-                        format: L("Aspect ratio locked: %@. Press the same shortcut again to clear."),
-                        aspectRatioLock.displayName
-                    )
-                } else {
-                    hintText = String(
-                        format: L("Aspect ratio locked: %@. Press the same shortcut again to clear, %@ to invert."),
-                        aspectRatioLock.displayName,
-                        AspectRatioShortcutManager.invertKeyValue.uppercased()
-                    )
-                }
-            }
-
-            let attrs: [NSAttributedString.Key: Any] = [
-                .font: NSFont.systemFont(ofSize: 16, weight: .medium),
-                .foregroundColor: NSColor.white.withAlphaComponent(aspectRatioHintOpacity)
-            ]
-
-            let size = hintText.size(withAttributes: attrs)
-            let hintX = (bounds.width - size.width) / 2
-            let hintY = bounds.height / 2 - 100  // 屏幕中央上方
-
-            // Draw background for better readability
-            let bgPadding: CGFloat = 12
-            let bgRect = NSRect(
-                x: hintX - bgPadding,
-                y: hintY - bgPadding / 2,
-                width: size.width + bgPadding * 2,
-                height: size.height + bgPadding
-            )
-            NSColor.black.withAlphaComponent(aspectRatioHintOpacity * 0.7).setFill()
-            NSBezierPath(roundedRect: bgRect, xRadius: 8, yRadius: 8).fill()
-
-            hintText.draw(at: NSPoint(x: hintX, y: hintY), withAttributes: attrs)
         }
 
         // Barcode / QR badge
@@ -9167,8 +9112,7 @@ class OverlayView: NSView {
                     if char == AspectRatioShortcutManager.cancelKeyValue {
                         if aspectRatioLock != .none {
                             aspectRatioLock = .none
-                            isCancellingAspectRatioLock = true
-                            showAspectRatioHint()
+                            showOverlayHint(L("Aspect ratio lock cleared"))
                             needsDisplay = true
                             return
                         }
@@ -9178,7 +9122,12 @@ class OverlayView: NSView {
                     if char == AspectRatioShortcutManager.invertKeyValue {
                         if aspectRatioLock != .none && aspectRatioLock != .oneToOne {
                             aspectRatioLock = aspectRatioLock.inverted
-                            showAspectRatioHint()
+                            // 显示反转后的锁定提示
+                            showOverlayHint(String(
+                                format: L("Aspect ratio locked: %@. Press the same shortcut again to clear, %@ to invert."),
+                                aspectRatioLock.displayName,
+                                AspectRatioShortcutManager.invertKeyValue.uppercased()
+                            ))
                             needsDisplay = true
                             return
                         }
@@ -9408,47 +9357,34 @@ class OverlayView: NSView {
         if aspectRatioLock == lock || aspectRatioLock.sharesShortcutGroup(with: lock) {
             // 再次按下同一键，取消锁定
             aspectRatioLock = .none
-            isCancellingAspectRatioLock = true
+            showOverlayHint(L("Aspect ratio lock cleared"))
         } else {
             aspectRatioLock = lock
-            isCancellingAspectRatioLock = false
-        }
-        showAspectRatioHint()
-        needsDisplay = true
-    }
-
-    func getAspectRatioHintState(completion: (CGFloat, Bool, AspectRatioLock) -> Void) {
-        completion(aspectRatioHintOpacity, isCancellingAspectRatioLock, aspectRatioLock)
-    }
-
-    private func showAspectRatioHint() {
-        aspectRatioHintOpacity = 1.0
-        aspectRatioHintFadeTimer?.invalidate()
-        aspectRatioHintFadeTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: false) { [weak self] _ in
-            self?.fadeOutAspectRatioHint()
-        }
-        // Notify all other overlays to sync their hint state
-        overlayDelegate?.overlayViewDidChangeAspectRatioLock()
-        needsDisplay = true
-    }
-
-    func syncAspectRatioHint(opacity: CGFloat, isCancelling: Bool, lock: AspectRatioLock) {
-        aspectRatioHintOpacity = opacity
-        isCancellingAspectRatioLock = isCancelling
-        aspectRatioLock = lock
-        // Reset fade timer when syncing
-        if opacity > 0.01 {
-            aspectRatioHintFadeTimer?.invalidate()
-            aspectRatioHintFadeTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: false) { [weak self] _ in
-                self?.fadeOutAspectRatioHint()
+            // 显示锁定提示
+            if lock == .oneToOne {
+                showOverlayHint(String(
+                    format: L("Aspect ratio locked: %@. Press the same shortcut again to clear."),
+                    lock.displayName
+                ))
+            } else {
+                showOverlayHint(String(
+                    format: L("Aspect ratio locked: %@. Press the same shortcut again to clear, %@ to invert."),
+                    lock.displayName,
+                    AspectRatioShortcutManager.invertKeyValue.uppercased()
+                ))
             }
         }
         needsDisplay = true
     }
 
-    private func fadeOutAspectRatioHint() {
-        aspectRatioHintOpacity = 0.0
-        isCancellingAspectRatioLock = false  // 重置取消标志
+    func getAspectRatioHintState(completion: (CGFloat, Bool, AspectRatioLock) -> Void) {
+        // No longer needed - hints now use showOverlayHint()
+        completion(0.0, false, aspectRatioLock)
+    }
+
+    func syncAspectRatioHint(opacity: CGFloat, isCancelling: Bool, lock: AspectRatioLock) {
+        // No longer needed - hints now use showOverlayHint()
+        aspectRatioLock = lock
         needsDisplay = true
     }
 
@@ -9692,12 +9628,7 @@ class OverlayView: NSView {
         let nsCtx = NSGraphicsContext(cgContext: cgCtx, flipped: false)
         NSGraphicsContext.saveGraphicsState()
         NSGraphicsContext.current = nsCtx
-        for annotation in annotations where annotation.tool == .pixelate {
-            annotation.draw(in: nsCtx)
-        }
-        for annotation in annotations where annotation.tool != .pixelate {
-            annotation.draw(in: nsCtx)
-        }
+        drawAnnotationListLive(annotations, in: nsCtx)
         NSGraphicsContext.restoreGraphicsState()
 
         guard let cgImage = cgCtx.makeImage() else { return NSImage(size: size) }
@@ -9726,12 +9657,7 @@ class OverlayView: NSView {
             // Translate so annotations at selectionRect coords render correctly
             context.cgContext.translateBy(x: -drawRect.origin.x, y: -drawRect.origin.y)
             // Censor annotations render first so other annotations appear on top
-            for annotation in annotationsCopy where annotation.tool == .pixelate {
-                annotation.draw(in: context)
-            }
-            for annotation in annotationsCopy where annotation.tool != .pixelate {
-                annotation.draw(in: context)
-            }
+            self.drawAnnotationListLive(annotationsCopy, in: context)
             success = true
             return true
         }

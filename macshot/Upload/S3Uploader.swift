@@ -176,18 +176,19 @@ final class S3Uploader {
 
     // MARK: - AWS Signature V4
 
+    private static func makeDateFormatter(format: String) -> DateFormatter {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(identifier: "UTC")
+        formatter.dateFormat = format
+        return formatter
+    }
+
     private func signRequest(_ request: inout URLRequest, data: Data, date: Date,
                               region: String, accessKeyID: String, secretAccessKey: String) {
         let service = "s3"
-        let dateFormatter = DateFormatter()
-        dateFormatter.locale = Locale(identifier: "en_US_POSIX")
-        dateFormatter.timeZone = TimeZone(identifier: "UTC")
-
-        dateFormatter.dateFormat = "yyyyMMdd'T'HHmmss'Z'"
-        let amzDate = dateFormatter.string(from: date)
-
-        dateFormatter.dateFormat = "yyyyMMdd"
-        let dateStamp = dateFormatter.string(from: date)
+        let amzDate = Self.makeDateFormatter(format: "yyyyMMdd'T'HHmmss'Z'").string(from: date)
+        let dateStamp = Self.makeDateFormatter(format: "yyyyMMdd").string(from: date)
 
         request.setValue(amzDate, forHTTPHeaderField: "X-Amz-Date")
 

@@ -453,12 +453,36 @@ class ToolbarLayout {
             buttons.append(pinBtn)
         }
 
-        // OCR (tag 1003)
-        if actionEnabled(1003) {
-            var ocrBtn = ToolbarButton(
-                action: .ocr, sfSymbol: "doc.text.viewfinder", label: nil, tooltip: L("OCR Text"))
-            markFirstContentSection(&ocrBtn)
-            buttons.append(ocrBtn)
+        // 图像处理
+        var hasPlacedImageEffectsSection = false
+
+        // 包装
+        var beautifyBtn = ToolbarButton(
+            action: .beautify, sfSymbol: "sparkles", label: nil, tooltip: L("Wrap"))
+        beginSection(&hasPlacedImageEffectsSection, button: &beautifyBtn)
+        buttons.append(beautifyBtn)
+
+        // 调色
+        var effectsBtn = ToolbarButton(
+            action: .effects, sfSymbol: "slider.horizontal.3", label: nil, tooltip: L("Adjust"))
+        // 不设置 isSelected 和特殊颜色，与包装、反色等工具保持一致
+        beginSection(&hasPlacedImageEffectsSection, button: &effectsBtn)
+        buttons.append(effectsBtn)
+
+        // 反色
+        var invertBtn = ToolbarButton(
+            action: .invertColors, sfSymbol: "circle.righthalf.filled.inverse", label: nil,
+            tooltip: L("Invert Colors"))
+        beginSection(&hasPlacedImageEffectsSection, button: &invertBtn)
+        buttons.append(invertBtn)
+
+        // 抠图
+        if #available(macOS 14.0, *) {
+            var removeBackgroundBtn = ToolbarButton(
+                action: .removeBackground, sfSymbol: "person.crop.circle.dashed", label: nil,
+                tooltip: L("Remove Background"))
+            beginSection(&hasPlacedImageEffectsSection, button: &removeBackgroundBtn)
+            buttons.append(removeBackgroundBtn)
         }
 
         // Translate (tag 1008)

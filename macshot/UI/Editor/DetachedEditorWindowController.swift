@@ -496,7 +496,7 @@ extension DetachedEditorWindowController: OverlayViewDelegate {
                 filter.setValue(CIImage(cvPixelBuffer: mask), forKey: kCIInputMaskImageKey)
                 filter.setValue(CIImage(color: .clear).cropped(to: orig.extent), forKey: kCIInputBackgroundImageKey)
                 guard let out = filter.outputImage,
-                      let cg = CIContext().createCGImage(out, from: out.extent) else { return }
+                      let cg = BeautifyRenderer.sharedCIContext.createCGImage(out, from: out.extent) else { return }
                 DispatchQueue.main.async {
                     let finalImage = NSImage(cgImage: cg, size: image.size)
                     ImageEncoder.copyToClipboard(finalImage)
