@@ -145,18 +145,19 @@ enum FilenameTemplateEngine {
         return "\(context.prefix)_\(context.kind.displayName)_\(date)_\(time)"
     }
 
-    private static func dateString(from date: Date) -> String {
+    private static func makeDateFormatter(format: String) -> DateFormatter {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.dateFormat = "yyyy-MM-dd"
-        return formatter.string(from: date)
+        formatter.dateFormat = format
+        return formatter
+    }
+
+    private static func dateString(from date: Date) -> String {
+        makeDateFormatter(format: "yyyy-MM-dd").string(from: date)
     }
 
     private static func timeString(from date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.dateFormat = "HH-mm-ss"
-        return formatter.string(from: date)
+        makeDateFormatter(format: "HH-mm-ss").string(from: date)
     }
 
     private static func timestampString(from date: Date) -> String {

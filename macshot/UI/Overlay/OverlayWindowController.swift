@@ -115,12 +115,16 @@ class OverlayWindowController {
 
     func showOverlay() {
         guard let window = overlayWindow else { return }
+        #if DEBUG
         NSLog("[PERF] showOverlay: makeKeyAndOrderFront BEGIN")
+        #endif
         // Show immediately; do not call displayIfNeeded() here — it blocks the main thread
         // until the full frame is rendered and makes the hotkey→drag path feel sluggish.
         overlayView?.needsDisplay = true
         window.makeKeyAndOrderFront(nil)
+        #if DEBUG
         NSLog("[PERF] showOverlay: makeKeyAndOrderFront DONE")
+        #endif
         if let view = overlayView {
             window.makeFirstResponder(view)
         }
@@ -499,11 +503,15 @@ extension OverlayWindowController: OverlayViewDelegate {
 
         guard var image = captureRegion() else { return }
         let captureTime = Date().timeIntervalSince(startTime)
+        #if DEBUG
         NSLog("[Share] captureRegion: \(String(format: "%.0f", captureTime * 1000))ms")
+        #endif
 
         image = applyBeautifyIfNeeded(image) ?? image
         let beautifyTime = Date().timeIntervalSince(startTime)
+        #if DEBUG
         NSLog("[Share] applyBeautifyIfNeeded: \(String(format: "%.0f", beautifyTime * 1000))ms (delta: \(String(format: "%.0f", (beautifyTime - captureTime) * 1000))ms)")
+        #endif
 
         // Use PNG for sharing (fast encoding, WebP picture preset is too slow: 8+ seconds)
         // PNG encoding takes ~50-100ms vs WebP's 8+ seconds with picture preset
@@ -513,7 +521,9 @@ extension OverlayWindowController: OverlayViewDelegate {
             return
         }
         let encodeTime = Date().timeIntervalSince(startTime)
+        #if DEBUG
         NSLog("[Share] PNG encode: \(String(format: "%.0f", encodeTime * 1000))ms (delta: \(String(format: "%.0f", (encodeTime - beautifyTime) * 1000))ms)")
+        #endif
 
         let tempURL = FilenameTemplateEngine.uniqueDestinationURL(
             in: URL(fileURLWithPath: NSTemporaryDirectory()),
@@ -522,8 +532,12 @@ extension OverlayWindowController: OverlayViewDelegate {
         )
         try? pngData.write(to: tempURL)
         let writeTime = Date().timeIntervalSince(startTime)
+        #if DEBUG
         NSLog("[Share] write to temp file: \(String(format: "%.0f", writeTime * 1000))ms (delta: \(String(format: "%.0f", (writeTime - encodeTime) * 1000))ms)")
+        #endif
+        #if DEBUG
         NSLog("[Share] Total preparation time: \(String(format: "%.0f", writeTime * 1000))ms")
+        #endif
 
         // Get the screen position of the share button
         let screenRect: NSRect
@@ -747,7 +761,7 @@ extension OverlayWindowController: OverlayViewDelegate {
                     throw NSError(domain: "Macshot", code: 3)
                 }
 
-                let context = CIContext()
+                let context = BeautifyRenderer.sharedCIContext
                 guard
                     let finalCGImage = context.createCGImage(
                         outputCIImage, from: outputCIImage.extent)

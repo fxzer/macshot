@@ -422,10 +422,7 @@ class ToolbarLayout {
         // 调色
         var effectsBtn = ToolbarButton(
             action: .effects, sfSymbol: "slider.horizontal.3", label: nil, tooltip: L("Adjust"))
-        effectsBtn.isSelected = effectsActive
-        if effectsActive {
-            effectsBtn.tintColor = NSColor(calibratedRed: 1.0, green: 0.8, blue: 0.2, alpha: 1.0)
-        }
+        // 不设置 isSelected 和特殊颜色，与包装、反色等工具保持一致
         beginSection(&hasPlacedImageEffectsSection, button: &effectsBtn)
         buttons.append(effectsBtn)
 

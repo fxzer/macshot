@@ -1,4 +1,5 @@
 import Cocoa
+import UniformTypeIdentifiers
 
 struct HistoryEntry {
     let id: String           // UUID filename (without extension)
@@ -9,6 +10,12 @@ struct HistoryEntry {
     var hasAnnotations: Bool = false  // true if editable annotations are saved alongside
     var thumbnail: NSImage?  // lazily cached, tiny
 
+    private static let dateFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "MMM d, HH:mm"
+        return f
+    }()
+
     var timeAgoString: String {
         let seconds = Int(-timestamp.timeIntervalSinceNow)
         if seconds < 5 { return L("just now") }
@@ -17,9 +24,7 @@ struct HistoryEntry {
         if minutes < 60 { return String(format: L("%dm ago"), minutes) }
         let hours = minutes / 60
         if hours < 24 { return String(format: L("%dh ago"), hours) }
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MMM d, HH:mm"
-        return formatter.string(from: timestamp)
+        return Self.dateFormatter.string(from: timestamp)
     }
 }
 
@@ -104,8 +109,8 @@ class ScreenshotHistory {
         let histDir = historyDir
         DispatchQueue.global(qos: .utility).async { [weak self] in
             guard let self = self else { return }
-            let thumb = self.makeThumbnail(image: image, maxWidth: 36)
-            let preview = self.makePreview(image: image)
+            let thumb = self.makeScaledImage(image, maxDimension: 36)
+            let preview = self.makeScaledImage(image, maxDimension: 240)
 
             // Update the entry's thumbnail on main thread
             DispatchQueue.main.async {
@@ -115,30 +120,11 @@ class ScreenshotHistory {
                 self.saveIndex()
             }
 
-            // Write composited image
-            if let tiff = image.tiffRepresentation,
-               let bitmap = NSBitmapImageRep(data: tiff),
-               let imageData = bitmap.representation(using: .png, properties: [:]) {
-                try? imageData.write(to: fileURL, options: .atomic)
-            }
-            if let thumbTiff = thumb.tiffRepresentation,
-               let thumbBitmap = NSBitmapImageRep(data: thumbTiff),
-               let thumbPng = thumbBitmap.representation(using: .png, properties: [:]) {
-                try? thumbPng.write(to: thumbURL, options: .atomic)
-            }
-            if let prevTiff = preview.tiffRepresentation,
-               let prevBitmap = NSBitmapImageRep(data: prevTiff),
-               let prevPng = prevBitmap.representation(using: .png, properties: [:]) {
-                try? prevPng.write(to: previewURL, options: .atomic)
-            }
-
-            // Write raw image + annotations if available
-            if let raw = rawImage,
-               let rawTiff = raw.tiffRepresentation,
-               let rawBitmap = NSBitmapImageRep(data: rawTiff),
-               let rawData = rawBitmap.representation(using: .png, properties: [:]) {
-                try? rawData.write(to: rawURL, options: .atomic)
-            }
+            // Write images using direct CGImageDestination (avoids tiff→bitmap→png overhead)
+            Self.writePNG(image, to: fileURL)
+            Self.writePNG(thumb, to: thumbURL)
+            Self.writePNG(preview, to: previewURL)
+            if let raw = rawImage { Self.writePNG(raw, to: rawURL) }
             if let annData = annotationData {
                 try? annData.write(to: annURL, options: .atomic)
             }
@@ -163,36 +149,18 @@ class ScreenshotHistory {
         let annURL = historyDir.appendingPathComponent("\(id)_annotations.json")
 
         // Update thumbnail in memory immediately
-        let thumb = makeThumbnail(image: compositedImage, maxWidth: 36)
+        let thumb = makeScaledImage(compositedImage, maxDimension: 36)
         entries[idx].thumbnail = thumb
         saveIndex()
 
         DispatchQueue.global(qos: .utility).async { [weak self] in
             guard let self = self else { return }
-            // Composited image
-            if let tiff = compositedImage.tiffRepresentation,
-               let bitmap = NSBitmapImageRep(data: tiff),
-               let data = bitmap.representation(using: .png, properties: [:]) {
-                try? data.write(to: fileURL, options: .atomic)
-            }
-            // Thumbnail + preview
-            if let thumbTiff = thumb.tiffRepresentation,
-               let thumbBitmap = NSBitmapImageRep(data: thumbTiff),
-               let thumbPng = thumbBitmap.representation(using: .png, properties: [:]) {
-                try? thumbPng.write(to: thumbURL, options: .atomic)
-            }
-            let preview = self.makePreview(image: compositedImage)
-            if let prevTiff = preview.tiffRepresentation,
-               let prevBitmap = NSBitmapImageRep(data: prevTiff),
-               let prevPng = prevBitmap.representation(using: .png, properties: [:]) {
-                try? prevPng.write(to: previewURL, options: .atomic)
-            }
-            // Raw image + annotations
-            if let raw = rawImage,
-               let rawTiff = raw.tiffRepresentation,
-               let rawBitmap = NSBitmapImageRep(data: rawTiff),
-               let rawData = rawBitmap.representation(using: .png, properties: [:]) {
-                try? rawData.write(to: rawURL, options: .atomic)
+            Self.writePNG(compositedImage, to: fileURL)
+            Self.writePNG(thumb, to: thumbURL)
+            let preview = self.makeScaledImage(compositedImage, maxDimension: 240)
+            Self.writePNG(preview, to: previewURL)
+            if let raw = rawImage {
+                Self.writePNG(raw, to: rawURL)
             } else {
                 try? FileManager.default.removeItem(at: rawURL)
             }
@@ -282,29 +250,13 @@ class ScreenshotHistory {
 
         // Fall back to full image, scaled down
         guard let full = loadImage(for: entry) else { return nil }
-        let preview = makePreview(image: full)
+        let preview = makeScaledImage(full, maxDimension: 240)
 
         // Cache preview to disk for next time (fire and forget)
         DispatchQueue.global(qos: .utility).async {
-            if let tiff = preview.tiffRepresentation,
-               let bitmap = NSBitmapImageRep(data: tiff),
-               let data = bitmap.representation(using: .png, properties: [:]) {
-                try? data.write(to: previewURL, options: .atomic)
-            }
+            Self.writePNG(preview, to: previewURL)
         }
 
-        return preview
-    }
-
-    private func makePreview(image: NSImage, maxDimension: CGFloat = 240) -> NSImage {
-        let size = image.size
-        guard size.width > 0, size.height > 0 else { return image }
-        let scale = min(maxDimension / size.width, maxDimension / size.height, 1.0)
-        let previewSize = NSSize(width: round(size.width * scale), height: round(size.height * scale))
-        let preview = NSImage(size: previewSize, flipped: false) { _ in
-            image.draw(in: NSRect(origin: .zero, size: previewSize), from: .zero, operation: .copy, fraction: 1.0)
-            return true
-        }
         return preview
     }
 
@@ -372,15 +324,26 @@ class ScreenshotHistory {
         try? FileManager.default.removeItem(at: annURL)
     }
 
-    private func makeThumbnail(image: NSImage, maxWidth: CGFloat) -> NSImage {
+    /// Scale an image to fit within maxDimension on its longest side.
+    /// Used for both thumbnails (maxDimension=36) and previews (maxDimension=240).
+    private func makeScaledImage(_ image: NSImage, maxDimension: CGFloat) -> NSImage {
         let size = image.size
         guard size.width > 0, size.height > 0 else { return image }
-        let scale = min(maxWidth / size.width, maxWidth / size.height)
-        let thumbSize = NSSize(width: size.width * scale, height: size.height * scale)
-        let thumb = NSImage(size: thumbSize, flipped: false) { _ in
-            image.draw(in: NSRect(origin: .zero, size: thumbSize), from: .zero, operation: .copy, fraction: 1.0)
+        let scale = min(maxDimension / size.width, maxDimension / size.height, 1.0)
+        let targetSize = NSSize(width: round(size.width * scale), height: round(size.height * scale))
+        return NSImage(size: targetSize, flipped: false) { _ in
+            image.draw(in: NSRect(origin: .zero, size: targetSize), from: .zero, operation: .copy, fraction: 1.0)
             return true
         }
-        return thumb
+    }
+
+    /// Write an NSImage to disk as PNG using CGImageDestination.
+    /// Avoids the expensive tiff→NSBitmapImageRep→PNG conversion chain.
+    private static func writePNG(_ image: NSImage, to url: URL) {
+        guard let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil),
+              let dest = CGImageDestinationCreateWithURL(url as CFURL, UTType.png.identifier as CFString, 1, nil)
+        else { return }
+        CGImageDestinationAddImage(dest, cgImage, nil)
+        CGImageDestinationFinalize(dest)
     }
 }

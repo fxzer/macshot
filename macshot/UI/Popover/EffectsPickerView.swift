@@ -16,7 +16,7 @@ class EffectsPickerView: NSView {
     private let sliderLabelWidth: CGFloat = 72
     private let sliderWidth: CGFloat = 150
     private let sliderRowHeight: CGFloat = 24
-    private let sectionGap: CGFloat = 10
+    private let sectionGap: CGFloat = 12
 
     // Cached swatch images
     private var swatchImages: [NSImage] = []
@@ -69,7 +69,7 @@ class EffectsPickerView: NSView {
         y -= labelH
         let presetsLabel = makeLabel(L("Presets"), at: NSPoint(x: padding, y: y))
         addSubview(presetsLabel)
-        y -= 4
+        y -= 10  // 增加预设标签和预设网格之间的间隙
 
         // Preset swatches are drawn in draw(_:), skip height
         y -= presetGridH

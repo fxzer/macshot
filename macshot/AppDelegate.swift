@@ -547,7 +547,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         )
         preparedCaptureState = nil
 
+        #if DEBUG
         NSLog("[PERF] capture preparation BEGIN origin=\(origin.rawValue)")
+        #endif
         ScreenCaptureManager.captureAllScreens(excludingWindowNumbers: excludeIDs) { [weak self] captures in
             guard let self = self else { return }
             guard let inFlight = self.inFlightCapturePreparation,
@@ -555,7 +557,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
 
             self.inFlightCapturePreparation = nil
             guard !captures.isEmpty else {
+                #if DEBUG
                 NSLog("[PERF] capture preparation FAILED origin=\(origin.rawValue)")
+                #endif
                 return
             }
 
@@ -696,7 +700,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         isCapturing = true
         pendingCaptureTriggerOrigin = triggerOrigin
         let t0 = CFAbsoluteTimeGetCurrent()
+        #if DEBUG
         NSLog("[PERF] startCapture BEGIN origin=\(triggerOrigin.rawValue) t=\(t0)")
+        #endif
 
         // Track which screen the menu interaction occurred on for positioning dialogs
         if triggerOrigin == .menuBar {
@@ -731,11 +737,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         previousApp = frontmostApp
         capturedWindowTitle = nil
 
+        #if DEBUG
         NSLog("[PERF] startCapture: prewarm + dismissOverlays + hideThumbnails BEGIN")
+        #endif
         dismissOverlays()
         for tc in thumbnailControllers { tc.hideWindow() }
+        #if DEBUG
         NSLog("[PERF] startCapture: dismissOverlays + hideThumbnails DONE elapsed=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - t0) * 1000))ms")
-        isCapturing = true
+        #endif
 
         if delay > 0 {
             showPreCaptureCountdown(seconds: delay)
@@ -823,12 +832,16 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     }
 
     private func performCapture(t0: CFAbsoluteTime = 0, triggerOrigin: CaptureTriggerOrigin = .menuBar) {
+        #if DEBUG
         NSLog("[PERF] performCapture BEGIN elapsed=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - t0) * 1000))ms")
+        #endif
 
         let excludeIDs = currentCaptureExcludedWindowNumbers()
 
         if let prepared = consumePreparedCapture(excludedWindowNumbers: excludeIDs) {
+            #if DEBUG
             NSLog("[PERF] performCapture: using PREPARED images elapsed=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - t0) * 1000))ms")
+            #endif
             showOverlays(for: prepared, t0: t0)
             return
         }
@@ -844,7 +857,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
                     excludedWindowNumbers: excludeIDs,
                     timeoutNanoseconds: triggerOrigin.preparationWaitNanoseconds
                 ) {
+                    #if DEBUG
                     NSLog("[PERF] performCapture: prepared capture completed within wait window")
+                    #endif
                     self.showOverlays(for: prepared, t0: t0)
                 } else {
                     self.startLiveCapture(excludedWindowNumbers: excludeIDs, t0: t0)
@@ -857,11 +872,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     }
 
     private func startLiveCapture(excludedWindowNumbers excludeIDs: [CGWindowID], t0: CFAbsoluteTime) {
+        #if DEBUG
         NSLog("[PERF] performCapture: no prepared result, calling captureAllScreens...")
+        #endif
         let captureT0 = CFAbsoluteTimeGetCurrent()
         ScreenCaptureManager.captureAllScreens(excludingWindowNumbers: excludeIDs) { [weak self] captures in
             guard let self = self else { return }
+            #if DEBUG
             NSLog("[PERF] captureAllScreens callback: \(captures.count) captures, elapsed=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - t0) * 1000))ms (capture itself=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - captureT0) * 1000))ms)")
+            #endif
 
             if captures.isEmpty {
                 self.isCapturing = false
@@ -876,14 +895,18 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
 
     /// Shared overlay creation + display logic for both pre-capture and live-capture paths.
     private func showOverlays(for captures: [ScreenCapture], t0: CFAbsoluteTime = 0) {
+        #if DEBUG
         NSLog("[PERF] creating OverlayWindowControllers...")
+        #endif
         let createT0 = CFAbsoluteTimeGetCurrent()
         for capture in captures {
             let controller = OverlayWindowController(capture: capture)
             controller.overlayDelegate = self
             controller.capturedWindowTitle = self.capturedWindowTitle
             controller.onFirstFrameShown = {
+                #if DEBUG
                 NSLog("[PERF] first overlay frame drawn elapsed=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - t0) * 1000))ms screen=\(capture.screen.localizedName)")
+                #endif
             }
             if self.pendingRecordMode {
                 controller.setAutoRecordMode()
@@ -912,9 +935,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             }
             self.overlayControllers.append(controller)
         }
+        #if DEBUG
         NSLog("[PERF] OverlayWindowControllers created+shown elapsed=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - createT0) * 1000))ms")
+        #endif
 
+        #if DEBUG
         NSLog("[PERF] TOTAL startCapture→overlay visible: \(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - t0) * 1000))ms")
+        #endif
 
         NSApp.activate(ignoringOtherApps: true)
 

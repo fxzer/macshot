@@ -180,7 +180,9 @@ class ScreenCaptureManager {
             screenshotWarmLock.lock()
             lastScreenshotWarmTime = Date()
             screenshotWarmLock.unlock()
+            #if DEBUG
             NSLog("[PERF] prewarm screenshot pipeline: \(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - t0) * 1000))ms")
+            #endif
         }
 
         inFlightScreenshotWarm = task
@@ -192,7 +194,9 @@ class ScreenCaptureManager {
             do {
                 let scT0 = CFAbsoluteTimeGetCurrent()
                 let (content, excludedSCWindows) = try await shareableContentForCapture(excludingWindowNumbers: excludingWindowNumbers)
+                #if DEBUG
                 NSLog("[PERF] shareableContentForCapture: \(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - scT0) * 1000))ms")
+                #endif
                 let displays = content.displays
                 let screens = NSScreen.screens
 
@@ -226,7 +230,9 @@ class ScreenCaptureManager {
                                 guard let image = try? await SCScreenshotManager.captureImage(
                                     contentFilter: filter, configuration: config
                                 ) else { return nil }
+                                #if DEBUG
                                 NSLog("[PERF] SCScreenshotManager.captureImage(display=\(display.displayID)): \(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - taskT0) * 1000))ms")
+                                #endif
                                 // Skip expensive pixel conversion on the capture path —
                                 // CoreAnimation composites the GPU-native ARGB16F image
                                 // directly without CPU readback. Convert to 8-bit BGRA
@@ -265,7 +271,9 @@ class ScreenCaptureManager {
                     }
                     return results
                 }
+                #if DEBUG
                 NSLog("[PERF] all displays captured (concurrent): \(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - capT0) * 1000))ms")
+                #endif
 
                 await MainActor.run { completion(captures) }
             } catch {

@@ -57,17 +57,9 @@ struct BeautifyConfig {
         }
         var source = bgImage
         if backgroundBlur > 0,
-           let cgImg = bgImage.cgImage(forProposedRect: nil, context: nil, hints: nil) {
-            let ciImage = CIImage(cgImage: cgImg)
-            if let filter = CIFilter(name: "CIGaussianBlur") {
-                filter.setValue(ciImage, forKey: kCIInputImageKey)
-                filter.setValue(backgroundBlur, forKey: kCIInputRadiusKey)
-                let ciCtx = CIContext()
-                if let output = filter.outputImage,
-                   let blurredCG = ciCtx.createCGImage(output, from: ciImage.extent) {
-                    source = NSImage(cgImage: blurredCG, size: bgImage.size)
-                }
-            }
+           let cgImg = bgImage.cgImage(forProposedRect: nil, context: nil, hints: nil),
+           let blurredCG = BeautifyRenderer.applyGaussianBlur(to: cgImg, radius: backgroundBlur) {
+            source = NSImage(cgImage: blurredCG, size: bgImage.size)
         }
         cachedBackgroundCGImage = source.cgImage(forProposedRect: nil, context: nil, hints: nil)
     }
@@ -81,6 +73,26 @@ struct BeautifyConfig {
 }
 
 class BeautifyRenderer {
+
+    /// Shared CIContext — reused across all blur and rendering operations.
+    /// CIContext allocation is expensive (GPU/Metal resource setup); avoid creating per-call.
+    static let sharedCIContext: CIContext = {
+        CIContext(options: [
+            .workingColorSpace: CGColorSpaceCreateDeviceRGB(),
+            .outputColorSpace: CGColorSpaceCreateDeviceRGB(),
+        ])
+    }()
+
+    /// Apply Gaussian blur to a CGImage and return the blurred result.
+    /// Returns nil if the filter fails.
+    static func applyGaussianBlur(to cgImage: CGImage, radius: CGFloat) -> CGImage? {
+        let ci = CIImage(cgImage: cgImage)
+        guard let filter = CIFilter(name: "CIGaussianBlur") else { return nil }
+        filter.setValue(ci, forKey: kCIInputImageKey)
+        filter.setValue(radius, forKey: kCIInputRadiusKey)
+        guard let output = filter.outputImage else { return nil }
+        return sharedCIContext.createCGImage(output, from: ci.extent)
+    }
 
     private static func meshStyle(points: [SIMD2<Float>], colors: [NSColor], fallbackStops: [(NSColor, CGFloat)], fallbackAngle: CGFloat = 135) -> BeautifyStyle {
         BeautifyStyle(
@@ -528,17 +540,10 @@ class BeautifyRenderer {
             // Fallback: no cache (e.g. final render), process from NSImage
             if let bgImage = config.customBackgroundImage {
                 var imageToDraw = bgImage
-                if config.backgroundBlur > 0, let cgImg = bgImage.cgImage(forProposedRect: nil, context: nil, hints: nil) {
-                    let ciImage = CIImage(cgImage: cgImg)
-                    if let filter = CIFilter(name: "CIGaussianBlur") {
-                        filter.setValue(ciImage, forKey: kCIInputImageKey)
-                        filter.setValue(config.backgroundBlur, forKey: kCIInputRadiusKey)
-                        let ciCtx = CIContext()
-                        if let output = filter.outputImage,
-                           let blurredCG = ciCtx.createCGImage(output, from: ciImage.extent) {
-                            imageToDraw = NSImage(cgImage: blurredCG, size: bgImage.size)
-                        }
-                    }
+                if config.backgroundBlur > 0,
+                   let cgImg = bgImage.cgImage(forProposedRect: nil, context: nil, hints: nil),
+                   let blurredCG = applyGaussianBlur(to: cgImg, radius: config.backgroundBlur) {
+                    imageToDraw = NSImage(cgImage: blurredCG, size: bgImage.size)
                 }
                 let imgSize = imageToDraw.size
                 let scaleX = rect.width / imgSize.width
