@@ -269,43 +269,58 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     @objc private func statusBarIconClicked(_ sender: NSStatusBarButton) {
         // Pre-warm ScreenCaptureKit content while the user browses the menu
         ScreenCaptureManager.prewarm()
+        lastStatusBarInteractionScreen = sender.window?.screen
+            ?? NSScreen.screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) })
+        let fallbackAnchorRect = statusBarMenuAnchorRect(for: sender)
 
         if let modalWin = NSApp.modalWindow {
             // Modal is active — dismiss it, then show menu after it unwinds
             NSApp.stopModal()
             modalWin.close()
             DispatchQueue.main.async { [weak self] in
-                self?.showStatusBarMenu()
+                self?.showStatusBarMenu(from: sender, fallbackAnchorRect: fallbackAnchorRect)
             }
         } else {
             // No modal — show menu directly
-            showStatusBarMenu()
+            showStatusBarMenu(from: sender, fallbackAnchorRect: fallbackAnchorRect)
         }
     }
 
-    private func showStatusBarMenu() {
-        guard let menu = statusBarMenu, let button = statusItem.button else { return }
+    private func statusBarMenuAnchorRect(for button: NSStatusBarButton) -> NSRect? {
+        guard let window = button.window else { return nil }
+        let buttonRectInWindow = button.convert(button.bounds, to: nil)
+        return window.convertToScreen(buttonRectInWindow)
+    }
 
-        // Get the button's screen frame
-        let window = button.window
-        let buttonFrame = button.frame
-        let screenFrame = window?.convertToScreen(buttonFrame) ?? .zero
+    private func statusBarMenuAnchorPoint(for button: NSStatusBarButton) -> NSPoint {
+        if button.isFlipped {
+            return NSPoint(x: button.bounds.minX, y: button.bounds.maxY + 7)
+        }
+        return NSPoint(x: button.bounds.minX, y: button.bounds.minY - 7)
+    }
 
-        // Calculate menu position (below the status bar)
-        let menuPoint = NSPoint(x: screenFrame.minX, y: screenFrame.minY - 5)
+    private func showStatusBarMenu(from button: NSStatusBarButton, fallbackAnchorRect: NSRect? = nil) {
+        guard let menu = statusBarMenu else { return }
 
         // Temporarily remove action to avoid recursion
         let oldAction = button.action
         let oldTarget = button.target
         button.action = nil
         button.target = nil
+        defer {
+            button.action = oldAction
+            button.target = oldTarget
+        }
 
-        // Show menu at calculated position
+        if button.window != nil {
+            // Prefer anchoring to the clicked view so AppKit keeps the menu on that display.
+            menu.popUp(positioning: nil, at: statusBarMenuAnchorPoint(for: button), in: button)
+            return
+        }
+
+        guard let screenFrame = fallbackAnchorRect ?? statusBarMenuAnchorRect(for: button) else { return }
+        let menuPoint = NSPoint(x: screenFrame.minX, y: screenFrame.minY - 7)
         menu.popUp(positioning: nil, at: menuPoint, in: nil)
-
-        // Restore action
-        button.action = oldAction
-        button.target = oldTarget
     }
 
     private func rebuildStatusBarMenu() {
