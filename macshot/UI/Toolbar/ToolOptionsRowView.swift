@@ -990,15 +990,22 @@ class ToolOptionsRowView: NSView {
 
     private func addStampOptions(at x: CGFloat, ov: OverlayView) -> CGFloat {
         var curX = x
-        // Quick emoji buttons
-        for emoji in StampEmojis.common {
-            let btn = NSButton(title: emoji, target: self, action: #selector(quickEmojiClicked(_:)))
-            btn.bezelStyle = .recessed
-            btn.isBordered = false
-            btn.font = NSFont.systemFont(ofSize: 18)
-            btn.frame = NSRect(x: curX, y: (rowHeight - 26) / 2, width: 26, height: 26)
-            addSubview(btn)
-            curX += 26
+        // Quick emoji buttons grouped by category with separators
+        for (groupIndex, group) in StampEmojis.commonGroups.enumerated() {
+            for emoji in group {
+                let btn = NSButton(title: emoji, target: self, action: #selector(quickEmojiClicked(_:)))
+                btn.bezelStyle = .recessed
+                btn.isBordered = false
+                btn.font = NSFont.systemFont(ofSize: 14)
+                btn.frame = NSRect(x: curX, y: (rowHeight - 26) / 2, width: 26, height: 26)
+                addSubview(btn)
+                curX += 26
+            }
+            // Add separator after each group except the last one
+            if groupIndex < StampEmojis.commonGroups.count - 1 {
+                curX += 2
+                curX = addSeparator(at: curX)
+            }
         }
         curX += 4
 

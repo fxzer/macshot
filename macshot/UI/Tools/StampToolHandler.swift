@@ -44,13 +44,18 @@ enum StampEmojis {
         ),
     ]
 
-    static let common = [
-        "👆", "👇", "👈", "👉",  // point at things
-        "✅", "❌", "⚠️", "❓",  // approve / reject / warn / question
-        "🔥", "🐛", "💀", "🎉",  // reactions: hot, bug, dead, celebrate
-        "👀", "💡", "🎯", "⭐",  // look here, idea, bullseye, star
-        "❤️", "👍", "👎", "🚀",  // love, thumbs, launch
+    /// Common emojis grouped by category for quick access in toolbar.
+    /// Each category has 4 frequently used emojis, separated by | in UI.
+    static let commonGroups: [[String]] = [
+        ["😀", "😂", "🤣", "🤔"],           // Faces & People
+        ["👆", "👇", "👈", "👉"],           // Hands & Gestures
+        ["✅", "❌", "⚠️", "❓"],           // Symbols & Status
+        ["🔥", "🚀", "🎉", "🐛"],           // Objects & Reactions
+        ["🚩", "📍", "📌", "📝"],           // Flags & Markers
     ]
+
+    /// Flat list of all common emojis (for auto-select first stamp).
+    static let common = commonGroups.flatMap { $0 }
 
     /// Render an emoji string to an NSImage.
     static func renderEmoji(_ emoji: String, size: CGFloat = 128) -> NSImage {
