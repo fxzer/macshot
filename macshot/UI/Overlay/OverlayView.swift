@@ -34,10 +34,24 @@ protocol OverlayViewDelegate: AnyObject {
     func overlayViewDidChangeAspectRatioLock()
     func overlayViewDidChangeMouseLocation()
     func overlayViewLogicalSizeDidChange(_ size: NSSize)
+    func overlayViewDidShowHint(
+        message: String,
+        opacity: CGFloat,
+        colorString: String?,
+        attributedString: NSAttributedString?
+    )
+    func overlayViewDidShowError(message: String)
 }
 
 extension OverlayViewDelegate {
     func overlayViewLogicalSizeDidChange(_ size: NSSize) {}
+    func overlayViewDidShowHint(
+        message: String,
+        opacity: CGFloat,
+        colorString: String?,
+        attributedString: NSAttributedString?
+    ) {}
+    func overlayViewDidShowError(message: String) {}
 }
 
 /// An entry in the undo/redo history.
@@ -1028,7 +1042,15 @@ class OverlayView: NSView {
     private var overlayHintMessage: String? = nil
     private var overlayHintOpacity: CGFloat = 0.0
     private var overlayHintColorString: String? = nil  // Color value for color copy hint
+    private var overlayHintAttributedString: NSAttributedString? = nil  // Rich text for state hints
     private var overlayHintFadeTimer: Timer? = nil
+
+    /// Hint state for colored status indicators
+    enum HintState {
+        case enabled    // Green - feature enabled
+        case disabled   // Orange - feature disabled
+        case info       // White - default info
+    }
 
     // Instant tooltip for hovered toolbar button
     var hoveredTooltip: String?
@@ -1605,8 +1627,9 @@ class OverlayView: NSView {
         // Track mouse entering/leaving this screen for cross-monitor hint display
         let mouseCurrentlyOnScreen = isMouseOnCurrentScreen()
         if mouseCurrentlyOnScreen != isMouseOnThisScreen {
-            // Mouse entered or left this screen - notify all overlays to redraw
+            // Mouse entered or left this screen - redraw locally first, then notify peers.
             isMouseOnThisScreen = mouseCurrentlyOnScreen
+            needsDisplay = true
             overlayDelegate?.overlayViewDidChangeMouseLocation()
         }
 
@@ -2582,7 +2605,8 @@ class OverlayView: NSView {
         }
 
         // Overlay error message (red background for actual errors)
-        if let errorMsg = overlayErrorMessage {
+        // Show on the screen where the mouse is currently located (synced across all screens)
+        if let errorMsg = overlayErrorMessage, isMouseOnCurrentScreen() {
             let attrs: [NSAttributedString.Key: Any] = [
                 .font: NSFont.systemFont(ofSize: 13, weight: .medium),
                 .foregroundColor: NSColor.white,
@@ -2606,14 +2630,38 @@ class OverlayView: NSView {
         }
 
         // Overlay hint message (black semi-transparent background)
-        // Show on the screen where the event was triggered (key window)
-        if overlayHintOpacity > 0.01, let hintMsg = overlayHintMessage {
-            let attrs: [NSAttributedString.Key: Any] = [
-                .font: NSFont.systemFont(ofSize: 13, weight: .medium),
-                .foregroundColor: NSColor.white.withAlphaComponent(overlayHintOpacity),
-            ]
-            let str = hintMsg as NSString
-            let strSize = str.size(withAttributes: attrs)
+        // Show on the screen where the mouse is currently located (synced across all screens)
+        if overlayHintOpacity > 0.01, isMouseOnCurrentScreen() {
+            // Prefer NSAttributedString for state hints, fall back to plain string
+            let attrString: NSAttributedString?
+            let plainText: String?
+
+            if let cached = overlayHintAttributedString {
+                attrString = cached
+                plainText = nil
+            } else if let hintMsg = overlayHintMessage {
+                attrString = nil
+                plainText = hintMsg
+            } else {
+                attrString = nil
+                plainText = nil
+            }
+
+            guard attrString != nil || plainText != nil else { return }
+
+            // Build attributed string for display if using plain text
+            let displayAttrString: NSAttributedString
+            if let attrString = attrString {
+                displayAttrString = attrString
+            } else {
+                let attrs: [NSAttributedString.Key: Any] = [
+                    .font: NSFont.systemFont(ofSize: 13, weight: .medium),
+                    .foregroundColor: NSColor.white.withAlphaComponent(overlayHintOpacity),
+                ]
+                displayAttrString = NSAttributedString(string: plainText!, attributes: attrs)
+            }
+
+            let strSize = displayAttrString.size()
 
             // Color swatch size and spacing
             let colorSwatchSize: CGFloat = 20
@@ -2630,11 +2678,9 @@ class OverlayView: NSView {
             NSColor.black.withAlphaComponent(overlayHintOpacity * 0.7).setFill()
             NSBezierPath(roundedRect: hintRect, xRadius: 8, yRadius: 8).fill()
 
-            // Draw text
+            // Draw attributed text
             let textY = hintRect.minY + (hintH - strSize.height) / 2
-            str.draw(
-                at: NSPoint(x: hintRect.minX + padding, y: textY),
-                withAttributes: attrs)
+            displayAttrString.draw(at: NSPoint(x: hintRect.minX + padding, y: textY))
 
             // Draw color swatch if color string is available
             if let colorString = overlayHintColorString, let color = NSColor(hex: colorString) {
@@ -5433,6 +5479,19 @@ class OverlayView: NSView {
             self?.overlayErrorMessage = nil
             self?.needsDisplay = true
         }
+        // Notify other screens to sync error state
+        overlayDelegate?.overlayViewDidShowError(message: message)
+    }
+
+    /// Sync error state from another screen (for multi-monitor setups)
+    func syncOverlayError(message: String) {
+        overlayErrorTimer?.invalidate()
+        overlayErrorMessage = message
+        needsDisplay = true
+        overlayErrorTimer = Timer.scheduledTimer(withTimeInterval: 4.0, repeats: false) { [weak self] _ in
+            self?.overlayErrorMessage = nil
+            self?.needsDisplay = true
+        }
     }
 
     // MARK: - Overlay Hint
@@ -5440,6 +5499,7 @@ class OverlayView: NSView {
     func showOverlayHint(_ message: String) {
         overlayHintFadeTimer?.invalidate()
         overlayHintMessage = message
+        overlayHintAttributedString = nil
         overlayHintColorString = nil  // Clear color string for normal hints
         overlayHintOpacity = 1.0
         needsDisplay = true
@@ -5447,12 +5507,20 @@ class OverlayView: NSView {
             [weak self] _ in
             self?.fadeOutOverlayHint()
         }
+        // Notify other screens to sync hint state
+        overlayDelegate?.overlayViewDidShowHint(
+            message: message,
+            opacity: 1.0,
+            colorString: nil,
+            attributedString: nil
+        )
     }
 
     /// Show a hint message for color copying with a color swatch.
     func showColorCopiedHint(_ message: String, colorString: String) {
         overlayHintFadeTimer?.invalidate()
         overlayHintMessage = message
+        overlayHintAttributedString = nil
         overlayHintColorString = colorString
         overlayHintOpacity = 1.0
         needsDisplay = true
@@ -5460,12 +5528,94 @@ class OverlayView: NSView {
             [weak self] _ in
             self?.fadeOutOverlayHint()
         }
+        // Notify other screens to sync hint state
+        overlayDelegate?.overlayViewDidShowHint(
+            message: message,
+            opacity: 1.0,
+            colorString: colorString,
+            attributedString: nil
+        )
+    }
+
+    /// Sync hint state from another screen (for multi-monitor setups)
+    func syncOverlayHint(
+        message: String,
+        opacity: CGFloat,
+        colorString: String?,
+        attributedString: NSAttributedString?
+    ) {
+        overlayHintFadeTimer?.invalidate()
+        overlayHintMessage = message
+        overlayHintColorString = colorString
+        overlayHintAttributedString = attributedString
+        overlayHintOpacity = opacity
+        needsDisplay = true
+        if opacity > 0.01 {
+            overlayHintFadeTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: false) { [weak self] _ in
+                self?.fadeOutOverlayHint()
+            }
+        }
+    }
+
+    /// Show a hint message with colored status text (green for enabled, orange for disabled).
+    /// The message prefix is white, the statusText suffix is colored.
+    func showStateHint(message: String, statusText: String, state: HintState) {
+        let color: NSColor
+
+        switch state {
+        case .enabled:
+            color = NSColor.systemGreen
+        case .disabled:
+            color = NSColor.systemOrange
+        case .info:
+            color = NSColor.white
+        }
+
+        let baseAttrs: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: 13, weight: .medium)
+        ]
+
+        let attrString = NSMutableAttributedString()
+
+        // Message prefix (white)
+        attrString.append(NSAttributedString(
+            string: message,
+            attributes: baseAttrs.merging([.foregroundColor: NSColor.white]) { $1 }
+        ))
+
+        // Status text (colored)
+        attrString.append(NSAttributedString(
+            string: statusText,
+            attributes: baseAttrs.merging([.foregroundColor: color]) { $1 }
+        ))
+
+        showAttributedHint(attrString)
+    }
+
+    private func showAttributedHint(_ attrString: NSAttributedString) {
+        overlayHintFadeTimer?.invalidate()
+        overlayHintMessage = attrString.string
+        overlayHintAttributedString = attrString
+        overlayHintColorString = nil
+        overlayHintOpacity = 1.0
+        needsDisplay = true
+        overlayHintFadeTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: false) { [weak self] _ in
+            self?.fadeOutOverlayHint()
+        }
+        // Notify other screens to sync rich-text hint state.
+        overlayDelegate?.overlayViewDidShowHint(
+            message: attrString.string,
+            opacity: 1.0,
+            colorString: nil,
+            attributedString: attrString
+        )
     }
 
     private func fadeOutOverlayHint() {
         overlayHintOpacity = 0.0
         overlayHintMessage = nil
         overlayHintColorString = nil
+        overlayHintAttributedString = nil
         needsDisplay = true
     }
 
@@ -9404,7 +9554,11 @@ class OverlayView: NSView {
                     if char == AspectRatioShortcutManager.cancelKeyValue {
                         if aspectRatioLock != .none {
                             aspectRatioLock = .none
-                            showOverlayHint(L("Aspect ratio lock cleared"))
+                            showStateHint(
+                                message: L("Aspect ratio lock") + " ",
+                                statusText: L("Status disabled"),
+                                state: .disabled
+                            )
                             needsDisplay = true
                             return
                         }
@@ -9415,11 +9569,11 @@ class OverlayView: NSView {
                         if aspectRatioLock != .none && aspectRatioLock != .oneToOne {
                             aspectRatioLock = aspectRatioLock.inverted
                             // 显示反转后的锁定提示
-                            showOverlayHint(String(
-                                format: L("Aspect ratio locked: %@. Press the same shortcut again to clear, %@ to invert."),
-                                aspectRatioLock.displayName,
-                                AspectRatioShortcutManager.invertKeyValue.uppercased()
-                            ))
+                            showStateHint(
+                                message: L("Aspect ratio lock") + " (" + aspectRatioLock.displayName + ") ",
+                                statusText: L("Status enabled"),
+                                state: .enabled
+                            )
                             needsDisplay = true
                             return
                         }
@@ -9523,13 +9677,21 @@ class OverlayView: NSView {
             if state == .selected && selectionRect.width > 1 && selectionRect.height > 1 {
                 showOverlayHint(L("Current selection remembered"))
             } else {
-                showOverlayHint(L("Remember last selection area enabled"))
+                showStateHint(
+                    message: L("Remember last selection area") + " ",
+                    statusText: L("Status enabled"),
+                    state: .enabled
+                )
             }
         } else {
             if selectionWasRestoredFromMemory && state == .selected {
                 clearSelection()
             }
-            showOverlayHint(L("Remember last selection area disabled"))
+            showStateHint(
+                message: L("Remember last selection area") + " ",
+                statusText: L("Status disabled"),
+                state: .disabled
+            )
         }
         needsDisplay = true
     }
@@ -9649,22 +9811,19 @@ class OverlayView: NSView {
         if aspectRatioLock == lock || aspectRatioLock.sharesShortcutGroup(with: lock) {
             // 再次按下同一键，取消锁定
             aspectRatioLock = .none
-            showOverlayHint(L("Aspect ratio lock cleared"))
+            showStateHint(
+                message: L("Aspect ratio lock") + " ",
+                statusText: L("Status disabled"),
+                state: .disabled
+            )
         } else {
             aspectRatioLock = lock
-            // 显示锁定提示
-            if lock == .oneToOne {
-                showOverlayHint(String(
-                    format: L("Aspect ratio locked: %@. Press the same shortcut again to clear."),
-                    lock.displayName
-                ))
-            } else {
-                showOverlayHint(String(
-                    format: L("Aspect ratio locked: %@. Press the same shortcut again to clear, %@ to invert."),
-                    lock.displayName,
-                    AspectRatioShortcutManager.invertKeyValue.uppercased()
-                ))
-            }
+            // 显示锁定提示：选区比例锁定 (x:y) 已开启
+            showStateHint(
+                message: L("Aspect ratio lock") + " (" + lock.displayName + ") ",
+                statusText: L("Status enabled"),
+                state: .enabled
+            )
         }
         needsDisplay = true
     }
@@ -10368,8 +10527,11 @@ class OverlayView: NSView {
         overlayErrorTimer?.invalidate()
         overlayErrorTimer = nil
         overlayErrorMessage = nil
+        overlayHintFadeTimer?.invalidate()
+        overlayHintFadeTimer = nil
         overlayHintMessage = nil
         overlayHintColorString = nil
+        overlayHintOpacity = 0.0
         barcodeDetector.cancel()
         hoveredWindowRect = nil
         isRecording = false

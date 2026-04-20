@@ -46,6 +46,13 @@ protocol OverlayWindowControllerDelegate: AnyObject {
     func overlayDidChangeWindowSnapState(_ controller: OverlayWindowController)
     func overlayDidChangeAspectRatioLock(_ controller: OverlayWindowController)
     func overlayDidChangeMouseLocation(_ controller: OverlayWindowController)
+    func overlayViewDidShowHint(
+        message: String,
+        opacity: CGFloat,
+        colorString: String?,
+        attributedString: NSAttributedString?
+    )
+    func overlayViewDidShowError(message: String)
 }
 
 /// Manages one fullscreen overlay per screen.
@@ -169,6 +176,24 @@ class OverlayWindowController {
         source.overlayView?.getAspectRatioHintState { opacity, isCancelling, lock in
             overlayView?.syncAspectRatioHint(opacity: opacity, isCancelling: isCancelling, lock: lock)
         }
+    }
+
+    func syncOverlayHint(
+        message: String,
+        opacity: CGFloat,
+        colorString: String?,
+        attributedString: NSAttributedString?
+    ) {
+        overlayView?.syncOverlayHint(
+            message: message,
+            opacity: opacity,
+            colorString: colorString,
+            attributedString: attributedString
+        )
+    }
+
+    func syncOverlayError(message: String) {
+        overlayView?.syncOverlayError(message: message)
     }
 
     func setRemoteSelection(_ rect: NSRect, fullRect: NSRect = .zero) {
@@ -945,6 +970,26 @@ extension OverlayWindowController: OverlayViewDelegate {
                 }
             }
         }
+    }
+
+    func overlayViewDidShowHint(
+        message: String,
+        opacity: CGFloat,
+        colorString: String?,
+        attributedString: NSAttributedString?
+    ) {
+        // Broadcast hint state to all other screens
+        overlayDelegate?.overlayViewDidShowHint(
+            message: message,
+            opacity: opacity,
+            colorString: colorString,
+            attributedString: attributedString
+        )
+    }
+
+    func overlayViewDidShowError(message: String) {
+        // Broadcast error state to all other screens
+        overlayDelegate?.overlayViewDidShowError(message: message)
     }
 }
 

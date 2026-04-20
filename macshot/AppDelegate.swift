@@ -2348,6 +2348,32 @@ extension AppDelegate: OverlayWindowControllerDelegate {
         }
     }
 
+    func overlayViewDidShowHint(
+        message: String,
+        opacity: CGFloat,
+        colorString: String?,
+        attributedString: NSAttributedString?
+    ) {
+        // Broadcast hint state to all overlays (for multi-monitor setups)
+        // Each overlay stores the hint and only displays it when mouse is on that screen
+        for controller in overlayControllers {
+            controller.syncOverlayHint(
+                message: message,
+                opacity: opacity,
+                colorString: colorString,
+                attributedString: attributedString
+            )
+        }
+    }
+
+    func overlayViewDidShowError(message: String) {
+        // Broadcast error state to all overlays (for multi-monitor setups)
+        // Each overlay stores the error and only displays it when mouse is on that screen
+        for controller in overlayControllers {
+            controller.syncOverlayError(message: message)
+        }
+    }
+
     private func handleScrollCaptureCompleted(finalImage: NSImage?) {
         scrollCapturePreviewPanel?.close()
         scrollCapturePreviewPanel = nil
