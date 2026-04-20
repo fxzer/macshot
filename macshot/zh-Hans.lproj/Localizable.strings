@@ -171,6 +171,7 @@
 "Draw something first to use the move tool." = "请先绘制标注，然后才能使用移动工具。";
 "Drag to reposition" = "拖拽以重新定位";
 "Lock aspect ratio: 1=1:1  2=2:3  3=3:4  4=4:5  5=5:7  6=9:16  (R to invert  0 to cancel)" = "数字键锁定比例：1=1:1  2=2:3  3=3:4  4=4:5  5=5:7  6=9:16  （R 键反转，0 取消）";
+"Aspect ratio lock" = "选区比例锁定";
 "Aspect ratio lock cleared" = "已取消比例锁定";
 "Aspect ratio locked: " = "已锁定比例：";
 " (press the same number again to clear, R to invert)" = "（再次按相同数字取消，R 键反转）";
@@ -216,6 +217,8 @@
 "Play sound on copy" = "拷贝时播放声音";
 "Play sound" = "播放提示音";
 "Remember last selection area" = "选区记忆";
+"Status enabled" = "已开启";
+"Status disabled" = "已关闭";
 "Remember last selected tool" = "记住上次选择的工具";
 "Tip: Press ` during capture to toggle this" = "选取后，按 ` 键可以快捷切换开关";
 "After selection, press" = "选区后，按";
