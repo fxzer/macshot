@@ -9408,7 +9408,7 @@ class OverlayView: NSView {
                 )
             }
         } else {
-            if selectionWasRestoredFromMemory && state == .selected {
+            if state == .selected {
                 clearSelection()
             }
             showStateHint(
