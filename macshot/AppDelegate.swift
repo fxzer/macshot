@@ -286,13 +286,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     private func showStatusBarMenu() {
         guard let menu = statusBarMenu, let button = statusItem.button else { return }
 
-        // Get the button's screen frame
-        let window = button.window
+        // Get button position
         let buttonFrame = button.frame
-        let screenFrame = window?.convertToScreen(buttonFrame) ?? .zero
+        guard let window = button.window else { return }
+        let screenFrame = window.convertToScreen(buttonFrame)
 
         // Calculate menu position (below the status bar)
-        let menuPoint = NSPoint(x: screenFrame.minX, y: screenFrame.minY - 5)
+        let menuPoint = NSPoint(x: screenFrame.minX, y: screenFrame.minY - 7)
 
         // Temporarily remove action to avoid recursion
         let oldAction = button.action
@@ -300,7 +300,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         button.action = nil
         button.target = nil
 
-        // Show menu at calculated position
+        // Show menu at screen coordinates - let NSMenu handle screen selection
         menu.popUp(positioning: nil, at: menuPoint, in: nil)
 
         // Restore action
