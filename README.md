@@ -1,5 +1,3 @@
-# macshot
-
 <p align="center">
   <img src="assets/logo.svg" alt="macshot logo" width="200"/>
 </p>
@@ -11,6 +9,8 @@
 
 <p align="center">
   <a href="https://github.com/fxzer/macshot/releases/latest">Download</a> · <a href="https://github.com/fxzer/macshot/blob/main/CHANGELOG.md">Changelog</a> · <a href="https://github.com/fxzer/macshot/blob/main/PRIVACY.md">Privacy</a>
+  <br>
+  <a href="README.zh-CN.md">简体中文</a>
 </p>
 
 <p align="center">
@@ -26,7 +26,7 @@
 - **Scroll capture** — select a region and scroll. macshot stitches it into one seamless tall (or wide) image automatically.
 - **Upload anywhere** — one-click upload to Google Drive, imgbb, or any S3-compatible service (Cloudflare R2, AWS S3, MinIO, etc.). Link copied to clipboard instantly.
 - **Lightweight & native** — ~8 MB memory at idle. Lives in your menu bar. Built with Swift and AppKit, not a web browser in disguise.
-- **40 languages** — English, 中文, 日本語, 한국어, Deutsch, Français, Español, Italiano, Português, العربية, हिन्दी, and 29 more. Auto-detects your system language.
+- **2 languages** — English, 中文 (简体). Auto-detects your system language.
 
 ---
 
@@ -122,6 +122,83 @@ brew install fxzer/macshot/macshot
 - **Snap alignment guides** — annotations snap to midlines and edges
 - **Auto-updates** via Sparkle
 - **~8 MB memory** at idle
+
+---
+
+<details>
+<summary><b>Enhanced Features (fxzer fork)</b></summary>
+
+This fork includes numerous enhancements and custom features developed by fxzer. Below is a comprehensive summary of all customizations.
+
+### UI/UX Improvements
+
+**Toolbar & Panel Reorganization**
+- 🎨 **Dual-container toolbar layout** — restructured toolbar with improved visual hierarchy
+- **Beautify Picker redesign** — dedicated Beautify UI component with optimized gradient swatch grid alignment
+- **Editor top bar** — enhanced editor window with pixel dimensions, zoom dropdown, crop/flip buttons
+- **Popover alignment** — improved alignment logic for popovers, toolbars, and UI elements
+
+**Hint & Feedback System**
+- 💡 **Unified hint system** — synchronized overlay hints and error messages across multi-monitor setups
+- **Enhanced feedback animations** — improved save feedback, color copy hints, and status indicators
+- **Menu bar positioning** — fixed status bar menu position to avoid overlap in high-DPI scenarios
+
+**Upload History UI**
+- 📷 **SwiftUI Grid layout** — upload history redesigned with SwiftUI Grid and thumbnail support
+- **Simplified settings** — removed complex tab switcher, unified upload settings layout
+- **5-column grid** — optimized spacing and interaction for upload history
+
+### Feature Enhancements
+
+**Capture Tools**
+- 📐 **Selection size snapping** — snap to specific aspect ratios (16:9, 4:3, 1:1, etc.) or pixel dimensions (50/100px steps)
+- 🔒 **Aspect ratio lock** — lock selection to 1:1, 3:4, or 9:16 during drawing; press `R` to rotate
+- **Image effects in overlay** — enable image effect tools directly in screenshot overlay
+- **Auto-scaling aspect-fit** — detached editor now supports automatic aspect-fit scaling
+
+**Color & Pin Window**
+- 🎨 **Enhanced color sampler** — magnifier view with pixel-level precision, color gamut display (Display P3/sRGB/Adobe RGB)
+- 🖼️ **Color fidelity separation** — accurate color representation across different displays for pin windows
+- **Improved pin positioning** — better auto-pin positioning after copy operations
+
+**OCR & Translation**
+- 🌐 **Youdao translation integration** — added and set as default translation engine
+- **Responsive OCR window** — improved OCR window responsiveness and settings
+
+**Filename & Output**
+- 📅 **Customizable filename format** — configure timestamp format (year/month/day/hour/minute/second) for automatic file naming
+- **Unified upload filename** — consistent filename format between uploads and local saves
+
+**Interaction Improvements**
+- 🖱️ **Scroll wheel tool sizing** — adjust stroke width or tool size by scrolling over tool buttons (no need to click first)
+- **Undo/Redo disabled states** — visual feedback for unavailable undo/redo actions
+
+### Internationalization & Optimization
+
+**Language Simplification**
+- 🌍 **2 languages only** — reduced from 40 languages to English and Simplified Chinese (简体) for lighter app size
+- **Removed knownRegions** — cleaned up .pbxproj by removing unused language regions
+
+**Resource Optimization**
+- 🗜️ **WebP conversion** — permission images converted from PNG to WebP for smaller size
+- **Faster overlay appearance** — deferred image conversion for improved responsiveness
+
+### Performance & Stability
+
+**Rendering Performance**
+- ⚡ **PNG encoding for share** — optimized share button performance using PNG encoding
+- **Deferred image conversion** — delays overlay appearance conversion for faster startup
+
+**Data Reliability**
+- 🔐 **UserDefaults fallback** — added fallback for Keychain data storage failures
+- **Improved Google Drive stability** — better login status refresh and error handling
+
+**Experimental Features (Rolled Back)**
+- Attempted weak reference collections for controller memory management
+- Image caching and screenshot pooling (rolled back for further refinement)
+- Drawing throttling and performance monitoring tools (rolled back)
+
+</details>
 
 </details>
 

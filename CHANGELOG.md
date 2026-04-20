@@ -1,5 +1,71 @@
 # Changelog
 
+## [5.0.0] - 2026-04-20
+
+### Major Release (fxzer Fork)
+
+This is a major release featuring numerous enhancements and custom features. The project has been reorganized as a fork focused on productivity improvements and UI/UX refinements.
+
+### Added (fxzer Enhancements)
+
+**UI/UX Improvements**
+- 🎨 **Dual-container toolbar layout** — restructured toolbar with improved visual hierarchy
+- **Beautify Picker redesign** — dedicated Beautify UI component with optimized gradient swatch grid alignment
+- **Editor top bar** — enhanced editor window with pixel dimensions, zoom dropdown, crop/flip buttons
+- 💡 **Unified hint system** — synchronized overlay hints and error messages across multi-monitor setups
+- 📷 **SwiftUI Grid upload history** — upload history redesigned with SwiftUI Grid and thumbnail support
+- **Improved feedback animations** — enhanced save feedback, color copy hints, and status indicators
+
+**Capture Features**
+- 📐 **Selection size snapping** — snap to specific aspect ratios (16:9, 4:3, 1:1, etc.) or pixel dimensions (50/100px steps)
+- 🔒 **Aspect ratio lock** — lock selection to 1:1, 3:4, or 9:16 during drawing; press `R` to rotate
+- **Image effects in overlay** — enable image effect tools directly in screenshot overlay
+- **Auto-scaling aspect-fit** — detached editor supports automatic aspect-fit scaling
+
+**Color & Tools**
+- 🎨 **Enhanced color sampler** — magnifier view with pixel-level precision, color gamut display (Display P3/sRGB/Adobe RGB)
+- 🖼️ **Color fidelity separation** — accurate color representation across different displays for pin windows
+- 🖱️ **Scroll wheel tool sizing** — adjust stroke width or tool size by scrolling over tool buttons
+- **Undo/Redo disabled states** — visual feedback for unavailable undo/redo actions
+
+**OCR & Translation**
+- 🌐 **Youdao translation integration** — added and set as default translation engine
+- **Responsive OCR window** — improved OCR window responsiveness and settings
+
+**Output & Filename**
+- 📅 **Customizable filename format** — configure timestamp format (year/month/day/hour/minute/second) for automatic file naming
+- **Unified upload filename** — consistent filename format between uploads and local saves
+
+### Changed
+
+**Internationalization**
+- 🌍 **2 languages only** — reduced from 40 languages to English and Simplified Chinese (简体) for lighter app size
+- **Removed knownRegions** — cleaned up .pbxproj by removing unused language regions
+
+**Resource Optimization**
+- 🗜️ **WebP conversion** — permission images converted from PNG to WebP for smaller size
+- ⚡ **Faster overlay appearance** — deferred image conversion for improved responsiveness
+
+### Fixed
+
+- **Menu bar positioning** — fixed status bar menu position to avoid overlap in high-DPI scenarios
+- **Pin positioning** — better auto-pin positioning after copy operations
+- **Google Drive stability** — improved login status refresh and error handling
+- 🔐 **UserDefaults fallback** — added fallback for Keychain data storage failures
+
+### Technical
+
+**Performance**
+- **PNG encoding for share** — optimized share button performance using PNG encoding
+- **Deferred image conversion** — delays overlay appearance conversion for faster startup
+
+**Experimental Features (Rolled Back)**
+- Attempted weak reference collections for controller memory management
+- Image caching and screenshot pooling (rolled back for further refinement)
+- Drawing throttling and performance monitoring tools (rolled back)
+
+---
+
 ## [4.0.4-beta.2] - 2026-04-11
 
 ### Added
