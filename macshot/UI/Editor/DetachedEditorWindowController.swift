@@ -716,4 +716,28 @@ private class AddCaptureOverlayHandler: NSObject, OverlayWindowControllerDelegat
             other.triggerRedraw()
         }
     }
+
+    func overlayViewDidShowHint(
+        message: String,
+        opacity: CGFloat,
+        colorString: String?,
+        attributedString: NSAttributedString?
+    ) {
+        // Broadcast hint state to all overlays (for multi-monitor setups during "Add Capture" in editor)
+        for controller in overlayControllers {
+            controller.syncOverlayHint(
+                message: message,
+                opacity: opacity,
+                colorString: colorString,
+                attributedString: attributedString
+            )
+        }
+    }
+
+    func overlayViewDidShowError(message: String) {
+        // Broadcast error state to all overlays (for multi-monitor setups during "Add Capture" in editor)
+        for controller in overlayControllers {
+            controller.syncOverlayError(message: message)
+        }
+    }
 }
