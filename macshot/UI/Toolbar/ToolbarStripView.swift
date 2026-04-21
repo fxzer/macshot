@@ -13,13 +13,15 @@ class ToolbarStripView: NSView {
     private var sectionBreakBeforeForButtonIndex: [Bool] = []
     /// Set to true in editor mode so gap clicks pass through to the image beneath.
     var passesThrough = false
+    /// Indices after which a vertical separator is inserted in horizontal strips.
+    var horizontalSeparatorAfterIndices: Set<Int> = []
 
     var onClick: ((ToolbarButtonAction) -> Void)?
     var onRightClick: ((ToolbarButtonAction, NSView) -> Void)?
     var onHover: ((ToolbarButtonAction, Bool) -> Void)?
 
-    private let padding: CGFloat = 4
-    private let spacing: CGFloat = 2
+    private let padding: CGFloat = ToolbarLayout.toolbarPadding
+    private let spacing: CGFloat = ToolbarLayout.buttonSpacing
     private let separatorSpacing: CGFloat = 6  // Extra spacing around separators
 
     init(orientation: Orientation) {
@@ -37,9 +39,6 @@ class ToolbarStripView: NSView {
         buttonViews.removeAll()
         separatorViews.removeAll()
         sectionBreakBeforeForButtonIndex = buttons.map(\.sectionBreakBefore)
-
-        // 底栏横向：在指定按钮索引之后插入竖线分隔（与 bottomButtons 分组一致）
-        let horizontalSeparatorAfterIndices: Set<Int> = [3, 7, 11, 15]
 
         for (index, data) in buttons.enumerated() {
             if orientation == .vertical, data.sectionBreakBefore, index > 0 {
@@ -103,8 +102,7 @@ class ToolbarStripView: NSView {
                 maxWidth += btnSize + spacing
 
                 // 检查是否需要在这个按钮后添加分隔线
-                // 分隔线位置：画笔组后(3)、形状组后(7)、标注组后(11)、功能组后(15)
-                if [3, 7, 11, 15].contains(index) && separatorIndex < separatorViews.count {
+                if horizontalSeparatorAfterIndices.contains(index) && separatorIndex < separatorViews.count {
                     let sep = separatorViews[separatorIndex]
                     x += separatorSpacing
                     let sepSize = sep.intrinsicContentSize
@@ -114,7 +112,7 @@ class ToolbarStripView: NSView {
                     separatorIndex += 1
                 }
             }
-            frame.size = NSSize(width: maxWidth + padding, height: btnSize + padding * 2)
+            frame.size = NSSize(width: maxWidth, height: btnSize + padding * 2)
 
         case .vertical:
             var sepRun = 0

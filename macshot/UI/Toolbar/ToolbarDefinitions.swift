@@ -92,9 +92,11 @@ class ToolbarLayout {
     static var handleColor: NSColor { accentColor }
     static var selectedBg: NSColor { accentColor }
     static let buttonSize: CGFloat = 32
+    static let iconPointSize: CGFloat = 14
     static let buttonSpacing: CGFloat = 2
     static let toolbarPadding: CGFloat = 4
     static let cornerRadius: CGFloat = 6
+    static var stripThickness: CGFloat { buttonSize + toolbarPadding * 2 }
 
     /// Save accent color to UserDefaults.
     static func saveAccentColor(_ color: NSColor) {
@@ -138,11 +140,17 @@ class ToolbarLayout {
         UserDefaults.standard.removeObject(forKey: "toolbarBgColor")
     }
 
+    static func topButtons(isRecording: Bool = false, isEditorMode: Bool = false) -> [ToolbarButton] {
+        // 截图界面移除顶部工具栏，编辑器保持顶部工具栏由 EditorTopBarView 处理
+        return []
+    }
+
+
     // Bottom toolbar items (drawing tools + colors + undo/redo + processing actions)
     static func bottomButtons(
         selectedTool: AnnotationTool, selectedColor: NSColor, beautifyEnabled: Bool = false,
         beautifyStyleIndex: Int = 0, hasAnnotations: Bool = false, isRecording: Bool = false,
-        effectsActive: Bool = false
+        effectsActive: Bool = false, isEditorMode: Bool = false
     ) -> [ToolbarButton] {
         // Hide the bottom bar entirely while recording
         if isRecording { return [] }
@@ -172,7 +180,7 @@ class ToolbarLayout {
             UserDefaults.standard.set(allKnownToolRawValues, forKey: "knownToolRawValues")
         }
 
-        // 工具按钮按分组排列：画笔 | 形状 | 标注 | 效果
+        // 工具按钮按分组排列：画笔 | 形状 | 标注
         let tools: [(AnnotationTool, String, String)] = [
             // 画笔组 (4个)
             (.pencil, "scribble", L("Pencil (Draw)")),
@@ -194,11 +202,9 @@ class ToolbarLayout {
             (.number, "1.circle.fill", L("Number")),
             (.stamp, "face.smiling", L("Stamp / Emoji")),
             (.measure, "ruler", L("Measure (px)")),
-
-            // 颜色取样器放在最后
-            (.colorSampler, "eyedropper", L("Color Picker")),
         ]
 
+        var toolIndex = 0
         for (tool, symbol, tip) in tools {
             // Skip if disabled
             if let enabledRawValues = enabledRawValues, !enabledRawValues.contains(tool.rawValue) {
@@ -206,6 +212,13 @@ class ToolbarLayout {
             }
             var btn = ToolbarButton(action: .tool(tool), sfSymbol: symbol, label: nil, tooltip: tip)
             btn.isSelected = (tool == selectedTool)
+
+            // 每组4个工具后添加分割线（第5、9个工具前）
+            if toolIndex == 4 || toolIndex == 8 {
+                btn.sectionBreakBefore = true
+            }
+
+
             switch tool {
             case .pencil, .line, .arrow, .rectangle, .ellipse, .marker, .number, .loupe:
                 break  // options shown in the tool options row, not via right-click
@@ -213,72 +226,24 @@ class ToolbarLayout {
                 break
             }
             buttons.append(btn)
+            toolIndex += 1
         }
 
-        // Color button
-        var colorBtn = ToolbarButton(action: .color, sfSymbol: nil, label: nil, tooltip: L("Color"))
-        colorBtn.bgColor = selectedColor
-        buttons.append(colorBtn)
-
-        // Undo / Redo
-        buttons.append(
-            ToolbarButton(
-                action: .undo, sfSymbol: "arrow.uturn.backward", label: nil, tooltip: L("Undo")))
-        buttons.append(
-            ToolbarButton(
-                action: .redo, sfSymbol: "arrow.uturn.forward", label: nil, tooltip: L("Redo")))
-
-        // Processing actions (moved from right bar) — respect enabledActions toggles
-        let enabledActions = UserDefaults.standard.array(forKey: "enabledActions") as? [Int]
-        func actionEnabled(_ tag: Int) -> Bool {
-            return enabledActions == nil || enabledActions!.contains(tag)
-        }
-
-        // Auto-redact moved to blur/pixelate options row
-
-        // Invert colors (tag 1011)
-        if !isRecording && actionEnabled(1011) {
-            buttons.append(
-                ToolbarButton(
-                    action: .invertColors, sfSymbol: "circle.righthalf.filled.inverse", label: nil,
-                    tooltip: L("Invert Colors")))
-        }
-
-        if !isRecording && actionEnabled(1013) {
-            var effectsBtn = ToolbarButton(
-                action: .effects, sfSymbol: "slider.horizontal.3", label: nil,
-                tooltip: L("Adjust"))
-            if effectsActive {
-                effectsBtn.tintColor = NSColor(
-                    calibratedRed: 1.0, green: 0.8, blue: 0.2, alpha: 1.0)
-            }
-            buttons.append(effectsBtn)
-        }
-
-        if !isRecording && actionEnabled(1004) {
-            var beautifyBtn = ToolbarButton(
-                action: .beautify, sfSymbol: "sparkles", label: nil, tooltip: L("Beautify"))
-            if beautifyEnabled {
-                beautifyBtn.tintColor = NSColor(
-                    calibratedRed: 1.0, green: 0.8, blue: 0.2, alpha: 1.0)
-            }
-            buttons.append(beautifyBtn)
-        }
-
-        if !isRecording, #available(macOS 14.0, *), actionEnabled(1005) {
-            buttons.append(
-                ToolbarButton(
-                    action: .removeBackground, sfSymbol: "person.crop.circle.dashed", label: nil,
-                    tooltip: L("Remove Background")))
-        }
+        // 撤销/重做按钮
+        var undoBtn = ToolbarButton(action: .undo, sfSymbol: "arrow.uturn.backward", label: nil, tooltip: L("Undo"))
+        undoBtn.sectionBreakBefore = true
+        buttons.append(undoBtn)
+        let redoBtn = ToolbarButton(action: .redo, sfSymbol: "arrow.uturn.forward", label: nil, tooltip: L("Redo"))
+        buttons.append(redoBtn)
 
         return buttons
     }
 
     // Right toolbar items (output actions + cancel + delay)
     static func rightButtons(
+        selectedTool: AnnotationTool = .pencil,
         beautifyEnabled: Bool = false, beautifyStyleIndex: Int = 0, hasAnnotations: Bool = false,
-        translateEnabled: Bool = false, isRecording: Bool = false,
+        effectsActive: Bool = false, translateEnabled: Bool = false, isRecording: Bool = false,
         isEditorMode: Bool = false
     ) -> [ToolbarButton] {
         var buttons: [ToolbarButton] = []
@@ -383,108 +348,102 @@ class ToolbarLayout {
             return enabledActions == nil || enabledActions!.contains(tag)
         }
 
-        // First pin / OCR / translate in this strip starts the "content actions" group (divider before it).
-        var placedContentSection = false
-        func markFirstContentSection(_ btn: inout ToolbarButton) {
-            if !placedContentSection {
-                btn.sectionBreakBefore = true
-                placedContentSection = true
-            }
-        }
-        var placedAdvancedSection = false
-        func markFirstAdvancedSection(_ btn: inout ToolbarButton) {
-            if !placedAdvancedSection {
-                btn.sectionBreakBefore = true
-                placedAdvancedSection = true
-            }
-        }
-        // Helper for image effects section
-        func beginSection(_ hasPlaced: inout Bool, button: inout ToolbarButton) {
-            if !hasPlaced {
+        var hasPlacedUtilitySection = false
+        var hasPlacedContentSection = false
+        var hasPlacedOutputSection = false
+        var hasPlacedImageEffectsSection = false
+        var hasPlacedAdvancedSection = false
+
+        func beginSection(_ flag: inout Bool, button: inout ToolbarButton) {
+            if !flag {
                 button.sectionBreakBefore = true
-                hasPlaced = true
+                flag = true
             }
         }
 
-        // Cancel, pin (overlay: pin directly under cancel), move-selection, editor — not shown in editor window
+        // 右侧第一组：会话/轻工具
         if !isEditorMode {
-            buttons.append(
-                ToolbarButton(action: .cancel, sfSymbol: "xmark", label: nil, tooltip: L("Cancel")))
-            // Pin under close (second slot); section break for "content" group applies to OCR/translate only
-            if actionEnabled(1002) {
-                buttons.append(
-                    ToolbarButton(action: .pin, sfSymbol: "pin.fill", label: nil, tooltip: L("Pin")))
-            }
-            buttons.append(
-                ToolbarButton(
-                    action: .moveSelection, sfSymbol: "arrow.up.and.down.and.arrow.left.and.right",
-                    label: nil, tooltip: L("Move Selection")))
-            buttons.append(
-                ToolbarButton(
-                    action: .detach, sfSymbol: "arrow.up.forward.app", label: nil,
-                    tooltip: L("Open in Editor Window")))
+            var closeBtn = ToolbarButton(action: .cancel, sfSymbol: "xmark", label: nil, tooltip: L("Cancel"))
+            beginSection(&hasPlacedUtilitySection, button: &closeBtn)
+            buttons.append(closeBtn)
+
+            var detachBtn = ToolbarButton(
+                action: .detach, sfSymbol: "arrow.up.forward.app", label: nil,
+                tooltip: L("Open in Editor"))
+            beginSection(&hasPlacedUtilitySection, button: &detachBtn)
+            buttons.append(detachBtn)
         }
-        // Copy and save are always present — section after session chrome (overlay only)
+
+        if actionEnabled(1002) {
+            var pinBtn = ToolbarButton(action: .pin, sfSymbol: "pin.fill", label: nil, tooltip: L("Pin"))
+            beginSection(&hasPlacedUtilitySection, button: &pinBtn)
+            buttons.append(pinBtn)
+        }
+
+        var colorSamplerBtn = ToolbarButton(
+            action: .tool(.colorSampler), sfSymbol: "eyedropper", label: nil,
+            tooltip: L("Color Picker"))
+        colorSamplerBtn.isSelected = (selectedTool == .colorSampler)
+        beginSection(&hasPlacedUtilitySection, button: &colorSamplerBtn)
+        buttons.append(colorSamplerBtn)
+
+        // Output
         var copyBtn = ToolbarButton(action: .copy, sfSymbol: "doc.on.doc", label: nil, tooltip: L("Copy"))
-        if !isEditorMode {
-            copyBtn.sectionBreakBefore = true
-        }
+        beginSection(&hasPlacedOutputSection, button: &copyBtn)
         buttons.append(copyBtn)
+
         var saveBtn = ToolbarButton(
             action: .save, sfSymbol: "square.and.arrow.down.fill", label: nil,
             tooltip:
                 "\(L("Save to")) \(URL(fileURLWithPath: SaveDirectoryAccess.displayPath).lastPathComponent)"
         )
         saveBtn.hasContextMenu = true
+        beginSection(&hasPlacedOutputSection, button: &saveBtn)
         buttons.append(saveBtn)
 
-        // Share (tag 1012)
-        if actionEnabled(1012) {
-            buttons.append(
-                ToolbarButton(
-                    action: .share, sfSymbol: "square.and.arrow.up", label: nil, tooltip: L("Share")))
-        }
-
-        // Upload (tag 1001)
         if actionEnabled(1001) {
             var uploadBtn = ToolbarButton(
                 action: .upload, sfSymbol: "icloud.and.arrow.up", label: nil, tooltip: L("Upload"))
             uploadBtn.hasContextMenu = true
+            beginSection(&hasPlacedOutputSection, button: &uploadBtn)
             buttons.append(uploadBtn)
         }
 
-        // Pin (tag 1002) — overlay: already after cancel; editor: here after upload
-        if isEditorMode && actionEnabled(1002) {
-            var pinBtn = ToolbarButton(action: .pin, sfSymbol: "pin.fill", label: nil, tooltip: L("Pin"))
-            markFirstContentSection(&pinBtn)
-            buttons.append(pinBtn)
+        if actionEnabled(1012) {
+            var shareBtn = ToolbarButton(
+                action: .share, sfSymbol: "square.and.arrow.up", label: nil, tooltip: L("Share"))
+            beginSection(&hasPlacedOutputSection, button: &shareBtn)
+            buttons.append(shareBtn)
         }
 
-        // 图像处理
-        var hasPlacedImageEffectsSection = false
+        // Image effects — above translate/OCR (same order in capture + editor)
+        if actionEnabled(1004) {
+            var beautifyBtn = ToolbarButton(
+                action: .beautify, sfSymbol: "sparkles", label: nil, tooltip: L("Beautify"))
+            beginSection(&hasPlacedImageEffectsSection, button: &beautifyBtn)
+            buttons.append(beautifyBtn)
+        }
 
-        // 包装
-        var beautifyBtn = ToolbarButton(
-            action: .beautify, sfSymbol: "sparkles", label: nil, tooltip: L("Wrap"))
-        beginSection(&hasPlacedImageEffectsSection, button: &beautifyBtn)
-        buttons.append(beautifyBtn)
+        if actionEnabled(1013) {
+            var effectsBtn = ToolbarButton(
+                action: .effects, sfSymbol: "slider.horizontal.3", label: nil, tooltip: L("Adjust"))
+            effectsBtn.isSelected = effectsActive
+            if effectsActive {
+                effectsBtn.tintColor = NSColor(calibratedRed: 1.0, green: 0.8, blue: 0.2, alpha: 1.0)
+            }
+            beginSection(&hasPlacedImageEffectsSection, button: &effectsBtn)
+            buttons.append(effectsBtn)
+        }
 
-        // 调色
-        var effectsBtn = ToolbarButton(
-            action: .effects, sfSymbol: "slider.horizontal.3", label: nil, tooltip: L("Adjust"))
-        // 不设置 isSelected 和特殊颜色，与包装、反色等工具保持一致
-        beginSection(&hasPlacedImageEffectsSection, button: &effectsBtn)
-        buttons.append(effectsBtn)
+        if actionEnabled(1011) {
+            var invertBtn = ToolbarButton(
+                action: .invertColors, sfSymbol: "circle.righthalf.filled.inverse", label: nil,
+                tooltip: L("Invert Colors"))
+            beginSection(&hasPlacedImageEffectsSection, button: &invertBtn)
+            buttons.append(invertBtn)
+        }
 
-        // 反色
-        var invertBtn = ToolbarButton(
-            action: .invertColors, sfSymbol: "circle.righthalf.filled.inverse", label: nil,
-            tooltip: L("Invert Colors"))
-        beginSection(&hasPlacedImageEffectsSection, button: &invertBtn)
-        buttons.append(invertBtn)
-
-        // 抠图
-        if #available(macOS 14.0, *) {
+        if #available(macOS 14.0, *), actionEnabled(1005) {
             var removeBackgroundBtn = ToolbarButton(
                 action: .removeBackground, sfSymbol: "person.crop.circle.dashed", label: nil,
                 tooltip: L("Remove Background"))
@@ -492,33 +451,37 @@ class ToolbarLayout {
             buttons.append(removeBackgroundBtn)
         }
 
-        // Translate (tag 1008)
+        // 内容处理（翻译、OCR — 在图像效果组下方）
         if actionEnabled(1008) {
             var translateBtn = ToolbarButton(
                 action: .translate, sfSymbol: "translate", label: nil, tooltip: L("Translate"))
             translateBtn.isSelected = translateEnabled
             translateBtn.hasContextMenu = true
-            markFirstContentSection(&translateBtn)
+            beginSection(&hasPlacedContentSection, button: &translateBtn)
             buttons.append(translateBtn)
         }
 
-        // Scroll Capture (tag 1010) — hidden when recording or in editor mode
-        if !isRecording && !isEditorMode && actionEnabled(1010) {
+        if actionEnabled(1003) {
+            var ocrBtn = ToolbarButton(
+                action: .ocr, sfSymbol: "doc.text.viewfinder", label: nil, tooltip: L("OCR"))
+            beginSection(&hasPlacedContentSection, button: &ocrBtn)
+            buttons.append(ocrBtn)
+        }
+
+        // Screenshot-only advanced actions
+        if !isEditorMode && actionEnabled(1010) {
             var scrollBtn = ToolbarButton(
                 action: .scrollCapture, sfSymbol: "scroll", label: nil,
                 tooltip: L("Scroll Capture"))
-            markFirstAdvancedSection(&scrollBtn)
+            beginSection(&hasPlacedAdvancedSection, button: &scrollBtn)
             buttons.append(scrollBtn)
         }
 
-        // Record (tag 1009) — hidden in editor mode. Right-click for options.
         if !isEditorMode && actionEnabled(1009) {
             var recordBtn = ToolbarButton(
                 action: .record, sfSymbol: "video.fill", label: nil, tooltip: L("Record"))
             recordBtn.tintColor = ToolbarLayout.iconColor
-            if !placedAdvancedSection {
-                markFirstAdvancedSection(&recordBtn)
-            }
+            beginSection(&hasPlacedAdvancedSection, button: &recordBtn)
             buttons.append(recordBtn)
         }
 

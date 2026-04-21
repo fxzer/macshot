@@ -36,7 +36,7 @@ struct BeautifyConfig {
     var mode: BeautifyMode = .window
     var styleIndex: Int = 0
     var padding: CGFloat = 48       // 16..96
-    var cornerRadius: CGFloat = 10  // 0..30
+    var cornerRadius: CGFloat = 10  // 0..100 (UI slider range)
     var shadowRadius: CGFloat = 20  // 0..100
     var bgRadius: CGFloat = 8      // 0..30 (outer background corner radius)
     var isWindowSnap: Bool = false  // true = selection came from window snap, skip synthetic title bar

@@ -36,7 +36,7 @@ class ToolbarButtonView: NSView {
         let onColor = ToolbarLayout.iconColor
 
         let bottomSymbols = [
-            "scribble", "line.diagonal", "arrow.up.right", "rectangle", "oval",
+            "checkmark", "scribble", "line.diagonal", "arrow.up.right", "rectangle", "oval",
             "highlighter", "paintbrush.pointed.fill", "_custom.letterA", "1.circle.fill",
             "_custom.checkerboard", "magnifyingglass", "face.smiling", "eyedropper", "ruler",
             "arrow.uturn.backward", "arrow.uturn.forward",
@@ -74,7 +74,7 @@ class ToolbarButtonView: NSView {
         if name == "_custom.letterA" {
             return letterAIcon(color: color)
         }
-        let cfg = NSImage.SymbolConfiguration(pointSize: 14, weight: .medium)
+        let cfg = NSImage.SymbolConfiguration(pointSize: ToolbarLayout.iconPointSize, weight: .medium)
         guard let symbol = NSImage(systemSymbolName: name, accessibilityDescription: nil)?
                 .withSymbolConfiguration(cfg) else { return nil }
         return NSImage(size: symbol.size, flipped: false) { r in
@@ -97,7 +97,7 @@ class ToolbarButtonView: NSView {
     var onRightClick: ((ToolbarButtonAction, NSView) -> Void)?
     var onHover: ((ToolbarButtonAction, Bool) -> Void)?  // (action, isHovered)
 
-    static let size: CGFloat = 32
+    static let size: CGFloat = ToolbarLayout.buttonSize
     private static let radius: CGFloat = 6
 
     var tooltipText: String = ""
@@ -176,7 +176,7 @@ class ToolbarButtonView: NSView {
                 } else if name == "_custom.letterA" {
                     img = Self.letterAIcon(color: color)
                 } else {
-                    let cfg = NSImage.SymbolConfiguration(pointSize: 14, weight: .medium)
+                    let cfg = NSImage.SymbolConfiguration(pointSize: ToolbarLayout.iconPointSize, weight: .medium)
                     if let symbol = NSImage(systemSymbolName: name, accessibilityDescription: nil)?
                             .withSymbolConfiguration(cfg) {
                         img = NSImage(size: symbol.size, flipped: false) { r in

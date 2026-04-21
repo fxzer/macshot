@@ -85,6 +85,10 @@ class ToolOptionsRowView: NSView {
     /// Update color swatches in-place without rebuilding the entire row.
     func updateSwatchColors() {
         guard let ov = overlayView else { return }
+        // Draw color swatch (tag 974)
+        if let swatch = viewWithTag(974) {
+            swatch.layer?.backgroundColor = (editingAnnotation?.color ?? ov.currentColor).cgColor
+        }
         // Text background swatch (tag 975)
         if let swatch = viewWithTag(975) {
             swatch.layer?.backgroundColor = ov.textEditor.bgColor.cgColor
@@ -128,13 +132,8 @@ class ToolOptionsRowView: NSView {
         currentTool = tool
         var curX: CGFloat = padding
 
-        // ── Beautify options (overrides tool options when active) ──
-        if ov.showBeautifyInOptionsRow {
-            curX = addBeautifyOptions(at: curX, ov: ov)
-            let totalW = max(curX + padding, 200)
-            contentWidth = totalW
-            frame.size = NSSize(width: totalW, height: rowHeight)
-            return
+        if supportsDrawColor(tool) {
+            curX = addDrawColorControl(at: curX, tool: tool, ov: ov)
         }
 
         // ── Stroke width slider (most drawing tools) ──
@@ -295,6 +294,44 @@ class ToolOptionsRowView: NSView {
         sep.layer?.backgroundColor = ToolbarLayout.iconColor.withAlphaComponent(0.1).cgColor
         addSubview(sep)
         return x + 13
+    }
+
+    private func supportsDrawColor(_ tool: AnnotationTool) -> Bool {
+        switch tool {
+        case .pencil, .line, .arrow, .rectangle, .ellipse, .marker, .number, .measure, .text:
+            return true
+        default:
+            return false
+        }
+    }
+
+    private func addDrawColorControl(at x: CGFloat, tool: AnnotationTool, ov: OverlayView) -> CGFloat {
+        var curX = x
+
+        let label = NSTextField(labelWithString: L("Color"))
+        label.font = NSFont.systemFont(ofSize: 9.5, weight: .medium)
+        label.textColor = ToolbarLayout.iconColor.withAlphaComponent(0.4)
+        label.sizeToFit()
+        label.frame.origin = NSPoint(x: curX, y: (rowHeight - label.frame.height) / 2)
+        addSubview(label)
+        curX += label.frame.width + 4
+
+        let swatchSize: CGFloat = 18
+        let swatch = NSButton(frame: NSRect(x: curX, y: (rowHeight - swatchSize) / 2, width: swatchSize, height: swatchSize))
+        swatch.title = ""
+        swatch.isBordered = false
+        swatch.wantsLayer = true
+        swatch.layer?.backgroundColor = (editingAnnotation?.color ?? ov.currentColor).cgColor
+        swatch.layer?.cornerRadius = 3
+        swatch.layer?.borderWidth = 1.5
+        swatch.layer?.borderColor = ToolbarLayout.iconColor.withAlphaComponent(0.4).cgColor
+        swatch.tag = 974
+        swatch.target = self
+        swatch.action = #selector(drawColorClicked(_:))
+        addSubview(swatch)
+        curX += swatchSize
+
+        return curX
     }
 
     private func addStrokeSlider(at x: CGFloat, tool: AnnotationTool, ov: OverlayView) -> CGFloat {
@@ -1118,7 +1155,7 @@ class ToolOptionsRowView: NSView {
 
         // Corner radius slider — hidden for snapped windows (native corners are baked in)
         if !isSnap {
-            curX = addBeautifySlider(at: curX, label: L("Radius"), value: ov.beautifyCornerRadius, min: 0, max: 30, action: #selector(beautifyCornerChanged(_:)), tag: 901)
+            curX = addBeautifySlider(at: curX, label: L("Radius"), value: ov.beautifyCornerRadius, min: 0, max: 100, action: #selector(beautifyCornerChanged(_:)), tag: 901)
         }
 
         // Shadow slider
@@ -1275,6 +1312,12 @@ class ToolOptionsRowView: NSView {
         ov.beautifyEnabled = sender.state == .on
         UserDefaults.standard.set(ov.beautifyEnabled, forKey: "beautifyEnabled")
         ov.needsDisplay = true
+    }
+
+    @objc private func drawColorClicked(_ sender: NSButton) {
+        if PopoverHelper.isVisible { PopoverHelper.dismiss(); return }
+        guard let ov = overlayView else { return }
+        ov.showColorPickerPopover(target: .drawColor, anchorView: sender)
     }
 
     private func addHintLabel(at x: CGFloat, text: String) -> CGFloat {
