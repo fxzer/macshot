@@ -790,6 +790,17 @@ class OverlayView: NSView {
             }
         }
     }
+
+    private func drawAnnotationListLive(_ annotations: [Annotation], in context: NSGraphicsContext) {
+        // Censor annotations (pixelate/blur) render first so other annotations
+        // always appear on top of blurred regions.
+        for annotation in annotations where annotation.tool == .pixelate {
+            annotation.draw(in: context)
+        }
+        for annotation in annotations where annotation.tool != .pixelate {
+            annotation.draw(in: context)
+        }
+    }
     private var autoMeasureBitmapW: Int = 0
     private var autoMeasureBitmapH: Int = 0
     // Snap/alignment guides

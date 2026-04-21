@@ -398,6 +398,13 @@ class ToolbarLayout {
                 placedAdvancedSection = true
             }
         }
+        // Helper for image effects section
+        func beginSection(_ hasPlaced: inout Bool, button: inout ToolbarButton) {
+            if !hasPlaced {
+                button.sectionBreakBefore = true
+                hasPlaced = true
+            }
+        }
 
         // Cancel, pin (overlay: pin directly under cancel), move-selection, editor — not shown in editor window
         if !isEditorMode {
