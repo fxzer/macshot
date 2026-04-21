@@ -117,6 +117,30 @@ enum UploadHistoryStore {
 
     /// 共享实例，用于 SwiftUI 视图订阅更新
     static let shared = UploadHistoryModel()
+
+    /// 清除指定服务商的上传历史
+    static func clear(provider: String) {
+        var history = load()
+        let idsToRemove = history.filter { $0["provider"] == provider }.compactMap { $0["id"] }
+
+        // 从历史记录中移除该服务商的条目
+        history.removeAll { $0["provider"] == provider }
+        UserDefaults.standard.set(history, forKey: unifiedKey)
+
+        // 删除缩略图文件
+        let fileManager = FileManager.default
+        guard let appSupportURL = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
+            return
+        }
+        let thumbnailDir = appSupportURL.appendingPathComponent("com.fxzer.macshot/history/thumbnails")
+        for id in idsToRemove {
+            let thumbnailURL = thumbnailDir.appendingPathComponent("\(id).jpg")
+            try? fileManager.removeItem(at: thumbnailURL)
+        }
+
+        // 通知共享实例更新
+        shared.refresh()
+    }
 }
 
 /// ObservableObject 包装器，提供响应式访问

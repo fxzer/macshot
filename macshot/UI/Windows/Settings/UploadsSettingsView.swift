@@ -400,28 +400,7 @@ struct UploadHistoryPopoverView: View {
     }
 
     private func clearAllHistory() {
-        let fileManager = FileManager.default
-        guard let appSupportURL = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
-            return
-        }
-
-        let historyDir = appSupportURL.appendingPathComponent("com.fxzer.macshot/history")
-
-        Task.detached(priority: .background) {
-            do {
-                if fileManager.fileExists(atPath: historyDir.path) {
-                    try fileManager.removeItem(at: historyDir)
-                }
-                try fileManager.createDirectory(at: historyDir, withIntermediateDirectories: true)
-
-                // 清空 UserDefaults 中的历史
-                await MainActor.run {
-                    UserDefaults.standard.set([], forKey: "uploadHistory")
-                    UploadHistoryStore.shared.refresh()
-                }
-            } catch {
-                print("清理历史缓存失败: \(error.localizedDescription)")
-            }
-        }
+        // 只清除当前服务商的上传历史
+        UploadHistoryStore.clear(provider: uploadProvider)
     }
 }
