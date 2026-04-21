@@ -7,6 +7,7 @@ class ToolbarButtonView: NSView {
     let action: ToolbarButtonAction
     var sfSymbol: String?
     var isOn: Bool = false { didSet { if oldValue != isOn { cachedIcon = nil; needsDisplay = true } } }
+    var isEnabled: Bool = true { didSet { if oldValue != isEnabled { cachedIcon = nil; needsDisplay = true } } }
     var tintColor: NSColor = ToolbarLayout.iconColor { didSet { cachedIcon = nil; cachedIconIsOn = nil; needsDisplay = true } }
     var swatchColor: NSColor? { didSet { needsDisplay = true } }
     var hasContextMenu: Bool = false
@@ -18,6 +19,7 @@ class ToolbarButtonView: NSView {
     private var trackingArea: NSTrackingArea?
     private var cachedIcon: NSImage?       // cached tinted SF Symbol for current state
     private var cachedIconIsOn: Bool?       // the isOn state when icon was cached
+    private var cachedIconIsEnabled: Bool?  // the isEnabled state when icon was cached
 
     /// Shared cross-instance cache: avoids re-rasterizing SF Symbols when toolbar is rebuilt.
     /// Key: "symbolName|isOn|colorHex"
@@ -85,9 +87,9 @@ class ToolbarButtonView: NSView {
 
     private static func cacheKey(name: String, isOn: Bool, color: NSColor) -> String {
         let rgb = color.usingColorSpace(.sRGB) ?? color
-        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0
-        rgb.getRed(&r, green: &g, blue: &b, alpha: nil)
-        return "\(name)|\(isOn)|\(Int(r*255)),\(Int(g*255)),\(Int(b*255))"
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        rgb.getRed(&r, green: &g, blue: &b, alpha: &a)
+        return "\(name)|\(isOn)|\(Int(r*255)),\(Int(g*255)),\(Int(b*255)),\(Int(a*255))"
     }
 
     var onClick: ((ToolbarButtonAction) -> Void)?
@@ -110,13 +112,21 @@ class ToolbarButtonView: NSView {
     required init?(coder: NSCoder) { fatalError() }
 
     override func draw(_ dirtyRect: NSRect) {
+        // Apply disabled alpha to tintColor
+        let effectiveTintColor: NSColor
+        if isEnabled {
+            effectiveTintColor = tintColor
+        } else {
+            effectiveTintColor = tintColor.withAlphaComponent(0.35)
+        }
+
         // Background
         let bg: NSColor
-        if isPressed {
+        if isPressed && isEnabled {
             bg = ToolbarLayout.accentColor.withAlphaComponent(0.6)
         } else if isOn {
-            bg = ToolbarLayout.accentColor
-        } else if isHovered {
+            bg = ToolbarLayout.accentColor.withAlphaComponent(isEnabled ? 1.0 : 0.35)
+        } else if isHovered && isEnabled {
             bg = ToolbarLayout.iconColor.withAlphaComponent(0.12)
         } else {
             bg = NSColor.clear
@@ -151,12 +161,14 @@ class ToolbarButtonView: NSView {
         // SF Symbol or custom icon (static cache survives toolbar rebuilds)
         guard let name = sfSymbol else { return }
         let currentIsOn = isOn
-        if cachedIcon == nil || cachedIconIsOn != currentIsOn {
-            let color = currentIsOn ? ToolbarLayout.iconColor : tintColor
+        let currentIsEnabled = isEnabled
+        if cachedIcon == nil || cachedIconIsOn != currentIsOn || cachedIconIsEnabled != currentIsEnabled {
+            let color = currentIsOn ? ToolbarLayout.iconColor : effectiveTintColor
             let key = Self.cacheKey(name: name, isOn: currentIsOn, color: color)
             if let cached = Self.iconCache[key] {
                 cachedIcon = cached
                 cachedIconIsOn = currentIsOn
+                cachedIconIsEnabled = currentIsEnabled
             } else {
                 let img: NSImage?
                 if name == "_custom.checkerboard" {
@@ -182,6 +194,7 @@ class ToolbarButtonView: NSView {
                     Self.iconCache[key] = img
                     cachedIcon = img
                     cachedIconIsOn = currentIsOn
+                    cachedIconIsEnabled = currentIsEnabled
                 }
             }
         }
@@ -213,17 +226,30 @@ class ToolbarButtonView: NSView {
         addTrackingArea(trackingArea!)
     }
 
-    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { isEnabled }
 
-    override func mouseEntered(with event: NSEvent) { isHovered = true; needsDisplay = true; onHover?(action, true) }
-    override func mouseExited(with event: NSEvent) { isHovered = false; needsDisplay = true; onHover?(action, false) }
+    override func mouseEntered(with event: NSEvent) {
+        guard isEnabled else { return }
+        isHovered = true
+        needsDisplay = true
+        onHover?(action, true)
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        guard isEnabled else { return }
+        isHovered = false
+        needsDisplay = true
+        onHover?(action, false)
+    }
 
     private var forwardingDrag = false
     /// The view that should receive forwarded drag events (set by onMouseDown handler).
     var dragForwardTarget: NSView?
 
     override func mouseDown(with event: NSEvent) {
-        isPressed = true; needsDisplay = true
+        guard isEnabled else { return }
+        isPressed = true
+        needsDisplay = true
         if onMouseDown != nil {
             onMouseDown?(action)
             if dragForwardTarget != nil {
@@ -234,6 +260,7 @@ class ToolbarButtonView: NSView {
     }
 
     override func mouseDragged(with event: NSEvent) {
+        guard isEnabled else { return }
         if forwardingDrag, let target = dragForwardTarget {
             target.mouseDragged(with: event)
             return
@@ -241,8 +268,10 @@ class ToolbarButtonView: NSView {
     }
 
     override func mouseUp(with event: NSEvent) {
+        guard isEnabled else { return }
         let wasPressed = isPressed
-        isPressed = false; needsDisplay = true
+        isPressed = false
+        needsDisplay = true
         if forwardingDrag, let target = dragForwardTarget {
             forwardingDrag = false
             target.mouseUp(with: event)
@@ -259,7 +288,7 @@ class ToolbarButtonView: NSView {
     }
 
     override func resetCursorRects() {
-        addCursorRect(bounds, cursor: .arrow)
+        addCursorRect(bounds, cursor: isEnabled ? .arrow : .operationNotAllowed)
     }
 
     // MARK: - Custom checkerboard icon

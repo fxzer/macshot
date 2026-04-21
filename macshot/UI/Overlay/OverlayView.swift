@@ -5639,6 +5639,27 @@ class OverlayView: NSView {
 
         repositionToolbars()
 
+        updateUndoRedoButtonStates()
+    }
+
+    /// Update undo/redo button enabled states based on stack availability.
+    private func updateUndoRedoButtonStates() {
+        let canUndo = !undoStack.isEmpty
+        let canRedo = !redoStack.isEmpty
+
+        // Update bottom strip and right strip
+        for strip in [bottomStripView, rightStripView].compactMap({ $0 }) {
+            for bv in strip.buttonViews {
+                switch bv.action {
+                case .undo:
+                    bv.isEnabled = canUndo
+                case .redo:
+                    bv.isEnabled = canRedo
+                default:
+                    break
+                }
+            }
+        }
     }
 
     /// Coalesced async toolbar rebuild — avoids blocking event handling (e.g. mouseUp after marquee).
@@ -9693,6 +9714,7 @@ class OverlayView: NSView {
             resetZoom()
         }
         needsDisplay = true
+        updateUndoRedoButtonStates()
     }
 
     private func clearHoverIfNeeded(_ removed: [Annotation]) {
@@ -9753,6 +9775,7 @@ class OverlayView: NSView {
             if !isInsideScrollView { resetZoom() }
         }
         needsDisplay = true
+        updateUndoRedoButtonStates()
     }
 
     // MARK: - Annotation layer cache
