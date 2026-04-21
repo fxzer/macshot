@@ -1,7 +1,7 @@
 import Cocoa
 
 /// Real NSView top bar for the editor window. Pinned to top of container.
-/// Contains: pixel dimensions, crop/flip/add-capture buttons, zoom dropdown.
+/// Contains: crop/flip/add-capture, zoom − / + (SF Symbols), zoom % menu, pixel dimensions.
 class EditorTopBarView: NSView {
 
     weak var overlayView: OverlayView?
@@ -10,6 +10,8 @@ class EditorTopBarView: NSView {
 
     private var sizeLabel: NSTextField!
     private var zoomButton: NSButton!
+    private var zoomOutButton: NSButton!
+    private var zoomInButton: NSButton!
     private var doneButton: NSButton?
     var onDone: (() -> Void)?
 
@@ -33,7 +35,10 @@ class EditorTopBarView: NSView {
         let flipVBtn = makeButton("arrow.up.and.down.righttriangle.up.righttriangle.down", tooltip: L("Flip Vertical"), action: #selector(flipVClicked))
         let addCaptureBtn = makeButton("rectangle.badge.plus", tooltip: L("Add Capture"), action: #selector(addCaptureClicked))
 
-        // Zoom dropdown button
+        // Zoom: − / + icons (immediate), then percentage menu (presets / fit)
+        zoomOutButton = makeButton("minus.magnifyingglass", tooltip: L("Zoom Out"), action: #selector(zoomOutAction))
+        zoomInButton = makeButton("plus.magnifyingglass", tooltip: L("Zoom In"), action: #selector(zoomInAction))
+
         zoomButton = NSButton()
         zoomButton.bezelStyle = .recessed
         zoomButton.isBordered = false
@@ -51,7 +56,7 @@ class EditorTopBarView: NSView {
         addSubview(border)
 
         // Layout with constraints
-        for v: NSView in [sizeLabel, cropBtn, flipHBtn, flipVBtn, addCaptureBtn, zoomButton] {
+        for v: NSView in [sizeLabel, cropBtn, flipHBtn, flipVBtn, addCaptureBtn, zoomOutButton, zoomInButton, zoomButton] {
             v.translatesAutoresizingMaskIntoConstraints = false
             addSubview(v)
         }
@@ -64,6 +69,16 @@ class EditorTopBarView: NSView {
 
             zoomButton.trailingAnchor.constraint(equalTo: sizeLabel.leadingAnchor, constant: -12),
             zoomButton.centerYAnchor.constraint(equalTo: centerYAnchor),
+
+            zoomInButton.trailingAnchor.constraint(equalTo: zoomButton.leadingAnchor, constant: -6),
+            zoomInButton.centerYAnchor.constraint(equalTo: centerYAnchor),
+            zoomInButton.widthAnchor.constraint(equalToConstant: ToolbarLayout.buttonSize),
+            zoomInButton.heightAnchor.constraint(equalToConstant: ToolbarLayout.buttonSize),
+
+            zoomOutButton.trailingAnchor.constraint(equalTo: zoomInButton.leadingAnchor, constant: -2),
+            zoomOutButton.centerYAnchor.constraint(equalTo: centerYAnchor),
+            zoomOutButton.widthAnchor.constraint(equalToConstant: ToolbarLayout.buttonSize),
+            zoomOutButton.heightAnchor.constraint(equalToConstant: ToolbarLayout.buttonSize),
 
             cropBtn.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
             cropBtn.centerYAnchor.constraint(equalTo: centerYAnchor),
@@ -84,7 +99,7 @@ class EditorTopBarView: NSView {
             addCaptureBtn.centerYAnchor.constraint(equalTo: centerYAnchor),
             addCaptureBtn.widthAnchor.constraint(equalToConstant: ToolbarLayout.buttonSize),
             addCaptureBtn.heightAnchor.constraint(equalToConstant: ToolbarLayout.buttonSize),
-            addCaptureBtn.trailingAnchor.constraint(lessThanOrEqualTo: zoomButton.leadingAnchor, constant: -16),
+            addCaptureBtn.trailingAnchor.constraint(lessThanOrEqualTo: zoomOutButton.leadingAnchor, constant: -16),
 
             border.leadingAnchor.constraint(equalTo: leadingAnchor),
             border.trailingAnchor.constraint(equalTo: trailingAnchor),
@@ -137,18 +152,6 @@ class EditorTopBarView: NSView {
     @objc private func zoomButtonClicked() {
         let menu = NSMenu()
         menu.autoenablesItems = false
-
-        let zoomIn = NSMenuItem(title: L("Zoom In"), action: #selector(zoomInAction), keyEquivalent: "+")
-        zoomIn.keyEquivalentModifierMask = .command
-        zoomIn.target = self
-        menu.addItem(zoomIn)
-
-        let zoomOut = NSMenuItem(title: L("Zoom Out"), action: #selector(zoomOutAction), keyEquivalent: "-")
-        zoomOut.keyEquivalentModifierMask = .command
-        zoomOut.target = self
-        menu.addItem(zoomOut)
-
-        menu.addItem(.separator())
 
         let fitCanvas = NSMenuItem(title: L("Fit Canvas"), action: #selector(fitCanvasAction), keyEquivalent: "1")
         fitCanvas.keyEquivalentModifierMask = .command
@@ -244,7 +247,7 @@ class EditorTopBarView: NSView {
         btn.translatesAutoresizingMaskIntoConstraints = false
         addSubview(btn)
         NSLayoutConstraint.activate([
-            btn.trailingAnchor.constraint(equalTo: zoomButton.leadingAnchor, constant: -12),
+            btn.trailingAnchor.constraint(equalTo: zoomOutButton.leadingAnchor, constant: -12),
             btn.centerYAnchor.constraint(equalTo: centerYAnchor),
         ])
         doneButton = btn
