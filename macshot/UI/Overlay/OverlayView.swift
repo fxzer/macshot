@@ -6039,7 +6039,7 @@ class OverlayView: NSView {
             {
                 NSPasteboard.general.clearContents()
                 NSPasteboard.general.setString(result.hex, forType: .string)
-                showOverlayHint(String(format: L("Copied %@"), result.hex))
+                showColorCopiedHint(String(format: L("Copied %@"), result.hex), colorString: result.hex)
                 needsDisplay = true
             }
             return
@@ -7102,7 +7102,7 @@ class OverlayView: NSView {
             {
                 NSPasteboard.general.clearContents()
                 NSPasteboard.general.setString(result.hex, forType: .string)
-                showOverlayHint(String(format: L("Copied %@"), result.hex))
+                showColorCopiedHint(String(format: L("Copied %@"), result.hex), colorString: result.hex)
                 needsDisplay = true
             }
             return
@@ -10196,11 +10196,11 @@ class OverlayView: NSView {
 
         let size = picker.preferredSize
         if let anchor = anchorView {
-            PopoverHelper.show(picker, size: size, relativeTo: anchor.bounds, of: anchor, preferredEdge: .minY)
+            PopoverHelper.show(picker, size: size, relativeTo: anchor.bounds, of: anchor, preferredEdge: .minY, type: .colorPicker)
         } else if anchorRect != .zero {
-            PopoverHelper.showAtPoint(picker, size: size, at: NSPoint(x: anchorRect.midX, y: anchorRect.midY), in: self, preferredEdge: .minY)
+            PopoverHelper.showAtPoint(picker, size: size, at: NSPoint(x: anchorRect.midX, y: anchorRect.midY), in: self, preferredEdge: .minY, type: .colorPicker)
         } else {
-            PopoverHelper.showAtPoint(picker, size: size, at: NSPoint(x: bounds.midX, y: bounds.midY), in: self, preferredEdge: .minY)
+            PopoverHelper.showAtPoint(picker, size: size, at: NSPoint(x: bounds.midX, y: bounds.midY), in: self, preferredEdge: .minY, type: .colorPicker)
         }
     }
 

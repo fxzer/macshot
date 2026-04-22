@@ -1301,7 +1301,6 @@ class ToolOptionsRowView: NSView {
     }
 
     @objc private func beautifyGradientClicked(_ sender: NSButton) {
-        if PopoverHelper.isVisible { PopoverHelper.dismiss(); return }
         guard let ov = overlayView else { return }
         let swatchBtn = viewWithTag(995) as? NSButton ?? sender
         ov.showBeautifyGradientPopover(anchorView: swatchBtn)
@@ -1315,7 +1314,6 @@ class ToolOptionsRowView: NSView {
     }
 
     @objc private func drawColorClicked(_ sender: NSButton) {
-        if PopoverHelper.isVisible { PopoverHelper.dismiss(); return }
         guard let ov = overlayView else { return }
         ov.showColorPickerPopover(target: .drawColor, anchorView: sender)
     }
@@ -1495,7 +1493,6 @@ class ToolOptionsRowView: NSView {
     }
 
     @objc private func moreEmojisClicked(_ sender: NSButton) {
-        if PopoverHelper.isVisible { PopoverHelper.dismiss(); return }
         guard let ov = overlayView else { return }
         ov.showEmojiPopover(anchorView: sender)
     }
@@ -1555,17 +1552,11 @@ class ToolOptionsRowView: NSView {
     }
 
     @objc private func redactTypesClicked(_ sender: NSView) {
-        if PopoverHelper.isVisible { PopoverHelper.dismiss(); return }
         guard let ov = overlayView else { return }
         ov.showRedactTypePopover(anchorRect: .zero, anchorView: sender)
     }
 
     @objc private func fontFamilyClicked(_ sender: NSButton) {
-        // Toggle: close if already open
-        if PopoverHelper.isVisible {
-            PopoverHelper.dismiss()
-            return
-        }
         guard let ov = overlayView else { return }
         let picker = FontPickerView(selectedFamily: ov.textEditor.fontFamily)
         picker.onSelect = { [weak ov] family in
@@ -1578,7 +1569,7 @@ class ToolOptionsRowView: NSView {
             ov.needsDisplay = true
             PopoverHelper.dismiss()
         }
-        PopoverHelper.show(picker, size: picker.preferredSize, relativeTo: sender.bounds, of: sender, preferredEdge: .maxY)
+        PopoverHelper.show(picker, size: picker.preferredSize, relativeTo: sender.bounds, of: sender, preferredEdge: .maxY, type: .fontFamily)
         DispatchQueue.main.async {
             picker.scrollToSelected()
         }
@@ -1643,13 +1634,11 @@ class ToolOptionsRowView: NSView {
     }
 
     @objc private func textBgColorClicked(_ sender: NSButton) {
-        if PopoverHelper.isVisible { PopoverHelper.dismiss(); return }
         guard let ov = overlayView else { return }
         ov.showColorPickerPopover(target: .textBg, anchorView: sender)
     }
 
     @objc private func textOutlineColorClicked(_ sender: NSButton) {
-        if PopoverHelper.isVisible { PopoverHelper.dismiss(); return }
         guard let ov = overlayView else { return }
         ov.showColorPickerPopover(target: .textOutline, anchorView: sender)
     }
@@ -1729,7 +1718,6 @@ class ToolOptionsRowView: NSView {
     }
 
     @objc private func annotationOutlineColorClicked(_ sender: NSButton) {
-        if PopoverHelper.isVisible { PopoverHelper.dismiss(); return }
         guard let ov = overlayView else { return }
         ov.showColorPickerPopover(target: .annotationOutline, anchorView: sender)
     }

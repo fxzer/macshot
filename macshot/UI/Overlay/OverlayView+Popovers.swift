@@ -4,29 +4,20 @@ import UniformTypeIdentifiers
 extension OverlayView {
 
     func showBeautifyPopover(anchorView: NSView? = nil, anchorRect: NSRect = .zero) {
-        if PopoverHelper.isVisible {
-            PopoverHelper.dismiss()
-            return
-        }
-
         let picker = BeautifyPopoverView(overlayView: self)
         let size = picker.preferredSize
         if let anchor = anchorView {
             PopoverHelper.show(
-                picker, size: size, relativeTo: anchor.bounds, of: anchor, preferredEdge: .minX)
+                picker, size: size, relativeTo: anchor.bounds, of: anchor, preferredEdge: .minX, type: .beautify)
         } else {
             PopoverHelper.showAtPoint(
                 picker, size: size,
                 at: NSPoint(x: anchorRect.midX, y: anchorRect.midY),
-                in: self, preferredEdge: .minX)
+                in: self, preferredEdge: .minX, type: .beautify)
         }
     }
 
     func showUploadConfirmPopover(anchorRect: NSRect, anchorView: NSView? = nil) {
-        if PopoverHelper.isVisible {
-            PopoverHelper.dismiss()
-            return
-        }
 
         let current = UserDefaults.standard.bool(forKey: "uploadConfirmEnabled")
         let container = NSView(frame: NSRect(x: 0, y: 0, width: 180, height: 32))
@@ -54,19 +45,15 @@ extension OverlayView {
 
         if let anchor = anchorView {
             PopoverHelper.show(
-                container, size: size, relativeTo: anchor.bounds, of: anchor, preferredEdge: .maxY)
+                container, size: size, relativeTo: anchor.bounds, of: anchor, preferredEdge: .maxY, type: .uploadConfirm)
         } else {
             PopoverHelper.showAtPoint(
                 container, size: size, at: NSPoint(x: anchorRect.maxX + 4, y: anchorRect.midY),
-                in: self, preferredEdge: .maxX)
+                in: self, preferredEdge: .maxX, type: .uploadConfirm)
         }
     }
 
     func showRedactTypePopover(anchorRect: NSRect, anchorView: NSView? = nil) {
-        if PopoverHelper.isVisible {
-            PopoverHelper.dismiss()
-            return
-        }
         let types = AutoRedactor.redactTypeNames
         let picker = ListPickerView()
         picker.items = types.map { item in
@@ -88,19 +75,15 @@ extension OverlayView {
         let size = picker.preferredSize
         if let anchor = anchorView {
             PopoverHelper.show(
-                picker, size: size, relativeTo: anchor.bounds, of: anchor, preferredEdge: .maxY)
+                picker, size: size, relativeTo: anchor.bounds, of: anchor, preferredEdge: .maxY, type: .redactType)
         } else {
             PopoverHelper.showAtPoint(
                 picker, size: size, at: NSPoint(x: anchorRect.maxX + 4, y: anchorRect.midY),
-                in: self, preferredEdge: .maxX)
+                in: self, preferredEdge: .maxX, type: .redactType)
         }
     }
 
     func showTranslatePopover(anchorRect: NSRect, anchorView: NSView? = nil) {
-        if PopoverHelper.isVisible {
-            PopoverHelper.dismiss()
-            return
-        }
         let languages = TranslationService.availableLanguages
         let currentCode = TranslationService.targetLanguage
 
@@ -146,12 +129,12 @@ extension OverlayView {
             if let anchor = anchorView {
                 PopoverHelper.show(
                     scrollView, size: popoverSize, relativeTo: anchor.bounds, of: anchor,
-                    preferredEdge: .maxY)
+                    preferredEdge: .maxY, type: .translate)
             } else {
                 PopoverHelper.showAtPoint(
                     scrollView, size: popoverSize,
                     at: NSPoint(x: anchorRect.maxX + 4, y: anchorRect.midY),
-                    in: self, preferredEdge: .maxX)
+                    in: self, preferredEdge: .maxX, type: .translate)
             }
 
             DispatchQueue.main.async {
@@ -188,12 +171,12 @@ extension OverlayView {
         if let anchor = anchorView {
             PopoverHelper.show(
                 picker, size: picker.preferredSize, relativeTo: anchor.bounds, of: anchor,
-                preferredEdge: .minY)
+                preferredEdge: .minY, type: .beautifyGradient)
         } else {
             PopoverHelper.showAtPoint(
                 picker, size: picker.preferredSize,
                 at: NSPoint(x: anchorRect.midX, y: anchorRect.midY),
-                in: self, preferredEdge: .minY)
+                in: self, preferredEdge: .minY, type: .beautifyGradient)
         }
     }
 
@@ -244,22 +227,18 @@ extension OverlayView {
         if let anchor = anchorView {
             PopoverHelper.show(
                 picker, size: picker.preferredSize, relativeTo: anchor.bounds, of: anchor,
-                preferredEdge: .maxY)
+                preferredEdge: .maxY, type: .emoji)
         } else {
             PopoverHelper.showAtPoint(
                 picker, size: picker.preferredSize,
                 at: NSPoint(x: anchorRect.midX, y: anchorRect.midY),
-                in: self, preferredEdge: .maxY)
+                in: self, preferredEdge: .maxY, type: .emoji)
         }
     }
 
     // MARK: - Recording Settings Popover
 
     func showRecordingSettingsPopover(anchorView: NSView?) {
-        if PopoverHelper.isVisible {
-            PopoverHelper.dismiss()
-            return
-        }
 
         let container = NSView(frame: NSRect(x: 0, y: 0, width: 240, height: 72))
         var y: CGFloat = 8
@@ -462,12 +441,12 @@ extension OverlayView {
 
         if let anchor = anchorView {
             PopoverHelper.show(
-                container, size: size, relativeTo: anchor.bounds, of: anchor, preferredEdge: .maxY)
+                container, size: size, relativeTo: anchor.bounds, of: anchor, preferredEdge: .maxY, type: .recordingSettings)
         } else {
             PopoverHelper.showAtPoint(
                 container, size: size,
                 at: NSPoint(x: bounds.midX, y: bounds.midY),
-                in: self, preferredEdge: .maxY)
+                in: self, preferredEdge: .maxY, type: .recordingSettings)
         }
     }
 
@@ -546,10 +525,6 @@ extension OverlayView {
     }
 
     func showEffectsPopover(anchorView: NSView? = nil, anchorRect: NSRect = .zero) {
-        if PopoverHelper.isVisible {
-            PopoverHelper.dismiss()
-            return
-        }
         let picker = EffectsPickerView(config: effectsConfig)
         picker.onConfigChanged = { [weak self] config in
             guard let self = self else { return }
@@ -571,12 +546,12 @@ extension OverlayView {
         let size = picker.preferredSize
         if let anchor = anchorView {
             PopoverHelper.show(
-                picker, size: size, relativeTo: anchor.bounds, of: anchor, preferredEdge: .minX)
+                picker, size: size, relativeTo: anchor.bounds, of: anchor, preferredEdge: .minX, type: .effects)
         } else {
             PopoverHelper.showAtPoint(
                 picker, size: size,
                 at: NSPoint(x: anchorRect.midX, y: anchorRect.midY),
-                in: self, preferredEdge: .minX)
+                in: self, preferredEdge: .minX, type: .effects)
         }
     }
 
@@ -844,7 +819,8 @@ private class InlineGradientPickerView: NSView {
     private let styles = BeautifyRenderer.styles
     private let cols = 8  // 改为8列
     private let swSize: CGFloat = 28
-    private let padding: CGFloat = 8
+    /// 仅上下内边距；水平不设 padding，总宽与 `BeautifyPopoverView` 内分段控件一致（x:14、宽 `contentWidth - 28` = 252），避免相对 280 内容区右缘裁切
+    private let paddingV: CGFloat = 8
     private let gap: CGFloat = 4
 
     private var hasCustomImage: Bool {
@@ -856,8 +832,8 @@ private class InlineGradientPickerView: NSView {
         let hasCustom = UserDefaults.standard.data(forKey: "beautifyCustomBgImageData") != nil
         let total = BeautifyRenderer.styles.count + (hasCustom ? 1 : 0) + 1
         let rows = (total + 7) / 8  // 8列
-        let w = padding * 2 + CGFloat(8) * swSize + CGFloat(7) * gap
-        let h = padding * 2 + CGFloat(rows) * swSize + CGFloat(max(0, rows - 1)) * gap
+        let w = CGFloat(cols) * swSize + CGFloat(cols - 1) * gap
+        let h = paddingV * 2 + CGFloat(rows) * swSize + CGFloat(max(0, rows - 1)) * gap
         super.init(frame: NSRect(x: 0, y: 0, width: w, height: h))
     }
 
@@ -868,8 +844,8 @@ private class InlineGradientPickerView: NSView {
     private func rectForIndex(_ i: Int) -> NSRect {
         let col = i % cols
         let row = i / cols
-        let sx = padding + CGFloat(col) * (swSize + gap)
-        let sy = padding + CGFloat(row) * (swSize + gap)
+        let sx = CGFloat(col) * (swSize + gap)
+        let sy = paddingV + CGFloat(row) * (swSize + gap)
         return NSRect(x: sx, y: sy, width: swSize, height: swSize)
     }
 

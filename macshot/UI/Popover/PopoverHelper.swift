@@ -7,9 +7,28 @@ enum PopoverHelper {
 
     private static var activePopover: NSPopover?
     private static var anchorView: NSView?
+    private static var currentPopoverType: PopoverType?
+
+    enum PopoverType {
+        case beautify
+        case effects
+        case recordingSettings
+        case uploadConfirm
+        case redactType
+        case translate
+        case beautifyGradient
+        case emoji
+        case colorPicker
+        case fontFamily
+    }
 
     /// Show a popover with the given content view, anchored relative to a rect in the given parent view.
-    static func show(_ contentView: NSView, size: NSSize, relativeTo rect: NSRect, of view: NSView, preferredEdge: NSRectEdge = .minY) {
+    static func show(_ contentView: NSView, size: NSSize, relativeTo rect: NSRect, of view: NSView, preferredEdge: NSRectEdge = .minY, type: PopoverType? = nil) {
+        // If same type, toggle (dismiss only)
+        if let type = type, currentPopoverType == type, isVisible {
+            dismiss()
+            return
+        }
         dismiss()
 
         let popover = NSPopover()
@@ -31,11 +50,16 @@ enum PopoverHelper {
             }
         }
         activePopover = popover
+        currentPopoverType = type
     }
 
     /// Show a popover anchored to a specific point in a view (for overlay mode where buttons aren't real views).
-
-    static func showAtPoint(_ contentView: NSView, size: NSSize, at point: NSPoint, in parentView: NSView, preferredEdge: NSRectEdge = .minY) {
+    static func showAtPoint(_ contentView: NSView, size: NSSize, at point: NSPoint, in parentView: NSView, preferredEdge: NSRectEdge = .minY, type: PopoverType? = nil) {
+        // If same type, toggle (dismiss only)
+        if let type = type, currentPopoverType == type, isVisible {
+            dismiss()
+            return
+        }
         dismiss()
 
         // Create a tiny invisible anchor view at the point
@@ -63,6 +87,7 @@ enum PopoverHelper {
             }
         }
         activePopover = popover
+        currentPopoverType = type
     }
 
     static func dismiss() {
@@ -70,6 +95,7 @@ enum PopoverHelper {
         activePopover = nil
         anchorView?.removeFromSuperview()
         anchorView = nil
+        currentPopoverType = nil
     }
 
     static var isVisible: Bool { activePopover?.isShown == true }
