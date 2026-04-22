@@ -42,6 +42,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     private var scrollCapturePreviewPanel: ScrollCapturePreviewPanel?
     private var statusBarMenu: NSMenu?
     private var lastStatusBarInteractionScreen: NSScreen?
+    private var pendingStatusBarMenuAction: (() -> Void)?
 
     private enum CaptureTriggerOrigin: String {
         case menuBar = "menu"
@@ -51,9 +52,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         var preparationWaitNanoseconds: UInt64 {
             switch self {
             case .menuBar:
-                return 45_000_000
+                return 80_000_000  // 80ms - menu bar prewarm starts when menu opens
             case .hotkey, .external:
-                return 60_000_000
+                return 60_000_000  // 60ms - hotkey has no menu browse time
             }
         }
     }
@@ -301,6 +302,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
 
     private func showStatusBarMenu(from button: NSStatusBarButton, fallbackAnchorRect: NSRect? = nil) {
         guard let menu = statusBarMenu else { return }
+        pendingStatusBarMenuAction = nil
 
         // Temporarily remove action to avoid recursion
         let oldAction = button.action
@@ -315,17 +317,30 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         if button.window != nil {
             // Prefer anchoring to the clicked view so AppKit keeps the menu on that display.
             menu.popUp(positioning: nil, at: statusBarMenuAnchorPoint(for: button), in: button)
+            runPendingStatusBarMenuActionIfNeeded()
             return
         }
 
         guard let screenFrame = fallbackAnchorRect ?? statusBarMenuAnchorRect(for: button) else { return }
         let menuPoint = NSPoint(x: screenFrame.minX, y: screenFrame.minY - 7)
         menu.popUp(positioning: nil, at: menuPoint, in: nil)
+        runPendingStatusBarMenuActionIfNeeded()
+    }
+
+    private func enqueueStatusBarMenuAction(_ action: @escaping () -> Void) {
+        pendingStatusBarMenuAction = action
+    }
+
+    private func runPendingStatusBarMenuActionIfNeeded() {
+        guard let action = pendingStatusBarMenuAction else { return }
+        pendingStatusBarMenuAction = nil
+        DispatchQueue.main.async(execute: action)
     }
 
     private func rebuildStatusBarMenu() {
         let menu = NSMenu()
         menu.autoenablesItems = false
+        menu.delegate = self
 
         let captureAreaItem = NSMenuItem(title: L("Capture Area"), action: #selector(captureScreen), keyEquivalent: "")
         captureAreaItem.target = self
@@ -620,15 +635,26 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     }
 
     @objc private func captureScreen() {
-        beginAreaCapture(triggerOrigin: .menuBar)
+        enqueueStatusBarMenuAction { [weak self] in
+            self?.beginAreaCapture(triggerOrigin: .menuBar)
+        }
     }
 
     private func beginAreaCapture(triggerOrigin: CaptureTriggerOrigin) {
+        let t0 = CFAbsoluteTimeGetCurrent()
+        #if DEBUG
+        NSLog("[PERF] ========== beginAreaCapture START origin=\(triggerOrigin.rawValue) ==========")
+        #endif
         startCapture(triggerOrigin: triggerOrigin)
+        #if DEBUG
+        NSLog("[PERF] ========== beginAreaCapture END elapsed=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - t0) * 1000))ms ==========")
+        #endif
     }
 
     @objc private func captureFullScreen() {
-        beginFullScreenCapture(triggerOrigin: .menuBar)
+        enqueueStatusBarMenuAction { [weak self] in
+            self?.beginFullScreenCapture(triggerOrigin: .menuBar)
+        }
     }
 
     private func beginFullScreenCapture(triggerOrigin: CaptureTriggerOrigin) {
@@ -651,7 +677,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     }
 
     @objc private func captureOCR() {
-        beginOCRCapture(triggerOrigin: .menuBar)
+        enqueueStatusBarMenuAction { [weak self] in
+            self?.beginOCRCapture(triggerOrigin: .menuBar)
+        }
     }
 
     private func beginOCRCapture(triggerOrigin: CaptureTriggerOrigin) {
@@ -660,7 +688,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     }
 
     @objc private func quickCapture() {
-        beginQuickCapture(triggerOrigin: .menuBar)
+        enqueueStatusBarMenuAction { [weak self] in
+            self?.beginQuickCapture(triggerOrigin: .menuBar)
+        }
     }
 
     private func beginQuickCapture(triggerOrigin: CaptureTriggerOrigin) {
@@ -669,7 +699,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     }
 
     @objc private func scrollCapture() {
-        beginScrollCapture(triggerOrigin: .menuBar)
+        enqueueStatusBarMenuAction { [weak self] in
+            self?.beginScrollCapture(triggerOrigin: .menuBar)
+        }
     }
 
     private func beginScrollCapture(triggerOrigin: CaptureTriggerOrigin) {
@@ -678,7 +710,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     }
 
     @objc private func recordArea() {
-        beginAreaRecording(triggerOrigin: .menuBar)
+        enqueueStatusBarMenuAction { [weak self] in
+            self?.beginAreaRecording(triggerOrigin: .menuBar)
+        }
     }
 
     private func beginAreaRecording(triggerOrigin: CaptureTriggerOrigin) {
@@ -687,7 +721,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     }
 
     @objc private func recordFullScreen() {
-        beginFullScreenRecording(triggerOrigin: .menuBar)
+        enqueueStatusBarMenuAction { [weak self] in
+            self?.beginFullScreenRecording(triggerOrigin: .menuBar)
+        }
     }
 
     private func beginFullScreenRecording(triggerOrigin: CaptureTriggerOrigin) {
@@ -755,7 +791,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         #if DEBUG
         NSLog("[PERF] startCapture: prewarm + dismissOverlays + hideThumbnails BEGIN")
         #endif
-        dismissOverlays()
+        if !overlayControllers.isEmpty {
+            dismissOverlays(refocusPreviousApp: false)
+        }
         for tc in thumbnailControllers { tc.hideWindow() }
         #if DEBUG
         NSLog("[PERF] startCapture: dismissOverlays + hideThumbnails DONE elapsed=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - t0) * 1000))ms")
@@ -911,10 +949,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     /// Shared overlay creation + display logic for both pre-capture and live-capture paths.
     private func showOverlays(for captures: [ScreenCapture], t0: CFAbsoluteTime = 0) {
         #if DEBUG
-        NSLog("[PERF] creating OverlayWindowControllers...")
+        NSLog("[PERF] showOverlays BEGIN: \(captures.count) screens")
         #endif
         let createT0 = CFAbsoluteTimeGetCurrent()
-        for capture in captures {
+
+        for (index, capture) in captures.enumerated() {
+            let controllerT0 = CFAbsoluteTimeGetCurrent()
+            #if DEBUG
+            NSLog("[PERF] showOverlays: creating controller \(index) for screen=\(capture.screen.localizedName)")
+            #endif
             let controller = OverlayWindowController(capture: capture)
             controller.overlayDelegate = self
             controller.capturedWindowTitle = self.capturedWindowTitle
@@ -935,7 +978,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             if self.pendingScrollCaptureMode {
                 controller.setAutoScrollCaptureMode()
             }
+            let showT0 = CFAbsoluteTimeGetCurrent()
             controller.showOverlay()
+            #if DEBUG
+            NSLog("[PERF] showOverlays: controller \(index) showOverlay DONE elapsed=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - controllerT0) * 1000))ms (showOverlay call=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - showT0) * 1000))ms)")
+            #endif
             let mouseScreen = NSScreen.screens.first { $0.frame.contains(NSEvent.mouseLocation) }
             let isMouseScreen = (capture.screen == mouseScreen) || (mouseScreen == nil && capture.screen == NSScreen.main)
             if (self.pendingFullScreen || self.pendingFullScreenRecord) && isMouseScreen {

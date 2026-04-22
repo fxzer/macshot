@@ -1274,7 +1274,14 @@ class OverlayView: NSView {
     override var isFlipped: Bool { false }
 
     override func viewDidMoveToWindow() {
+        let t0 = CFAbsoluteTimeGetCurrent()
+        #if DEBUG
+        NSLog("[PERF] OverlayView.viewDidMoveToWindow BEGIN")
+        #endif
         super.viewDidMoveToWindow()
+        #if DEBUG
+        NSLog("[PERF] OverlayView.viewDidMoveToWindow: super DONE elapsed=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - t0) * 1000))ms")
+        #endif
         window?.makeFirstResponder(self)
         window?.acceptsMouseMovedEvents = true
         let area = NSTrackingArea(
@@ -1288,15 +1295,11 @@ class OverlayView: NSView {
         DispatchQueue.main.asyncAfter(deadline: .now() + Self.initialWindowSnapDelay) { [weak self] in
             guard let self = self else { return }
             self.windowSnapCooldown = false
-            // Perform an initial snap query at the current mouse position so the
-            // highlight appears immediately without requiring the user to move the mouse.
-            if self.state == .idle && self.windowSnapEnabled && !self.windowSnapQueryInFlight {
-                self.queryWindowSnap(at: NSEvent.mouseLocation)
-            }
         }
 
         if showToolbars {
-            scheduleDeferredToolbarRebuild()
+            // On first window attach, rebuild immediately to show toolbars without delay
+            rebuildToolbarLayout()
         }
 
         NotificationCenter.default.addObserver(
@@ -5602,6 +5605,10 @@ class OverlayView: NSView {
 
     /// Rebuild toolbar button content. Call when tool, color, or state changes — NOT on every draw.
     func rebuildToolbarLayout() {
+        let t0 = CFAbsoluteTimeGetCurrent()
+        #if DEBUG
+        NSLog("[PERF] rebuildToolbarLayout BEGIN")
+        #endif
         // Clear tooltip before rebuilding — old button views are about to be destroyed
         hoveredTooltip = nil
         hoveredTooltipButtonView = nil
@@ -5698,6 +5705,9 @@ class OverlayView: NSView {
         repositionToolbars()
 
         updateUndoRedoButtonStates()
+        #if DEBUG
+        NSLog("[PERF] rebuildToolbarLayout DONE elapsed=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - t0) * 1000))ms")
+        #endif
     }
 
     /// Update undo/redo button enabled states based on stack availability.
