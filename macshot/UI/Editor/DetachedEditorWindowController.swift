@@ -391,6 +391,7 @@ extension DetachedEditorWindowController: OverlayViewDelegate {
         playCopySound()
         (NSApp.delegate as? AppDelegate)?.showFloatingThumbnail(image: image)
         autoSaveToHistoryIfNeeded(compositedImage: image)
+        window?.close()
     }
 
     func overlayViewDidRequestSave() {
@@ -408,6 +409,7 @@ extension DetachedEditorWindowController: OverlayViewDelegate {
                 SaveDirectoryAccess.save(url: url.deletingLastPathComponent())
                 self?.playCopySound()
                 self?.autoSaveToHistoryIfNeeded(compositedImage: image)
+                self?.window?.close()
             }
         }
     }
@@ -447,6 +449,7 @@ extension DetachedEditorWindowController: OverlayViewDelegate {
                 if shouldShowWindow {
                     self.ocrController?.showRecognizedText(text)
                 }
+                self.window?.close()
             }
         }
         DispatchQueue.global(qos: .userInitiated).async {
@@ -465,27 +468,32 @@ extension DetachedEditorWindowController: OverlayViewDelegate {
             ImageEncoder.copyToClipboard(image)
         }
         if actions.saveToFile {
-            saveImageToDirectory(image) { result in
+            saveImageToDirectory(image) { [weak self] result in
+                guard let self = self else { return }
                 switch result {
                 case .success(let fileURL):
                     view.showOverlayHint(String(format: L("Saved to %@"), fileURL.lastPathComponent))
                 case .failure:
                     view.showOverlayError(L("Save failed"))
                 }
+                // 关闭编辑器（在异步操作完成后）
+                self.window?.close()
             }
+        } else {
+            // 如果没有保存操作，直接关闭
+            if actions.uploadAndCopyLink {
+                (NSApp.delegate as? AppDelegate)?.uploadImage(image)
+            }
+            if actions.pinToScreen {
+                (NSApp.delegate as? AppDelegate)?.showPin(image: image)
+            }
+            playCopySound()
+            if actions.showQuickAccessOverlay {
+                (NSApp.delegate as? AppDelegate)?.showFloatingThumbnail(image: image)
+            }
+            autoSaveToHistoryIfNeeded(compositedImage: image)
+            window?.close()
         }
-        if actions.uploadAndCopyLink {
-            (NSApp.delegate as? AppDelegate)?.uploadImage(image)
-        }
-        if actions.pinToScreen {
-            (NSApp.delegate as? AppDelegate)?.showPin(image: image)
-        }
-        playCopySound()
-        if actions.showQuickAccessOverlay {
-            (NSApp.delegate as? AppDelegate)?.showFloatingThumbnail(image: image)
-        }
-
-        autoSaveToHistoryIfNeeded(compositedImage: image)
     }
 
     func overlayViewDidRequestFileSave() {
@@ -499,6 +507,7 @@ extension DetachedEditorWindowController: OverlayViewDelegate {
                 self.playCopySound()
                 view.showOverlayHint(String(format: L("Saved to %@"), fileURL.lastPathComponent))
                 self.autoSaveToHistoryIfNeeded(compositedImage: image)
+                self.window?.close()
             case .failure:
                 view.showOverlayError(L("Save failed"))
             }
@@ -535,6 +544,7 @@ extension DetachedEditorWindowController: OverlayViewDelegate {
         playCopySound()
         (NSApp.delegate as? AppDelegate)?.uploadImage(image)
         autoSaveToHistoryIfNeeded(compositedImage: image)
+        window?.close()
     }
 
     func overlayViewDidRequestShare(anchorView: NSView?) {
