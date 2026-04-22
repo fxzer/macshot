@@ -236,6 +236,27 @@ class ToolbarLayout {
         let redoBtn = ToolbarButton(action: .redo, sfSymbol: "arrow.uturn.forward", label: nil, tooltip: L("Redo"))
         buttons.append(redoBtn)
 
+        // 快捷操作按钮（取色、固定、保存、复制）
+        var colorSamplerBtn = ToolbarButton(
+            action: .tool(.colorSampler), sfSymbol: "eyedropper", label: nil,
+            tooltip: L("Color Picker"))
+        colorSamplerBtn.isSelected = (selectedTool == .colorSampler)
+        buttons.append(colorSamplerBtn)
+
+        let pinBtn = ToolbarButton(action: .pin, sfSymbol: "pin.fill", label: nil, tooltip: L("Pin"))
+        buttons.append(pinBtn)
+
+        var saveBtn = ToolbarButton(
+            action: .save, sfSymbol: "square.and.arrow.down.fill", label: nil,
+            tooltip:
+                "\(L("Save to")) \(URL(fileURLWithPath: SaveDirectoryAccess.displayPath).lastPathComponent)"
+        )
+        saveBtn.hasContextMenu = true
+        buttons.append(saveBtn)
+
+        let copyBtn = ToolbarButton(action: .copy, sfSymbol: "doc.on.doc", label: nil, tooltip: L("Copy"))
+        buttons.append(copyBtn)
+
         return buttons
     }
 
@@ -373,33 +394,6 @@ class ToolbarLayout {
             beginSection(&hasPlacedUtilitySection, button: &detachBtn)
             buttons.append(detachBtn)
         }
-
-        if actionEnabled(1002) {
-            var pinBtn = ToolbarButton(action: .pin, sfSymbol: "pin.fill", label: nil, tooltip: L("Pin"))
-            beginSection(&hasPlacedUtilitySection, button: &pinBtn)
-            buttons.append(pinBtn)
-        }
-
-        var colorSamplerBtn = ToolbarButton(
-            action: .tool(.colorSampler), sfSymbol: "eyedropper", label: nil,
-            tooltip: L("Color Picker"))
-        colorSamplerBtn.isSelected = (selectedTool == .colorSampler)
-        beginSection(&hasPlacedUtilitySection, button: &colorSamplerBtn)
-        buttons.append(colorSamplerBtn)
-
-        // Output
-        var copyBtn = ToolbarButton(action: .copy, sfSymbol: "doc.on.doc", label: nil, tooltip: L("Copy"))
-        beginSection(&hasPlacedOutputSection, button: &copyBtn)
-        buttons.append(copyBtn)
-
-        var saveBtn = ToolbarButton(
-            action: .save, sfSymbol: "square.and.arrow.down.fill", label: nil,
-            tooltip:
-                "\(L("Save to")) \(URL(fileURLWithPath: SaveDirectoryAccess.displayPath).lastPathComponent)"
-        )
-        saveBtn.hasContextMenu = true
-        beginSection(&hasPlacedOutputSection, button: &saveBtn)
-        buttons.append(saveBtn)
 
         if actionEnabled(1001) {
             var uploadBtn = ToolbarButton(

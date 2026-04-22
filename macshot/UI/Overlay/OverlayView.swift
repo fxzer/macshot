@@ -5637,9 +5637,8 @@ class OverlayView: NSView {
         }
 
         // Update existing buttons if count matches, rebuild only if structure changed
-        // 每组4个工具后添加分割线：索引3（marker后）、索引7（loupe后）、撤销前（倒数第3个）
-        let separatorIndex = max(0, bottomButtons.count - 3)
-        bottomStripView?.horizontalSeparatorAfterIndices = bottomButtons.count >= 3 ? [3, 7, separatorIndex] : []
+        // 每组4个工具后添加分割线：索引3（marker后）、索引7（loupe后）、索引11（标注组后/撤销前）、索引13（重做后）
+        bottomStripView?.horizontalSeparatorAfterIndices = [3, 7, 11, 13]
         if bottomStripView?.buttonViews.count == bottomButtons.count && bottomStripView?.buttonViews.count ?? 0 > 0 {
             bottomStripView?.updateState(from: bottomButtons)
         } else {
