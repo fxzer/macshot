@@ -1595,7 +1595,8 @@ extension AppDelegate: OverlayWindowControllerDelegate {
         capturedImage: NSImage?,
         annotationData: CaptureAnnotationData?,
         context: CaptureCompletionContext,
-        windowTitle: String?
+        windowTitle: String?,
+        pinOrigin: NSPoint?
     ) {
         dismissOverlays()
         if let image = capturedImage {

@@ -47,10 +47,19 @@ class EditorView: OverlayView {
     override func shouldDrawSelectionBorder() -> Bool { false }
     override func shouldDrawSizeLabel() -> Bool { false }
 
-    // MARK: - Coordinate transforms (identity — scroll view handles everything)
+    // MARK: - Coordinate transforms
+    // Base: identity (scroll view handles zoom/pan).
+    // When beautify is active, a translation offset is applied so the expanded
+    // beautify rect fits within the enlarged document view frame.
 
     override func adjustPointForEditor(_ p: NSPoint) -> NSPoint { p }
-    override func applyEditorTransform(to context: NSGraphicsContext) {}
+
+    override func applyEditorTransform(to context: NSGraphicsContext) {
+        let off = beautifyEditorOffset
+        if off != .zero {
+            context.cgContext.translateBy(x: off.x, y: off.y)
+        }
+    }
 
     // MARK: - Cursor (arrow outside image, tool cursor inside)
 

@@ -22,7 +22,8 @@ protocol OverlayWindowControllerDelegate: AnyObject {
         capturedImage: NSImage?,
         annotationData: CaptureAnnotationData?,
         context: CaptureCompletionContext,
-        windowTitle: String?
+        windowTitle: String?,
+        pinOrigin: NSPoint?
     )
     func overlayDidRequestPin(_ controller: OverlayWindowController, image: NSImage, at globalOrigin: NSPoint)
     func overlayDidStartOCR(_ controller: OverlayWindowController)
@@ -356,6 +357,13 @@ class OverlayWindowController {
         ImageEncoder.copyToClipboard(image)
     }
 
+    func selectionPinOrigin() -> NSPoint? {
+        guard let win = overlayWindow else { return nil }
+        let selRect = overlayView?.selectionRect ?? .zero
+        guard selRect.width > 0, selRect.height > 0 else { return nil }
+        return win.convertToScreen(selRect).origin
+    }
+
     static func formattedTimestamp() -> String {
         return FilenameTemplateEngine.makeBaseName(kind: .screenshot)
     }
@@ -418,6 +426,8 @@ extension OverlayWindowController: OverlayViewDelegate {
             annotationData = nil
         }
 
+        let pinOrigin = selectionPinOrigin()
+
         // Dismiss immediately — user is free to continue working
         dismiss()
 
@@ -442,7 +452,8 @@ extension OverlayWindowController: OverlayViewDelegate {
             capturedImage: finalImage,
             annotationData: annotationData,
             context: .standard,
-            windowTitle: capturedWindowTitle
+            windowTitle: capturedWindowTitle,
+            pinOrigin: pinOrigin
         )
     }
 
@@ -450,18 +461,9 @@ extension OverlayWindowController: OverlayViewDelegate {
         guard var image = captureRegion() else { return }
         image = applyBeautifyIfNeeded(image) ?? image
         playCopySound()
-        
-        // 计算选区的全局位置
-        let globalOrigin: NSPoint
-        if let win = overlayWindow {
-            let selRect = overlayView?.selectionRect ?? .zero
-            let screenRect = win.convertToScreen(selRect)
-            // 使用选区左下角作为 Pin 窗口的位置
-            globalOrigin = screenRect.origin
-        } else {
-            globalOrigin = .zero
-        }
-        
+
+        let globalOrigin = selectionPinOrigin() ?? .zero
+
         dismiss()
         overlayDelegate?.overlayDidRequestPin(self, image: image, at: globalOrigin)
     }
@@ -508,6 +510,16 @@ extension OverlayWindowController: OverlayViewDelegate {
         // Prevent re-entry: if a share session is active or was just dismissed, ignore
         if shareDelegate != nil { return }
         if Date().timeIntervalSince(shareDismissTime) < 0.5 {
+            return
+        }
+
+        // 如果有其他popover打开，先关闭它
+        if PopoverHelper.isVisible {
+            PopoverHelper.dismiss()
+            // 延迟打开共享面板，让旧的先完全关闭
+            DispatchQueue.main.async { [weak self] in
+                self?.overlayViewDidRequestShare(anchorView: anchorView)
+            }
             return
         }
 
@@ -574,13 +586,15 @@ extension OverlayWindowController: OverlayViewDelegate {
                 self.overlayWindow?.level = savedLevel
                 self.shareDelegate = nil
                 let img = image
+                let pinOrigin = self.selectionPinOrigin()
                 self.dismiss()
                 self.overlayDelegate?.overlayDidConfirm(
                     self,
                     capturedImage: img,
                     annotationData: nil,
                     context: .standard,
-                    windowTitle: self.capturedWindowTitle
+                    windowTitle: self.capturedWindowTitle,
+                    pinOrigin: pinOrigin
                 )
             },
             onDismiss: { [weak self] in
@@ -593,11 +607,12 @@ extension OverlayWindowController: OverlayViewDelegate {
         picker.delegate = delegate
 
         // Show anchored to the button in the overlay view
+        // 使用侧边弹出方向，与包装和调色工具保持一致
         if let anchor = anchorView {
-            picker.show(relativeTo: anchor.bounds, of: anchor, preferredEdge: .minY)
+            picker.show(relativeTo: anchor.bounds, of: anchor, preferredEdge: .minX)
         } else if let view = overlayView {
             let center = NSRect(x: view.bounds.midX - 1, y: view.bounds.midY - 1, width: 2, height: 2)
-            picker.show(relativeTo: center, of: view, preferredEdge: .minY)
+            picker.show(relativeTo: center, of: view, preferredEdge: .minX)
         }
     }
 
@@ -780,13 +795,15 @@ extension OverlayWindowController: OverlayViewDelegate {
                 let finalNSImage = NSImage(cgImage: finalCGImage, size: image.size)
 
                 DispatchQueue.main.async {
+                    let pinOrigin = self.selectionPinOrigin()
                     self.dismiss()
                     self.overlayDelegate?.overlayDidConfirm(
                         self,
                         capturedImage: finalNSImage,
                         annotationData: nil,
                         context: .standard,
-                        windowTitle: self.capturedWindowTitle
+                        windowTitle: self.capturedWindowTitle,
+                        pinOrigin: pinOrigin
                     )
                 }
             } catch {
@@ -846,12 +863,14 @@ extension OverlayWindowController: OverlayViewDelegate {
             image = BeautifyRenderer.render(image: beautifyInput, config: beautifyCfg)
         }
 
+        let pinOrigin = selectionPinOrigin()
         overlayDelegate?.overlayDidConfirm(
             self,
             capturedImage: image,
             annotationData: annotationData,
             context: .standard,
-            windowTitle: capturedWindowTitle
+            windowTitle: capturedWindowTitle,
+            pinOrigin: pinOrigin
         )
     }
 
@@ -882,6 +901,7 @@ extension OverlayWindowController: OverlayViewDelegate {
             image = BeautifyRenderer.render(image: beautifyInput, config: beautifyCfg)
         }
 
+        let pinOrigin = selectionPinOrigin()
         saveImageToDirectory(image) { [weak self] result in
             guard let self = self else { return }
             switch result {
@@ -895,7 +915,8 @@ extension OverlayWindowController: OverlayViewDelegate {
                         capturedImage: image,
                         annotationData: nil,
                         context: .manualSave,
-                        windowTitle: self.capturedWindowTitle
+                        windowTitle: self.capturedWindowTitle,
+                        pinOrigin: pinOrigin
                     )
                 }
             case .failure:
@@ -926,7 +947,7 @@ extension OverlayWindowController: OverlayViewDelegate {
         savePanel.level = NSWindow.Level(258)
 
         savePanel.directoryURL = SaveDirectoryAccess.directoryHint()
-
+        let pinOrigin = selectionPinOrigin()
         savePanel.begin { [weak self] response in
             guard let self = self else { return }
             if response == .OK, let url = savePanel.url {
@@ -939,7 +960,8 @@ extension OverlayWindowController: OverlayViewDelegate {
                     capturedImage: nil,
                     annotationData: nil,
                     context: .manualSave,
-                    windowTitle: self.capturedWindowTitle
+                    windowTitle: self.capturedWindowTitle,
+                    pinOrigin: pinOrigin
                 )
             } else {
                 self.overlayWindow?.makeKeyAndOrderFront(nil)

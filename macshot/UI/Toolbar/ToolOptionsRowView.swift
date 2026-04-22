@@ -134,6 +134,7 @@ class ToolOptionsRowView: NSView {
 
         if supportsDrawColor(tool) {
             curX = addDrawColorControl(at: curX, tool: tool, ov: ov)
+            curX = addSeparator(at: curX)
         }
 
         // ── Stroke width slider (most drawing tools) ──

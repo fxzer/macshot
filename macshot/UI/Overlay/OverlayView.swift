@@ -583,6 +583,7 @@ class OverlayView: NSView {
 
     // Beautify
     var beautifyEnabled: Bool = UserDefaults.standard.bool(forKey: "beautifyEnabled")
+    var beautifyEditorOffset: NSPoint = .zero
     var beautifyStyleIndex: Int = UserDefaults.standard.integer(
         forKey: "beautifyStyleIndex")
     var beautifyMode: BeautifyMode =
@@ -643,6 +644,48 @@ class OverlayView: NSView {
             backgroundBlur: beautifyBackgroundBlur,
             cachedBackgroundCGImage: beautifyStyleIndex == -1 ? cachedBeautifyBgCGImage : nil
         )
+    }
+
+    var logicalSize: NSSize {
+        guard let image = screenshotImage else { return .zero }
+        let imgSize = image.size
+        if isEditorMode && beautifyEnabled {
+            let config = beautifyConfig
+            let pad = config.padding
+            let titleBarH: CGFloat = (config.mode == .window && !selectionIsWindowSnap) ? 28 : 0
+
+            return NSSize(width: imgSize.width + pad * 2, height: imgSize.height + pad * 2 + titleBarH)
+        }
+        return imgSize
+    }
+
+    /// Resize the editor document view to fit the beautify-expanded rect.
+    /// When beautify is on, the frame grows and `beautifyEditorOffset` is set so
+    /// `applyEditorTransform` shifts all drawing to keep the expanded rect within bounds.
+    /// When beautify is off, the frame and offset revert to the base image size.
+    func updateEditorFrameForBeautify() {
+        guard isEditorMode else { return }
+
+        let targetSize = logicalSize
+
+        if beautifyEnabled {
+            let config = beautifyConfig
+            beautifyEditorOffset = NSPoint(x: config.padding, y: config.padding)
+        } else {
+            beautifyEditorOffset = .zero
+        }
+
+        if isInsideScrollView, let sv = enclosingScrollView {
+            frame.size = NSSize(width: targetSize.width * sv.magnification, height: targetSize.height * sv.magnification)
+            bounds.size = targetSize
+        } else {
+            frame.size = targetSize
+            bounds.size = targetSize
+        }
+
+        cachedCompositedImage = nil
+        needsDisplay = true
+        overlayDelegate?.overlayViewLogicalSizeDidChange(targetSize)
     }
 
     // Image effects
@@ -1613,6 +1656,18 @@ class OverlayView: NSView {
             return
         }
 
+        // In editor mode, check if mouse is over the top bar
+        // The top bar is a sibling of the scroll view in chromeParentView, not a subview of EditorView
+        if isEditorMode, let topBar = findTopBar() {
+            let mouseInWindow = convert(point, to: nil)
+            // Convert top bar frame to window coordinates
+            let topBarFrameInWindow = topBar.convert(topBar.bounds, to: nil)
+            if topBarFrameInWindow.contains(mouseInWindow) {
+                NSCursor.arrow.set()
+                return
+            }
+        }
+
         // Non-interactive states — simple cursors
         if textEditView != nil {
             if isDraggingTextBox {
@@ -2325,10 +2380,10 @@ class OverlayView: NSView {
                 }
             }
 
-            // Selection border — hidden in editor mode and when beautify/effects preview is active,
+            // Selection border — hidden in editor mode and when beautify preview is active,
             // red during scroll capture, purple otherwise
             if shouldDrawSelectionBorder()
-                && !showBeautifyPreview && !showEffectsPreview
+                && !showBeautifyPreview
             {
                 let borderPath = NSBezierPath(rect: selectionRect)
                 borderPath.lineWidth = isScrollCapturing ? 2.5 : 2.0
