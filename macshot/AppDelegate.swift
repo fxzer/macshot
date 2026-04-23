@@ -43,6 +43,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     private var statusBarMenu: NSMenu?
     private var lastStatusBarInteractionScreen: NSScreen?
     private var pendingStatusBarMenuAction: (() -> Void)?
+    private var overlayScreenSwitchInFlight = false
+    private var overlayMouseScreenTimer: Timer?
 
     private enum CaptureTriggerOrigin: String {
         case menuBar = "menu"
@@ -62,11 +64,17 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     private struct PreparedCaptureState {
         let captures: [ScreenCapture]
         let excludedWindowNumbers: [CGWindowID]
+        let targetScreenID: CGDirectDisplayID?
         let completedAt: CFAbsoluteTime
         let requestID: UUID
 
-        func isUsable(now: CFAbsoluteTime, excludedWindowNumbers: [CGWindowID]) -> Bool {
+        func isUsable(
+            now: CFAbsoluteTime,
+            excludedWindowNumbers: [CGWindowID],
+            targetScreenID: CGDirectDisplayID?
+        ) -> Bool {
             self.excludedWindowNumbers == excludedWindowNumbers
+                && self.targetScreenID == targetScreenID
                 && (now - completedAt) <= AppDelegate.preparedCaptureTTL
         }
     }
@@ -74,6 +82,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     private struct InFlightCapturePreparation {
         let requestID: UUID
         let excludedWindowNumbers: [CGWindowID]
+        let targetScreenID: CGDirectDisplayID?
         let startedAt: CFAbsoluteTime
         let origin: CaptureTriggerOrigin
     }
@@ -550,20 +559,105 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         Array(Set(thumbnailControllers.compactMap { $0.windowNumber })).sorted()
     }
 
+    private func screenDisplayID(for screen: NSScreen?) -> CGDirectDisplayID? {
+        guard let screen else { return nil }
+        return screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID
+    }
+
+    private func currentMouseScreen() -> NSScreen? {
+        NSScreen.screens.first { $0.frame.contains(NSEvent.mouseLocation) }
+    }
+
+    private func currentCaptureTargetScreen() -> NSScreen? {
+        currentMouseScreen() ?? lastStatusBarInteractionScreen ?? defaultInteractionScreen()
+    }
+
+    private func shouldFollowMouseAcrossScreens(for controller: OverlayWindowController) -> Bool {
+        controller.selectionRect.width < 1
+            && controller.selectionRect.height < 1
+    }
+
+    private func startOverlayMouseScreenTracking() {
+        stopOverlayMouseScreenTracking()
+        guard isCapturing, overlayControllers.count == 1 else { return }
+        let timer = Timer(timeInterval: 0.05, repeats: true) { [weak self] _ in
+            self?.updateOverlayScreenForMouseIfNeeded()
+        }
+        overlayMouseScreenTimer = timer
+        RunLoop.main.add(timer, forMode: .common)
+    }
+
+    private func stopOverlayMouseScreenTracking() {
+        overlayMouseScreenTimer?.invalidate()
+        overlayMouseScreenTimer = nil
+    }
+
+    private func clearOverlayControllersForScreenSwitch() {
+        autoreleasepool {
+            for controller in overlayControllers {
+                controller.dismiss()
+            }
+            overlayControllers.removeAll()
+        }
+    }
+
+    private func updateOverlayScreenForMouseIfNeeded() {
+        guard isCapturing, !overlayScreenSwitchInFlight, overlayControllers.count == 1 else { return }
+        guard let controller = overlayControllers.first,
+              shouldFollowMouseAcrossScreens(for: controller),
+              let mouseScreen = currentMouseScreen()
+        else { return }
+        guard screenDisplayID(for: controller.screen) != screenDisplayID(for: mouseScreen) else { return }
+        switchActiveOverlay(to: mouseScreen)
+    }
+
+    private func switchActiveOverlay(to screen: NSScreen) {
+        guard !overlayControllers.isEmpty else { return }
+        overlayScreenSwitchInFlight = true
+        let t0 = CFAbsoluteTimeGetCurrent()
+        let excludeIDs = currentCaptureExcludedWindowNumbers()
+
+        clearOverlayControllersForScreenSwitch()
+        for tc in thumbnailControllers { tc.hideWindow() }
+
+        ScreenCaptureManager.captureScreen(screen, excludingWindowNumbers: excludeIDs) { [weak self] capture in
+            guard let self = self else { return }
+            self.overlayScreenSwitchInFlight = false
+
+            guard let capture else {
+                self.isCapturing = false
+                self.showOnboarding(on: screen)
+                return
+            }
+
+            self.showOverlays(
+                for: [capture],
+                t0: t0,
+                activateApp: false,
+                restoreLastSelection: false,
+                resetPendingModes: false
+            )
+        }
+    }
+
     /// Kick off a background capture early so menu and hotkey paths can reuse it if it
     /// finishes quickly enough. Results expire almost immediately to avoid stale content.
     private func requestCapturePreparation(origin: CaptureTriggerOrigin,
-                                           excludedWindowNumbers: [CGWindowID]? = nil) {
+                                           excludedWindowNumbers: [CGWindowID]? = nil,
+                                           targetScreen: NSScreen? = nil) {
         let excludeIDs = excludedWindowNumbers ?? currentCaptureExcludedWindowNumbers()
+        let screen = targetScreen ?? currentCaptureTargetScreen()
+        let targetScreenID = screenDisplayID(for: screen)
         let now = CFAbsoluteTimeGetCurrent()
 
         if let prepared = preparedCaptureState,
-           prepared.isUsable(now: now, excludedWindowNumbers: excludeIDs) {
+           prepared.isUsable(now: now, excludedWindowNumbers: excludeIDs, targetScreenID: targetScreenID) {
             return
         }
 
         if let inFlight = inFlightCapturePreparation,
-           inFlight.excludedWindowNumbers == excludeIDs {
+           inFlight.excludedWindowNumbers == excludeIDs,
+           inFlight.targetScreenID == targetScreenID {
             return
         }
 
@@ -572,6 +666,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         inFlightCapturePreparation = InFlightCapturePreparation(
             requestID: requestID,
             excludedWindowNumbers: excludeIDs,
+            targetScreenID: targetScreenID,
             startedAt: startedAt,
             origin: origin
         )
@@ -580,12 +675,18 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         #if DEBUG
         NSLog("[PERF] capture preparation BEGIN origin=\(origin.rawValue)")
         #endif
-        ScreenCaptureManager.captureAllScreens(excludingWindowNumbers: excludeIDs) { [weak self] captures in
+        guard let screen else {
+            inFlightCapturePreparation = nil
+            return
+        }
+
+        ScreenCaptureManager.captureScreen(screen, excludingWindowNumbers: excludeIDs) { [weak self] capture in
             guard let self = self else { return }
             guard let inFlight = self.inFlightCapturePreparation,
                   inFlight.requestID == requestID else { return }
 
             self.inFlightCapturePreparation = nil
+            let captures = capture.map { [$0] } ?? []
             guard !captures.isEmpty else {
                 #if DEBUG
                 NSLog("[PERF] capture preparation FAILED origin=\(origin.rawValue)")
@@ -596,6 +697,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             self.preparedCaptureState = PreparedCaptureState(
                 captures: captures,
                 excludedWindowNumbers: excludeIDs,
+                targetScreenID: targetScreenID,
                 completedAt: CFAbsoluteTimeGetCurrent(),
                 requestID: requestID
             )
@@ -605,10 +707,17 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         }
     }
 
-    private func consumePreparedCapture(excludedWindowNumbers: [CGWindowID]) -> [ScreenCapture]? {
+    private func consumePreparedCapture(
+        excludedWindowNumbers: [CGWindowID],
+        targetScreenID: CGDirectDisplayID?
+    ) -> [ScreenCapture]? {
         let now = CFAbsoluteTimeGetCurrent()
         guard let prepared = preparedCaptureState else { return nil }
-        guard prepared.isUsable(now: now, excludedWindowNumbers: excludedWindowNumbers) else {
+        guard prepared.isUsable(
+            now: now,
+            excludedWindowNumbers: excludedWindowNumbers,
+            targetScreenID: targetScreenID
+        ) else {
             preparedCaptureState = nil
             return nil
         }
@@ -617,13 +726,18 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     }
 
     private func waitForPreparedCapture(excludedWindowNumbers: [CGWindowID],
+                                        targetScreenID: CGDirectDisplayID?,
                                         timeoutNanoseconds: UInt64) async -> [ScreenCapture]? {
         guard let request = inFlightCapturePreparation,
-              request.excludedWindowNumbers == excludedWindowNumbers else { return nil }
+              request.excludedWindowNumbers == excludedWindowNumbers,
+              request.targetScreenID == targetScreenID else { return nil }
 
         let deadline = DispatchTime.now().uptimeNanoseconds + timeoutNanoseconds
         while DispatchTime.now().uptimeNanoseconds < deadline {
-            if let captures = consumePreparedCapture(excludedWindowNumbers: excludedWindowNumbers) {
+            if let captures = consumePreparedCapture(
+                excludedWindowNumbers: excludedWindowNumbers,
+                targetScreenID: targetScreenID
+            ) {
                 return captures
             }
             if inFlightCapturePreparation?.requestID != request.requestID {
@@ -631,7 +745,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             }
             try? await Task.sleep(nanoseconds: 5_000_000)
         }
-        return consumePreparedCapture(excludedWindowNumbers: excludedWindowNumbers)
+        return consumePreparedCapture(
+            excludedWindowNumbers: excludedWindowNumbers,
+            targetScreenID: targetScreenID
+        )
     }
 
     @objc private func captureScreen() {
@@ -763,10 +880,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         // Kick off SCShareableContent enumeration early — the cache will be ready
         // by the time performCapture() needs it (covers hotkey path where menu wasn't opened)
         ScreenCaptureManager.prewarm()
+        let targetScreen = currentCaptureTargetScreen()
 
         let delay = UserDefaults.standard.integer(forKey: "captureDelaySeconds")
         if delay == 0 {
-            requestCapturePreparation(origin: triggerOrigin)
+            requestCapturePreparation(origin: triggerOrigin, targetScreen: targetScreen)
         }
 
         // When "remember last tool" is off, clear persisted effects/beautify
@@ -882,6 +1000,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         pendingOCRMode = false
         pendingQuickCaptureMode = false
         pendingScrollCaptureMode = false
+        stopOverlayMouseScreenTracking()
     }
 
     private func performCapture(t0: CFAbsoluteTime = 0, triggerOrigin: CaptureTriggerOrigin = .menuBar) {
@@ -890,8 +1009,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         #endif
 
         let excludeIDs = currentCaptureExcludedWindowNumbers()
+        let targetScreen = currentCaptureTargetScreen()
+        let targetScreenID = screenDisplayID(for: targetScreen)
 
-        if let prepared = consumePreparedCapture(excludedWindowNumbers: excludeIDs) {
+        if let prepared = consumePreparedCapture(
+            excludedWindowNumbers: excludeIDs,
+            targetScreenID: targetScreenID
+        ) {
             #if DEBUG
             NSLog("[PERF] performCapture: using PREPARED images elapsed=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - t0) * 1000))ms")
             #endif
@@ -900,7 +1024,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         }
 
         if let inFlight = inFlightCapturePreparation,
-           inFlight.excludedWindowNumbers == excludeIDs {
+           inFlight.excludedWindowNumbers == excludeIDs,
+           inFlight.targetScreenID == targetScreenID {
             NSLog(
                 "[PERF] performCapture: waiting for prepared capture origin=\(inFlight.origin.rawValue) started=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - inFlight.startedAt) * 1000))ms ago"
             )
@@ -908,6 +1033,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
                 guard let self = self else { return }
                 if let prepared = await self.waitForPreparedCapture(
                     excludedWindowNumbers: excludeIDs,
+                    targetScreenID: targetScreenID,
                     timeoutNanoseconds: triggerOrigin.preparationWaitNanoseconds
                 ) {
                     #if DEBUG
@@ -915,43 +1041,60 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
                     #endif
                     self.showOverlays(for: prepared, t0: t0)
                 } else {
-                    self.startLiveCapture(excludedWindowNumbers: excludeIDs, t0: t0)
+                    self.startLiveCapture(excludedWindowNumbers: excludeIDs, targetScreen: targetScreen, t0: t0)
                 }
             }
             return
         }
 
-        startLiveCapture(excludedWindowNumbers: excludeIDs, t0: t0)
+        startLiveCapture(excludedWindowNumbers: excludeIDs, targetScreen: targetScreen, t0: t0)
     }
 
-    private func startLiveCapture(excludedWindowNumbers excludeIDs: [CGWindowID], t0: CFAbsoluteTime) {
+    private func startLiveCapture(
+        excludedWindowNumbers excludeIDs: [CGWindowID],
+        targetScreen: NSScreen?,
+        t0: CFAbsoluteTime
+    ) {
         #if DEBUG
-        NSLog("[PERF] performCapture: no prepared result, calling captureAllScreens...")
+        NSLog("[PERF] performCapture: no prepared result, calling captureScreen...")
         #endif
+        guard let targetScreen else {
+            isCapturing = false
+            showOnboarding(on: defaultInteractionScreen())
+            return
+        }
         let captureT0 = CFAbsoluteTimeGetCurrent()
-        ScreenCaptureManager.captureAllScreens(excludingWindowNumbers: excludeIDs) { [weak self] captures in
+        ScreenCaptureManager.captureScreen(targetScreen, excludingWindowNumbers: excludeIDs) { [weak self] capture in
             guard let self = self else { return }
             #if DEBUG
-            NSLog("[PERF] captureAllScreens callback: \(captures.count) captures, elapsed=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - t0) * 1000))ms (capture itself=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - captureT0) * 1000))ms)")
+            NSLog("[PERF] captureScreen callback: elapsed=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - t0) * 1000))ms (capture itself=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - captureT0) * 1000))ms)")
             #endif
 
-            if captures.isEmpty {
+            guard let capture else {
                 self.isCapturing = false
                 // Permission was revoked or never granted — show onboarding instead of a generic alert
-                self.showOnboarding(on: self.defaultInteractionScreen())
+                self.showOnboarding(on: targetScreen)
                 return
             }
 
-            self.showOverlays(for: captures, t0: t0)
+            self.showOverlays(for: [capture], t0: t0)
         }
     }
 
     /// Shared overlay creation + display logic for both pre-capture and live-capture paths.
-    private func showOverlays(for captures: [ScreenCapture], t0: CFAbsoluteTime = 0) {
+    private func showOverlays(
+        for captures: [ScreenCapture],
+        t0: CFAbsoluteTime = 0,
+        activateApp: Bool = true,
+        restoreLastSelection: Bool = true,
+        resetPendingModes: Bool = true
+    ) {
         #if DEBUG
         NSLog("[PERF] showOverlays BEGIN: \(captures.count) screens")
         #endif
         let createT0 = CFAbsoluteTimeGetCurrent()
+
+        stopOverlayMouseScreenTracking()
 
         for (index, capture) in captures.enumerated() {
             let controllerT0 = CFAbsoluteTimeGetCurrent()
@@ -1005,18 +1148,25 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         NSLog("[PERF] TOTAL startCapture→overlay visible: \(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - t0) * 1000))ms")
         #endif
 
-        NSApp.activate(ignoringOtherApps: true)
+        if activateApp {
+            NSApp.activate(ignoringOtherApps: true)
+        }
 
-        pendingRecordMode = false
-        pendingFullScreenRecordAutoStart = false
-        pendingOCRMode = false
-        pendingQuickCaptureMode = false
-        pendingScrollCaptureMode = false
-        if !pendingFullScreen && !pendingFullScreenRecord {
+        if resetPendingModes {
+            pendingRecordMode = false
+            pendingFullScreenRecordAutoStart = false
+            pendingOCRMode = false
+            pendingQuickCaptureMode = false
+            pendingScrollCaptureMode = false
+        }
+        if restoreLastSelection && !pendingFullScreen && !pendingFullScreenRecord {
             restoreLastSelectionIfNeeded(controllers: overlayControllers)
         }
-        pendingFullScreen = false
-        pendingFullScreenRecord = false
+        if resetPendingModes {
+            pendingFullScreen = false
+            pendingFullScreenRecord = false
+        }
+        startOverlayMouseScreenTracking()
     }
 
     private func restoreLastSelectionIfNeeded(controllers: [OverlayWindowController]) {
@@ -1047,6 +1197,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     }
 
     private func dismissOverlays(refocusPreviousApp: Bool = true) {
+        stopOverlayMouseScreenTracking()
+        overlayScreenSwitchInFlight = false
         autoreleasepool {
             for controller in overlayControllers {
                 controller.dismiss()

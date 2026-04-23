@@ -8,6 +8,16 @@ struct ScreenCapture {
 
 class ScreenCaptureManager {
 
+    private static func screenDisplayID(for screen: NSScreen) -> CGDirectDisplayID? {
+        screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID
+    }
+
+    private static func pair(for screen: NSScreen, in content: SCShareableContent) -> (SCDisplay, NSScreen)? {
+        guard let screenID = screenDisplayID(for: screen) else { return nil }
+        guard let display = content.displays.first(where: { $0.displayID == screenID }) else { return nil }
+        return (display, screen)
+    }
+
     private static func makeAsset(screen: NSScreen, image: CGImage) -> CaptureImageAsset {
         CaptureImageAsset(
             displayCGImage: image,
@@ -281,6 +291,79 @@ class ScreenCaptureManager {
                 NSLog("macshot: screen capture error: \(error.localizedDescription)")
                 #endif
                 await MainActor.run { completion([]) }
+            }
+        }
+    }
+
+    static func captureScreen(
+        _ screen: NSScreen,
+        excludingWindowNumbers: [CGWindowID] = [],
+        completion: @escaping (ScreenCapture?) -> Void
+    ) {
+        Task {
+            do {
+                let scT0 = CFAbsoluteTimeGetCurrent()
+                let (content, excludedSCWindows) = try await shareableContentForCapture(excludingWindowNumbers: excludingWindowNumbers)
+                #if DEBUG
+                NSLog("[PERF] shareableContentForCapture(single): \(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - scT0) * 1000))ms")
+                #endif
+
+                guard let (display, matchedScreen) = pair(for: screen, in: content) else {
+                    await MainActor.run { completion(nil) }
+                    return
+                }
+
+                let taskT0 = CFAbsoluteTimeGetCurrent()
+                let capture: ScreenCapture?
+                if #available(macOS 14.0, *) {
+                    let filter = SCContentFilter(display: display, excludingWindows: excludedSCWindows)
+                    let config = SCStreamConfiguration()
+                    let scale = Int(matchedScreen.backingScaleFactor)
+                    config.width = display.width * scale
+                    config.height = display.height * scale
+                    config.showsCursor = UserDefaults.standard.bool(forKey: "captureCursor")
+                    config.captureResolution = .best
+
+                    guard let image = try? await SCScreenshotManager.captureImage(
+                        contentFilter: filter,
+                        configuration: config
+                    ) else {
+                        await MainActor.run { completion(nil) }
+                        return
+                    }
+                    #if DEBUG
+                    NSLog("[PERF] SCScreenshotManager.captureImage(single display=\(display.displayID)): \(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - taskT0) * 1000))ms")
+                    #endif
+                    capture = ScreenCapture(
+                        screen: matchedScreen,
+                        asset: makeAsset(screen: matchedScreen, image: image)
+                    )
+                } else {
+                    let mainHeight = NSScreen.screens.first?.frame.height ?? matchedScreen.frame.height
+                    let cgRect = CGRect(
+                        x: matchedScreen.frame.origin.x,
+                        y: mainHeight - matchedScreen.frame.origin.y - matchedScreen.frame.height,
+                        width: matchedScreen.frame.width,
+                        height: matchedScreen.frame.height
+                    )
+                    guard let image = CGWindowListCreateImage(
+                        cgRect, .optionAll, kCGNullWindowID, .bestResolution
+                    ) else {
+                        await MainActor.run { completion(nil) }
+                        return
+                    }
+                    capture = ScreenCapture(
+                        screen: matchedScreen,
+                        asset: makeAsset(screen: matchedScreen, image: image)
+                    )
+                }
+
+                await MainActor.run { completion(capture) }
+            } catch {
+                #if DEBUG
+                NSLog("macshot: single screen capture error: \(error.localizedDescription)")
+                #endif
+                await MainActor.run { completion(nil) }
             }
         }
     }
