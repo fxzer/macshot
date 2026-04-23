@@ -974,18 +974,6 @@ class OverlayView: NSView {
     private var overlayErrorMessage: String? = nil
 
     // Overlay hint message
-    private var overlayHintMessage: String? = nil
-    private var overlayHintOpacity: CGFloat = 0.0
-    private var overlayHintColorString: String? = nil  // Color value for color copy hint
-    private var overlayHintAttributedString: NSAttributedString? = nil  // Rich text for state hints
-    private var overlayHintFadeTimer: Timer? = nil
-
-    /// Hint state for colored status indicators
-    enum HintState {
-        case enabled    // Green - feature enabled
-        case disabled   // Orange - feature disabled
-        case info       // White - default info
-    }
 
     // Instant tooltip for hovered toolbar button
     var hoveredTooltip: String?
@@ -1369,8 +1357,7 @@ class OverlayView: NSView {
         overlayErrorTimer?.invalidate()
         overlayErrorTimer = nil
 
-        overlayHintFadeTimer?.invalidate()
-        overlayHintFadeTimer = nil
+        resetHintState()
 
         micLevelTimer?.invalidate()
         micLevelTimer = nil
@@ -5459,131 +5446,6 @@ class OverlayView: NSView {
             self?.overlayErrorMessage = nil
             self?.needsDisplay = true
         }
-    }
-
-    // MARK: - Overlay Hint
-
-    func showOverlayHint(_ message: String) {
-        overlayHintFadeTimer?.invalidate()
-        overlayHintMessage = message
-        overlayHintAttributedString = nil
-        overlayHintColorString = nil  // Clear color string for normal hints
-        overlayHintOpacity = 1.0
-        needsDisplay = true
-        overlayHintFadeTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: false) {
-            [weak self] _ in
-            self?.fadeOutOverlayHint()
-        }
-        // Notify other screens to sync hint state
-        overlayDelegate?.overlayViewDidShowHint(
-            message: message,
-            opacity: 1.0,
-            colorString: nil,
-            attributedString: nil
-        )
-    }
-
-    /// Show a hint message for color copying with a color swatch.
-    func showColorCopiedHint(_ message: String, colorString: String) {
-        overlayHintFadeTimer?.invalidate()
-        overlayHintMessage = message
-        overlayHintAttributedString = nil
-        overlayHintColorString = colorString
-        overlayHintOpacity = 1.0
-        needsDisplay = true
-        overlayHintFadeTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: false) {
-            [weak self] _ in
-            self?.fadeOutOverlayHint()
-        }
-        // Notify other screens to sync hint state
-        overlayDelegate?.overlayViewDidShowHint(
-            message: message,
-            opacity: 1.0,
-            colorString: colorString,
-            attributedString: nil
-        )
-    }
-
-    /// Sync hint state from another screen (for multi-monitor setups)
-    func syncOverlayHint(
-        message: String,
-        opacity: CGFloat,
-        colorString: String?,
-        attributedString: NSAttributedString?
-    ) {
-        overlayHintFadeTimer?.invalidate()
-        overlayHintMessage = message
-        overlayHintColorString = colorString
-        overlayHintAttributedString = attributedString
-        overlayHintOpacity = opacity
-        needsDisplay = true
-        if opacity > 0.01 {
-            overlayHintFadeTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: false) { [weak self] _ in
-                self?.fadeOutOverlayHint()
-            }
-        }
-    }
-
-    /// Show a hint message with colored status text (green for enabled, orange for disabled).
-    /// The message prefix is white, the statusText suffix is colored.
-    func showStateHint(message: String, statusText: String, state: HintState) {
-        let color: NSColor
-
-        switch state {
-        case .enabled:
-            color = NSColor.systemGreen
-        case .disabled:
-            color = NSColor.systemOrange
-        case .info:
-            color = NSColor.white
-        }
-
-        let baseAttrs: [NSAttributedString.Key: Any] = [
-            .font: NSFont.systemFont(ofSize: 13, weight: .medium)
-        ]
-
-        let attrString = NSMutableAttributedString()
-
-        // Message prefix (white)
-        attrString.append(NSAttributedString(
-            string: message,
-            attributes: baseAttrs.merging([.foregroundColor: NSColor.white]) { $1 }
-        ))
-
-        // Status text (colored)
-        attrString.append(NSAttributedString(
-            string: statusText,
-            attributes: baseAttrs.merging([.foregroundColor: color]) { $1 }
-        ))
-
-        showAttributedHint(attrString)
-    }
-
-    private func showAttributedHint(_ attrString: NSAttributedString) {
-        overlayHintFadeTimer?.invalidate()
-        overlayHintMessage = attrString.string
-        overlayHintAttributedString = attrString
-        overlayHintColorString = nil
-        overlayHintOpacity = 1.0
-        needsDisplay = true
-        overlayHintFadeTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: false) { [weak self] _ in
-            self?.fadeOutOverlayHint()
-        }
-        // Notify other screens to sync rich-text hint state.
-        overlayDelegate?.overlayViewDidShowHint(
-            message: attrString.string,
-            opacity: 1.0,
-            colorString: nil,
-            attributedString: attrString
-        )
-    }
-
-    private func fadeOutOverlayHint() {
-        overlayHintOpacity = 0.0
-        overlayHintMessage = nil
-        overlayHintColorString = nil
-        overlayHintAttributedString = nil
-        needsDisplay = true
     }
 
 
@@ -10359,11 +10221,7 @@ class OverlayView: NSView {
         overlayErrorTimer?.invalidate()
         overlayErrorTimer = nil
         overlayErrorMessage = nil
-        overlayHintFadeTimer?.invalidate()
-        overlayHintFadeTimer = nil
-        overlayHintMessage = nil
-        overlayHintColorString = nil
-        overlayHintOpacity = 0.0
+        resetHintState()
         barcodeDetector.cancel()
         hoveredWindowRect = nil
         isRecording = false
