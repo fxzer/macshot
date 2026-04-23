@@ -159,6 +159,10 @@ extension OverlayView {
     func resetHintState() {
         overlayHintFadeTimer?.invalidate()
         overlayHintFadeTimer = nil
+        overlayHintOpacity = 0.0
+        overlayHintMessage = nil
+        overlayHintColorString = nil
+        overlayHintAttributedString = nil
     }
 }
 
