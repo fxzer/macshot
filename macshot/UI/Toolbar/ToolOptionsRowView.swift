@@ -1483,6 +1483,11 @@ class ToolOptionsRowView: NSView {
         guard let ov = overlayView else { return }
         ov.currentMeasureInPoints = sender.selectedSegment == 1
         UserDefaults.standard.set(ov.currentMeasureInPoints, forKey: "measureInPoints")
+        if let ann = editingAnnotation, ann.tool == .measure {
+            ensureSnapshot()
+            ann.measureInPoints = ov.currentMeasureInPoints
+            ov.cachedCompositedImage = nil
+        }
         ov.needsDisplay = true
     }
 
