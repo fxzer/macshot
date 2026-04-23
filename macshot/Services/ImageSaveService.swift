@@ -39,9 +39,13 @@ enum ImageSaveService {
         _ image: NSImage,
         kind: FilenameOutputKind = .screenshot
     ) -> Result<URL, Error> {
-        let dirURL = SaveDirectoryAccess.resolve()
-        defer { SaveDirectoryAccess.stopAccessing(url: dirURL) }
-        return save(image, in: dirURL, kind: kind)
+        switch SaveDirectoryAccess.resolveForWriting() {
+        case .success(let dirURL):
+            defer { SaveDirectoryAccess.stopAccessing(url: dirURL) }
+            return save(image, in: dirURL, kind: kind)
+        case .failure(let error):
+            return .failure(error)
+        }
     }
 
     /// 保存图片到指定目录，文件名使用统一模板生成

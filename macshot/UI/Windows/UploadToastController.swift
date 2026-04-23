@@ -130,7 +130,7 @@ class UploadToastController {
 
     func showSaveSuccess(fileURL: URL) {
         ensureToastWindow()
-        currentOpenURL = nil
+        currentOpenURL = fileURL.deletingLastPathComponent()
         guard let window = window, let contentView = window.contentView else { return }
 
         prepareForResultState(symbolName: "checkmark.circle.fill", tintColor: .systemGreen)
@@ -139,8 +139,20 @@ class UploadToastController {
         layoutTwoLineToast(
             in: contentView,
             title: L("Save successful"),
-            detail: fileURL.path
+            detail: fileURL.path,
+            detailWidth: toastWidth - 140
         )
+
+        let centerY = toastHeight / 2
+        let btn = NSButton(frame: NSRect(x: toastWidth - 76, y: centerY - 14, width: 62, height: 28))
+        btn.title = L("Open")
+        btn.bezelStyle = .rounded
+        btn.font = NSFont.systemFont(ofSize: 12, weight: .medium)
+        btn.target = self
+        btn.action = #selector(openTarget)
+        contentView.addSubview(btn)
+        self.openButton = btn
+
         scheduleDismiss(seconds: 6)
     }
 
@@ -301,7 +313,11 @@ class UploadToastController {
 
     @objc private func openTarget() {
         guard let url = currentOpenURL else { return }
-        NSWorkspace.shared.open(url)
+        if url.isFileURL {
+            NSWorkspace.shared.activateFileViewerSelecting([url])
+        } else {
+            NSWorkspace.shared.open(url)
+        }
         dismiss()
     }
 

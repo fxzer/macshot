@@ -1245,10 +1245,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         _ image: NSImage,
         kind: FilenameOutputKind = .screenshot,
         showInFinder: Bool = false,
+        showFailureToast: Bool = true,
         completion: ((Result<URL, Error>) -> Void)? = nil
     ) {
         ImageSaveService.saveToDefaultDirectoryAsync(image, kind: kind) { [weak self] result in
-            self?.showSaveResultToast(result)
+            self?.showSaveResultToast(result, showFailureToast: showFailureToast)
             if case .success(let fileURL) = result, showInFinder {
                 NSWorkspace.shared.activateFileViewerSelecting([fileURL])
             }
@@ -1256,12 +1257,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         }
     }
 
-    func showSaveResultToast(_ result: Result<URL, Error>) {
+    func showSaveResultToast(_ result: Result<URL, Error>, showFailureToast: Bool = true) {
         let toast = makeStatusToast()
         switch result {
         case .success(let fileURL):
             toast.showSaveSuccess(fileURL: fileURL)
         case .failure(let error):
+            guard showFailureToast else { return }
             let message = error.localizedDescription.isEmpty ? L("Save failed") : error.localizedDescription
             toast.showSaveError(message: message)
         }

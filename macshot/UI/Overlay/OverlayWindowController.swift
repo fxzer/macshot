@@ -928,22 +928,20 @@ extension OverlayWindowController: OverlayViewDelegate {
         saveImageToDirectory(image) { [weak self] result in
             guard let self = self else { return }
             switch result {
-            case .success(let fileURL):
+            case .success:
                 self.playCopySound()
-                self.overlayView?.showOverlayHint(
-                    String(format: L("Saved to %@"), fileURL.lastPathComponent))
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
-                    self.overlayDelegate?.overlayDidConfirm(
-                        self,
-                        capturedImage: image,
-                        annotationData: nil,
-                        context: .manualSave,
-                        windowTitle: self.capturedWindowTitle,
-                        pinOrigin: pinOrigin
-                    )
-                }
-            case .failure:
-                self.overlayView?.showOverlayError(L("Save failed"))
+                self.dismiss()
+                self.overlayDelegate?.overlayDidConfirm(
+                    self,
+                    capturedImage: image,
+                    annotationData: nil,
+                    context: .manualSave,
+                    windowTitle: self.capturedWindowTitle,
+                    pinOrigin: pinOrigin
+                )
+            case .failure(let error):
+                let message = error.localizedDescription.isEmpty ? L("Save failed") : error.localizedDescription
+                self.overlayView?.showOverlayError(message)
             }
         }
     }
@@ -952,14 +950,16 @@ extension OverlayWindowController: OverlayViewDelegate {
         _ image: NSImage,
         completion: @escaping @MainActor (Result<URL, Error>) -> Void
     ) {
-        // 使用统一的 ImageSaveService
-        ImageSaveService.saveToDefaultDirectoryAsync(image, kind: .screenshot, completion: completion)
+        if let appDelegate = NSApp.delegate as? AppDelegate {
+            appDelegate.saveImageToPreferredDirectory(image, showFailureToast: false, completion: completion)
+        } else {
+            ImageSaveService.saveToDefaultDirectoryAsync(image, kind: .screenshot, completion: completion)
+        }
     }
 
     func overlayViewDidRequestSave() {
         guard var image = captureRegion() else { return }
         image = applyBeautifyIfNeeded(image) ?? image
-        guard let imageData = ImageEncoder.encode(image) else { return }
 
         let savePanel = NSSavePanel()
         savePanel.allowedContentTypes = [ImageEncoder.utType]
@@ -974,18 +974,25 @@ extension OverlayWindowController: OverlayViewDelegate {
         savePanel.begin { [weak self] response in
             guard let self = self else { return }
             if response == .OK, let url = savePanel.url {
-                try? imageData.write(to: url)
-                SaveDirectoryAccess.save(url: url.deletingLastPathComponent())
-                self.playCopySound()
-                self.dismiss()
-                self.overlayDelegate?.overlayDidConfirm(
-                    self,
-                    capturedImage: nil,
-                    annotationData: nil,
-                    context: .manualSave,
-                    windowTitle: self.capturedWindowTitle,
-                    pinOrigin: pinOrigin
-                )
+                let result = ImageSaveService.save(image, to: url)
+                switch result {
+                case .success(let fileURL):
+                    (NSApp.delegate as? AppDelegate)?.showSaveResultToast(.success(fileURL))
+                    SaveDirectoryAccess.save(url: fileURL.deletingLastPathComponent())
+                    self.playCopySound()
+                    self.dismiss()
+                    self.overlayDelegate?.overlayDidConfirm(
+                        self,
+                        capturedImage: nil,
+                        annotationData: nil,
+                        context: .manualSave,
+                        windowTitle: self.capturedWindowTitle,
+                        pinOrigin: pinOrigin
+                    )
+                case .failure(let error):
+                    let message = error.localizedDescription.isEmpty ? L("Save failed") : error.localizedDescription
+                    self.overlayView?.showOverlayError(message)
+                }
             } else {
                 self.overlayWindow?.makeKeyAndOrderFront(nil)
                 if let view = self.overlayView {

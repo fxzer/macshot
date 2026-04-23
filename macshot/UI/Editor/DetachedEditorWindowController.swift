@@ -488,8 +488,9 @@ extension DetachedEditorWindowController: OverlayViewDelegate {
                     case .success:
                         self.playCopySound()
                         self.window?.close()
-                    case .failure:
-                        view.showOverlayError(L("Save failed"))
+                    case .failure(let error):
+                        let message = error.localizedDescription.isEmpty ? L("Save failed") : error.localizedDescription
+                        view.showOverlayError(message)
                     }
                 }
             }
@@ -534,8 +535,9 @@ extension DetachedEditorWindowController: OverlayViewDelegate {
                     self.playCopySound()
                     self.autoSaveToHistoryIfNeeded(compositedImage: image)
                     self.window?.close()
-                case .failure:
-                    view.showOverlayError(L("Save failed"))
+                case .failure(let error):
+                    let message = error.localizedDescription.isEmpty ? L("Save failed") : error.localizedDescription
+                    view.showOverlayError(message)
                 }
             }
         }

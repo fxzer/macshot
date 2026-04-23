@@ -464,6 +464,7 @@
 "Saved to %@" = "Saved to %@";
 "Save failed" = "Save failed";
 "Save successful" = "Save successful";
+"Save folder missing. Please reselect it in Preferences." = "Save folder missing. Please reselect it in Preferences.";
 
 /* Barcode Detector */
 /* "Open" and "Copy" are shared with other sections */
