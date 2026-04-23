@@ -284,18 +284,6 @@ class OverlayView: NSView {
         }
     }
 
-    // Zoom
-    var zoomLevel: CGFloat = 1.0
-    // The canvas point that stays pinned to zoomAnchorView on screen.
-    // Both default to selection center; updated on each scroll/pinch to be the cursor position.
-    var zoomAnchorCanvas: NSPoint = .zero
-    var zoomAnchorView: NSPoint = .zero
-    var zoomFadingOut: Bool = false
-    var zoomLabelOpacity: CGFloat = 0.0
-    var zoomFadeTimer: Timer?
-    var zoomMin: CGFloat { 1.0 }
-    let zoomMax: CGFloat = 8.0
-
     // Debounce timer for scroll wheel property adjustments (prevents memory explosion)
     var scrollPropertyAdjustTimer: Timer?
     var pendingScrollPropertyCommit: (() -> Void)?
@@ -573,15 +561,6 @@ class OverlayView: NSView {
     private var heightLabelRect: NSRect = .zero
     private var sizeLabelRect: NSRect = .zero
     var sharedSizeLabelRect: NSRect { sizeLabelRect }
-
-    // Zoom label
-    var zoomLabelRect: NSRect = .zero
-    var zoomInputField: NSTextField?
-
-    /// True when the zoom inline field is being edited.
-    var isEditingInlineField: Bool {
-        zoomInputField != nil
-    }
 
     // Beautify
     var beautifyEnabled: Bool = UserDefaults.standard.bool(forKey: "beautifyEnabled")
@@ -1330,8 +1309,7 @@ class OverlayView: NSView {
 
     deinit {
         // Clean up all timers to prevent memory leaks
-        zoomFadeTimer?.invalidate()
-        zoomFadeTimer = nil
+        resetZoomUIState()
 
         scrollPropertyAdjustTimer?.invalidate()
         scrollPropertyAdjustTimer = nil
@@ -1478,8 +1456,6 @@ class OverlayView: NSView {
         // Size labels are display-only chrome
         if widthLabelRect.contains(point) || heightLabelRect.contains(point) { return true }
         if zoomLabelRect.contains(point) && zoomLabelOpacity > 0 { return true }
-        // Zoom inline field frame is also chrome
-        if let field = zoomInputField, field.frame.contains(point) { return true }
         return false
     }
 
@@ -2580,7 +2556,7 @@ class OverlayView: NSView {
         sizeLabelRect = NSRect(x: baseX, y: baseY, width: totalW, height: labelH)
     }
 
-    // drawZoomLabel, showZoomInput, commitZoomInputIfNeeded → OverlayView+Zoom.swift
+    // drawZoomLabel → OverlayView+Zoom.swift
 
     private func drawResizeHandles() {
         for (_, rect) in allHandleRects() {
@@ -4908,12 +4884,6 @@ class OverlayView: NSView {
         if !isTextFormattingClick {
             commitTextFieldIfNeeded()
         }
-        // Don't commit zoom field if the click is inside it
-        if let zf = zoomInputField, zf.frame.contains(point) {
-            // let the text field handle it
-        } else {
-            commitZoomInputIfNeeded()
-        }
 
         switch state {
         case .idle:
@@ -4941,6 +4911,8 @@ class OverlayView: NSView {
             needsDisplay = true
 
         case .selected:
+            if shouldIgnoreZoomLabelMouseDown(at: point) { return }
+
             // Sticky color wheel: click to pick a color
             if colorWheel.isVisible && colorWheel.isSticky {
                 colorWheel.updateHover(at: point)
@@ -4954,18 +4926,6 @@ class OverlayView: NSView {
                 needsDisplay = true
                 return
             }
-
-
-
-            // Check zoom label click
-            if zoomLabelRect.contains(point) && zoomInputField == nil && zoomLabelOpacity > 0 {
-                showZoomInput()
-                return
-            }
-            if let field = zoomInputField, field.frame.contains(point) {
-                return  // let the text field handle it
-            }
-
             if showToolbars {
 
             }
@@ -5041,8 +5001,7 @@ class OverlayView: NSView {
             redoStack.removeAll()
             numberCounter = 0
             resetZoom()
-            zoomLabelOpacity = 0.0
-            zoomFadeTimer?.invalidate()
+            resetZoomUIState()
             selectionStart = point
             selectionRect = NSRect(origin: point, size: .zero)
             state = .selecting
@@ -7182,12 +7141,6 @@ class OverlayView: NSView {
     }
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        // When an inline numeric field (width/height/zoom) is being edited,
-        // let its field editor handle Cmd+C/V/X/A/Z natively — don't intercept.
-        if isEditingInlineField && event.modifierFlags.contains(.command) {
-            return super.performKeyEquivalent(with: event)
-        }
-
         // Forward Cmd shortcuts to the text view when editing — the main menu
         // intercepts these before keyDown reaches the overlay window.
         // Use keyCode (hardware-based) instead of charactersIgnoringModifiers
@@ -7269,31 +7222,6 @@ class OverlayView: NSView {
     }
 
     override func keyDown(with event: NSEvent) {
-        // ── Inline numeric fields (width / height / zoom) ──────────────────
-        // When an inline field is visible, ALL key events must go to its
-        // field editor.  If the field editor somehow lost first-responder
-        // status (common when makeFirstResponder is called during mouseDown),
-        // we re-establish it here and forward the event.
-        if isEditingInlineField {
-            // Find the field that is (or should be) active
-            let fields = [zoomInputField].compactMap { $0 }
-            let activeField = fields.first(where: { $0.currentEditor() != nil }) ?? fields.first
-
-            if let field = activeField {
-                // Ensure the field editor is first responder
-                if !(window?.firstResponder is NSTextView) {
-                    window?.makeFirstResponder(field)
-                }
-                // Forward the event — the field editor will handle character
-                // insertion, and for Return / Escape / Tab it calls
-                // control(_:textView:doCommandBy:) on the delegate (self).
-                if let editor = field.currentEditor() as? NSTextView {
-                    editor.keyDown(with: event)
-                }
-            }
-            return
-        }
-
         // In recording mode, only allow Escape (to exit recording mode)
         if isRecording {
             if event.keyCode == 53 { // Escape
@@ -7380,11 +7308,11 @@ class OverlayView: NSView {
                 }
             }
         case 36:  // Return/Enter — quick capture using the configured post-capture actions
-            if textEditView == nil, !isEditingInlineField, state == .selected {
+            if textEditView == nil, state == .selected {
                 overlayDelegate?.overlayViewDidRequestQuickSave()
             }
         case 51:  // Backspace/Delete — remove selected annotation(s)
-            guard textEditView == nil, !isEditingInlineField, state == .selected, !selectedAnnotations.isEmpty else { break }
+            guard textEditView == nil, state == .selected, !selectedAnnotations.isEmpty else { break }
             for ann in selectedAnnotations {
                 if let idx = annotations.firstIndex(where: { $0 === ann }) {
                     annotations.remove(at: idx)
@@ -7411,7 +7339,7 @@ class OverlayView: NSView {
             }
             // Auto-measure: hold "1" = vertical preview, hold "2" = horizontal preview
             if state == .selected && currentTool == .measure && textEditView == nil
-                && !isEditingInlineField && !event.modifierFlags.contains(.command)
+                && !event.modifierFlags.contains(.command)
             {
                 if let char = event.charactersIgnoringModifiers {
                     if char == "1" || char == "2" {
@@ -7426,7 +7354,7 @@ class OverlayView: NSView {
             }
 
             // 宽高比锁定快捷键（动态从 AspectRatioShortcutManager 获取）
-            if (state == .idle || state == .selecting || state == .selected) && !isEditingInlineField {
+            if state == .idle || state == .selecting || state == .selected {
                 if let char = event.charactersIgnoringModifiers?.lowercased(), !event.modifierFlags.contains(.command) {
 
                     // 检查特殊快捷键：取消锁定
@@ -7468,7 +7396,7 @@ class OverlayView: NSView {
             }
 
             // Single-key tool shortcuts (only when selected, not editing text/inline fields, no modifiers)
-            if state == .selected && textEditView == nil && !isEditingInlineField
+            if state == .selected && textEditView == nil
                 && !event.modifierFlags.contains(.command)
                 && !event.modifierFlags.contains(.option) && !event.modifierFlags.contains(.control)
             {
@@ -8359,62 +8287,6 @@ class OverlayView: NSView {
         hoveredWindowRect = nil
         isRecording = false
         needsDisplay = true
-    }
-}
-
-// MARK: - NSTextFieldDelegate
-
-extension OverlayView: NSTextFieldDelegate {
-    func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector)
-        -> Bool
-    {
-
-        if control.tag == 889 {
-            // Zoom input field
-            if commandSelector == #selector(NSResponder.insertNewline(_:)) {
-                commitZoomInputIfNeeded()
-                return true
-            }
-            if commandSelector == #selector(NSResponder.cancelOperation(_:)) {
-                zoomInputField?.removeFromSuperview()
-                zoomInputField = nil
-                window?.makeFirstResponder(self)
-                needsDisplay = true
-                return true
-            }
-        }
-
-        return false
-    }
-
-    func controlTextDidBeginEditing(_ obj: Notification) {
-        guard let field = obj.object as? NSTextField else { return }
-        applyInlineNumericFieldFocusChrome(focused: field)
-    }
-
-    func controlTextDidEndEditing(_ obj: Notification) {
-        guard let field = obj.object as? NSTextField,
-              field.tag == 889
-        else { return }
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
-            self.applyInlineNumericFieldFocusChrome(focused: nil)
-        }
-    }
-
-    /// Overlay size / zoom inline fields: no border when idle (matches `drawSizeLabel` / `drawZoomLabel`); only the first responder shows a border.
-    func applyInlineNumericFieldFocusChrome(focused: NSTextField?) {
-        guard let field = zoomInputField else { return }
-        if focused === field {
-            field.layer?.borderColor = NSColor.white.cgColor
-            field.layer?.borderWidth = 2
-        } else {
-            field.layer?.borderWidth = 0
-            field.layer?.borderColor = nil
-        }
-    }
-
-    func controlTextDidChange(_ obj: Notification) {
     }
 }
 

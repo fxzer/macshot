@@ -149,16 +149,9 @@ extension OverlayView {
             return
         }
 
-        // Zoom inline field: IBeam over the field, arrow nearby
-        if isEditingInlineField {
-            if let field = zoomInputField, field.frame.contains(point) {
-                NSCursor.iBeam.set()
-                return
-            }
-            if zoomLabelRect.contains(point) && zoomLabelOpacity > 0 {
-                NSCursor.arrow.set()
-                return
-            }
+        if zoomLabelRect.contains(point) && zoomLabelOpacity > 0 {
+            NSCursor.arrow.set()
+            return
         }
         if state == .idle || state == .selecting {
             // Recording mode: arrow cursor (no selection interaction)
