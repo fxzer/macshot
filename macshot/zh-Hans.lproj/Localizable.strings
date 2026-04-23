@@ -449,6 +449,7 @@
 "Export failed" = "导出失败";
 "Saved to %@" = "已存储到 %@";
 "Save failed" = "存储失败";
+"Save successful" = "保存成功";
 
 /* Barcode Detector */
 /* "Open" and "Copy" are shared with other sections */

@@ -463,6 +463,7 @@
 "Export failed" = "Export failed";
 "Saved to %@" = "Saved to %@";
 "Save failed" = "Save failed";
+"Save successful" = "Save successful";
 
 /* Barcode Detector */
 /* "Open" and "Copy" are shared with other sections */

@@ -9,13 +9,14 @@ class UploadToastController {
     private var iconView: NSImageView?
     private var spinner: NSProgressIndicator?
     private var dismissTask: DispatchWorkItem?
-    private var currentLink: String?
+    private var currentOpenURL: URL?
     var onDismiss: (() -> Void)?
 
     private let toastWidth: CGFloat = 380
     private let cornerRadius: CGFloat = 14
 
     func show(status: String) {
+        currentOpenURL = nil
         let screen = NSScreen.main ?? NSScreen.screens[0]
         let screenFrame = screen.frame
         let visibleFrame = screen.visibleFrame
@@ -98,80 +99,66 @@ class UploadToastController {
     }
 
     func showSuccess(link: String, deleteURL: String) {
+        _ = deleteURL
+        ensureToastWindow()
+        currentOpenURL = URL(string: link)
         guard let window = window, let contentView = window.contentView else { return }
-        self.currentLink = link
 
-        // Remove spinner, show icon
-        spinner?.stopAnimation(nil)
-        spinner?.removeFromSuperview()
-        spinner = nil
-        iconView?.isHidden = false
+        prepareForResultState(symbolName: "checkmark.circle.fill", tintColor: .systemGreen)
 
-        // Remove old status label
-        statusLabel?.removeFromSuperview()
-        statusLabel = nil
-
-        // 固定高度：链接只显示一行（用省略号）
         let toastHeight: CGFloat = 56
+        resizeToast(window: window, contentView: contentView, height: toastHeight)
+        layoutTwoLineToast(
+            in: contentView,
+            title: L("URL copied to the clipboard"),
+            detail: link,
+            detailWidth: toastWidth - 140
+        )
 
-        // Resize and reposition (stay top-center)
-        let screen = NSScreen.main ?? NSScreen.screens[0]
-        let visibleFrame = screen.visibleFrame
-        let x = screen.frame.midX - toastWidth / 2
-        let y = visibleFrame.maxY - toastHeight - 12
-
-        NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = 0.15
-            window.animator().setFrame(NSRect(x: x, y: y, width: toastWidth, height: toastHeight), display: true)
-        }
-        contentView.frame = NSRect(origin: .zero, size: NSSize(width: toastWidth, height: toastHeight))
-        contentView.needsDisplay = true
-
-        // 垂直居中计算
         let centerY = toastHeight / 2
-
-        // 文字整体高度（标题 + 链接 + 间距）
-        let titleHeight: CGFloat = 18
-        let linkHeight: CGFloat = 16
-        let spacing: CGFloat = 2
-        let totalTextHeight = titleHeight + spacing + linkHeight
-
-        // Reposition icon
-        iconView?.frame = NSRect(x: 14, y: centerY - 14, width: 28, height: 28)
-
-        // Title (垂直居中)
-        let titleY = centerY + totalTextHeight / 2 - titleHeight
-        let titleLabel = NSTextField(labelWithString: L("URL copied to the clipboard"))
-        titleLabel.frame = NSRect(x: 50, y: titleY, width: toastWidth - 140, height: titleHeight)
-        titleLabel.font = NSFont.systemFont(ofSize: 13, weight: .semibold)
-        titleLabel.textColor = .labelColor
-        titleLabel.lineBreakMode = .byTruncatingTail
-        contentView.addSubview(titleLabel)
-        self.statusLabel = titleLabel
-
-        // Link (紧跟标题下方)
-        let linkY = titleY - spacing - linkHeight
-        let linkLabel = NSTextField(labelWithString: link)
-        linkLabel.frame = NSRect(x: 50, y: linkY, width: toastWidth - 140, height: linkHeight)
-        linkLabel.font = NSFont.systemFont(ofSize: 11)
-        linkLabel.textColor = .secondaryLabelColor
-        linkLabel.lineBreakMode = .byTruncatingMiddle
-        linkLabel.isSelectable = false
-        contentView.addSubview(linkLabel)
-        self.linkLabel = linkLabel
-
-        // "Open" button (垂直居中，右侧)
         let btn = NSButton(frame: NSRect(x: toastWidth - 76, y: centerY - 14, width: 62, height: 28))
         btn.title = L("Open")
         btn.bezelStyle = .rounded
         btn.font = NSFont.systemFont(ofSize: 12, weight: .medium)
         btn.target = self
-        btn.action = #selector(openLink)
+        btn.action = #selector(openTarget)
         contentView.addSubview(btn)
         self.openButton = btn
 
-        // Auto-dismiss after 8 seconds
         scheduleDismiss(seconds: 8)
+    }
+
+    func showSaveSuccess(fileURL: URL) {
+        ensureToastWindow()
+        currentOpenURL = nil
+        guard let window = window, let contentView = window.contentView else { return }
+
+        prepareForResultState(symbolName: "checkmark.circle.fill", tintColor: .systemGreen)
+        let toastHeight: CGFloat = 56
+        resizeToast(window: window, contentView: contentView, height: toastHeight)
+        layoutTwoLineToast(
+            in: contentView,
+            title: L("Save successful"),
+            detail: fileURL.path
+        )
+        scheduleDismiss(seconds: 6)
+    }
+
+    func showSaveError(message: String) {
+        ensureToastWindow()
+        currentOpenURL = nil
+        guard let window = window, let contentView = window.contentView else { return }
+
+        prepareForResultState(symbolName: "xmark.circle.fill", tintColor: .systemRed)
+        let toastHeight: CGFloat = 56
+        resizeToast(window: window, contentView: contentView, height: toastHeight)
+        layoutTwoLineToast(
+            in: contentView,
+            title: L("Save failed"),
+            detail: message,
+            titleColor: .systemRed
+        )
+        scheduleDismiss(seconds: 6)
     }
 
     func showError(message: String) {
@@ -228,6 +215,81 @@ class UploadToastController {
         scheduleDismiss(seconds: 6)
     }
 
+    private func ensureToastWindow() {
+        if window == nil {
+            show(status: "")
+        }
+    }
+
+    private func prepareForResultState(symbolName: String, tintColor: NSColor) {
+        spinner?.stopAnimation(nil)
+        spinner?.removeFromSuperview()
+        spinner = nil
+
+        statusLabel?.removeFromSuperview()
+        statusLabel = nil
+        linkLabel?.removeFromSuperview()
+        linkLabel = nil
+        openButton?.removeFromSuperview()
+        openButton = nil
+
+        if let icon = iconView {
+            icon.image = NSImage(systemSymbolName: symbolName, accessibilityDescription: nil)
+            icon.contentTintColor = tintColor
+            icon.isHidden = false
+        }
+    }
+
+    private func resizeToast(window: NSPanel, contentView: NSView, height: CGFloat) {
+        let screen = NSScreen.main ?? NSScreen.screens[0]
+        let visibleFrame = screen.visibleFrame
+        let x = screen.frame.midX - toastWidth / 2
+        let y = visibleFrame.maxY - height - 12
+
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = 0.15
+            window.animator().setFrame(NSRect(x: x, y: y, width: toastWidth, height: height), display: true)
+        }
+        contentView.frame = NSRect(origin: .zero, size: NSSize(width: toastWidth, height: height))
+        contentView.needsDisplay = true
+    }
+
+    private func layoutTwoLineToast(
+        in contentView: NSView,
+        title: String,
+        detail: String,
+        titleColor: NSColor = .labelColor,
+        detailWidth: CGFloat = 314
+    ) {
+        let toastHeight = contentView.bounds.height
+        let centerY = toastHeight / 2
+        let titleHeight: CGFloat = 18
+        let detailHeight: CGFloat = 16
+        let spacing: CGFloat = 2
+        let totalTextHeight = titleHeight + spacing + detailHeight
+        let titleY = centerY + totalTextHeight / 2 - titleHeight
+        let detailY = titleY - spacing - detailHeight
+
+        iconView?.frame = NSRect(x: 14, y: centerY - 14, width: 28, height: 28)
+
+        let titleLabel = NSTextField(labelWithString: title)
+        titleLabel.frame = NSRect(x: 50, y: titleY, width: detailWidth, height: titleHeight)
+        titleLabel.font = NSFont.systemFont(ofSize: 13, weight: .semibold)
+        titleLabel.textColor = titleColor
+        titleLabel.lineBreakMode = .byTruncatingTail
+        contentView.addSubview(titleLabel)
+        statusLabel = titleLabel
+
+        let detailLabel = NSTextField(labelWithString: detail)
+        detailLabel.frame = NSRect(x: 50, y: detailY, width: detailWidth, height: detailHeight)
+        detailLabel.font = NSFont.systemFont(ofSize: 11)
+        detailLabel.textColor = .secondaryLabelColor
+        detailLabel.lineBreakMode = .byTruncatingMiddle
+        detailLabel.isSelectable = false
+        contentView.addSubview(detailLabel)
+        linkLabel = detailLabel
+    }
+
     private func scheduleDismiss(seconds: Double) {
         dismissTask?.cancel()
         let task = DispatchWorkItem { [weak self] in
@@ -237,8 +299,8 @@ class UploadToastController {
         DispatchQueue.main.asyncAfter(deadline: .now() + seconds, execute: task)
     }
 
-    @objc private func openLink() {
-        guard let link = currentLink, let url = URL(string: link) else { return }
+    @objc private func openTarget() {
+        guard let url = currentOpenURL else { return }
         NSWorkspace.shared.open(url)
         dismiss()
     }
@@ -254,6 +316,7 @@ class UploadToastController {
         openButton = nil
         iconView = nil
         spinner = nil
+        currentOpenURL = nil
         onDismiss?()
         onDismiss = nil
     }

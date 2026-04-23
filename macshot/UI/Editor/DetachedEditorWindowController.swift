@@ -398,18 +398,23 @@ extension DetachedEditorWindowController: OverlayViewDelegate {
         guard let view = overlayView,
               let raw = view.captureSelectedRegion() else { return }
         let image = applyPostProcessing(raw)
-        guard let imageData = ImageEncoder.encode(image) else { return }
         let savePanel = NSSavePanel()
         savePanel.allowedContentTypes = [ImageEncoder.utType]
-        savePanel.nameFieldStringValue = "macshot_\(OverlayWindowController.formattedTimestamp()).\(ImageEncoder.fileExtension)"
+        savePanel.nameFieldStringValue = FilenameTemplateEngine.makeFilename(
+            kind: .screenshot,
+            fileExtension: ImageEncoder.fileExtension
+        )
         savePanel.directoryURL = SaveDirectoryAccess.directoryHint()
         savePanel.beginSheetModal(for: window!) { [weak self] response in
             if response == .OK, let url = savePanel.url {
-                try? imageData.write(to: url)
-                SaveDirectoryAccess.save(url: url.deletingLastPathComponent())
-                self?.playCopySound()
-                self?.autoSaveToHistoryIfNeeded(compositedImage: image)
-                self?.window?.close()
+                let result = ImageSaveService.save(image, to: url)
+                (NSApp.delegate as? AppDelegate)?.showSaveResultToast(result)
+                if case .success(let fileURL) = result {
+                    SaveDirectoryAccess.save(url: fileURL.deletingLastPathComponent())
+                    self?.playCopySound()
+                    self?.autoSaveToHistoryIfNeeded(compositedImage: image)
+                    self?.window?.close()
+                }
             }
         }
     }
@@ -468,16 +473,25 @@ extension DetachedEditorWindowController: OverlayViewDelegate {
             ImageEncoder.copyToClipboard(image)
         }
         if actions.saveToFile {
-            saveImageToDirectory(image) { [weak self] result in
-                guard let self = self else { return }
-                switch result {
-                case .success(let fileURL):
-                    view.showOverlayHint(String(format: L("Saved to %@"), fileURL.lastPathComponent))
-                case .failure:
-                    view.showOverlayError(L("Save failed"))
+            if let appDelegate = NSApp.delegate as? AppDelegate {
+                appDelegate.saveImageToPreferredDirectory(image) { [weak self] result in
+                    guard let self = self else { return }
+                    if case .success = result {
+                        self.playCopySound()
+                        self.window?.close()
+                    }
                 }
-                // 关闭编辑器（在异步操作完成后）
-                self.window?.close()
+            } else {
+                saveImageToDirectory(image) { [weak self] result in
+                    guard let self = self else { return }
+                    switch result {
+                    case .success:
+                        self.playCopySound()
+                        self.window?.close()
+                    case .failure:
+                        view.showOverlayError(L("Save failed"))
+                    }
+                }
             }
         } else {
             // 如果没有保存操作，直接关闭
@@ -500,16 +514,29 @@ extension DetachedEditorWindowController: OverlayViewDelegate {
         guard let view = overlayView,
               let raw = view.captureSelectedRegion() else { return }
         let image = applyPostProcessing(raw)
-        saveImageToDirectory(image) { [weak self] result in
-            guard let self = self else { return }
-            switch result {
-            case .success(let fileURL):
-                self.playCopySound()
-                view.showOverlayHint(String(format: L("Saved to %@"), fileURL.lastPathComponent))
-                self.autoSaveToHistoryIfNeeded(compositedImage: image)
-                self.window?.close()
-            case .failure:
-                view.showOverlayError(L("Save failed"))
+        if let appDelegate = NSApp.delegate as? AppDelegate {
+            appDelegate.saveImageToPreferredDirectory(image) { [weak self] result in
+                guard let self = self else { return }
+                switch result {
+                case .success:
+                    self.playCopySound()
+                    self.autoSaveToHistoryIfNeeded(compositedImage: image)
+                    self.window?.close()
+                case .failure:
+                    break
+                }
+            }
+        } else {
+            saveImageToDirectory(image) { [weak self] result in
+                guard let self = self else { return }
+                switch result {
+                case .success:
+                    self.playCopySound()
+                    self.autoSaveToHistoryIfNeeded(compositedImage: image)
+                    self.window?.close()
+                case .failure:
+                    view.showOverlayError(L("Save failed"))
+                }
             }
         }
     }

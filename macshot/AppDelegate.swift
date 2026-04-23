@@ -1054,7 +1054,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         }
         controller.onSave = { [weak self] in
             guard let self = self else { return }
-            self.saveImageToFile(image)
+            self.saveImageToPreferredDirectory(image)
         }
         controller.onPin = { [weak self] in
             guard let self = self else { return }
@@ -1241,14 +1241,48 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         recordingQuickActionsController = controller
     }
 
-    private func saveImageToDefaultDirectory(_ image: NSImage, windowTitle: String?, showInFinder: Bool = false) {
-        _ = windowTitle
-        ImageSaveService.saveToDefaultDirectoryAsync(image, kind: .screenshot) { result in
-            guard case .success(let fileURL) = result else { return }
-            if showInFinder {
+    func saveImageToPreferredDirectory(
+        _ image: NSImage,
+        kind: FilenameOutputKind = .screenshot,
+        showInFinder: Bool = false,
+        completion: ((Result<URL, Error>) -> Void)? = nil
+    ) {
+        ImageSaveService.saveToDefaultDirectoryAsync(image, kind: kind) { [weak self] result in
+            self?.showSaveResultToast(result)
+            if case .success(let fileURL) = result, showInFinder {
                 NSWorkspace.shared.activateFileViewerSelecting([fileURL])
             }
+            completion?(result)
         }
+    }
+
+    func showSaveResultToast(_ result: Result<URL, Error>) {
+        let toast = makeStatusToast()
+        switch result {
+        case .success(let fileURL):
+            toast.showSaveSuccess(fileURL: fileURL)
+        case .failure(let error):
+            let message = error.localizedDescription.isEmpty ? L("Save failed") : error.localizedDescription
+            toast.showSaveError(message: message)
+        }
+    }
+
+    private func makeStatusToast() -> UploadToastController {
+        uploadToastController?.dismiss()
+        let toast = UploadToastController()
+        uploadToastController = toast
+        toast.onDismiss = { [weak self, weak toast] in
+            guard let self = self else { return }
+            if self.uploadToastController === toast {
+                self.uploadToastController = nil
+            }
+        }
+        return toast
+    }
+
+    private func saveImageToDefaultDirectory(_ image: NSImage, windowTitle: String?, showInFinder: Bool = false) {
+        _ = windowTitle
+        saveImageToPreferredDirectory(image, showInFinder: showInFinder)
     }
 
     private func saveRecordingToDefaultDirectory(_ sourceURL: URL, showInFinder: Bool = false) {
@@ -1318,23 +1352,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         } else {
             GoogleDriveUploader.shared.onProgress = progressHandler
             GoogleDriveUploader.shared.uploadVideo(url: url, completion: completionHandler)
-        }
-    }
-
-    private func saveImageToFile(_ image: NSImage) {
-        guard let imageData = ImageEncoder.encode(image) else { return }
-        let savePanel = NSSavePanel()
-        savePanel.allowedContentTypes = [ImageEncoder.utType]
-        savePanel.nameFieldStringValue = FilenameTemplateEngine.makeFilename(
-            kind: .screenshot,
-            fileExtension: ImageEncoder.fileExtension
-        )
-        savePanel.directoryURL = SaveDirectoryAccess.directoryHint()
-        savePanel.begin { response in
-            if response == .OK, let url = savePanel.url {
-                try? imageData.write(to: url)
-                SaveDirectoryAccess.save(url: url.deletingLastPathComponent())
-            }
         }
     }
 
