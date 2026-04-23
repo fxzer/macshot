@@ -1368,6 +1368,7 @@ class OverlayView: NSView {
 
     override func mouseMoved(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
+        clearKeyboardColorSamplerPoint()
 
         // Track mouse entering/leaving this screen for cross-monitor hint display
         let mouseCurrentlyOnScreen = isMouseOnCurrentScreen()
@@ -2137,8 +2138,10 @@ class OverlayView: NSView {
             let padding: CGFloat = 12
             let hintW = strSize.width + padding * 2 + (hasColorSwatch ? colorSwatchSize + colorSwatchPadding : 0)
             let hintH = max(strSize.height + padding, colorSwatchSize + padding)
-            let hintX = bounds.midX - hintW / 2
-            let hintY = bounds.maxY - hintH - 40
+            let hintLayoutBounds = isEditorMode ? visibleRect : bounds
+            let topMargin: CGFloat = isEditorMode ? 12 : 40
+            let hintX = hintLayoutBounds.midX - hintW / 2
+            let hintY = hintLayoutBounds.maxY - hintH - topMargin
             let hintRect = NSRect(x: hintX, y: hintY, width: hintW, height: hintH)
 
             NSColor.black.withAlphaComponent(overlayHintOpacity * 0.7).setFill()
@@ -2149,7 +2152,7 @@ class OverlayView: NSView {
             displayAttrString.draw(at: NSPoint(x: hintRect.minX + padding, y: textY))
 
             // Draw color swatch if color string is available
-            if let colorString = overlayHintColorString, let color = NSColor(hex: colorString) {
+            if let colorString = overlayHintColorString, let color = hintSwatchColor(from: colorString) {
                 let swatchX = hintRect.minX + padding + strSize.width + colorSwatchPadding
                 let swatchY = hintRect.minY + (hintH - colorSwatchSize) / 2
                 let swatchRect = NSRect(x: swatchX, y: swatchY, width: colorSwatchSize, height: colorSwatchSize)
@@ -4822,14 +4825,7 @@ class OverlayView: NSView {
         if event.modifierFlags.contains(.control) && state == .selected
             && currentTool == .colorSampler
         {
-            if let screenshot = screenshotImage,
-                let result = sampleColor(from: screenshot, at: viewToCanvas(point), gamut: currentColorGamut)
-            {
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(result.hex, forType: .string)
-                showColorCopiedHint(String(format: L("Copied %@"), result.hex), colorString: result.hex)
-                needsDisplay = true
-            }
+            _ = copySampledColor(at: viewToCanvas(point))
             return
         }
 
@@ -5061,6 +5057,7 @@ class OverlayView: NSView {
 
     override func mouseDragged(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
+        clearKeyboardColorSamplerPoint()
 
         // Cancel long-press timer if the user moved more than 3px (they're drawing, not selecting)
         if longPressTimer != nil {
@@ -5195,97 +5192,7 @@ class OverlayView: NSView {
 
         switch state {
         case .selecting:
-            if spaceRepositioning {
-                // Space held: move the origin without changing size
-                let dx = point.x - spaceRepositionLast.x
-                let dy = point.y - spaceRepositionLast.y
-                selectionStart.x += dx
-                selectionStart.y += dy
-                spaceRepositionLast = point
-            }
-            let rawW = abs(point.x - selectionStart.x)
-            let rawH = abs(point.y - selectionStart.y)
-            let shiftHeld = event.modifierFlags.contains(.shift)
-
-            var w: CGFloat
-            var h: CGFloat
-
-            if aspectRatioLock != .none {
-                // 宽高比锁定模式
-                let targetRatio = aspectRatioLock.ratio
-                let minSelectionSize: CGFloat = 1
-                if rawH > 0 {
-                    let proposedW = rawH * targetRatio
-                    if proposedW <= rawW {
-                        // 以高度为基准
-                        let snapped = snappedLockedSelectionSize(
-                            width: max(1, proposedW),
-                            height: max(1, rawH),
-                            ratio: targetRatio,
-                            snapAxis: .height,
-                            minSize: minSelectionSize
-                        )
-                        w = snapped.width
-                        h = snapped.height
-                    } else {
-                        // 以宽度为基准
-                        let snapped = snappedLockedSelectionSize(
-                            width: max(1, rawW),
-                            height: max(1, rawW / targetRatio),
-                            ratio: targetRatio,
-                            snapAxis: .width,
-                            minSize: minSelectionSize
-                        )
-                        w = snapped.width
-                        h = snapped.height
-                    }
-                } else {
-                    let snapped = snappedLockedSelectionSize(
-                        width: max(1, rawW),
-                        height: max(1, rawW / targetRatio),
-                        ratio: targetRatio,
-                        snapAxis: .width,
-                        minSize: minSelectionSize
-                    )
-                    w = snapped.width
-                    h = snapped.height
-                }
-            } else if shiftHeld {
-                // Shift 键正方形约束
-                let squareSize = max(1, min(rawW, rawH))
-                let snapped = snappedFreeformSelectionSize(
-                    width: squareSize,
-                    height: squareSize,
-                    minSize: 1
-                )
-                w = snapped.width
-                h = snapped.height
-            } else {
-                // 自由选择
-                let snapped = snappedFreeformSelectionSize(
-                    width: max(1, rawW),
-                    height: max(1, rawH),
-                    minSize: 1
-                )
-                w = snapped.width
-                h = snapped.height
-            }
-
-            let x = selectionStart.x < point.x ? selectionStart.x : selectionStart.x - w
-            let y = selectionStart.y < point.y ? selectionStart.y : selectionStart.y - h
-            selectionRect = NSRect(x: x, y: y, width: w, height: h)
-            if selectionSizeSnapActive {
-                updateSelectionSizeSnapGuidesForSelectionDrag(
-                    rect: selectionRect,
-                    growsTowardRight: selectionStart.x < point.x,
-                    growsTowardTop: selectionStart.y < point.y
-                )
-            }
-            overlayDelegate?.overlayViewSelectionDidChange(selectionRect)
-            needsDisplay = true
-
-            // Update color sampler magnifier during selection drag
-            updateMagnifierIfNeeded()
+            updateSelectionRectForCurrentSelectionDrag(to: point, shiftHeld: event.modifierFlags.contains(.shift))
 
         case .selected:
             // Selection dragging (Snipaste-style: drag selection area)
@@ -5884,15 +5791,8 @@ class OverlayView: NSView {
         }
 
         if state == .selected && currentTool == .colorSampler {
-            // Right-click with color sampler: copy hex to clipboard
-            if let screenshot = screenshotImage,
-                let result = sampleColor(from: screenshot, at: viewToCanvas(point), gamut: currentColorGamut)
-            {
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(result.hex, forType: .string)
-                showColorCopiedHint(String(format: L("Copied %@"), result.hex), colorString: result.hex)
-                needsDisplay = true
-            }
+            // Right-click with color sampler: copy in the currently displayed format
+            _ = copySampledColor(at: viewToCanvas(point))
             return
         }
 
@@ -7714,11 +7614,13 @@ class OverlayView: NSView {
             return false
         }
 
-        // Priority 1: Selecting state or color sampler tool - move mouse for precise selection/sampling
-        // When selecting, allow arrow keys for precise mouse positioning before/during selection
-        if state == .selecting || currentTool == .colorSampler {
-            moveMouseBy(dx: dx, dy: dy)
-            return true
+        // Priority 1: Color sampler magnifier visible, or selecting state, or color sampler tool active
+        // — move the internal sampler point for pixel-perfect sampling. Covers all three contexts:
+        //   • 遮罩出来时取色 (state == .selecting, magnifier shown during rubber-band drag)
+        //   • 捕获后激活取色工具 (currentTool == .colorSampler in selected state)
+        //   • 编辑器激活取色工具 (currentTool == .colorSampler in editor)
+        if isColorSamplerMagnifierVisible || state == .selecting || currentTool == .colorSampler {
+            return moveColorSamplerPointBy(dx: dx, dy: dy)
         }
 
         // Priority 2: Selected annotations - move them
@@ -7734,6 +7636,94 @@ class OverlayView: NSView {
         }
 
         return false
+    }
+
+    func updateSelectionRectForCurrentSelectionDrag(to point: NSPoint, shiftHeld: Bool) {
+        if spaceRepositioning {
+            // Space held: move the origin without changing size
+            let dx = point.x - spaceRepositionLast.x
+            let dy = point.y - spaceRepositionLast.y
+            selectionStart.x += dx
+            selectionStart.y += dy
+            spaceRepositionLast = point
+        }
+
+        let rawW = abs(point.x - selectionStart.x)
+        let rawH = abs(point.y - selectionStart.y)
+
+        var w: CGFloat
+        var h: CGFloat
+
+        if aspectRatioLock != .none {
+            let targetRatio = aspectRatioLock.ratio
+            let minSelectionSize: CGFloat = 1
+            if rawH > 0 {
+                let proposedW = rawH * targetRatio
+                if proposedW <= rawW {
+                    let snapped = snappedLockedSelectionSize(
+                        width: max(1, proposedW),
+                        height: max(1, rawH),
+                        ratio: targetRatio,
+                        snapAxis: .height,
+                        minSize: minSelectionSize
+                    )
+                    w = snapped.width
+                    h = snapped.height
+                } else {
+                    let snapped = snappedLockedSelectionSize(
+                        width: max(1, rawW),
+                        height: max(1, rawW / targetRatio),
+                        ratio: targetRatio,
+                        snapAxis: .width,
+                        minSize: minSelectionSize
+                    )
+                    w = snapped.width
+                    h = snapped.height
+                }
+            } else {
+                let snapped = snappedLockedSelectionSize(
+                    width: max(1, rawW),
+                    height: max(1, rawW / targetRatio),
+                    ratio: targetRatio,
+                    snapAxis: .width,
+                    minSize: minSelectionSize
+                )
+                w = snapped.width
+                h = snapped.height
+            }
+        } else if shiftHeld {
+            let squareSize = max(1, min(rawW, rawH))
+            let snapped = snappedFreeformSelectionSize(
+                width: squareSize,
+                height: squareSize,
+                minSize: 1
+            )
+            w = snapped.width
+            h = snapped.height
+        } else {
+            let snapped = snappedFreeformSelectionSize(
+                width: max(1, rawW),
+                height: max(1, rawH),
+                minSize: 1
+            )
+            w = snapped.width
+            h = snapped.height
+        }
+
+        let x = selectionStart.x < point.x ? selectionStart.x : selectionStart.x - w
+        let y = selectionStart.y < point.y ? selectionStart.y : selectionStart.y - h
+        selectionRect = NSRect(x: x, y: y, width: w, height: h)
+        if selectionSizeSnapActive {
+            updateSelectionSizeSnapGuidesForSelectionDrag(
+                rect: selectionRect,
+                growsTowardRight: selectionStart.x < point.x,
+                growsTowardTop: selectionStart.y < point.y
+            )
+        }
+        overlayDelegate?.overlayViewSelectionDidChange(selectionRect)
+        needsDisplay = true
+
+        updateMagnifierIfNeeded()
     }
 
     /// Move selected annotations by the specified delta.

@@ -9,6 +9,31 @@ import AppKit
 
 extension OverlayView {
 
+    func hintSwatchColor(from colorString: String) -> NSColor? {
+        if let color = NSColor(hex: colorString) {
+            return color
+        }
+
+        let trimmed = colorString.trimmingCharacters(in: .whitespacesAndNewlines)
+        let pattern = #"(?i)^rgb\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\)$"#
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
+        let range = NSRange(location: 0, length: trimmed.utf16.count)
+        guard let match = regex.firstMatch(in: trimmed, options: [], range: range),
+              match.numberOfRanges == 4 else { return nil }
+
+        func component(at index: Int) -> CGFloat? {
+            guard let range = Range(match.range(at: index), in: trimmed),
+                  let value = Int(trimmed[range]), (0...255).contains(value) else { return nil }
+            return CGFloat(value) / 255.0
+        }
+
+        guard let r = component(at: 1),
+              let g = component(at: 2),
+              let b = component(at: 3) else { return nil }
+
+        return NSColor(srgbRed: r, green: g, blue: b, alpha: 1.0)
+    }
+
     // MARK: - Hint Types
 
     enum HintState {

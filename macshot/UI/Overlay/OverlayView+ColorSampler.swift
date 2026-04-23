@@ -7,6 +7,7 @@ extension OverlayView {
 
     private static var magnifierViewKey: UInt8 = 0
     private static var wasShiftPressedKey: UInt8 = 0
+    private static var keyboardSamplePointKey: UInt8 = 0
 
     // MARK: - Computed Properties
 
@@ -30,11 +31,22 @@ extension OverlayView {
         }
     }
 
+    private var keyboardSamplePoint: NSPoint? {
+        get {
+            (objc_getAssociatedObject(self, &Self.keyboardSamplePointKey) as? NSValue)?.pointValue
+        }
+        set {
+            let value = newValue.map { NSValue(point: $0) }
+            objc_setAssociatedObject(self, &Self.keyboardSamplePointKey, value, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+        }
+    }
+
     // MARK: - Public Methods
 
     /// Show the color sampler magnifier.
     func showColorSamplerMagnifier() {
         guard magnifierView == nil else { return }
+        keyboardSamplePoint = nil
 
         let magnifier = ColorSamplerMagnifierView()
 
@@ -58,19 +70,23 @@ extension OverlayView {
         updateMagnifierPosition()
     }
 
+    /// Whether the color sampler magnifier is currently visible.
+    var isColorSamplerMagnifierVisible: Bool { magnifierView != nil }
+
     /// Hide the color sampler magnifier.
     func hideColorSamplerMagnifier() {
         magnifierView?.removeFromSuperview()
         magnifierView = nil
+        keyboardSamplePoint = nil
     }
 
     /// Update magnifier position and content (call from mouseMoved/mouseDragged).
     func updateMagnifierIfNeeded() {
         guard let magnifier = magnifierView,
-              let screenshot = screenshotImage else { return }
+              let screenshot = screenshotImage,
+              let samplePoint = currentColorSamplerViewPoint() else { return }
 
-        let mouseLoc = convert(window!.mouseLocationOutsideOfEventStream, from: nil)
-        let canvasPoint = viewToCanvas(mouseLoc)
+        let canvasPoint = viewToCanvas(samplePoint)
 
         // Get color gamut setting from UserDefaults
         let gamutRaw = UserDefaults.standard.integer(forKey: "colorSamplerGamut")
@@ -82,15 +98,15 @@ extension OverlayView {
 
         // Position magnifier at bottom-right of cursor (in view space for positioning)
         let offset: CGFloat = 20
-        let magnifierOrigin = NSPoint(x: mouseLoc.x + offset, y: mouseLoc.y + offset)
+        let magnifierOrigin = NSPoint(x: samplePoint.x + offset, y: samplePoint.y + offset)
 
         // Ensure magnifier stays within bounds
         var finalOrigin = magnifierOrigin
         if finalOrigin.x + magnifier.intrinsicContentSize.width > bounds.width {
-            finalOrigin.x = mouseLoc.x - offset - magnifier.intrinsicContentSize.width
+            finalOrigin.x = samplePoint.x - offset - magnifier.intrinsicContentSize.width
         }
         if finalOrigin.y + magnifier.intrinsicContentSize.height > bounds.height {
-            finalOrigin.y = mouseLoc.y - offset - magnifier.intrinsicContentSize.height
+            finalOrigin.y = samplePoint.y - offset - magnifier.intrinsicContentSize.height
         }
 
         magnifier.setFrameOrigin(finalOrigin)
@@ -111,28 +127,92 @@ extension OverlayView {
     // MARK: - Private Methods
 
     private func updateMagnifierPosition() {
-        guard let magnifier = magnifierView else { return }
+        guard let magnifier = magnifierView,
+              let samplePoint = currentColorSamplerViewPoint() else { return }
 
-        let mouseLoc = convert(window!.mouseLocationOutsideOfEventStream, from: nil)
         let offset: CGFloat = 20
-        let magnifierOrigin = NSPoint(x: mouseLoc.x + offset, y: mouseLoc.y + offset)
+        let magnifierOrigin = NSPoint(x: samplePoint.x + offset, y: samplePoint.y + offset)
 
         // Ensure magnifier stays within bounds
         var finalOrigin = magnifierOrigin
         if finalOrigin.x + magnifier.intrinsicContentSize.width > bounds.width {
-            finalOrigin.x = mouseLoc.x - offset - magnifier.intrinsicContentSize.width
+            finalOrigin.x = samplePoint.x - offset - magnifier.intrinsicContentSize.width
         }
         if finalOrigin.y + magnifier.intrinsicContentSize.height > bounds.height {
-            finalOrigin.y = mouseLoc.y - offset - magnifier.intrinsicContentSize.height
+            finalOrigin.y = samplePoint.y - offset - magnifier.intrinsicContentSize.height
         }
 
         magnifier.setFrameOrigin(finalOrigin)
+    }
+
+    private func currentColorSamplerViewPoint() -> NSPoint? {
+        if let keyboardSamplePoint { return keyboardSamplePoint }
+        guard let window else { return nil }
+        return convert(window.mouseLocationOutsideOfEventStream, from: nil)
+    }
+
+    func clearKeyboardColorSamplerPoint() {
+        keyboardSamplePoint = nil
+    }
+
+    @discardableResult
+    func moveColorSamplerPointBy(dx: CGFloat, dy: CGFloat) -> Bool {
+        guard currentTool == .colorSampler || state == .selecting || magnifierView != nil,
+              let currentPoint = currentColorSamplerViewPoint() else { return false }
+
+        let sampleBounds = captureDrawRect.isEmpty ? bounds : captureDrawRect
+        let newPoint = NSPoint(
+            x: min(max(currentPoint.x + dx, sampleBounds.minX), sampleBounds.maxX),
+            y: min(max(currentPoint.y + dy, sampleBounds.minY), sampleBounds.maxY)
+        )
+        keyboardSamplePoint = newPoint
+
+        if state == .selecting {
+            updateSelectionRectForCurrentSelectionDrag(to: newPoint, shiftHeld: NSEvent.modifierFlags.contains(.shift))
+        } else {
+            updateMagnifierIfNeeded()
+            needsDisplay = true
+        }
+
+        return true
+    }
+
+    @discardableResult
+    func copySampledColor(at canvasPoint: NSPoint) -> Bool {
+        let gamutRaw = UserDefaults.standard.integer(forKey: "colorSamplerGamut")
+        let gamut = ColorGamut(rawValue: gamutRaw) ?? .srgb
+        guard let result = getSampledColor(at: canvasPoint, gamut: gamut) else { return false }
+
+        let formatRaw = UserDefaults.standard.integer(forKey: "colorSamplerFormat")
+        let format = ColorSamplerMagnifierView.ColorFormat(rawValue: formatRaw) ?? .hex
+        let colorString = formatSampledColor(result, as: format)
+
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(colorString, forType: .string)
+        showColorCopiedToast(colorString, format: format)
+        needsDisplay = true
+        return true
     }
 
     private func showColorCopiedToast(_ colorString: String, format: ColorSamplerMagnifierView.ColorFormat) {
         let formatName = format.displayName
         let message = String(format: L("Copied %@"), "\(formatName): \(colorString)")
         showColorCopiedHint(message, colorString: colorString)
+    }
+
+    private func formatSampledColor(_ sampled: (color: NSColor, hex: String), as format: ColorSamplerMagnifierView.ColorFormat) -> String {
+        guard let rgbColor = sampled.color.usingColorSpace(.sRGB) else { return sampled.hex }
+
+        let r = Int(round(rgbColor.redComponent * 255))
+        let g = Int(round(rgbColor.greenComponent * 255))
+        let b = Int(round(rgbColor.blueComponent * 255))
+
+        switch format {
+        case .hex:
+            return sampled.hex
+        case .rgb:
+            return "RGB(\(r), \(g), \(b))"
+        }
     }
 
     // MARK: - Event Handling
@@ -154,42 +234,16 @@ extension OverlayView {
         wasShiftPressed = shiftIsNowPressed
     }
 
-    /// Handle keyDown event for C key (copy and exit) and WASD for mouse movement.
+    /// Handle keyDown event for C key (copy color) when the color sampler magnifier is active.
+    /// Pixel movement is handled by handleArrowKeys (arrow keys) in OverlayView.
     func overlayViewKeyDown(with event: NSEvent) -> Bool {
-        if event.keyCode == 8 {  // C key
+        guard magnifierView != nil else { return false }
+
+        if event.keyCode == 8 {  // C key — copy sampled color and exit
             copyColorAndExit()
             return true
         }
 
-        // WASD for pixel-perfect mouse movement (arrow keys are handled by handleArrowKeys)
-        let dx: CGFloat
-        let dy: CGFloat
-
-        switch event.keyCode {
-        case 0:    // A
-            dx = -1; dy = 0
-        case 2:    // D
-            dx = 1; dy = 0
-        case 1:    // S
-            dx = 0; dy = -1
-        case 13:   // W
-            dx = 0; dy = 1
-        default:
-            return false
-        }
-
-        moveMouseBy(dx: dx, dy: dy)
-        return true
-    }
-
-    func moveMouseBy(dx: CGFloat, dy: CGFloat) {
-        let currentPos = NSEvent.mouseLocation
-        let newPos = NSPoint(x: currentPos.x + dx, y: currentPos.y + dy)
-
-        if let moveEvent = CGEvent(mouseEventSource: nil, mouseType: .mouseMoved,
-                                   mouseCursorPosition: newPos, mouseButton: .left) {
-            moveEvent.flags = CGEventFlags(rawValue: 0)
-            moveEvent.post(tap: .cghidEventTap)
-        }
+        return false
     }
 }
