@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# macshot 一键构建：停止 → 清理旧安装 → 清理旧权限 → 构建 → 安装启动
+# macshot 一键构建：停止 → 清理工作副本 → 可选重置权限 → 构建 → 原地更新安装并启动
 #
 # 速度说明：默认只做增量 build（复用 DerivedData）。若每次全量重编，请加 --clean。
 # xcodebuild 与 Xcode 同一套工具链；干净构建慢是正常现象，改几行 Swift 再增量会快很多。
@@ -11,6 +11,14 @@ set -o pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DERIVED_DATA="$ROOT_DIR/DerivedData"
 PROJECT_FILE="$ROOT_DIR/macshot.xcodeproj/project.pbxproj"
+APP_NAME="macshot-dev.app"
+APP_INSTALL_PATH="/Applications/$APP_NAME"
+APP_WORKTREE_PATH="$ROOT_DIR/$APP_NAME"
+ENTITLEMENTS_PATH="$ROOT_DIR/macshot/macshot.entitlements"
+SIGNING_SUPPORT_DIR="$HOME/Library/Application Support/macshot"
+SIGNING_KEYCHAIN="$HOME/Library/Keychains/macshot-dev-signing.keychain-db"
+SIGNING_PASSWORD_FILE="$SIGNING_SUPPORT_DIR/dev-signing-keychain-password"
+SIGNING_CERT_CN="macshot Local Code Signing"
 
 detect_bundle_id() {
     local bundle_id
@@ -29,6 +37,110 @@ reset_tcc_service() {
     else
         echo "   ⚠️  无法重置 $service"
     fi
+}
+
+ensure_local_codesign_identity() {
+    mkdir -p "$SIGNING_SUPPORT_DIR"
+    chmod 700 "$SIGNING_SUPPORT_DIR"
+
+    if [ ! -f "$SIGNING_PASSWORD_FILE" ]; then
+        /opt/homebrew/bin/openssl rand -base64 24 > "$SIGNING_PASSWORD_FILE"
+        chmod 600 "$SIGNING_PASSWORD_FILE"
+    fi
+
+    SIGNING_KEYCHAIN_PASSWORD="$(cat "$SIGNING_PASSWORD_FILE")"
+    export SIGNING_KEYCHAIN_PASSWORD
+
+    if [ ! -f "$SIGNING_KEYCHAIN" ]; then
+        security create-keychain -p "$SIGNING_KEYCHAIN_PASSWORD" "$SIGNING_KEYCHAIN"
+    fi
+
+    security set-keychain-settings -lut 21600 "$SIGNING_KEYCHAIN"
+    security unlock-keychain -p "$SIGNING_KEYCHAIN_PASSWORD" "$SIGNING_KEYCHAIN"
+
+    local current_keychains
+    current_keychains="$(security list-keychains -d user | tr -d '"')"
+    if ! printf '%s\n' "$current_keychains" | grep -Fxq "$SIGNING_KEYCHAIN"; then
+        security list-keychains -d user -s "$SIGNING_KEYCHAIN" $current_keychains
+    fi
+
+    if security find-identity -v -p codesigning "$SIGNING_KEYCHAIN" 2>/dev/null | grep -Fq "$SIGNING_CERT_CN"; then
+        return
+    fi
+
+    echo "📍 步骤 4a/5: 创建本机自签名代码签名证书..."
+    local tmpdir
+    tmpdir="$(mktemp -d)"
+    trap 'rm -rf "$tmpdir"' RETURN
+
+    cat > "$tmpdir/openssl.cnf" <<'EOF'
+[req]
+distinguished_name = dn
+x509_extensions = v3_req
+prompt = no
+[dn]
+CN = macshot Local Code Signing
+O = Local Dev
+[v3_req]
+basicConstraints = critical,CA:FALSE
+keyUsage = critical,digitalSignature
+extendedKeyUsage = codeSigning
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid,issuer
+EOF
+
+    local p12_password
+    p12_password="macshot-local-codesign"
+
+    /opt/homebrew/bin/openssl req -new -newkey rsa:2048 -nodes -x509 -days 3650 \
+        -config "$tmpdir/openssl.cnf" \
+        -keyout "$tmpdir/key.pem" \
+        -out "$tmpdir/cert.pem"
+
+    /opt/homebrew/bin/openssl pkcs12 -export \
+        -inkey "$tmpdir/key.pem" \
+        -in "$tmpdir/cert.pem" \
+        -out "$tmpdir/cert.p12" \
+        -passout pass:"$p12_password"
+
+    security import "$tmpdir/cert.p12" \
+        -k "$SIGNING_KEYCHAIN" \
+        -P "$p12_password" \
+        -f pkcs12 \
+        -T /usr/bin/codesign \
+        -T /usr/bin/security
+
+    security add-trusted-cert -d -r trustRoot -p codeSign -k "$SIGNING_KEYCHAIN" "$tmpdir/cert.pem"
+    security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$SIGNING_KEYCHAIN_PASSWORD" "$SIGNING_KEYCHAIN"
+
+    if security find-identity -v -p codesigning "$SIGNING_KEYCHAIN" 2>/dev/null | grep -Fq "$SIGNING_CERT_CN"; then
+        echo "   ✅ 本机自签名证书已创建"
+    else
+        echo "   ❌ 自签名代码签名证书创建失败"
+        exit 1
+    fi
+}
+
+sign_app_bundle() {
+    local app_path="$1"
+    security unlock-keychain -p "$SIGNING_KEYCHAIN_PASSWORD" "$SIGNING_KEYCHAIN"
+
+    /usr/bin/codesign --force --deep --sign "$SIGNING_CERT_CN" \
+        --keychain "$SIGNING_KEYCHAIN" \
+        --entitlements "$ENTITLEMENTS_PATH" \
+        --timestamp=none \
+        "$app_path"
+
+    /usr/bin/codesign --verify --deep --strict "$app_path"
+    echo "   ✅ 已使用固定本机证书签名"
+}
+
+sync_app_bundle() {
+    local source_app="$1"
+    local target_app="$2"
+
+    mkdir -p "$target_app"
+    rsync -a --delete "$source_app/" "$target_app/"
 }
 
 DO_CLEAN=0
@@ -71,10 +183,9 @@ killall macshot 2>/dev/null || true
 sleep 0.3
 echo "   ✅ 已停止"
 
-# 2. 清理旧安装与残留
-echo "📍 步骤 2/5: 清理旧安装与残留..."
-rm -rf /Applications/macshot-dev.app
-rm -rf "$ROOT_DIR/macshot-dev.app"
+# 2. 清理工作副本残留
+echo "📍 步骤 2/5: 清理工作副本残留..."
+rm -rf "$APP_WORKTREE_PATH"
 rm -rf ~/Desktop/macshot-backup-* 2>/dev/null || true
 echo "   ✅ 已清理"
 
@@ -121,15 +232,19 @@ xcodebuild \
     -configuration Debug \
     -derivedDataPath "$DERIVED_DATA" \
     -jobs "$JOBS" \
+    CODE_SIGNING_ALLOWED=NO \
+    CODE_SIGNING_REQUIRED=NO \
     "${BUILD_ACTIONS[@]}" 2>&1 | grep -E "(BUILD SUCCEEDED|BUILD FAILED|error:)" | tail -5
 echo "   ⏱ 编译耗时: ${SECONDS} 秒"
 echo "   ✅ 构建完成"
 
 # 5. 安装并启动
 echo "📍 步骤 5/5: 安装并启动..."
-cp -R "$DERIVED_DATA/Build/Products/Debug/macshot.app" "$ROOT_DIR/macshot-dev.app"
-cp -R "$ROOT_DIR/macshot-dev.app" /Applications/
-open /Applications/macshot-dev.app
+ensure_local_codesign_identity
+sync_app_bundle "$DERIVED_DATA/Build/Products/Debug/macshot.app" "$APP_WORKTREE_PATH"
+sync_app_bundle "$APP_WORKTREE_PATH" "$APP_INSTALL_PATH"
+sign_app_bundle "$APP_INSTALL_PATH"
+open "$APP_INSTALL_PATH"
 echo "   ✅ 已安装并启动"
 
 echo ""
