@@ -50,47 +50,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         case menuBar = "menu"
         case hotkey = "hotkey"
         case external = "external"
-
-        var preparationWaitNanoseconds: UInt64 {
-            switch self {
-            case .menuBar:
-                return 80_000_000  // 80ms - menu bar prewarm starts when menu opens
-            case .hotkey, .external:
-                return 60_000_000  // 60ms - hotkey has no menu browse time
-            }
-        }
     }
-
-    private struct PreparedCaptureState {
-        let captures: [ScreenCapture]
-        let excludedWindowNumbers: [CGWindowID]
-        let targetScreenID: CGDirectDisplayID?
-        let completedAt: CFAbsoluteTime
-        let requestID: UUID
-
-        func isUsable(
-            now: CFAbsoluteTime,
-            excludedWindowNumbers: [CGWindowID],
-            targetScreenID: CGDirectDisplayID?
-        ) -> Bool {
-            self.excludedWindowNumbers == excludedWindowNumbers
-                && self.targetScreenID == targetScreenID
-                && (now - completedAt) <= AppDelegate.preparedCaptureTTL
-        }
-    }
-
-    private struct InFlightCapturePreparation {
-        let requestID: UUID
-        let excludedWindowNumbers: [CGWindowID]
-        let targetScreenID: CGDirectDisplayID?
-        let startedAt: CFAbsoluteTime
-        let origin: CaptureTriggerOrigin
-    }
-
-    nonisolated(unsafe) private static let preparedCaptureTTL: CFTimeInterval = 0.6
-    private var preparedCaptureState: PreparedCaptureState?
-    private var inFlightCapturePreparation: InFlightCapturePreparation?
-    private var pendingCaptureTriggerOrigin: CaptureTriggerOrigin = .menuBar
 
     /// Shared capture sound — loaded once, reused everywhere.
     static let captureSound: NSSound? = {
@@ -640,117 +600,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         }
     }
 
-    /// Kick off a background capture early so menu and hotkey paths can reuse it if it
-    /// finishes quickly enough. Results expire almost immediately to avoid stale content.
-    private func requestCapturePreparation(origin: CaptureTriggerOrigin,
-                                           excludedWindowNumbers: [CGWindowID]? = nil,
-                                           targetScreen: NSScreen? = nil) {
-        let excludeIDs = excludedWindowNumbers ?? currentCaptureExcludedWindowNumbers()
-        let screen = targetScreen ?? currentCaptureTargetScreen()
-        let targetScreenID = screenDisplayID(for: screen)
-        let now = CFAbsoluteTimeGetCurrent()
-
-        if let prepared = preparedCaptureState,
-           prepared.isUsable(now: now, excludedWindowNumbers: excludeIDs, targetScreenID: targetScreenID) {
-            return
-        }
-
-        if let inFlight = inFlightCapturePreparation,
-           inFlight.excludedWindowNumbers == excludeIDs,
-           inFlight.targetScreenID == targetScreenID {
-            return
-        }
-
-        let requestID = UUID()
-        let startedAt = CFAbsoluteTimeGetCurrent()
-        inFlightCapturePreparation = InFlightCapturePreparation(
-            requestID: requestID,
-            excludedWindowNumbers: excludeIDs,
-            targetScreenID: targetScreenID,
-            startedAt: startedAt,
-            origin: origin
-        )
-        preparedCaptureState = nil
-
-        #if DEBUG
-        NSLog("[PERF] capture preparation BEGIN origin=\(origin.rawValue)")
-        #endif
-        guard let screen else {
-            inFlightCapturePreparation = nil
-            return
-        }
-
-        ScreenCaptureManager.captureScreen(screen, excludingWindowNumbers: excludeIDs) { [weak self] capture in
-            guard let self = self else { return }
-            guard let inFlight = self.inFlightCapturePreparation,
-                  inFlight.requestID == requestID else { return }
-
-            self.inFlightCapturePreparation = nil
-            let captures = capture.map { [$0] } ?? []
-            guard !captures.isEmpty else {
-                #if DEBUG
-                NSLog("[PERF] capture preparation FAILED origin=\(origin.rawValue)")
-                #endif
-                return
-            }
-
-            self.preparedCaptureState = PreparedCaptureState(
-                captures: captures,
-                excludedWindowNumbers: excludeIDs,
-                targetScreenID: targetScreenID,
-                completedAt: CFAbsoluteTimeGetCurrent(),
-                requestID: requestID
-            )
-            NSLog(
-                "[PERF] capture preparation READY origin=\(origin.rawValue) elapsed=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - startedAt) * 1000))ms"
-            )
-        }
-    }
-
-    private func consumePreparedCapture(
-        excludedWindowNumbers: [CGWindowID],
-        targetScreenID: CGDirectDisplayID?
-    ) -> [ScreenCapture]? {
-        let now = CFAbsoluteTimeGetCurrent()
-        guard let prepared = preparedCaptureState else { return nil }
-        guard prepared.isUsable(
-            now: now,
-            excludedWindowNumbers: excludedWindowNumbers,
-            targetScreenID: targetScreenID
-        ) else {
-            preparedCaptureState = nil
-            return nil
-        }
-        preparedCaptureState = nil
-        return prepared.captures
-    }
-
-    private func waitForPreparedCapture(excludedWindowNumbers: [CGWindowID],
-                                        targetScreenID: CGDirectDisplayID?,
-                                        timeoutNanoseconds: UInt64) async -> [ScreenCapture]? {
-        guard let request = inFlightCapturePreparation,
-              request.excludedWindowNumbers == excludedWindowNumbers,
-              request.targetScreenID == targetScreenID else { return nil }
-
-        let deadline = DispatchTime.now().uptimeNanoseconds + timeoutNanoseconds
-        while DispatchTime.now().uptimeNanoseconds < deadline {
-            if let captures = consumePreparedCapture(
-                excludedWindowNumbers: excludedWindowNumbers,
-                targetScreenID: targetScreenID
-            ) {
-                return captures
-            }
-            if inFlightCapturePreparation?.requestID != request.requestID {
-                break
-            }
-            try? await Task.sleep(nanoseconds: 5_000_000)
-        }
-        return consumePreparedCapture(
-            excludedWindowNumbers: excludedWindowNumbers,
-            targetScreenID: targetScreenID
-        )
-    }
-
     @objc private func captureScreen() {
         enqueueStatusBarMenuAction { [weak self] in
             self?.beginAreaCapture(triggerOrigin: .menuBar)
@@ -866,7 +715,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         // Don't allow captures while recording
         guard recordingEngine == nil else { return }
         isCapturing = true
-        pendingCaptureTriggerOrigin = triggerOrigin
         let t0 = CFAbsoluteTimeGetCurrent()
         #if DEBUG
         NSLog("[PERF] startCapture BEGIN origin=\(triggerOrigin.rawValue) t=\(t0)")
@@ -880,12 +728,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         // Kick off SCShareableContent enumeration early — the cache will be ready
         // by the time performCapture() needs it (covers hotkey path where menu wasn't opened)
         ScreenCaptureManager.prewarm()
-        let targetScreen = currentCaptureTargetScreen()
-
         let delay = UserDefaults.standard.integer(forKey: "captureDelaySeconds")
-        if delay == 0 {
-            requestCapturePreparation(origin: triggerOrigin, targetScreen: targetScreen)
-        }
 
         // When "remember last tool" is off, clear persisted effects/beautify
         // so new OverlayView instances start clean
@@ -920,7 +763,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         if delay > 0 {
             showPreCaptureCountdown(seconds: delay)
         } else {
-            performCapture(t0: t0, triggerOrigin: triggerOrigin)
+            performCapture(t0: t0)
         }
     }
 
@@ -972,8 +815,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
                     self?.delayCountdownWindow?.orderOut(nil)
                     self?.delayCountdownWindow = nil
                     self?.removeDelayEscMonitors()
-                    let origin = self?.pendingCaptureTriggerOrigin ?? .menuBar
-                    self?.performCapture(triggerOrigin: origin)
+                    self?.performCapture()
                 }
             } else {
                 countdownView.remaining = remaining
@@ -1003,50 +845,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         stopOverlayMouseScreenTracking()
     }
 
-    private func performCapture(t0: CFAbsoluteTime = 0, triggerOrigin: CaptureTriggerOrigin = .menuBar) {
+    private func performCapture(t0: CFAbsoluteTime = 0) {
         #if DEBUG
         NSLog("[PERF] performCapture BEGIN elapsed=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - t0) * 1000))ms")
         #endif
 
         let excludeIDs = currentCaptureExcludedWindowNumbers()
         let targetScreen = currentCaptureTargetScreen()
-        let targetScreenID = screenDisplayID(for: targetScreen)
-
-        if let prepared = consumePreparedCapture(
-            excludedWindowNumbers: excludeIDs,
-            targetScreenID: targetScreenID
-        ) {
-            #if DEBUG
-            NSLog("[PERF] performCapture: using PREPARED images elapsed=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - t0) * 1000))ms")
-            #endif
-            showOverlays(for: prepared, t0: t0)
-            return
-        }
-
-        if let inFlight = inFlightCapturePreparation,
-           inFlight.excludedWindowNumbers == excludeIDs,
-           inFlight.targetScreenID == targetScreenID {
-            NSLog(
-                "[PERF] performCapture: waiting for prepared capture origin=\(inFlight.origin.rawValue) started=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - inFlight.startedAt) * 1000))ms ago"
-            )
-            Task { @MainActor [weak self] in
-                guard let self = self else { return }
-                if let prepared = await self.waitForPreparedCapture(
-                    excludedWindowNumbers: excludeIDs,
-                    targetScreenID: targetScreenID,
-                    timeoutNanoseconds: triggerOrigin.preparationWaitNanoseconds
-                ) {
-                    #if DEBUG
-                    NSLog("[PERF] performCapture: prepared capture completed within wait window")
-                    #endif
-                    self.showOverlays(for: prepared, t0: t0)
-                } else {
-                    self.startLiveCapture(excludedWindowNumbers: excludeIDs, targetScreen: targetScreen, t0: t0)
-                }
-            }
-            return
-        }
-
         startLiveCapture(excludedWindowNumbers: excludeIDs, targetScreen: targetScreen, t0: t0)
     }
 
