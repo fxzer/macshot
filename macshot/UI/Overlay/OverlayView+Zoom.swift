@@ -441,10 +441,130 @@ extension OverlayView {
         }
     }
 
+    func handleToolAdjustmentScrollWheel(_ event: NSEvent) -> Bool {
+        guard state == .selected else { return false }
+
+        let isTrackpadPhased = event.phase != [] || event.momentumPhase != []
+        let isCommandScroll = event.modifierFlags.contains(.command)
+        guard !isTrackpadPhased, !isCommandScroll else { return false }
+
+        if let ann = selectedAnnotation {
+            if ann.tool == .pixelate || ann.tool == .blur { return true }
+            let delta = event.deltaY
+            let step: CGFloat = 0.5
+
+            scrollPropertyAdjustTimer?.invalidate()
+            scrollPropertyAdjustTimer = nil
+
+            if !isScrollAdjustingProperty {
+                isScrollAdjustingProperty = true
+                setCachedAnnotationLayerExcludingSelected(
+                    buildAnnotationLayer(excluding: Set(selectedAnnotations.map { ObjectIdentifier($0) }))
+                )
+            }
+
+            if ann.tool == .text {
+                let oldSize = ann.fontSize
+                let newSize = min(200, max(8, oldSize + delta * step))
+                if newSize != oldSize {
+                    ann.fontSize = newSize
+                    needsDisplay = true
+                    sharedToolOptionsRowView?.updateFontSizeDisplay(value: newSize)
+                    scheduleScrollPropertyCommit { [weak self] in
+                        guard let self = self else { return }
+                        let snapshot = ann.clone()
+                        self.pushPropertyChangeUndo(annotation: ann, snapshot: snapshot)
+                    }
+                }
+                return true
+            } else if ann.tool == .number {
+                let oldSize = currentNumberSize
+                let newSize = NumberCalloutGeometry.clampSize(oldSize + delta * step)
+                if newSize != oldSize {
+                    currentNumberSize = newSize
+                    ann.strokeWidth = currentNumberSize
+                    needsDisplay = true
+                    sharedToolOptionsRowView?.updateStrokeSlider(value: newSize)
+                    scheduleScrollPropertyCommit { [weak self] in
+                        guard let self = self else { return }
+                        UserDefaults.standard.set(newSize, forKey: "numberStrokeWidth")
+                        if self.annotations.contains(where: { $0 === ann }) {
+                            let snapshot = ann.clone()
+                            self.undoStack.append(.propertyChange(annotation: ann, snapshot: snapshot))
+                        }
+                    }
+                }
+                return true
+            } else if ann.tool == .marker {
+                let oldSize = currentMarkerSize
+                let newSize = min(100, max(6, oldSize + delta * step))
+                if newSize != oldSize {
+                    currentMarkerSize = newSize
+                    ann.strokeWidth = currentMarkerSize
+                    needsDisplay = true
+                    sharedToolOptionsRowView?.updateStrokeSlider(value: newSize)
+                    scheduleScrollPropertyCommit { [weak self] in
+                        guard let self = self else { return }
+                        UserDefaults.standard.set(newSize, forKey: "markerStrokeWidth")
+                        if self.annotations.contains(where: { $0 === ann }) {
+                            let snapshot = ann.clone()
+                            self.undoStack.append(.propertyChange(annotation: ann, snapshot: snapshot))
+                        }
+                    }
+                }
+                return true
+            } else if ann.tool == .loupe {
+                let oldSize = currentLoupeSize
+                let oldSnapshot = ann.clone()
+                let newSize = min(320, max(50, oldSize + delta * step * 10))
+                if newSize != oldSize {
+                    currentLoupeSize = newSize
+                    let center = NSPoint(x: ann.boundingRect.midX, y: ann.boundingRect.midY)
+                    ann.startPoint = NSPoint(x: center.x - newSize / 2, y: center.y - newSize / 2)
+                    ann.endPoint = NSPoint(x: center.x + newSize / 2, y: center.y + newSize / 2)
+                    ann.bakeLoupe()
+                    needsDisplay = true
+                    sharedToolOptionsRowView?.updateStrokeSlider(value: newSize)
+                    scheduleScrollPropertyCommit { [weak self] in
+                        guard let self = self else { return }
+                        UserDefaults.standard.set(newSize, forKey: "loupeSize")
+                        if self.annotations.contains(where: { $0 === ann }) {
+                            self.undoStack.append(.propertyChange(annotation: ann, snapshot: oldSnapshot))
+                        }
+                    }
+                }
+                return true
+            } else {
+                let oldWidth = ann.strokeWidth
+                let newWidth = min(30, max(1, oldWidth + delta * step))
+                if newWidth != oldWidth {
+                    ann.strokeWidth = newWidth
+                    setActiveStrokeWidth(newWidth, for: ann.tool)
+                    needsDisplay = true
+                    sharedToolOptionsRowView?.updateStrokeSlider(value: newWidth)
+                    scheduleScrollPropertyCommit { [weak self] in
+                        guard let self = self else { return }
+                        let snapshot = ann.clone()
+                        self.pushPropertyChangeUndo(annotation: ann, snapshot: snapshot)
+                    }
+                }
+                return true
+            }
+        }
+
+        if adjustPendingToolSize(delta: event.deltaY) {
+            needsDisplay = true
+            return true
+        }
+
+        return false
+    }
+
     // MARK: - Scroll Wheel & Pinch
 
     override func scrollWheel(with event: NSEvent) {
         if isInsideScrollView {
+            if handleToolAdjustmentScrollWheel(event) { return }
             enclosingScrollView?.scrollWheel(with: event)
             return
         }
@@ -477,110 +597,7 @@ extension OverlayView {
         }
 
         guard !isTrackpadPhased else { return }
-
-        if let ann = selectedAnnotation {
-            if ann.tool == .pixelate || ann.tool == .blur { return }
-            let delta = event.deltaY
-            let step: CGFloat = 0.5
-
-            scrollPropertyAdjustTimer?.invalidate()
-            scrollPropertyAdjustTimer = nil
-
-            if !isScrollAdjustingProperty {
-                isScrollAdjustingProperty = true
-                setCachedAnnotationLayerExcludingSelected(
-                    buildAnnotationLayer(excluding: Set(selectedAnnotations.map { ObjectIdentifier($0) }))
-                )
-            }
-
-            if ann.tool == .text {
-                let oldSize = ann.fontSize
-                let newSize = min(200, max(8, oldSize + delta * step))
-                if newSize != oldSize {
-                    ann.fontSize = newSize
-                    needsDisplay = true
-                    sharedToolOptionsRowView?.updateFontSizeDisplay(value: newSize)
-                    scheduleScrollPropertyCommit { [weak self] in
-                        guard let self = self else { return }
-                        let snapshot = ann.clone()
-                        self.pushPropertyChangeUndo(annotation: ann, snapshot: snapshot)
-                    }
-                }
-            } else if ann.tool == .number {
-                let oldSize = currentNumberSize
-                let newSize = NumberCalloutGeometry.clampSize(oldSize + delta * step)
-                if newSize != oldSize {
-                    currentNumberSize = newSize
-                    ann.strokeWidth = currentNumberSize
-                    needsDisplay = true
-                    sharedToolOptionsRowView?.updateStrokeSlider(value: newSize)
-                    scheduleScrollPropertyCommit { [weak self] in
-                        guard let self = self else { return }
-                        UserDefaults.standard.set(newSize, forKey: "numberStrokeWidth")
-                        if self.annotations.contains(where: { $0 === ann }) {
-                            let snapshot = ann.clone()
-                            self.undoStack.append(.propertyChange(annotation: ann, snapshot: snapshot))
-                        }
-                    }
-                }
-            } else if ann.tool == .marker {
-                let oldSize = currentMarkerSize
-                let newSize = min(100, max(6, oldSize + delta * step))
-                if newSize != oldSize {
-                    currentMarkerSize = newSize
-                    ann.strokeWidth = currentMarkerSize
-                    needsDisplay = true
-                    sharedToolOptionsRowView?.updateStrokeSlider(value: newSize)
-                    scheduleScrollPropertyCommit { [weak self] in
-                        guard let self = self else { return }
-                        UserDefaults.standard.set(newSize, forKey: "markerStrokeWidth")
-                        if self.annotations.contains(where: { $0 === ann }) {
-                            let snapshot = ann.clone()
-                            self.undoStack.append(.propertyChange(annotation: ann, snapshot: snapshot))
-                        }
-                    }
-                }
-            } else if ann.tool == .loupe {
-                let oldSize = currentLoupeSize
-                let oldSnapshot = ann.clone()
-                let newSize = min(320, max(50, oldSize + delta * step * 10))
-                if newSize != oldSize {
-                    currentLoupeSize = newSize
-                    let center = NSPoint(x: ann.boundingRect.midX, y: ann.boundingRect.midY)
-                    ann.startPoint = NSPoint(x: center.x - newSize / 2, y: center.y - newSize / 2)
-                    ann.endPoint = NSPoint(x: center.x + newSize / 2, y: center.y + newSize / 2)
-                    ann.bakeLoupe()
-                    needsDisplay = true
-                    sharedToolOptionsRowView?.updateStrokeSlider(value: newSize)
-                    scheduleScrollPropertyCommit { [weak self] in
-                        guard let self = self else { return }
-                        UserDefaults.standard.set(newSize, forKey: "loupeSize")
-                        if self.annotations.contains(where: { $0 === ann }) {
-                            self.undoStack.append(.propertyChange(annotation: ann, snapshot: oldSnapshot))
-                        }
-                    }
-                }
-            } else {
-                let oldWidth = ann.strokeWidth
-                let newWidth = min(30, max(1, oldWidth + delta * step))
-                if newWidth != oldWidth {
-                    ann.strokeWidth = newWidth
-                    setActiveStrokeWidth(newWidth, for: ann.tool)
-                    needsDisplay = true
-                    sharedToolOptionsRowView?.updateStrokeSlider(value: newWidth)
-                    scheduleScrollPropertyCommit { [weak self] in
-                        guard let self = self else { return }
-                        let snapshot = ann.clone()
-                        self.pushPropertyChangeUndo(annotation: ann, snapshot: snapshot)
-                    }
-                }
-            }
-            return
-        }
-
-        if adjustPendingToolSize(delta: event.deltaY) {
-            needsDisplay = true
-        }
+        _ = handleToolAdjustmentScrollWheel(event)
     }
 
     override func magnify(with event: NSEvent) {

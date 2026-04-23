@@ -47,6 +47,12 @@ class CenteringClipView: NSClipView {
     }
 
     override func scrollWheel(with event: NSEvent) {
+        if let editorView = documentView as? OverlayView,
+           editorView.isInsideScrollView,
+           editorView.handleToolAdjustmentScrollWheel(event) {
+            return
+        }
+
         let isTrackpad = event.phase != [] || event.momentumPhase != []
 
         if !isTrackpad {
