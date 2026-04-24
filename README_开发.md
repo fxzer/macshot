@@ -21,21 +21,22 @@ bash build.sh
 
 ```bash
 # 1. 停止旧版本
+killall MacShot-dev 2>/dev/null
 killall macshot-dev 2>/dev/null
 
 # 2. 清理旧版本
-rm -rf /Applications/macshot-dev.app
-rm -rf /Users/fxj/n/macshot/macshot-dev.app
+rm -rf /Applications/MacShot-dev.app
+rm -rf /Users/fxj/n/macshot/MacShot-dev.app
 
 # 3. 构建
 xcodebuild -scheme macshot -configuration Debug build
 
 # 4. 安装
-cp -R "/Users/fxj/Library/Developer/Xcode/DerivedData/macshot-daqnumwucnkubxhcwqiflmrfkyxk/Build/Products/Debug/macshot.app" "/Users/fxj/n/macshot/macshot-dev.app"
-cp -R /Users/fxj/n/macshot/macshot-dev.app /Applications/
+cp -R "/Users/fxj/Library/Developer/Xcode/DerivedData/macshot-daqnumwucnkubxhcwqiflmrfkyxk/Build/Products/Debug/MacShot.app" "/Users/fxj/n/macshot/MacShot-dev.app"
+cp -R /Users/fxj/n/macshot/MacShot-dev.app /Applications/
 
 # 5. 启动
-open /Applications/macshot-dev.app
+open /Applications/MacShot-dev.app
 ```
 
 ## 🎯 测试功能
@@ -106,8 +107,9 @@ bash uninstall.sh
 或手动卸载：
 
 ```bash
+killall MacShot-dev
 killall macshot-dev
-rm -rf /Applications/macshot-dev.app
+rm -rf /Applications/MacShot-dev.app
 ```
 
 ## 📧 问题反馈

@@ -50,6 +50,28 @@ brew install fxzer/macshot/macshot
 
 ---
 
+## Raycast / Alfred / Automation
+
+macshot registers a `macshot://` URL scheme so launchers like **Raycast**, **Alfred**, and **Shortcuts** can trigger captures directly.
+
+Recommended commands for Raycast Quicklinks:
+
+- `macshot://capture-area`
+- `macshot://capture-fullscreen`
+- `macshot://quick-capture`
+- `macshot://ocr`
+- `macshot://record-area`
+- `macshot://record-fullscreen`
+- `macshot://scroll-capture`
+- `macshot://history`
+- `macshot://settings`
+- `macshot://stop-recording`
+- `macshot://open?file=/absolute/path/to/image.png`
+
+Compatibility aliases such as `macshot://capture` and `macshot://record` still work. If Raycast does not show MacShot after installing or updating, move the app to `/Applications` and let macOS finish re-indexing it.
+
+---
+
 <details>
 <summary><b>All Features</b></summary>
 

@@ -395,8 +395,7 @@ extension VideoEditorView {
         let completionHandler: (Result<String, Error>) -> Void = { [weak self] result in
             switch result {
             case .success(let link):
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(link, forType: .string)
+                PasteboardWriter.writeString(link)
 
                 // 使用第一帧缩略图
                 let thumbnail = self?.thumbnailImages.first
@@ -414,11 +413,9 @@ extension VideoEditorView {
                 completionHandler(result)
             }
             if provider == "s3" {
-                S3Uploader.shared.onProgress = progressHandler
-                S3Uploader.shared.uploadVideo(url: fileURL, completion: wrappedCompletion)
+                S3Uploader.shared.uploadVideo(url: fileURL, progress: progressHandler, completion: wrappedCompletion)
             } else {
-                GoogleDriveUploader.shared.onProgress = progressHandler
-                GoogleDriveUploader.shared.uploadVideo(url: fileURL, completion: wrappedCompletion)
+                GoogleDriveUploader.shared.uploadVideo(url: fileURL, progress: progressHandler, completion: wrappedCompletion)
             }
         }
 

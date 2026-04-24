@@ -41,12 +41,13 @@ final class S3Uploader {
 
     var isConfigured: Bool { config.isValid }
 
-    /// Progress callback (0.0–1.0), called on main thread.
-    var onProgress: ((Double) -> Void)?
-
     // MARK: - Upload Image
 
-    func uploadImage(_ image: NSImage, completion: @escaping (Result<String, Error>) -> Void) {
+    func uploadImage(
+        _ image: NSImage,
+        progress: ((Double) -> Void)? = nil,
+        completion: @escaping (Result<String, Error>) -> Void
+    ) {
         guard let tiffData = image.tiffRepresentation,
               let bitmap = NSBitmapImageRep(data: tiffData),
               let pngData = bitmap.representation(using: .png, properties: [:]) else {
@@ -54,12 +55,16 @@ final class S3Uploader {
             return
         }
         let filename = FilenameTemplateEngine.makeFilename(kind: .screenshot, fileExtension: "png")
-        upload(data: pngData, filename: filename, contentType: "image/png", completion: completion)
+        upload(data: pngData, filename: filename, contentType: "image/png", progress: progress, completion: completion)
     }
 
     // MARK: - Upload Video
 
-    func uploadVideo(url: URL, completion: @escaping (Result<String, Error>) -> Void) {
+    func uploadVideo(
+        url: URL,
+        progress: ((Double) -> Void)? = nil,
+        completion: @escaping (Result<String, Error>) -> Void
+    ) {
         let ext = url.pathExtension.lowercased()
         let contentType: String
         switch ext {
@@ -76,13 +81,25 @@ final class S3Uploader {
                 }
                 return
             }
-            self?.upload(data: data, filename: url.lastPathComponent, contentType: contentType, completion: completion)
+            self?.upload(
+                data: data,
+                filename: url.lastPathComponent,
+                contentType: contentType,
+                progress: progress,
+                completion: completion
+            )
         }
     }
 
     // MARK: - Core Upload
 
-    func upload(data: Data, filename: String, contentType: String, completion: @escaping (Result<String, Error>) -> Void) {
+    func upload(
+        data: Data,
+        filename: String,
+        contentType: String,
+        progress: ((Double) -> Void)? = nil,
+        completion: @escaping (Result<String, Error>) -> Void
+    ) {
         let cfg = config
         guard cfg.isValid else {
             completion(.failure(S3Error.notConfigured))
@@ -124,9 +141,7 @@ final class S3Uploader {
                      accessKeyID: cfg.accessKeyID, secretAccessKey: cfg.secretAccessKey)
 
         // Upload
-        let task = URLSession.shared.uploadTask(with: request, from: data) { [weak self] responseData, response, error in
-            DispatchQueue.main.async { self?.onProgress = nil }
-
+        let task = URLSession.shared.uploadTask(with: request, from: data) { responseData, response, error in
             if let error = error {
                 DispatchQueue.main.async { completion(.failure(error)) }
                 return
@@ -161,9 +176,9 @@ final class S3Uploader {
         }
 
         // Observe progress
-        if onProgress != nil {
-            let observation = task.progress.observe(\.fractionCompleted) { [weak self] progress, _ in
-                DispatchQueue.main.async { self?.onProgress?(progress.fractionCompleted) }
+        if let progress {
+            let observation = task.progress.observe(\.fractionCompleted) { observedProgress, _ in
+                DispatchQueue.main.async { progress(observedProgress.fractionCompleted) }
             }
             // Store observation to keep it alive — released when task completes
             objc_setAssociatedObject(task, &Self.progressObservationKey, observation, .OBJC_ASSOCIATION_RETAIN)

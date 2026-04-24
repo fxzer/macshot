@@ -11,7 +11,7 @@ set -o pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DERIVED_DATA="$ROOT_DIR/DerivedData"
 PROJECT_FILE="$ROOT_DIR/macshot.xcodeproj/project.pbxproj"
-APP_NAME="macshot-dev.app"
+APP_NAME="MacShot-dev.app"
 APP_INSTALL_PATH="/Applications/$APP_NAME"
 APP_WORKTREE_PATH="$ROOT_DIR/$APP_NAME"
 ENTITLEMENTS_PATH="$ROOT_DIR/macshot/macshot.entitlements"
@@ -178,6 +178,10 @@ echo "========================================"
 
 # 1. 停止旧版本
 echo "📍 步骤 1/5: 停止旧版本..."
+killall MacShot-dev 2>/dev/null || true
+killall MacShot 2>/dev/null || true
+killall MacShot-dev 2>/dev/null || true
+killall MacShot 2>/dev/null || true
 killall macshot-dev 2>/dev/null || true
 killall macshot 2>/dev/null || true
 sleep 0.3
@@ -241,7 +245,7 @@ echo "   ✅ 构建完成"
 # 5. 安装并启动
 echo "📍 步骤 5/5: 安装并启动..."
 ensure_local_codesign_identity
-sync_app_bundle "$DERIVED_DATA/Build/Products/Debug/macshot.app" "$APP_WORKTREE_PATH"
+sync_app_bundle "$DERIVED_DATA/Build/Products/Debug/MacShot.app" "$APP_WORKTREE_PATH"
 sync_app_bundle "$APP_WORKTREE_PATH" "$APP_INSTALL_PATH"
 sign_app_bundle "$APP_INSTALL_PATH"
 open "$APP_INSTALL_PATH"

@@ -51,7 +51,7 @@ extension VideoEditorView {
         if saveBtnRect.contains(point) { saveVideo(); return }
         if uploadBtnRect.contains(point) { uploadVideo(); return }
         if finderBtnRect.contains(point) {
-            if let url = savedURL { NSWorkspace.shared.activateFileViewerSelecting([url]) }
+            if let url = savedURL { _ = FinderRevealService.reveal(url) }
             return
         }
         if copyArrowRect.contains(point) { showCopyMenu(); return }

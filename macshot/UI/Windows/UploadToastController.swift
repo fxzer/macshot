@@ -135,7 +135,7 @@ class UploadToastController {
 
     func showSaveSuccess(fileURL: URL) {
         ensureToastWindow()
-        currentOpenURL = fileURL.deletingLastPathComponent()
+        currentOpenURL = fileURL
         guard let window = window, let contentView = window.contentView else { return }
 
         prepareForResultState(symbolName: "checkmark.circle.fill", tintColor: .systemGreen)
@@ -319,7 +319,7 @@ class UploadToastController {
     @objc private func openTarget() {
         guard let url = currentOpenURL else { return }
         if url.isFileURL {
-            NSWorkspace.shared.activateFileViewerSelecting([url])
+            _ = FinderRevealService.reveal(url)
         } else {
             NSWorkspace.shared.open(url)
         }

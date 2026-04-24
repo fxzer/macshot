@@ -150,11 +150,14 @@ final class GoogleDriveUploader: NSObject, ASWebAuthenticationPresentationContex
         macShotFolderID = nil
     }
 
-    /// Progress callback: percentage 0.0–1.0
-    var onProgress: ((Double) -> Void)?
-
     /// Upload a file (image or video) to the macshot folder.
-    func upload(data: Data, filename: String, mimeType: String, completion: @escaping (Result<String, Error>) -> Void) {
+    func upload(
+        data: Data,
+        filename: String,
+        mimeType: String,
+        progress: ((Double) -> Void)? = nil,
+        completion: @escaping (Result<String, Error>) -> Void
+    ) {
         ensureValidToken { [weak self] success in
             guard let self = self, success else {
                 completion(.failure(Self.error("Not signed in")))
@@ -163,7 +166,14 @@ final class GoogleDriveUploader: NSObject, ASWebAuthenticationPresentationContex
             self.ensureMacShotFolder { result in
                 switch result {
                 case .success(let folderID):
-                    self.uploadFile(data: data, filename: filename, mimeType: mimeType, folderID: folderID, completion: completion)
+                    self.uploadFile(
+                        data: data,
+                        filename: filename,
+                        mimeType: mimeType,
+                        folderID: folderID,
+                        progress: progress,
+                        completion: completion
+                    )
                 case .failure(let error):
                     completion(.failure(error))
                 }
@@ -172,7 +182,11 @@ final class GoogleDriveUploader: NSObject, ASWebAuthenticationPresentationContex
     }
 
     /// Upload an NSImage.
-    func uploadImage(_ image: NSImage, completion: @escaping (Result<String, Error>) -> Void) {
+    func uploadImage(
+        _ image: NSImage,
+        progress: ((Double) -> Void)? = nil,
+        completion: @escaping (Result<String, Error>) -> Void
+    ) {
         guard let tiffData = image.tiffRepresentation,
               let bitmap = NSBitmapImageRep(data: tiffData),
               let pngData = bitmap.representation(using: .png, properties: [:]) else {
@@ -180,11 +194,15 @@ final class GoogleDriveUploader: NSObject, ASWebAuthenticationPresentationContex
             return
         }
         let filename = FilenameTemplateEngine.makeFilename(kind: .screenshot, fileExtension: "png")
-        upload(data: pngData, filename: filename, mimeType: "image/png", completion: completion)
+        upload(data: pngData, filename: filename, mimeType: "image/png", progress: progress, completion: completion)
     }
 
     /// Upload a video file from URL.
-    func uploadVideo(url: URL, completion: @escaping (Result<String, Error>) -> Void) {
+    func uploadVideo(
+        url: URL,
+        progress: ((Double) -> Void)? = nil,
+        completion: @escaping (Result<String, Error>) -> Void
+    ) {
         let ext = url.pathExtension.lowercased()
         let mime = ext == "gif" ? "image/gif" : "video/mp4"
         let filename = url.lastPathComponent
@@ -195,7 +213,13 @@ final class GoogleDriveUploader: NSObject, ASWebAuthenticationPresentationContex
                 }
                 return
             }
-            self?.upload(data: data, filename: filename, mimeType: mime, completion: completion)
+            self?.upload(
+                data: data,
+                filename: filename,
+                mimeType: mime,
+                progress: progress,
+                completion: completion
+            )
         }
     }
 
@@ -469,11 +493,34 @@ final class GoogleDriveUploader: NSObject, ASWebAuthenticationPresentationContex
         }.resume()
     }
 
-    private func uploadFile(data: Data, filename: String, mimeType: String, folderID: String, completion: @escaping (Result<String, Error>) -> Void) {
-        uploadFileWithRetry(data: data, filename: filename, mimeType: mimeType, folderID: folderID, attempt: 1, completion: completion)
+    private func uploadFile(
+        data: Data,
+        filename: String,
+        mimeType: String,
+        folderID: String,
+        progress: ((Double) -> Void)? = nil,
+        completion: @escaping (Result<String, Error>) -> Void
+    ) {
+        uploadFileWithRetry(
+            data: data,
+            filename: filename,
+            mimeType: mimeType,
+            folderID: folderID,
+            attempt: 1,
+            progress: progress,
+            completion: completion
+        )
     }
 
-    private func uploadFileWithRetry(data fileData: Data, filename: String, mimeType: String, folderID: String, attempt: Int, completion: @escaping (Result<String, Error>) -> Void) {
+    private func uploadFileWithRetry(
+        data fileData: Data,
+        filename: String,
+        mimeType: String,
+        folderID: String,
+        attempt: Int,
+        progress: ((Double) -> Void)? = nil,
+        completion: @escaping (Result<String, Error>) -> Void
+    ) {
         guard let token = loadAccessToken() else {
             completion(.failure(Self.error("No access token")))
             return
@@ -533,8 +580,15 @@ final class GoogleDriveUploader: NSObject, ASWebAuthenticationPresentationContex
                attempt < maxRetries {
                 let delay = Double(attempt) * 2.0
                 DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-                    self?.uploadFileWithRetry(data: fileData, filename: filename, mimeType: mimeType,
-                                              folderID: folderID, attempt: attempt + 1, completion: completion)
+                    self?.uploadFileWithRetry(
+                        data: fileData,
+                        filename: filename,
+                        mimeType: mimeType,
+                        folderID: folderID,
+                        attempt: attempt + 1,
+                        progress: progress,
+                        completion: completion
+                    )
                 }
                 return
             }
@@ -551,8 +605,15 @@ final class GoogleDriveUploader: NSObject, ASWebAuthenticationPresentationContex
                         completion(.failure(Self.error("Authentication expired")))
                         return
                     }
-                    self?.uploadFileWithRetry(data: fileData, filename: filename, mimeType: mimeType,
-                                              folderID: folderID, attempt: attempt + 1, completion: completion)
+                    self?.uploadFileWithRetry(
+                        data: fileData,
+                        filename: filename,
+                        mimeType: mimeType,
+                        folderID: folderID,
+                        attempt: attempt + 1,
+                        progress: progress,
+                        completion: completion
+                    )
                 }
                 return
             }
@@ -573,16 +634,14 @@ final class GoogleDriveUploader: NSObject, ASWebAuthenticationPresentationContex
             }
             let viewLink = "https://drive.google.com/file/d/\(fileID)/view"
             DispatchQueue.main.async {
-                self?.onProgress = nil
                 completion(.success(viewLink))
             }
         }
 
         // Observe upload progress
-        let observation = task.progress.observe(\.fractionCompleted) { [weak self] progress, _ in
-            DispatchQueue.main.async {
-                self?.onProgress?(progress.fractionCompleted)
-            }
+        let observation = task.progress.observe(\.fractionCompleted) { observedProgress, _ in
+            guard let progress else { return }
+            DispatchQueue.main.async { progress(observedProgress.fractionCompleted) }
         }
         // Store observation to keep it alive; released when task completes
         objc_setAssociatedObject(task, "progressObservation", observation, .OBJC_ASSOCIATION_RETAIN)

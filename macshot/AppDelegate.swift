@@ -1,9 +1,7 @@
 import Cocoa
 import Carbon
 import Sparkle
-import UniformTypeIdentifiers
 import AVFoundation
-import WebP
 
 @MainActor
 class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
@@ -26,7 +24,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     private var recordingQuickActionsController: RecordingToastController?
     private var recordingEngine: RecordingEngine?
     private var audioMergeController: AudioMergeController?
-    private var recordingOverlayController: OverlayWindowController?
     private var recordingHUDPanel: RecordingHUDPanel?
     private var recordingStatusItemView: RecordingStatusItemView?
     private var recordingScreenRect: NSRect = .zero  // screen-space capture rect
@@ -464,7 +461,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     private var pendingOCRMode: Bool = false
     private var pendingQuickCaptureMode: Bool = false
     private var pendingScrollCaptureMode: Bool = false
-    private var capturedWindowTitle: String?
     /// The app that was active before the overlay appeared — re-activated on dismiss.
     /// The app that was active before macshot showed its overlay.
     private var previousApp: NSRunningApplication?
@@ -747,7 +743,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         // can stall the first overlay frame on busy desktops.
         let frontmostApp = NSWorkspace.shared.frontmostApplication
         previousApp = frontmostApp
-        capturedWindowTitle = nil
 
         #if DEBUG
         NSLog("[PERF] startCapture: prewarm + dismissOverlays + hideThumbnails BEGIN")
@@ -908,7 +903,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             #endif
             let controller = OverlayWindowController(capture: capture)
             controller.overlayDelegate = self
-            controller.capturedWindowTitle = self.capturedWindowTitle
             controller.onFirstFrameShown = {
                 #if DEBUG
                 NSLog("[PERF] first overlay frame drawn elapsed=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - t0) * 1000))ms screen=\(capture.screen.localizedName)")
@@ -1107,8 +1101,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             guard response == .OK, let dirURL = panel.url else { return }
 
             DispatchQueue.global(qos: .userInitiated).async {
+                var firstError: Error?
                 for image in images {
-                    guard let data = ImageEncoder.encode(image) else { continue }
                     let baseName = FilenameTemplateEngine.makeBaseName(
                         kind: .screenshot,
                         date: Date()
@@ -1118,13 +1112,24 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
                         baseName: baseName,
                         fileExtension: ImageEncoder.fileExtension
                     )
-                    try? data.write(to: fileURL)
+                    switch ImageSaveService.save(image, to: fileURL) {
+                    case .success:
+                        break
+                    case .failure(let error):
+                        firstError = firstError ?? error
+                    }
                 }
                 DispatchQueue.main.async {
-                    self?.playCopySound()
-                    let all = self?.thumbnailControllers ?? []
-                    self?.thumbnailControllers.removeAll()
-                    for c in all { c.dismiss() }
+                    if let error = firstError {
+                        self?.makeStatusToast().showSaveError(
+                            message: error.localizedDescription.isEmpty ? L("Save failed") : error.localizedDescription
+                        )
+                    } else {
+                        self?.playCopySound()
+                        let all = self?.thumbnailControllers ?? []
+                        self?.thumbnailControllers.removeAll()
+                        for c in all { c.dismiss() }
+                    }
                 }
             }
         }
@@ -1270,7 +1275,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         ImageSaveService.saveToDefaultDirectoryAsync(image, kind: kind) { [weak self] result in
             self?.showSaveResultToast(result, showFailureToast: showFailureToast)
             if case .success(let fileURL) = result, showInFinder {
-                NSWorkspace.shared.activateFileViewerSelecting([fileURL])
+                _ = FinderRevealService.reveal(fileURL)
             }
             completion?(result)
         }
@@ -1315,12 +1320,24 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             fileExtension: sourceURL.pathExtension
         )
 
-        DispatchQueue.global(qos: .userInitiated).async {
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             defer { SaveDirectoryAccess.stopAccessing(url: dirURL) }
-            try? FileManager.default.copyItem(at: sourceURL, to: destinationURL)
-            if showInFinder {
-                DispatchQueue.main.async {
-                    NSWorkspace.shared.activateFileViewerSelecting([destinationURL])
+            let result: Result<URL, Error>
+            do {
+                try FileManager.default.copyItem(at: sourceURL, to: destinationURL)
+                result = .success(destinationURL)
+            } catch {
+                result = .failure(error)
+            }
+
+            DispatchQueue.main.async {
+                if showInFinder, case .success(let fileURL) = result {
+                    _ = FinderRevealService.reveal(fileURL)
+                }
+                if case .failure(let error) = result {
+                    self?.makeStatusToast().showSaveError(
+                        message: error.localizedDescription.isEmpty ? L("Save failed") : error.localizedDescription
+                    )
                 }
             }
         }
@@ -1358,8 +1375,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         let completionHandler: (Result<String, Error>) -> Void = { result in
             switch result {
             case .success(let link):
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(link, forType: .string)
+                PasteboardWriter.writeString(link)
                 UploadHistoryStore.append(link: link, provider: provider)
                 toast.showSuccess(link: link, deleteURL: "")
             case .failure(let error):
@@ -1368,11 +1384,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         }
 
         if provider == "s3" {
-            S3Uploader.shared.onProgress = progressHandler
-            S3Uploader.shared.uploadVideo(url: url, completion: completionHandler)
+            S3Uploader.shared.uploadVideo(url: url, progress: progressHandler, completion: completionHandler)
         } else {
-            GoogleDriveUploader.shared.onProgress = progressHandler
-            GoogleDriveUploader.shared.uploadVideo(url: url, completion: completionHandler)
+            GoogleDriveUploader.shared.uploadVideo(url: url, progress: progressHandler, completion: completionHandler)
         }
     }
 
@@ -1434,6 +1448,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         toast.show(status: L("Uploading..."))
 
         let provider = UserDefaults.standard.string(forKey: "uploadProvider") ?? "imgbb"
+        let progressHandler: (Double) -> Void = { fraction in
+            toast.updateProgress(fraction)
+        }
 
         if provider == "gdrive" && !GoogleDriveUploader.shared.isSignedIn {
             toast.showError(message: L("Sign in to Google Drive in Settings"))
@@ -1446,12 +1463,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         }
 
         if provider == "gdrive" {
-            GoogleDriveUploader.shared.uploadImage(image) { result in
+            GoogleDriveUploader.shared.uploadImage(image, progress: progressHandler) { result in
                 switch result {
                 case .success(let link):
-                    let pasteboard = NSPasteboard.general
-                    pasteboard.clearContents()
-                    pasteboard.setString(link, forType: .string)
+                    PasteboardWriter.writeString(link)
                     UploadHistoryStore.append(link: link, provider: provider, thumbnail: image)
                     toast.showSuccess(link: link, deleteURL: "")
                 case .failure(let error):
@@ -1459,15 +1474,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
                 }
             }
         } else if provider == "s3" {
-            S3Uploader.shared.onProgress = { fraction in
-                toast.updateProgress(fraction)
-            }
-            S3Uploader.shared.uploadImage(image) { result in
+            S3Uploader.shared.uploadImage(image, progress: progressHandler) { result in
                 switch result {
                 case .success(let link):
-                    let pasteboard = NSPasteboard.general
-                    pasteboard.clearContents()
-                    pasteboard.setString(link, forType: .string)
+                    PasteboardWriter.writeString(link)
                     UploadHistoryStore.append(link: link, provider: provider, thumbnail: image)
                     toast.showSuccess(link: link, deleteURL: "")
                 case .failure(let error):
@@ -1478,9 +1488,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             ImageUploader.upload(image: image) { result in
                 switch result {
                 case .success(let uploadResult):
-                    let pasteboard = NSPasteboard.general
-                    pasteboard.clearContents()
-                    pasteboard.setString(uploadResult.link, forType: .string)
+                    PasteboardWriter.writeString(uploadResult.link)
 
                     UploadHistoryStore.append(
                         link: uploadResult.link,
@@ -1536,54 +1544,62 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     }
 
     private func openImageFile(url: URL) {
-        let image: NSImage
-        if url.pathExtension.lowercased() == "webp",
-           let data = try? Data(contentsOf: url),
-           let decoded = try? WebPDecoder().decode(toNSImage: data, options: WebPDecoderOptions()) {
-            image = decoded
-        } else if let loaded = NSImage(contentsOf: url) {
-            image = loaded
-        } else {
-            return
+        let fileURL = url.standardizedFileURL
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let result = ImageFileLoader.loadImage(from: fileURL)
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let image):
+                    DetachedEditorWindowController.open(image: image)
+                case .failure(let error):
+                    self?.makeStatusToast().showError(message: error.localizedDescription)
+                }
+            }
         }
-        DetachedEditorWindowController.open(image: image)
     }
 
     /// Handle files opened via Finder "Open With", drag-to-dock, or command line.
     func application(_ application: NSApplication, open urls: [URL]) {
         for url in urls {
-            if url.scheme == "macshot" {
-                handleURLSchemeAction(url)
+            if url.scheme?.lowercased() == AppExternalAction.scheme {
+                switch AppExternalAction.parse(url: url) {
+                case .success(let action):
+                    handleExternalAction(action)
+                case .failure(let error):
+                    makeStatusToast().showError(message: error.localizedDescription)
+                }
                 continue
             }
-            let imageExtensions: Set<String> = ["png", "jpg", "jpeg", "tiff", "tif", "bmp", "gif", "heic", "heif", "webp", "icns"]
-            let ext = url.pathExtension.lowercased()
-            guard imageExtensions.contains(ext) else { continue }
+            guard ImageFileLoader.isSupportedImageURL(url) else { continue }
             openImageFile(url: url)
         }
     }
 
-    /// Handle macshot:// URL scheme actions from external tools (Raycast, Alfred, etc.).
-    /// Usage: `open macshot://capture`, `open macshot://ocr`, etc.
-    private func handleURLSchemeAction(_ url: URL) {
-        guard let action = url.host else { return }
+    /// Handle macshot:// URL scheme actions from external tools such as Raycast and Alfred.
+    private func handleExternalAction(_ action: AppExternalAction) {
         switch action {
-        case "capture":             beginAreaCapture(triggerOrigin: .external)
-        case "capture-fullscreen":  beginFullScreenCapture(triggerOrigin: .external)
-        case "quick-capture":       beginQuickCapture(triggerOrigin: .external)
-        case "ocr":                 beginOCRCapture(triggerOrigin: .external)
-        case "record":              beginAreaRecording(triggerOrigin: .external)
-        case "record-fullscreen":   beginFullScreenRecording(triggerOrigin: .external)
-        case "scroll-capture":      beginScrollCapture(triggerOrigin: .external)
-        case "history":             showHistoryOverlay()
-        case "settings":            openSettings()
-        case "stop-recording":      stopRecording()
-        case "open":
-            if let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
-               let path = components.queryItems?.first(where: { $0.name == "file" })?.value {
-                openImageFile(url: URL(fileURLWithPath: path))
-            }
-        default: break
+        case .captureArea:
+            beginAreaCapture(triggerOrigin: .external)
+        case .captureFullScreen:
+            beginFullScreenCapture(triggerOrigin: .external)
+        case .quickCapture:
+            beginQuickCapture(triggerOrigin: .external)
+        case .captureOCR:
+            beginOCRCapture(triggerOrigin: .external)
+        case .recordArea:
+            beginAreaRecording(triggerOrigin: .external)
+        case .recordFullScreen:
+            beginFullScreenRecording(triggerOrigin: .external)
+        case .scrollCapture:
+            beginScrollCapture(triggerOrigin: .external)
+        case .history:
+            showHistoryOverlay()
+        case .settings:
+            openSettings()
+        case .stopRecording:
+            stopRecording()
+        case .openImage(let fileURL):
+            openImageFile(url: fileURL)
         }
     }
 
@@ -1621,12 +1637,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
 
 extension AppDelegate: OverlayWindowControllerDelegate {
     func overlayDidCancel(_ controller: OverlayWindowController) {
-        // If the user cancels while in recording setup (before capture started),
-        // just dismiss. If recording is actively capturing, stop it.
-        if controller === recordingOverlayController, let engine = recordingEngine {
-            engine.stopRecording()
-            // stopRecordingUI() will be called by onCompletion callback
-        }
         dismissOverlays()
 
         // Focus is returned to the previous app by dismissOverlays() above.
@@ -1749,8 +1759,7 @@ extension AppDelegate: OverlayWindowControllerDelegate {
         let shouldShowWindow = UserDefaults.standard.bool(forKey: "ocrShowWindow")
 
         if shouldCopy && !text.isEmpty {
-            NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(text, forType: .string)
+            PasteboardWriter.writeString(text)
         }
 
         if shouldShowWindow {
@@ -2155,7 +2164,6 @@ extension AppDelegate: OverlayWindowControllerDelegate {
         webcamOverlay?.close()
         webcamOverlay = nil
         recordingEngine = nil
-        recordingOverlayController = nil
         recordingScreenRect = .zero
         recordingScreen = nil
         exitRecordingMenuBarMode()
@@ -2164,20 +2172,9 @@ extension AppDelegate: OverlayWindowControllerDelegate {
     func overlayDidRequestScrollCapture(_ controller: OverlayWindowController, rect: NSRect, screen: NSScreen) {
         if !AXIsProcessTrusted() {
             dismissOverlays()
-            let opts = [kAXTrustedCheckOptionPrompt.takeUnretainedValue(): true] as CFDictionary
-            AXIsProcessTrustedWithOptions(opts)
-            let alert = NSAlert()
-            alert.messageText = L("Accessibility Access Required")
-            alert.informativeText = L("macshot needs Accessibility permission for scroll capture. Please grant access in System Settings, then try again.")
-            alert.alertStyle = .warning
-            alert.addButton(withTitle: L("Open Settings"))
-            alert.addButton(withTitle: L("Cancel"))
-            let response = alert.runModal()
-            if response == .alertFirstButtonReturn {
-                if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
-                    NSWorkspace.shared.open(url)
-                }
-            }
+            SystemPermissionPrompter.requestAccessibilityPermission(
+                message: L("macshot needs Accessibility permission for scroll capture. Please grant access in System Settings, then try again.")
+            )
             return
         }
 
@@ -2229,37 +2226,16 @@ extension AppDelegate: OverlayWindowControllerDelegate {
 
     func overlayDidRequestAccessibilityPermission(_ controller: OverlayWindowController) {
         dismissOverlays()
-        let opts = [kAXTrustedCheckOptionPrompt.takeUnretainedValue(): true] as CFDictionary
-        AXIsProcessTrustedWithOptions(opts)
-        let alert = NSAlert()
-        alert.messageText = L("Accessibility Access Required")
-        alert.informativeText = L("macshot needs Accessibility permission to show keystrokes during recording. Please grant access in System Settings, then try again.")
-        alert.alertStyle = .warning
-        alert.addButton(withTitle: L("Open Settings"))
-        alert.addButton(withTitle: L("Cancel"))
-        let response = alert.runModal()
-        if response == .alertFirstButtonReturn {
-            if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
-                NSWorkspace.shared.open(url)
-            }
-        }
+        SystemPermissionPrompter.requestAccessibilityPermission(
+            message: L("macshot needs Accessibility permission to show keystrokes during recording. Please grant access in System Settings, then try again.")
+        )
     }
 
     func overlayDidRequestInputMonitoringPermission(_ controller: OverlayWindowController) {
         dismissOverlays()
-        KeystrokeOverlay.requestInputMonitoringPermission()
-        let alert = NSAlert()
-        alert.messageText = L("Input Monitoring Required")
-        alert.informativeText = L("macshot needs Input Monitoring permission to show keystrokes during recording. Please grant access in System Settings, then try again.")
-        alert.alertStyle = .warning
-        alert.addButton(withTitle: L("Open Settings"))
-        alert.addButton(withTitle: L("Cancel"))
-        let response = alert.runModal()
-        if response == .alertFirstButtonReturn {
-            if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent") {
-                NSWorkspace.shared.open(url)
-            }
-        }
+        SystemPermissionPrompter.requestInputMonitoringPermission(
+            message: L("macshot needs Input Monitoring permission to show keystrokes during recording. Please grant access in System Settings, then try again.")
+        )
     }
 
     func overlayDidRequestToggleAutoScroll(_ controller: OverlayWindowController) {
@@ -2277,20 +2253,9 @@ extension AppDelegate: OverlayWindowControllerDelegate {
                 scrollCaptureOverlayController = nil
                 dismissOverlays()
 
-                let opts = [kAXTrustedCheckOptionPrompt.takeUnretainedValue(): true] as CFDictionary
-                AXIsProcessTrustedWithOptions(opts)
-                let alert = NSAlert()
-                alert.messageText = L("Accessibility Access Required")
-                alert.informativeText = L("macshot needs Accessibility permission to auto-scroll other apps. Please grant access in System Settings, then try again.")
-                alert.alertStyle = .warning
-                alert.addButton(withTitle: L("Open Settings"))
-                alert.addButton(withTitle: L("Cancel"))
-                let response = alert.runModal()
-                if response == .alertFirstButtonReturn {
-                    if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
-                        NSWorkspace.shared.open(url)
-                    }
-                }
+                SystemPermissionPrompter.requestAccessibilityPermission(
+                    message: L("macshot needs Accessibility permission to auto-scroll other apps. Please grant access in System Settings, then try again.")
+                )
                 return
             }
         }

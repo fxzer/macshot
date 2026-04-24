@@ -105,7 +105,7 @@ jobs:
       # ── 5. Sign the .app with Developer ID ────────────────────────────────
       - name: Sign app
         run: |
-          APP="build/Build/Products/Release/macshot.app"
+          APP="build/Build/Products/Release/MacShot.app"
 
           # Sparkle's XPC services (Installer.xpc, Downloader.xpc) must NOT be sandboxed.
           # They ship with empty entitlements so they can write to /Applications to replace
@@ -183,7 +183,7 @@ jobs:
         run: |
           hdiutil create \
             -volname "macshot" \
-            -srcfolder "build/Build/Products/Release/macshot.app" \
+            -srcfolder "build/Build/Products/Release/MacShot.app" \
             -ov -format UDZO \
             MacShot.dmg
 
