@@ -168,6 +168,11 @@ extension OverlayView {
             PopoverHelper.dismiss()
             self?.pickCustomBeautifyBackground()
         }
+        picker.onRemoveCustomImage = { [weak self] in
+            guard let self = self else { return }
+            self.removeCustomBeautifyBackgroundSelection()
+            PopoverHelper.dismiss()
+        }
         if let anchor = anchorView {
             PopoverHelper.show(
                 picker, size: picker.preferredSize, relativeTo: anchor.bounds, of: anchor,
@@ -215,6 +220,18 @@ extension OverlayView {
               let image = NSImage(data: data) else { return }
         customBeautifyBackground = image
         prepareBeautifyBackgroundCache()
+    }
+
+    func removeCustomBeautifyBackgroundSelection() {
+        let fallbackIndex = max(0, BeautifyRenderer.styles.count - 1)
+        UserDefaults.standard.removeObject(forKey: "beautifyCustomBgImageData")
+        customBeautifyBackground = nil
+        beautifyStyleIndex = fallbackIndex
+        UserDefaults.standard.set(fallbackIndex, forKey: "beautifyStyleIndex")
+        cachedCompositedImage = nil
+        needsDisplay = true
+        updateBeautifySwatch(styleIndex: fallbackIndex)
+        rebuildToolbarLayout()
     }
 
     func showEmojiPopover(anchorView: NSView? = nil, anchorRect: NSRect = .zero) {
@@ -733,6 +750,11 @@ private final class BeautifyPopoverView: NSView {
         picker.onCustomImage = { [unowned self] in
             self.pickCustomImage()
         }
+        picker.onRemoveCustomImage = { [unowned self] in
+            guard let ov = self.overlayView else { return }
+            ov.removeCustomBeautifyBackgroundSelection()
+            self.buildUI()
+        }
         picker.frame.origin = NSPoint(x: 14, y: currentY)
         addSubview(picker)
         currentY += picker.frame.height + 12
@@ -815,6 +837,7 @@ private class InlineGradientPickerView: NSView {
     var selectedIndex: Int = 0
     var onSelect: ((Int) -> Void)?
     var onCustomImage: (() -> Void)?
+    var onRemoveCustomImage: (() -> Void)?
 
     private let styles = BeautifyRenderer.styles
     private let cols = 8  // 改为8列
@@ -840,6 +863,15 @@ private class InlineGradientPickerView: NSView {
     required init?(coder: NSCoder) { fatalError() }
 
     override var isFlipped: Bool { true }
+    override var acceptsFirstResponder: Bool { true }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.window?.makeFirstResponder(self)
+        }
+    }
 
     private func rectForIndex(_ i: Int) -> NSRect {
         let col = i % cols
@@ -915,6 +947,7 @@ private class InlineGradientPickerView: NSView {
     }
 
     override func mouseDown(with event: NSEvent) {
+        window?.makeFirstResponder(self)
         let point = convert(event.locationInWindow, from: nil)
         let hasCustom = hasCustomImage
         let total = BeautifyRenderer.styles.count + (hasCustom ? 1 : 0) + 1
@@ -938,6 +971,61 @@ private class InlineGradientPickerView: NSView {
                 return
             }
         }
+    }
+
+    override func keyDown(with event: NSEvent) {
+        let isDeleteKey = event.keyCode == 51 || event.keyCode == 117
+        if isDeleteKey, selectedIndex == -1, hasCustomImage {
+            onRemoveCustomImage?()
+            return
+        }
+        if moveSelection(with: event.keyCode) {
+            return
+        }
+        super.keyDown(with: event)
+    }
+
+    @discardableResult
+    private func moveSelection(with keyCode: UInt16) -> Bool {
+        let selectableCount = styles.count + (hasCustomImage ? 1 : 0)
+        guard selectableCount > 0 else { return false }
+
+        let currentSlot = selectedIndex == -1 ? styles.count : max(0, min(selectedIndex, styles.count - 1))
+        let targetSlot: Int?
+
+        switch keyCode {
+        case 123: // left
+            targetSlot = currentSlot > 0 ? currentSlot - 1 : nil
+        case 124: // right
+            targetSlot = currentSlot < selectableCount - 1 ? currentSlot + 1 : nil
+        case 125: // down
+            targetSlot = verticalMove(from: currentSlot, offset: 1, count: selectableCount)
+        case 126: // up
+            targetSlot = verticalMove(from: currentSlot, offset: -1, count: selectableCount)
+        default:
+            targetSlot = nil
+        }
+
+        guard let slot = targetSlot else { return false }
+        let newIndex = hasCustomImage && slot == styles.count ? -1 : slot
+        selectedIndex = newIndex
+        onSelect?(newIndex)
+        needsDisplay = true
+        return true
+    }
+
+    private func verticalMove(from currentSlot: Int, offset: Int, count: Int) -> Int? {
+        let currentRow = currentSlot / cols
+        let currentCol = currentSlot % cols
+        let targetRow = currentRow + offset
+        let totalRows = Int(ceil(Double(count) / Double(cols)))
+        guard targetRow >= 0, targetRow < totalRows else { return nil }
+
+        let rowStart = targetRow * cols
+        let rowCount = min(cols, count - rowStart)
+        guard rowCount > 0 else { return nil }
+        let targetCol = min(currentCol, rowCount - 1)
+        return rowStart + targetCol
     }
 
     private func customBackgroundThumbnail() -> NSImage? {

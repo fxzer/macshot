@@ -8,6 +8,8 @@ class GradientPickerView: NSView {
     var onSelect: ((Int) -> Void)?
     /// Called when the user clicks the custom image swatch — caller shows file picker.
     var onCustomImage: (() -> Void)?
+    /// Called when the user removes the stored custom image via keyboard.
+    var onRemoveCustomImage: (() -> Void)?
 
     private let styles = BeautifyRenderer.styles
     private let cols = 6
@@ -31,6 +33,15 @@ class GradientPickerView: NSView {
     required init?(coder: NSCoder) { fatalError() }
 
     var preferredSize: NSSize { frame.size }
+    override var acceptsFirstResponder: Bool { true }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.window?.makeFirstResponder(self)
+        }
+    }
 
     private func rectForIndex(_ i: Int) -> NSRect {
         let col = i % cols
@@ -105,6 +116,7 @@ class GradientPickerView: NSView {
     }
 
     override func mouseDown(with event: NSEvent) {
+        window?.makeFirstResponder(self)
         let pt = convert(event.locationInWindow, from: nil)
         var idx = 0
 
@@ -137,6 +149,61 @@ class GradientPickerView: NSView {
         if pr.insetBy(dx: -2, dy: -2).contains(pt) {
             onCustomImage?()
         }
+    }
+
+    override func keyDown(with event: NSEvent) {
+        let isDeleteKey = event.keyCode == 51 || event.keyCode == 117
+        if isDeleteKey, selectedIndex == -1, hasCustomImage {
+            onRemoveCustomImage?()
+            return
+        }
+        if moveSelection(with: event.keyCode) {
+            return
+        }
+        super.keyDown(with: event)
+    }
+
+    @discardableResult
+    private func moveSelection(with keyCode: UInt16) -> Bool {
+        let selectableCount = styles.count + (hasCustomImage ? 1 : 0)
+        guard selectableCount > 0 else { return false }
+
+        let currentSlot = selectedIndex == -1 ? styles.count : max(0, min(selectedIndex, styles.count - 1))
+        let targetSlot: Int?
+
+        switch keyCode {
+        case 123: // left
+            targetSlot = currentSlot > 0 ? currentSlot - 1 : nil
+        case 124: // right
+            targetSlot = currentSlot < selectableCount - 1 ? currentSlot + 1 : nil
+        case 125: // down
+            targetSlot = verticalMove(from: currentSlot, offset: 1, count: selectableCount)
+        case 126: // up
+            targetSlot = verticalMove(from: currentSlot, offset: -1, count: selectableCount)
+        default:
+            targetSlot = nil
+        }
+
+        guard let slot = targetSlot else { return false }
+        let newIndex = hasCustomImage && slot == styles.count ? -1 : slot
+        selectedIndex = newIndex
+        onSelect?(newIndex)
+        needsDisplay = true
+        return true
+    }
+
+    private func verticalMove(from currentSlot: Int, offset: Int, count: Int) -> Int? {
+        let currentRow = currentSlot / cols
+        let currentCol = currentSlot % cols
+        let targetRow = currentRow + offset
+        let totalRows = Int(ceil(Double(count) / Double(cols)))
+        guard targetRow >= 0, targetRow < totalRows else { return nil }
+
+        let rowStart = targetRow * cols
+        let rowCount = min(cols, count - rowStart)
+        guard rowCount > 0 else { return nil }
+        let targetCol = min(currentCol, rowCount - 1)
+        return rowStart + targetCol
     }
 
     private func customBackgroundThumbnail() -> NSImage? {
