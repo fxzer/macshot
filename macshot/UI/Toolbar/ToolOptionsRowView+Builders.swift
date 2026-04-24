@@ -7,6 +7,41 @@
 
 import Cocoa
 
+private final class ToolOptionToggleView: NSStackView {
+    private let button: NSButton
+    private let label: NSTextField
+    private let handler: ToggleHandler
+
+    init(title: String, isOn: Bool, action: @escaping (Bool) -> Void) {
+        self.button = NSButton(checkboxWithTitle: "", target: nil, action: nil)
+        self.label = NSTextField(labelWithString: title)
+        self.handler = ToggleHandler(action: action)
+        super.init(frame: .zero)
+
+        orientation = .horizontal
+        alignment = .centerY
+        spacing = 4
+
+        button.state = isOn ? .on : .off
+        button.target = handler
+        button.action = #selector(ToggleHandler.toggled(_:))
+        objc_setAssociatedObject(button, "handler", handler, .OBJC_ASSOCIATION_RETAIN)
+        addArrangedSubview(button)
+
+        label.font = NSFont.systemFont(ofSize: 9.5, weight: .medium)
+        label.textColor = ToolbarLayout.iconColor.withAlphaComponent(0.4)
+        label.addGestureRecognizer(NSClickGestureRecognizer(target: self, action: #selector(labelClicked)))
+        addArrangedSubview(label)
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+
+    @objc private func labelClicked() {
+        button.state = button.state == .on ? .off : .on
+        handler.toggled(button)
+    }
+}
+
 extension ToolOptionsRowView {
 
     // MARK: - Section builders
@@ -382,23 +417,7 @@ extension ToolOptionsRowView {
     }
 
     func addToggle(to stack: NSStackView, title: String, isOn: Bool, action: @escaping (Bool) -> Void) {
-        let btn = NSButton(checkboxWithTitle: title, target: nil, action: nil)
-        btn.state = isOn ? .on : .off
-        btn.font = NSFont.systemFont(ofSize: 10, weight: .medium)
-        btn.contentTintColor = ToolbarLayout.iconColor.withAlphaComponent(0.7)
-        if let cell = btn.cell as? NSButtonCell {
-            let attrTitle = NSAttributedString(string: title, attributes: [
-                .foregroundColor: ToolbarLayout.iconColor.withAlphaComponent(0.7),
-                .font: NSFont.systemFont(ofSize: 10, weight: .medium)
-            ])
-            cell.attributedTitle = attrTitle
-        }
-        btn.sizeToFit()
-        let handler = ToggleHandler(action: action)
-        btn.target = handler
-        btn.action = #selector(ToggleHandler.toggled(_:))
-        objc_setAssociatedObject(btn, "handler", handler, .OBJC_ASSOCIATION_RETAIN)
-        stack.addArrangedSubview(btn)
+        stack.addArrangedSubview(ToolOptionToggleView(title: title, isOn: isOn, action: action))
     }
 
     func addNumberOptions(to stack: NSStackView, ov: OverlayView) {
