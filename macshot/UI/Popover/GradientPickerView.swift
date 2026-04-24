@@ -11,7 +11,7 @@ class GradientPickerView: NSView {
     /// Called when the user removes the stored custom image via keyboard.
     var onRemoveCustomImage: (() -> Void)?
 
-    private let styles = BeautifyRenderer.styles
+    private let styles = beautifyStyles
     private let cols = 6
     private let swSize: CGFloat = 28
     private let padding: CGFloat = 8
@@ -23,7 +23,7 @@ class GradientPickerView: NSView {
     init(selectedIndex: Int) {
         self.selectedIndex = selectedIndex
         let hasCustom = UserDefaults.standard.data(forKey: "beautifyCustomBgImageData") != nil
-        let total = BeautifyRenderer.styles.count + (hasCustom ? 1 : 0) + 1
+        let total = beautifyStyles.count + (hasCustom ? 1 : 0) + 1
         let rows = (total + 5) / 6
         let w = 8 * 2 + CGFloat(6) * 28 + CGFloat(5) * 4
         let h = 8 * 2 + CGFloat(rows) * 28 + CGFloat(max(0, rows - 1)) * 4

@@ -223,7 +223,7 @@ extension OverlayView {
     }
 
     func removeCustomBeautifyBackgroundSelection() {
-        let fallbackIndex = max(0, BeautifyRenderer.styles.count - 1)
+        let fallbackIndex = max(0, beautifyStyles.count - 1)
         UserDefaults.standard.removeObject(forKey: "beautifyCustomBgImageData")
         customBeautifyBackground = nil
         beautifyStyleIndex = fallbackIndex
@@ -839,7 +839,7 @@ private class InlineGradientPickerView: NSView {
     var onCustomImage: (() -> Void)?
     var onRemoveCustomImage: (() -> Void)?
 
-    private let styles = BeautifyRenderer.styles
+    private let styles = beautifyStyles
     private let cols = 8  // 改为8列
     private let swSize: CGFloat = 28
     /// 仅上下内边距；水平不设 padding，总宽与 `BeautifyPopoverView` 内分段控件一致（x:14、宽 `contentWidth - 28` = 252），避免相对 280 内容区右缘裁切
@@ -853,7 +853,7 @@ private class InlineGradientPickerView: NSView {
     init(selectedIndex: Int) {
         self.selectedIndex = selectedIndex
         let hasCustom = UserDefaults.standard.data(forKey: "beautifyCustomBgImageData") != nil
-        let total = BeautifyRenderer.styles.count + (hasCustom ? 1 : 0) + 1
+        let total = beautifyStyles.count + (hasCustom ? 1 : 0) + 1
         let rows = (total + 7) / 8  // 8列
         let w = CGFloat(cols) * swSize + CGFloat(cols - 1) * gap
         let h = paddingV * 2 + CGFloat(rows) * swSize + CGFloat(max(0, rows - 1)) * gap
@@ -950,11 +950,11 @@ private class InlineGradientPickerView: NSView {
         window?.makeFirstResponder(self)
         let point = convert(event.locationInWindow, from: nil)
         let hasCustom = hasCustomImage
-        let total = BeautifyRenderer.styles.count + (hasCustom ? 1 : 0) + 1
+        let total = beautifyStyles.count + (hasCustom ? 1 : 0) + 1
 
         for i in 0..<total {
             if rectForIndex(i).contains(point) {
-                let styleCount = BeautifyRenderer.styles.count
+                let styleCount = beautifyStyles.count
                 if i == styleCount && hasCustom {
                     // Clicked custom image swatch
                     selectedIndex = -1

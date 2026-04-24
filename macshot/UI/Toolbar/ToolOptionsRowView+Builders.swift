@@ -592,13 +592,13 @@ extension ToolOptionsRowView {
         let styleBtn = NSPopUpButton(frame: .zero, pullsDown: false)
         styleBtn.target = self
         styleBtn.action = #selector(beautifyGradientClicked(_:))
-        for (index, style) in BeautifyRenderer.styles.enumerated() {
+        for (index, style) in beautifyStyles.enumerated() {
             let item = NSMenuItem(title: "Style \(index)", action: nil, keyEquivalent: "")
             item.image = Self.beautifyStyleImage(style)
             styleBtn.menu?.addItem(item)
         }
         let currentStyleIndex = UserDefaults.standard.integer(forKey: "beautifyStyleIndex")
-        styleBtn.selectItem(at: max(0, min(currentStyleIndex, BeautifyRenderer.styles.count - 1)))
+        styleBtn.selectItem(at: max(0, min(currentStyleIndex, beautifyStyles.count - 1)))
         styleBtn.sizeToFit()
         styleBtn.frame = NSRect(x: curX, y: (rowHeight - styleBtn.frame.height) / 2, width: styleBtn.frame.width, height: styleBtn.frame.height)
         addSubview(styleBtn)
@@ -1535,7 +1535,7 @@ extension ToolOptionsRowView {
             return NSImage(size: NSSize(width: size, height: size))
         }
 
-        let styles = BeautifyRenderer.styles
+        let styles = beautifyStyles
         guard styleIndex >= 0, styleIndex < styles.count else {
             return NSImage(size: NSSize(width: size, height: size))
         }

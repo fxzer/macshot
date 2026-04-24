@@ -600,7 +600,7 @@ class OverlayView: NSView {
     func prepareBeautifyBackgroundCache() {
         guard let bg = customBeautifyBackground else { return }
         var cfg = BeautifyConfig(customBackgroundImage: bg, backgroundBlur: beautifyBackgroundBlur)
-        cfg.prepareBackgroundCache()
+        cfg.prepareBackgroundCache(blurFunction: BeautifyRenderer.applyGaussianBlur)
         cachedBeautifyBgCGImage = cfg.cachedBackgroundCGImage
     }
 
@@ -6528,7 +6528,7 @@ class OverlayView: NSView {
             let btn = rightStripView?.buttonViews.first { if case .beautify = $0.action { return true } else { return false } }
             showBeautifyPopover(anchorView: btn)
         case .beautifyStyle:
-            beautifyStyleIndex = (beautifyStyleIndex + 1) % BeautifyRenderer.styles.count
+            beautifyStyleIndex = (beautifyStyleIndex + 1) % beautifyStyles.count
             UserDefaults.standard.set(beautifyStyleIndex, forKey: "beautifyStyleIndex")
             needsDisplay = true
         case .delayCapture:
