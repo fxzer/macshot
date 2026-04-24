@@ -15,9 +15,14 @@ class UploadToastController {
     private let toastWidth: CGFloat = 380
     private let cornerRadius: CGFloat = 14
 
+    private func screenWithMouse() -> NSScreen? {
+        let mouseLocation = NSEvent.mouseLocation
+        return NSScreen.screens.first { $0.frame.contains(mouseLocation) }
+    }
+
     func show(status: String) {
         currentOpenURL = nil
-        let screen = NSScreen.main ?? NSScreen.screens[0]
+        let screen = screenWithMouse() ?? NSScreen.main ?? NSScreen.screens[0]
         let screenFrame = screen.frame
         let visibleFrame = screen.visibleFrame
         let toastHeight: CGFloat = 56
@@ -201,7 +206,7 @@ class UploadToastController {
         let toastHeight = max(56, ceil(textSize.height) + 28)
 
         // Resize and reposition
-        let screen = NSScreen.main ?? NSScreen.screens[0]
+        let screen = screenWithMouse() ?? NSScreen.main ?? NSScreen.screens[0]
         let visibleFrame = screen.visibleFrame
         let topPadding: CGFloat = 12
         let x = screen.frame.midX - toastWidth / 2
@@ -253,7 +258,7 @@ class UploadToastController {
     }
 
     private func resizeToast(window: NSPanel, contentView: NSView, height: CGFloat) {
-        let screen = NSScreen.main ?? NSScreen.screens[0]
+        let screen = screenWithMouse() ?? NSScreen.main ?? NSScreen.screens[0]
         let visibleFrame = screen.visibleFrame
         let x = screen.frame.midX - toastWidth / 2
         let y = visibleFrame.maxY - height - 12
@@ -340,7 +345,7 @@ class UploadToastController {
     private func animateOut() {
         guard let window = window else { return }
         let frame = window.frame
-        let screen = NSScreen.main ?? NSScreen.screens[0]
+        let screen = screenWithMouse() ?? NSScreen.main ?? NSScreen.screens[0]
         let offscreenY = screen.visibleFrame.maxY + 10
 
         NSAnimationContext.runAnimationGroup({ ctx in
