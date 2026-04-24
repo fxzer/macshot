@@ -100,6 +100,8 @@ class HotkeyRecordingModel: ObservableObject {
     @Published var displayStrings: [HotkeyManager.HotkeySlot: String] = [:]
 
     private var localMonitor: Any?
+    private var mouseMonitor: Any?
+    private var mouseDownPosition: NSPoint?
     var onHotkeyChanged: (() -> Void)?
 
     init() {
@@ -142,6 +144,67 @@ class HotkeyRecordingModel: ObservableObject {
             self.assignShortcut(slot: slot, keyCode: keyCode, modifiers: carbonMods)
             return nil
         }
+
+        // Track mouse down position to detect drags vs clicks
+        mouseMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseUp, .leftMouseDown]) { [weak self] event in
+            guard let self = self else { return event }
+
+            if event.type == .leftMouseDown {
+                // Record mouse down position
+                self.mouseDownPosition = event.locationInWindow
+                return event
+            }
+
+            if event.type == .leftMouseUp {
+                // Check if this was a click (not a drag) and if click is outside recording fields
+                guard let downPos = self.mouseDownPosition,
+                      let window = event.window,
+                      let contentView = window.contentView else {
+                    self.mouseDownPosition = nil
+                    return event
+                }
+
+                let upPos = event.locationInWindow
+                let distance = sqrt(pow(downPos.x - upPos.x, 2) + pow(downPos.y - upPos.y, 2))
+
+                // Only treat as click if mouse didn't move much (not a drag)
+                if distance < 5 {
+                    if let hitView = contentView.hitTest(upPos) {
+                        // Walk up the view hierarchy to check if this click is on a button
+                        var view: NSView? = hitView
+                        var isInteractiveControl = false
+
+                        while view != nil && view != contentView {
+                            let viewName = String(describing: type(of: view))
+
+                            // Check for various SwiftUI/AppKit control types
+                            if viewName.contains("Button") ||
+                               viewName.contains("NSButton") ||
+                               viewName.contains("PopUpButton") ||
+                               viewName.contains("Slider") ||
+                               viewName.contains("TextField") ||
+                               viewName.contains("Segment") ||
+                               viewName.contains("Control") {
+                                isInteractiveControl = true
+                                break
+                            }
+
+                            view = view?.superview
+                        }
+
+                        // Only cancel if clicking on non-interactive areas
+                        if !isInteractiveControl {
+                            self.stopRecording()
+                        }
+                    }
+                }
+
+                self.mouseDownPosition = nil
+                return event
+            }
+
+            return event
+        }
     }
 
     func clearShortcut(slot: HotkeyManager.HotkeySlot) {
@@ -159,10 +222,12 @@ class HotkeyRecordingModel: ObservableObject {
     func stopRecording() {
         recordingSlot = nil
         if let m = localMonitor { NSEvent.removeMonitor(m); localMonitor = nil }
+        if let m = mouseMonitor { NSEvent.removeMonitor(m); mouseMonitor = nil }
     }
 
     deinit {
         if let m = localMonitor { NSEvent.removeMonitor(m) }
+        if let m = mouseMonitor { NSEvent.removeMonitor(m) }
     }
 
     private func assignShortcut(slot: HotkeyManager.HotkeySlot, keyCode: UInt32, modifiers: UInt32) {
@@ -193,6 +258,8 @@ class ToolShortcutRecordingModel: ObservableObject {
     @Published var displayStrings: [ToolShortcutManager.Action: String] = [:]
 
     private var localMonitor: Any?
+    private var mouseMonitor: Any?
+    private var mouseDownPosition: NSPoint?
 
     init() {
         refreshAll()
@@ -232,6 +299,67 @@ class ToolShortcutRecordingModel: ObservableObject {
             self.assignShortcut(action: action, key: char)
             return nil
         }
+
+        // Track mouse down position to detect drags vs clicks
+        mouseMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseUp, .leftMouseDown]) { [weak self] event in
+            guard let self = self else { return event }
+
+            if event.type == .leftMouseDown {
+                // Record mouse down position
+                self.mouseDownPosition = event.locationInWindow
+                return event
+            }
+
+            if event.type == .leftMouseUp {
+                // Check if this was a click (not a drag) and if click is outside recording fields
+                guard let downPos = self.mouseDownPosition,
+                      let window = event.window,
+                      let contentView = window.contentView else {
+                    self.mouseDownPosition = nil
+                    return event
+                }
+
+                let upPos = event.locationInWindow
+                let distance = sqrt(pow(downPos.x - upPos.x, 2) + pow(downPos.y - upPos.y, 2))
+
+                // Only treat as click if mouse didn't move much (not a drag)
+                if distance < 5 {
+                    if let hitView = contentView.hitTest(upPos) {
+                        // Walk up the view hierarchy to check if this click is on a button
+                        var view: NSView? = hitView
+                        var isInteractiveControl = false
+
+                        while view != nil && view != contentView {
+                            let viewName = String(describing: type(of: view))
+
+                            // Check for various SwiftUI/AppKit control types
+                            if viewName.contains("Button") ||
+                               viewName.contains("NSButton") ||
+                               viewName.contains("PopUpButton") ||
+                               viewName.contains("Slider") ||
+                               viewName.contains("TextField") ||
+                               viewName.contains("Segment") ||
+                               viewName.contains("Control") {
+                                isInteractiveControl = true
+                                break
+                            }
+
+                            view = view?.superview
+                        }
+
+                        // Only cancel if clicking on non-interactive areas
+                        if !isInteractiveControl {
+                            self.stopRecording()
+                        }
+                    }
+                }
+
+                self.mouseDownPosition = nil
+                return event
+            }
+
+            return event
+        }
     }
 
     func clearShortcut(action: ToolShortcutManager.Action) {
@@ -248,10 +376,12 @@ class ToolShortcutRecordingModel: ObservableObject {
     func stopRecording() {
         recordingAction = nil
         if let m = localMonitor { NSEvent.removeMonitor(m); localMonitor = nil }
+        if let m = mouseMonitor { NSEvent.removeMonitor(m); mouseMonitor = nil }
     }
 
     deinit {
         if let m = localMonitor { NSEvent.removeMonitor(m) }
+        if let m = mouseMonitor { NSEvent.removeMonitor(m) }
     }
 
     private func assignShortcut(action: ToolShortcutManager.Action, key: String) {
