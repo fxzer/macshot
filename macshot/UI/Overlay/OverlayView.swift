@@ -714,9 +714,32 @@ class OverlayView: NSView {
 
     // Tool options row (second row below bottom bar)
     var currentMeasureInPoints: Bool = UserDefaults.standard.bool(forKey: "measureInPoints")
-    var currentLineStyle: LineStyle =
-        LineStyle(rawValue: UserDefaults.standard.integer(forKey: "currentLineStyle")) ?? .solid {
-        didSet { refreshToolCursorPreview() }
+
+    // Per-tool line style storage
+    private var lineStylePerTool: [AnnotationTool: LineStyle] = [:]
+    var currentLineStyle: LineStyle {
+        get {
+            // Return the line style for the current tool, or default to solid
+            if let style = lineStylePerTool[currentTool] {
+                return style
+            }
+            // Load from UserDefaults for backward compatibility
+            if currentTool == .line || currentTool == .pencil || currentTool == .rectangle ||
+               currentTool == .arrow || currentTool == .ellipse {
+                let saved = LineStyle(rawValue: UserDefaults.standard.integer(forKey: "currentLineStyle")) ?? .solid
+                lineStylePerTool[currentTool] = saved
+                return saved
+            }
+            return .solid
+        }
+        set {
+            lineStylePerTool[currentTool] = newValue
+            // Also save to UserDefaults for the current tool key (for backward compatibility)
+            if currentTool == .line {
+                UserDefaults.standard.set(newValue.rawValue, forKey: "currentLineStyle")
+            }
+            refreshToolCursorPreview()
+        }
     }
     var currentArrowStyle: ArrowStyle =
         ArrowStyle(rawValue: UserDefaults.standard.integer(forKey: "currentArrowStyle")) ?? .single {
@@ -6805,11 +6828,6 @@ class OverlayView: NSView {
         // Dispatch to extracted tool handler if available
         if let handler = toolHandlers[currentTool] {
             if let annotation = handler.start(at: point, canvas: self) {
-                // Apply outline color from settings for supported tools
-                let outlineTools: [AnnotationTool] = [.arrow, .line, .rectangle, .ellipse, .number]
-                if outlineTools.contains(currentTool) && UserDefaults.standard.bool(forKey: "annotationOutlineEnabled") {
-                    annotation.outlineColor = ToolOptionsRowView.savedOutlineColor
-                }
                 currentAnnotation = annotation
                 needsDisplay = true
             }
