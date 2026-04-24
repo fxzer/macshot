@@ -17,6 +17,7 @@ final class RectangleToolHandler: AnnotationToolHandler {
         annotation.rectCornerRadius = canvas.currentRectCornerRadius
         annotation.rectFillStyle = canvas.currentRectFillStyle
         annotation.lineStyle = canvas.currentLineStyle
+        applyDefaultOutlineIfNeeded(to: annotation, canvas: canvas)
         return annotation
     }
 

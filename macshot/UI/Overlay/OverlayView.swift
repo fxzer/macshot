@@ -605,10 +605,9 @@ class OverlayView: NSView {
     }
 
     var beautifyConfig: BeautifyConfig {
-        // Lazy-load custom background from UserDefaults if needed
+        // Lazy-load custom background from persistent storage if needed
         if beautifyStyleIndex == -1 && customBeautifyBackground == nil {
-            if let data = UserDefaults.standard.data(forKey: "beautifyCustomBgImageData"),
-               let img = NSImage(data: data) {
+            if let img = BeautifyBackgroundStore.loadImage() {
                 customBeautifyBackground = img
                 prepareBeautifyBackgroundCache()
             }
@@ -627,15 +626,46 @@ class OverlayView: NSView {
         )
     }
 
+    private static func beautifyShadowBleed(for config: BeautifyConfig) -> CGFloat {
+        let shadowOffset = min(config.shadowRadius * 0.4, 10)
+        return config.shadowRadius + shadowOffset
+    }
+
+    static func editorLogicalSize(
+        for imageSize: NSSize,
+        beautifyEnabled: Bool,
+        config: BeautifyConfig,
+        isWindowSnap: Bool
+    ) -> NSSize {
+        guard beautifyEnabled else { return imageSize }
+
+        let inset = config.padding + beautifyShadowBleed(for: config)
+        let titleBarH: CGFloat = (config.mode == .window && !isWindowSnap) ? 28 : 0
+        return NSSize(
+            width: imageSize.width + inset * 2,
+            height: imageSize.height + inset * 2 + titleBarH
+        )
+    }
+
+    static func editorBeautifyOffset(
+        beautifyEnabled: Bool,
+        config: BeautifyConfig
+    ) -> NSPoint {
+        guard beautifyEnabled else { return .zero }
+        let inset = config.padding + beautifyShadowBleed(for: config)
+        return NSPoint(x: inset, y: inset)
+    }
+
     var logicalSize: NSSize {
         guard let image = screenshotImage else { return .zero }
         let imgSize = image.size
         if isEditorMode && beautifyEnabled {
-            let config = beautifyConfig
-            let pad = config.padding
-            let titleBarH: CGFloat = (config.mode == .window && !selectionIsWindowSnap) ? 28 : 0
-
-            return NSSize(width: imgSize.width + pad * 2, height: imgSize.height + pad * 2 + titleBarH)
+            return Self.editorLogicalSize(
+                for: imgSize,
+                beautifyEnabled: true,
+                config: beautifyConfig,
+                isWindowSnap: selectionIsWindowSnap
+            )
         }
         return imgSize
     }
@@ -650,8 +680,10 @@ class OverlayView: NSView {
         let targetSize = logicalSize
 
         if beautifyEnabled {
-            let config = beautifyConfig
-            beautifyEditorOffset = NSPoint(x: config.padding, y: config.padding)
+            beautifyEditorOffset = Self.editorBeautifyOffset(
+                beautifyEnabled: true,
+                config: beautifyConfig
+            )
         } else {
             beautifyEditorOffset = .zero
         }
@@ -750,6 +782,14 @@ class OverlayView: NSView {
     var arrowReversed: Bool =
         UserDefaults.standard.bool(forKey: "arrowReversed") {
         didSet { refreshToolCursorPreview() }
+    }
+    var defaultAnnotationOutlineColor: NSColor? {
+        guard UserDefaults.standard.bool(forKey: "annotationOutlineEnabled") else { return nil }
+        if let data = UserDefaults.standard.data(forKey: "annotationOutlineColor"),
+           let color = try? NSKeyedUnarchiver.unarchivedObject(ofClass: NSColor.self, from: data) {
+            return color
+        }
+        return .white
     }
     var currentRectFillStyle: RectFillStyle =
         RectFillStyle(rawValue: UserDefaults.standard.integer(forKey: "currentRectFillStyle"))

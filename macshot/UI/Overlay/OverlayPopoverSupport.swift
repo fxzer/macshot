@@ -9,6 +9,24 @@ enum OverlayPopoverPalette {
     static let labelFont = NSFont.systemFont(ofSize: 11, weight: .medium)
 }
 
+let recordingFPSOptions = [15, 24, 30, 60, 120]
+
+func normalizedRecordingFPS(_ fps: Int?, fallback: Int = 30) -> Int {
+    guard let fps, recordingFPSOptions.contains(fps) else { return fallback }
+    return fps
+}
+
+func recordingFPSTitle(_ fps: Int) -> String {
+    switch fps {
+    case 15: return L("15 fps")
+    case 24: return L("24 fps")
+    case 30: return L("30 fps")
+    case 60: return L("60 fps")
+    case 120: return L("120 fps")
+    default: return "\(fps) fps"
+    }
+}
+
 typealias OverlayRedactionAction = (
     _ screenshot: NSImage,
     _ selectionRect: NSRect,
@@ -113,11 +131,6 @@ func makeOverlayCheckbox(_ title: String, isOn: Bool, onChange: @escaping (Bool)
     return control
 }
 
-func overlayPNGData(for image: NSImage) -> Data? {
-    guard let tiff = image.tiffRepresentation, let bitmap = NSBitmapImageRep(data: tiff) else { return nil }
-    return bitmap.representation(using: .png, properties: [:])
-}
-
 extension OverlayView {
     struct OverlayRedactionContext {
         let screenshot: NSImage
@@ -143,8 +156,7 @@ extension OverlayView {
 
     var effectiveRecordingFPS: Int {
         if let sessionRecordingFPS { return sessionRecordingFPS }
-        let saved = UserDefaults.standard.integer(forKey: "recordingFPS")
-        return saved > 0 ? saved : 30
+        return normalizedRecordingFPS(UserDefaults.standard.integer(forKey: "recordingFPS"))
     }
 
     var effectiveRecordingDelay: Int {
@@ -210,6 +222,9 @@ extension OverlayView {
 
     func refreshBeautifyRendering() {
         cachedCompositedImage = nil
+        if isEditorMode {
+            updateEditorFrameForBeautify()
+        }
         rebuildToolbarLayout()
         needsDisplay = true
     }
@@ -226,9 +241,7 @@ extension OverlayView {
     }
 
     func applyCustomBeautifyBackground(_ image: NSImage) {
-        if let data = overlayPNGData(for: image) {
-            UserDefaults.standard.set(data, forKey: "beautifyCustomBgImageData")
-        }
+        _ = BeautifyBackgroundStore.saveImage(image)
         customBeautifyBackground = image
         prepareBeautifyBackgroundCache()
         beautifyStyleIndex = -1

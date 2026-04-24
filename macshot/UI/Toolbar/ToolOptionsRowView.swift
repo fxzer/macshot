@@ -208,10 +208,9 @@ class ToolOptionsRowView: NSView {
                     self?.ensureSnapshot()
                     ann.arrowReversed = isOn
                     ov?.cachedCompositedImage = nil
-                } else {
-                    ov?.arrowReversed = isOn
-                    UserDefaults.standard.set(isOn, forKey: "arrowReversed")
                 }
+                ov?.arrowReversed = isOn
+                UserDefaults.standard.set(isOn, forKey: "arrowReversed")
                 ov?.needsDisplay = true
             }
         }

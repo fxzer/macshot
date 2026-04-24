@@ -41,11 +41,9 @@ struct RecordingSettingsView: View {
             // MARK: - Recording Settings
             Section {
                 Picker(L("Recording frame rate"), selection: $recordingFPS) {
-                    Text(L("15 fps")).tag(15)
-                    Text(L("24 fps")).tag(24)
-                    Text(L("30 fps")).tag(30)
-                    Text(L("60 fps")).tag(60)
-                    Text(L("120 fps")).tag(120)
+                    ForEach(recordingFPSOptions, id: \.self) { fps in
+                        Text(recordingFPSTitle(fps)).tag(fps)
+                    }
                 }
                 Picker(L("Recording controls"), selection: $recordingControlsModeRaw) {
                     Text(L("Floating HUD")).tag(RecordingControlsMode.floatingHUD.rawValue)
@@ -124,7 +122,7 @@ struct RecordingSettingsView: View {
     }
 
     private func normalizePickerSelections() {
-        recordingFPS = normalized(recordingFPS, allowed: [15, 24, 30, 60, 120], fallback: 30)
+        recordingFPS = normalizedRecordingFPS(recordingFPS)
         webcamPosition = normalized(
             webcamPosition,
             allowed: ["bottomRight", "bottomLeft", "topRight", "topLeft"],

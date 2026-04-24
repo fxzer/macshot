@@ -60,10 +60,7 @@ extension OverlayView {
     }
 
     func loadCustomBeautifyBackground() {
-        guard
-            let data = UserDefaults.standard.data(forKey: "beautifyCustomBgImageData"),
-            let image = NSImage(data: data)
-        else { return }
+        guard let image = BeautifyBackgroundStore.loadImage() else { return }
 
         customBeautifyBackground = image
         prepareBeautifyBackgroundCache()
@@ -71,7 +68,7 @@ extension OverlayView {
 
     func removeCustomBeautifyBackgroundSelection() {
         let fallbackIndex = max(0, beautifyStyles.count - 1)
-        UserDefaults.standard.removeObject(forKey: "beautifyCustomBgImageData")
+        BeautifyBackgroundStore.removeImage()
         customBeautifyBackground = nil
         beautifyStyleIndex = fallbackIndex
         UserDefaults.standard.set(fallbackIndex, forKey: "beautifyStyleIndex")

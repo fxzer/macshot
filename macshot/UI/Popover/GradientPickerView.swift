@@ -18,11 +18,11 @@ class GradientPickerView: NSView {
     private let gap: CGFloat = 4
     /// Whether a custom background image is stored.
     private var hasCustomImage: Bool {
-        UserDefaults.standard.data(forKey: "beautifyCustomBgImageData") != nil
+        BeautifyBackgroundStore.hasCustomBackground()
     }
     init(selectedIndex: Int) {
         self.selectedIndex = selectedIndex
-        let hasCustom = UserDefaults.standard.data(forKey: "beautifyCustomBgImageData") != nil
+        let hasCustom = BeautifyBackgroundStore.hasCustomBackground()
         let total = beautifyStyles.count + (hasCustom ? 1 : 0) + 1
         let rows = (total + 5) / 6
         let w = 8 * 2 + CGFloat(6) * 28 + CGFloat(5) * 4
@@ -207,8 +207,7 @@ class GradientPickerView: NSView {
     }
 
     private func customBackgroundThumbnail() -> NSImage? {
-        guard let data = UserDefaults.standard.data(forKey: "beautifyCustomBgImageData"),
-              let image = NSImage(data: data) else { return nil }
+        guard let image = BeautifyBackgroundStore.loadImage() else { return nil }
         return image
     }
 }

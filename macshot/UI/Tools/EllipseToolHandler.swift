@@ -16,6 +16,7 @@ final class EllipseToolHandler: AnnotationToolHandler {
         )
         annotation.rectFillStyle = canvas.currentRectFillStyle
         annotation.lineStyle = canvas.currentLineStyle
+        applyDefaultOutlineIfNeeded(to: annotation, canvas: canvas)
         return annotation
     }
 

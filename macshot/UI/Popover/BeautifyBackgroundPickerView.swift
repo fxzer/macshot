@@ -34,7 +34,7 @@ final class BeautifyBackgroundPickerView: NSView {
         self.columns = columns
         self.horizontalPadding = horizontalPadding
         self.verticalPadding = verticalPadding
-        self.hasCustomImage = UserDefaults.standard.data(forKey: "beautifyCustomBgImageData") != nil
+        self.hasCustomImage = BeautifyBackgroundStore.hasCustomBackground()
         if let icon = NSImage(systemSymbolName: "photo.badge.plus", accessibilityDescription: nil)?
             .withSymbolConfiguration(.init(pointSize: 14, weight: .medium)) {
             self.plusIcon = tintedBeautifyPickerImage(icon, color: ToolbarLayout.iconColor)
@@ -213,8 +213,7 @@ final class BeautifyBackgroundPickerView: NSView {
     private func customBackgroundThumbnail() -> NSImage? {
         if let cachedThumbnail { return cachedThumbnail }
         guard
-            let data = UserDefaults.standard.data(forKey: "beautifyCustomBgImageData"),
-            let image = NSImage(data: data)
+            let image = BeautifyBackgroundStore.loadImage()
         else { return nil }
 
         let thumbnail = NSImage(size: NSSize(width: swatchSize, height: swatchSize))

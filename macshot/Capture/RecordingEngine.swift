@@ -88,8 +88,7 @@ final class RecordingEngine: NSObject {
                                width: rect.width,
                                height: rect.height)
 
-        let defaultFPS = UserDefaults.standard.integer(forKey: "recordingFPS") > 0
-            ? UserDefaults.standard.integer(forKey: "recordingFPS") : 30
+        let defaultFPS = normalizedRecordingFPS(UserDefaults.standard.integer(forKey: "recordingFPS"))
         self.fps = fpsOverride ?? defaultFPS
         Task { [weak self] in
             guard let self = self else { return }

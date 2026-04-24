@@ -73,14 +73,18 @@ class DetachedEditorWindowController: NSObject, NSWindowDelegate {
         let chromeH = EditorTopBarView.height + insetsBottom + safeMargin * 2 + safeMarginBottom
 
         let initialBeautify = !disableBeautifyOnOpen && UserDefaults.standard.bool(forKey: "beautifyEnabled")
-        var initialLogicalSize = imgSize
-
-        if initialBeautify {
-             let pad = CGFloat(UserDefaults.standard.object(forKey: "beautifyPadding") as? Double ?? 48)
-             let modeRaw = UserDefaults.standard.integer(forKey: "beautifyMode")
-             let titleBar = modeRaw == 0 ? 28.0 : 0.0
-             initialLogicalSize = NSSize(width: imgSize.width + pad * 2, height: imgSize.height + pad * 2 + titleBar)
-        }
+        let initialBeautifyConfig = BeautifyConfig(
+            mode: BeautifyMode(rawValue: UserDefaults.standard.integer(forKey: "beautifyMode")) ?? .window,
+            padding: CGFloat(UserDefaults.standard.object(forKey: "beautifyPadding") as? Double ?? 48),
+            cornerRadius: CGFloat(UserDefaults.standard.object(forKey: "beautifyCornerRadius") as? Double ?? 10),
+            shadowRadius: CGFloat(UserDefaults.standard.object(forKey: "beautifyShadowRadius") as? Double ?? 20)
+        )
+        let initialLogicalSize = OverlayView.editorLogicalSize(
+            for: imgSize,
+            beautifyEnabled: initialBeautify,
+            config: initialBeautifyConfig,
+            isWindowSnap: false
+        )
 
         let winW = min(maxW, max(minW, initialLogicalSize.width + chromeW))
         let winH = min(maxH, max(minH, initialLogicalSize.height + chromeH))

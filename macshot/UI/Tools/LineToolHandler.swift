@@ -15,6 +15,7 @@ final class LineToolHandler: AnnotationToolHandler {
             strokeWidth: canvas.initialStrokeWidth(for: .line)
         )
         annotation.lineStyle = canvas.currentLineStyle
+        applyDefaultOutlineIfNeeded(to: annotation, canvas: canvas)
         return annotation
     }
 

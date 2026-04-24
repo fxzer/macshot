@@ -17,6 +17,7 @@ final class ArrowToolHandler: AnnotationToolHandler {
         annotation.lineStyle = canvas.currentLineStyle
         annotation.arrowStyle = canvas.currentArrowStyle
         annotation.arrowReversed = canvas.arrowReversed
+        applyDefaultOutlineIfNeeded(to: annotation, canvas: canvas)
         return annotation
     }
 

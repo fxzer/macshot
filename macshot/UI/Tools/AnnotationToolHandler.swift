@@ -11,6 +11,7 @@ protocol AnnotationCanvas: AnyObject {
     var currentLineStyle: LineStyle { get }
     var currentArrowStyle: ArrowStyle { get }
     var arrowReversed: Bool { get }
+    var defaultAnnotationOutlineColor: NSColor? { get }
     var currentRectFillStyle: RectFillStyle { get }
     var currentRectCornerRadius: CGFloat { get }
     var currentMeasureInPoints: Bool { get }
@@ -90,6 +91,11 @@ struct LoupeCalloutPreviewSnapshot {
     let sourcePoint: NSPoint
     let destinationPoint: NSPoint
     let bubbleDiameter: CGFloat
+}
+
+@MainActor
+func applyDefaultOutlineIfNeeded(to annotation: Annotation, canvas: AnnotationCanvas) {
+    annotation.outlineColor = canvas.defaultAnnotationOutlineColor
 }
 
 /// Protocol for extracted annotation tool logic.

@@ -3,14 +3,13 @@ import Cocoa
 extension OverlayView {
     func showRecordingSettingsPopover(anchorView: NSView?) {
         let form = OverlayPopoverFormView(width: 240)
-        let fpsOptions = [15, 30, 60, 120]
         form.addRow(
             L("FPS:"),
             control: makeOverlayPopup(
-                fpsOptions.map(String.init),
-                selected: fpsOptions.firstIndex { effectiveRecordingFPS <= $0 } ?? fpsOptions.count - 1
+                recordingFPSOptions.map(String.init),
+                selected: recordingFPSOptions.firstIndex(of: effectiveRecordingFPS) ?? 0
             ) { [weak self] index in
-                self?.sessionRecordingFPS = fpsOptions[index]
+                self?.sessionRecordingFPS = recordingFPSOptions[index]
             }
         )
 

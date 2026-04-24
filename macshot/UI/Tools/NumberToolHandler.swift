@@ -353,6 +353,7 @@ final class NumberToolHandler: AnnotationToolHandler {
         )
         annotation.number = canvas.numberCounter + (canvas.numberStartAt - 1)
         annotation.numberFormat = canvas.currentNumberFormat
+        applyDefaultOutlineIfNeeded(to: annotation, canvas: canvas)
         let bubbleRadius = NumberCalloutGeometry.bubbleRadius(for: annotation.strokeWidth)
         let bubbleDiameter = bubbleRadius * 2
         canvas.beginNumberedCalloutPreview(
