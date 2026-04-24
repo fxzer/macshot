@@ -384,68 +384,28 @@ extension OverlayWindowController: OverlayViewDelegate {
         guard var image = captureRegion() else { return }
         image = applyBeautifyIfNeeded(image) ?? image
 
-        guard let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
-            return
-        }
+        // Show loading state
+        overlayView?.isRemovingBackground = true
 
-        let request = VNGenerateForegroundInstanceMaskRequest()
-        let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
+        BackgroundRemovalProcessor.removeBackground(from: image) { [weak self] result in
+            guard let self = self else { return }
+            self.overlayView?.isRemovingBackground = false
+            self.overlayView?.needsDisplay = true
 
-        DispatchQueue.global(qos: .userInitiated).async {
-            do {
-                try handler.perform([request])
-                guard let result = request.results?.first else {
-                    throw NSError(domain: "Macshot", code: 1)
-                }
-
-                let maskPixelBuffer = try result.generateScaledMaskForImage(
-                    forInstances: result.allInstances, from: handler)
-
-                let originalCIImage = CIImage(cgImage: cgImage)
-                let maskCIImage = CIImage(cvPixelBuffer: maskPixelBuffer)
-
-                // Blend original with mask
-                guard let filter = CIFilter(name: "CIBlendWithMask") else {
-                    throw NSError(domain: "Macshot", code: 2)
-                }
-                filter.setValue(originalCIImage, forKey: kCIInputImageKey)
-                filter.setValue(maskCIImage, forKey: kCIInputMaskImageKey)
-                filter.setValue(
-                    CIImage(color: .clear).cropped(to: originalCIImage.extent),
-                    forKey: kCIInputBackgroundImageKey)
-
-                guard let outputCIImage = filter.outputImage else {
-                    throw NSError(domain: "Macshot", code: 3)
-                }
-
-                let context = BeautifyRenderer.sharedCIContext
-                guard
-                    let finalCGImage = context.createCGImage(
-                        outputCIImage, from: outputCIImage.extent)
-                else { throw NSError(domain: "Macshot", code: 4) }
-
-                let finalNSImage = NSImage(cgImage: finalCGImage, size: image.size)
-
-                DispatchQueue.main.async {
-                    let pinOrigin = self.selectionPinOrigin()
-                    self.dismiss()
-                    self.overlayDelegate?.overlayDidConfirm(
-                        self,
-                        capturedImage: finalNSImage,
-                        annotationData: nil,
-                        context: .standard,
-                        windowTitle: self.capturedWindowTitle,
-                        pinOrigin: pinOrigin
-                    )
-                }
-            } catch {
-                #if DEBUG
-                    print("Vision background removal error: \(error.localizedDescription)")
-                #endif
-                DispatchQueue.main.async {
-                    self.overlayView?.showOverlayError(
-                        "Background removal failed — no clear subject found.")
-                }
+            switch result {
+            case .success(let finalImage):
+                let pinOrigin = self.selectionPinOrigin()
+                self.dismiss()
+                self.overlayDelegate?.overlayDidConfirm(
+                    self,
+                    capturedImage: finalImage,
+                    annotationData: nil,
+                    context: .standard,
+                    windowTitle: self.capturedWindowTitle,
+                    pinOrigin: pinOrigin
+                )
+            case .failure(let error):
+                self.overlayView?.showOverlayError(error.localizedDescription)
             }
         }
     }

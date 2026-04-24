@@ -595,29 +595,24 @@ extension DetachedEditorWindowController: OverlayViewDelegate {
 
     @available(macOS 14.0, *)
     func overlayViewDidRequestRemoveBackground() {
-        guard let image = overlayView?.captureSelectedRegion(),
-              let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return }
-        let request = VNGenerateForegroundInstanceMaskRequest()
-        let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
-        DispatchQueue.global(qos: .userInitiated).async {
-            do {
-                try handler.perform([request])
-                guard let result = request.results?.first else { return }
-                let mask = try result.generateScaledMaskForImage(forInstances: result.allInstances, from: handler)
-                let orig = CIImage(cgImage: cgImage)
-                guard let filter = CIFilter(name: "CIBlendWithMask") else { return }
-                filter.setValue(orig, forKey: kCIInputImageKey)
-                filter.setValue(CIImage(cvPixelBuffer: mask), forKey: kCIInputMaskImageKey)
-                filter.setValue(CIImage(color: .clear).cropped(to: orig.extent), forKey: kCIInputBackgroundImageKey)
-                guard let out = filter.outputImage,
-                      let cg = BeautifyRenderer.sharedCIContext.createCGImage(out, from: out.extent) else { return }
-                DispatchQueue.main.async {
-                    let finalImage = NSImage(cgImage: cg, size: image.size)
-                    ImageEncoder.copyToClipboard(finalImage)
-                    self.playCopySound()
-                    (NSApp.delegate as? AppDelegate)?.showFloatingThumbnail(image: finalImage)
-                }
-            } catch {}
+        guard let image = overlayView?.captureSelectedRegion() else { return }
+
+        // Show loading state
+        overlayView?.isRemovingBackground = true
+
+        BackgroundRemovalProcessor.removeBackground(from: image) { [weak self] result in
+            guard let self = self else { return }
+            self.overlayView?.isRemovingBackground = false
+            self.overlayView?.needsDisplay = true
+
+            switch result {
+            case .success(let finalImage):
+                ImageEncoder.copyToClipboard(finalImage)
+                self.playCopySound()
+                (NSApp.delegate as? AppDelegate)?.showFloatingThumbnail(image: finalImage)
+            case .failure(let error):
+                self.overlayView?.showOverlayError(error.localizedDescription)
+            }
         }
     }
 

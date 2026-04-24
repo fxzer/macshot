@@ -711,6 +711,8 @@ class OverlayView: NSView {
     private var beautifyToolbarAnimProgress: CGFloat = 1.0  // 0..1, 1 = fully settled
     private var beautifyToolbarAnimTimer: Timer?
     private var beautifyToolbarAnimTarget: Bool = false  // target beautify state
+    private var backgroundRemovalSpinnerPhase: CGFloat = 0
+    private var backgroundRemovalSpinnerTimer: Timer?
 
     // Tool options row (second row below bottom bar)
     var currentMeasureInPoints: Bool = UserDefaults.standard.bool(forKey: "measureInPoints")
@@ -945,6 +947,19 @@ class OverlayView: NSView {
 
     var isTranslating: Bool = false
     var translateEnabled: Bool = false
+
+    // Background removal state
+    var isRemovingBackground: Bool = false {
+        didSet {
+            guard isRemovingBackground != oldValue else { return }
+            if isRemovingBackground {
+                startBackgroundRemovalSpinner()
+            } else {
+                stopBackgroundRemovalSpinner()
+            }
+            needsDisplay = true
+        }
+    }
 
     // Crop tool state
     private var isCropDragging: Bool = false
@@ -1345,6 +1360,9 @@ class OverlayView: NSView {
 
         beautifyToolbarAnimTimer?.invalidate()
         beautifyToolbarAnimTimer = nil
+
+        backgroundRemovalSpinnerTimer?.invalidate()
+        backgroundRemovalSpinnerTimer = nil
 
         overlayErrorTimer?.invalidate()
         overlayErrorTimer = nil
@@ -2092,6 +2110,60 @@ class OverlayView: NSView {
 
             str.draw(
                 at: NSPoint(x: msgRect.minX + padding, y: msgRect.minY + padding / 2),
+                withAttributes: attrs)
+        }
+
+        // Background removal progress indicator
+        if isRemovingBackground, (isEditorMode || isMouseOnCurrentScreen()) {
+            let message = L("Removing background…")
+            let attrs: [NSAttributedString.Key: Any] = [
+                .font: NSFont.systemFont(ofSize: 14, weight: .medium),
+                .foregroundColor: NSColor.white,
+            ]
+            let str = message as NSString
+            let strSize = str.size(withAttributes: attrs)
+            let padding: CGFloat = 16
+            let spinnerSize: CGFloat = 20
+            let spacing: CGFloat = 10
+
+            let msgW = strSize.width + padding * 2 + spinnerSize + spacing
+            let msgH = max(strSize.height + padding, spinnerSize + padding)
+            let msgX = bounds.midX - msgW / 2
+            let msgY = bounds.maxY - msgH - 40
+            let msgRect = NSRect(x: msgX, y: msgY, width: msgW, height: msgH)
+
+            // Dark semi-transparent background
+            NSColor.black.withAlphaComponent(0.75).setFill()
+            NSBezierPath(roundedRect: msgRect, xRadius: 10, yRadius: 10).fill()
+
+            // Draw spinner
+            let spinnerCenter = NSPoint(x: msgRect.minX + padding + spinnerSize / 2, y: msgRect.midY)
+            let spinnerRadius = spinnerSize / 2 - 1
+            let spinnerLineLength: CGFloat = 6
+            for i in 0..<8 {
+                let angle = backgroundRemovalSpinnerPhase - CGFloat(i) * (.pi / 4)
+                let direction = CGVector(dx: cos(angle), dy: sin(angle))
+                let innerRadius = spinnerRadius - spinnerLineLength / 2
+                let startPoint = NSPoint(
+                    x: spinnerCenter.x + direction.dx * innerRadius,
+                    y: spinnerCenter.y + direction.dy * innerRadius
+                )
+                let endPoint = NSPoint(
+                    x: spinnerCenter.x + direction.dx * (innerRadius + spinnerLineLength),
+                    y: spinnerCenter.y + direction.dy * (innerRadius + spinnerLineLength)
+                )
+                let segmentPath = NSBezierPath()
+                segmentPath.move(to: startPoint)
+                segmentPath.line(to: endPoint)
+                segmentPath.lineCapStyle = .round
+                segmentPath.lineWidth = 2.5
+                NSColor.white.withAlphaComponent(max(0.2, 1.0 - CGFloat(i) * 0.12)).setStroke()
+                segmentPath.stroke()
+            }
+
+            // Draw text
+            str.draw(
+                at: NSPoint(x: msgRect.minX + padding + spinnerSize + spacing, y: msgRect.midY - strSize.height / 2),
                 withAttributes: attrs)
         }
 
@@ -2904,6 +2976,33 @@ class OverlayView: NSView {
             }
             self.needsDisplay = true
         }
+    }
+
+    private func startBackgroundRemovalSpinner() {
+        backgroundRemovalSpinnerTimer?.invalidate()
+        backgroundRemovalSpinnerPhase = 0
+
+        let timer = Timer(timeInterval: 1.0 / 30.0, repeats: true) { [weak self] _ in
+            guard let self = self else { return }
+            guard self.isRemovingBackground else {
+                self.stopBackgroundRemovalSpinner()
+                return
+            }
+
+            self.backgroundRemovalSpinnerPhase += .pi / 8
+            if self.backgroundRemovalSpinnerPhase >= .pi * 2 {
+                self.backgroundRemovalSpinnerPhase -= .pi * 2
+            }
+            self.needsDisplay = true
+        }
+        backgroundRemovalSpinnerTimer = timer
+        RunLoop.main.add(timer, forMode: .common)
+    }
+
+    private func stopBackgroundRemovalSpinner() {
+        backgroundRemovalSpinnerTimer?.invalidate()
+        backgroundRemovalSpinnerTimer = nil
+        backgroundRemovalSpinnerPhase = 0
     }
 
     /// Sample a pixel color from the screenshot at the given canvas-space point.
