@@ -6595,10 +6595,6 @@ class OverlayView: NSView {
         }
     }
 
-    /// Push a property change undo entry. Called by ToolOptionsRowView when editing completes.
-    func updateBeautifySwatch(styleIndex: Int) {
-        toolOptionsRowView?.updateBeautifySwatch(styleIndex: styleIndex)
-    }
 
     func pushPropertyChangeUndo(annotation: Annotation, snapshot: Annotation) {
         undoStack.append(.propertyChange(annotation: annotation, snapshot: snapshot))

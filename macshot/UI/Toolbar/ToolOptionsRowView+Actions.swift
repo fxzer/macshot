@@ -9,74 +9,7 @@ import Cocoa
 
 extension ToolOptionsRowView {
 
-    // MARK: - Beautify Actions
-
-    @objc func beautifyModeChanged(_ sender: NSSegmentedControl) {
-        guard let ov = overlayView else { return }
-        ov.beautifyMode = sender.selectedSegment == 0 ? .window : .rounded
-        UserDefaults.standard.set(ov.beautifyMode.rawValue, forKey: "beautifyMode")
-        ov.needsDisplay = true
-    }
-
-    @objc func beautifyPaddingChanged(_ sender: NSSlider) {
-        guard let ov = overlayView else { return }
-        ov.beautifyPadding = CGFloat(sender.floatValue)
-        UserDefaults.standard.set(sender.doubleValue, forKey: "beautifyPadding")
-        if let label = viewWithTag(sender.tag + 100) as? NSTextField {
-            label.stringValue = "\(Int(sender.floatValue))"
-        }
-        ov.needsDisplay = true
-    }
-
-    @objc func beautifyRadiusChanged(_ sender: NSSlider) {
-        guard let ov = overlayView else { return }
-        ov.beautifyCornerRadius = CGFloat(sender.floatValue)
-        UserDefaults.standard.set(sender.doubleValue, forKey: "beautifyCornerRadius")
-        if let label = viewWithTag(sender.tag + 100) as? NSTextField {
-            label.stringValue = "\(Int(sender.floatValue))"
-        }
-        ov.needsDisplay = true
-    }
-
-    @objc func beautifyShadowChanged(_ sender: NSSlider) {
-        guard let ov = overlayView else { return }
-        ov.beautifyShadowRadius = CGFloat(sender.floatValue)
-        UserDefaults.standard.set(sender.doubleValue, forKey: "beautifyShadowRadius")
-        if let label = viewWithTag(sender.tag + 100) as? NSTextField {
-            label.stringValue = "\(Int(sender.floatValue))"
-        }
-        ov.needsDisplay = true
-    }
-
-    @objc func beautifyBlurChanged(_ sender: NSSlider) {
-        guard let ov = overlayView else { return }
-        ov.beautifyBackgroundBlur = CGFloat(sender.floatValue)
-        UserDefaults.standard.set(sender.doubleValue, forKey: "beautifyBgBlur")
-        if let label = viewWithTag(sender.tag + 100) as? NSTextField {
-            label.stringValue = "\(Int(sender.floatValue))"
-        }
-        ov.cachedCompositedImage = nil
-        ov.needsDisplay = true
-    }
-
-    @objc func beautifyGradientClicked(_ sender: NSButton) {
-        guard let ov = overlayView else { return }
-        let swatchBtn = viewWithTag(995) as? NSButton ?? sender
-        ov.showBeautifyGradientPopover(anchorView: swatchBtn)
-    }
-
-    @objc func beautifyToggleChanged(_ sender: NSButton) {
-        guard let ov = overlayView else { return }
-        ov.beautifyEnabled = sender.state == .on
-        UserDefaults.standard.set(ov.beautifyEnabled, forKey: "beautifyEnabled")
-        ov.needsDisplay = true
-    }
-
-    func updateBeautifySwatch(styleIndex: Int) {
-        guard let btn = viewWithTag(995) as? NSButton else { return }
-        btn.image = ToolOptionsRowView.gradientSwatchImage(styleIndex: styleIndex, size: 22)
-    }
-
+    // Dead code removed
     @objc func drawColorClicked(_ sender: NSButton) {
         guard let ov = overlayView else { return }
         ov.showColorPickerPopover(target: .drawColor, anchorView: sender)
@@ -93,7 +26,7 @@ extension ToolOptionsRowView {
         } else {
             if let tool = currentTool { ov.setActiveStrokeWidth(val, for: tool) }
         }
-        if let label = viewWithTag(997) as? NSTextField {
+        if let label = viewWithTag(ToolOptionTag.strokeValueLabel.rawValue) as? NSTextField {
             label.stringValue = currentTool == .loupe ? "\(Int(val))" : "\(Int(val))px"
         }
         ov.needsDisplay = true
@@ -163,7 +96,7 @@ extension ToolOptionsRowView {
             ov.currentRectCornerRadius = val
             UserDefaults.standard.set(sender.doubleValue, forKey: "currentRectCornerRadius")
         }
-        if let label = viewWithTag(996) as? NSTextField {
+        if let label = viewWithTag(ToolOptionTag.cornerRadiusLabel.rawValue) as? NSTextField {
             label.stringValue = "\(Int(val))px"
         }
         ov.needsDisplay = true
@@ -197,7 +130,7 @@ extension ToolOptionsRowView {
         if let fmt = NumberFormat(rawValue: sender.selectedSegment) {
             ov.currentNumberFormat = fmt
             UserDefaults.standard.set(fmt.rawValue, forKey: "numberFormat")
-            if let label = viewWithTag(999) as? NSTextField {
+            if let label = viewWithTag(ToolOptionTag.numberStartValueLabel.rawValue) as? NSTextField {
                 label.stringValue = fmt.format(ov.numberStartAt)
                 label.sizeToFit()
             }
@@ -209,7 +142,7 @@ extension ToolOptionsRowView {
         guard let ov = overlayView else { return }
         ov.numberStartAt = sender.integerValue
         UserDefaults.standard.set(sender.integerValue, forKey: "numberStartAt")
-        if let label = viewWithTag(999) as? NSTextField {
+        if let label = viewWithTag(ToolOptionTag.numberStartValueLabel.rawValue) as? NSTextField {
             label.stringValue = ov.currentNumberFormat.format(sender.integerValue)
             label.sizeToFit()
         }
@@ -377,7 +310,7 @@ extension ToolOptionsRowView {
         ov.textEditor.applyFontSizeChange()
         ov.textEditor.resizeToFit()
         ov.applyTextFormattingToSelectedAnnotations()
-        if let label = viewWithTag(998) as? NSTextField { label.stringValue = "\(Int(ov.textEditor.fontSize))" }
+        if let label = viewWithTag(ToolOptionTag.textFontSizeLabel.rawValue) as? NSTextField { label.stringValue = "\(Int(ov.textEditor.fontSize))" }
         ov.needsDisplay = true
     }
 
@@ -388,7 +321,7 @@ extension ToolOptionsRowView {
         ov.textEditor.applyFontSizeChange()
         ov.textEditor.resizeToFit()
         ov.applyTextFormattingToSelectedAnnotations()
-        if let label = viewWithTag(998) as? NSTextField { label.stringValue = "\(Int(ov.textEditor.fontSize))" }
+        if let label = viewWithTag(ToolOptionTag.textFontSizeLabel.rawValue) as? NSTextField { label.stringValue = "\(Int(ov.textEditor.fontSize))" }
         ov.needsDisplay = true
     }
 
@@ -396,7 +329,7 @@ extension ToolOptionsRowView {
         guard let ov = overlayView else { return }
         ov.textEditor.bgEnabled = sender.state == .on
         UserDefaults.standard.set(ov.textEditor.bgEnabled, forKey: "textBgEnabled")
-        if let swatch = viewWithTag(975) { swatch.layer?.opacity = ov.textEditor.bgEnabled ? 1.0 : 0.3 }
+        if let swatch = viewWithTag(ToolOptionTag.textBgColorSwatch.rawValue) { swatch.layer?.opacity = ov.textEditor.bgEnabled ? 1.0 : 0.3 }
         ov.applyTextBgOutlineToSelectedAnnotations()
         ov.needsDisplay = true
     }
@@ -405,7 +338,7 @@ extension ToolOptionsRowView {
         guard let ov = overlayView else { return }
         ov.textEditor.outlineEnabled = sender.state == .on
         UserDefaults.standard.set(ov.textEditor.outlineEnabled, forKey: "textOutlineEnabled")
-        if let swatch = viewWithTag(976) { swatch.layer?.opacity = ov.textEditor.outlineEnabled ? 1.0 : 0.3 }
+        if let swatch = viewWithTag(ToolOptionTag.textOutlineColorSwatch.rawValue) { swatch.layer?.opacity = ov.textEditor.outlineEnabled ? 1.0 : 0.3 }
         ov.applyTextBgOutlineToSelectedAnnotations()
         ov.needsDisplay = true
     }
@@ -423,7 +356,7 @@ extension ToolOptionsRowView {
     @objc func fpsChanged(_ sender: NSSlider) {
         let fps = Int(sender.floatValue)
         UserDefaults.standard.set(fps, forKey: "recordingFPS")
-        if let label = viewWithTag(sender.tag + 100) as? NSTextField {
+        if let label = viewWithTag(ToolOptionTag.fpsValueLabel.rawValue) as? NSTextField {
             label.stringValue = "\(fps)"
         }
     }
@@ -441,7 +374,7 @@ extension ToolOptionsRowView {
         guard let ov = overlayView else { return }
         let isOn = sender.state == .on
         UserDefaults.standard.set(isOn, forKey: "annotationOutlineEnabled")
-        if let swatch = viewWithTag(978) { swatch.layer?.opacity = isOn ? 1.0 : 0.3 }
+        if let swatch = viewWithTag(ToolOptionTag.annotationOutlineColorSwatch.rawValue) { swatch.layer?.opacity = isOn ? 1.0 : 0.3 }
         if let ann = editingAnnotation {
             ensureSnapshot()
             ann.outlineColor = isOn ? ToolOptionsRowView.savedOutlineColor : nil
