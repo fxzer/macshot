@@ -30,7 +30,8 @@ final class BeautifyPopoverView: NSView {
             guard let overlayView = self?.overlayView else { return }
             overlayView.beautifyEnabled = isOn
             UserDefaults.standard.set(isOn, forKey: "beautifyEnabled")
-            overlayView.refreshBeautifyRendering()
+            // Structural change: update frame/bounds
+            overlayView.updateEditorFrameForBeautify()
         }
 
         if !overlayView.selectionIsWindowSnap {
@@ -41,7 +42,8 @@ final class BeautifyPopoverView: NSView {
                 guard let overlayView = self?.overlayView else { return }
                 overlayView.beautifyMode = index == 0 ? .window : .rounded
                 UserDefaults.standard.set(overlayView.beautifyMode.rawValue, forKey: "beautifyMode")
-                overlayView.refreshBeautifyRendering()
+                // Structural change: update frame/bounds
+                overlayView.updateEditorFrameForBeautify()
             }
             segmented.frame = NSRect(x: 14, y: currentY, width: contentWidth - 28, height: 24)
             addSubview(segmented)

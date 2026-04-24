@@ -222,9 +222,8 @@ extension OverlayView {
 
     func refreshBeautifyRendering() {
         cachedCompositedImage = nil
-        if isEditorMode {
-            updateEditorFrameForBeautify()
-        }
+        // In editor mode, skip frame/bounds updates for parameter tweaks to avoid jitter.
+        // Frame/bounds are only updated for structural changes (enable/disable, mode change, style change).
         rebuildToolbarLayout()
         needsDisplay = true
     }
@@ -237,7 +236,12 @@ extension OverlayView {
         } else {
             loadCustomBeautifyBackground()
         }
-        refreshBeautifyRendering()
+        // Structural change: update frame/bounds
+        if isEditorMode {
+            updateEditorFrameForBeautify()
+        } else {
+            refreshBeautifyRendering()
+        }
     }
 
     func applyCustomBeautifyBackground(_ image: NSImage) {
@@ -246,6 +250,11 @@ extension OverlayView {
         prepareBeautifyBackgroundCache()
         beautifyStyleIndex = -1
         UserDefaults.standard.set(-1, forKey: "beautifyStyleIndex")
-        refreshBeautifyRendering()
+        // Structural change: update frame/bounds
+        if isEditorMode {
+            updateEditorFrameForBeautify()
+        } else {
+            refreshBeautifyRendering()
+        }
     }
 }

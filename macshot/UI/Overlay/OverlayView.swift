@@ -688,8 +688,10 @@ class OverlayView: NSView {
             beautifyEditorOffset = .zero
         }
 
-        if isInsideScrollView, let sv = enclosingScrollView {
-            frame.size = NSSize(width: targetSize.width * sv.magnification, height: targetSize.height * sv.magnification)
+        // In NSScrollView, only update bounds.size and let the scroll view
+        // manage frame.size automatically via magnification.
+        // This avoids frame/bounds conflicts that cause visual jitter.
+        if isInsideScrollView {
             bounds.size = targetSize
         } else {
             frame.size = targetSize

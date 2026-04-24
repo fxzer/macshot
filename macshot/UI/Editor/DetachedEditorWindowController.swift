@@ -37,6 +37,9 @@ class DetachedEditorWindowController: NSObject, NSWindowDelegate {
     private var screenshotNeverOutput: Bool = true
     /// When true, force beautify off on open (image already has beautify baked in).
     private var disableBeautifyOnOpen: Bool = false
+    /// Tracks whether the initial aspect-fit zoom has been applied. Once set, further
+    /// logicalSize changes (e.g., tweaking shadow radius) won't trigger auto-zoom.
+    private var hasAppliedInitialZoomFit = false
 
     /// Open an editor window with the given image (typically from captureSelectedRegion).
     /// When `disableBeautify` is true, beautify starts off regardless of UserDefaults
@@ -378,7 +381,13 @@ class DetachedEditorWindowController: NSObject, NSWindowDelegate {
 
 extension DetachedEditorWindowController: OverlayViewDelegate {
     func overlayViewLogicalSizeDidChange(_ size: NSSize) {
-        enforceAspectFitVisibility(logicalSize: size)
+        // Only auto-fit on the first logicalSize change (initial window layout).
+        // Subsequent changes (e.g., tweaking beautify shadow/padding) should preserve
+        // the user's current zoom level to avoid jarring re-zoom behavior.
+        if !hasAppliedInitialZoomFit {
+            enforceAspectFitVisibility(logicalSize: size)
+            hasAppliedInitialZoomFit = true
+        }
     }
 
     func overlayViewDidFinishSelection(_ rect: NSRect) {}
