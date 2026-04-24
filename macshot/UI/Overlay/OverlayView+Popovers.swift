@@ -1,6 +1,14 @@
 import Cocoa
 import UniformTypeIdentifiers
 
+// MARK: - Handler Retention Helper
+
+/// Helper class to retain handler objects via associated objects.
+private final class RetainedHandler<T: NSObject>: NSObject {
+    let handler: T
+    init(_ handler: T) { self.handler = handler }
+}
+
 extension OverlayView {
 
     func showBeautifyPopover(anchorView: NSView? = nil, anchorRect: NSRect = .zero) {
@@ -65,11 +73,7 @@ extension OverlayView {
             let key = types[idx].key
             let current = UserDefaults.standard.object(forKey: key) as? Bool ?? true
             UserDefaults.standard.set(!current, forKey: key)
-            picker.items = types.map { item in
-                .init(
-                    title: item.label,
-                    isSelected: UserDefaults.standard.object(forKey: item.key) as? Bool ?? true)
-            }
+            picker.updateItem(at: idx, isSelected: !current)
             self?.needsDisplay = true
         }
         let size = picker.preferredSize
@@ -87,62 +91,49 @@ extension OverlayView {
         let languages = TranslationService.availableLanguages
         let currentCode = TranslationService.targetLanguage
 
-        let showPopover: ([String: Bool]?) -> Void = { [weak self] appleAvailability in
-            guard let self = self else { return }
-            // When Apple Translation is active, only show installed languages
-            let filteredLanguages: [(code: String, name: String)]
-            if let avail = appleAvailability {
-                filteredLanguages = languages.filter { avail[$0.code] == true }
-            } else {
-                filteredLanguages = languages
+        let picker = ListPickerView()
+        let pickerW: CGFloat = 220
+        picker.frame.size.width = pickerW
+        picker.items = languages.map { lang in
+            .init(title: lang.name, isSelected: lang.code == currentCode, isEnabled: true, subtitle: nil)
+        }
+        picker.onSelect = { [weak self] idx in
+            let newCode = languages[idx].code
+            TranslationService.targetLanguage = newCode
+            PopoverHelper.dismiss()
+            if let self = self, self.translateEnabled {
+                self.performTranslate(targetLang: newCode)
             }
-            let picker = ListPickerView()
-            let pickerW: CGFloat = 220
-            picker.frame.size.width = pickerW
-            picker.items = filteredLanguages.map { lang in
-                return .init(title: lang.name, isSelected: lang.code == currentCode,
-                             isEnabled: true, subtitle: nil)
-            }
-            picker.onSelect = { [weak self] idx in
-                let newCode = filteredLanguages[idx].code
-                TranslationService.targetLanguage = newCode
-                PopoverHelper.dismiss()
-                if let self = self, self.translateEnabled {
-                    self.performTranslate(targetLang: newCode)
-                }
-                self?.needsDisplay = true
-            }
-
-            let contentH = picker.frame.height
-            let maxH: CGFloat = 350
-            let popoverSize = NSSize(width: pickerW, height: min(maxH, contentH))
-
-            let scrollView = NSScrollView(frame: NSRect(origin: .zero, size: popoverSize))
-            scrollView.hasVerticalScroller = true
-            scrollView.hasHorizontalScroller = false
-            scrollView.autohidesScrollers = false
-            scrollView.scrollerStyle = .overlay
-            scrollView.drawsBackground = false
-            scrollView.borderType = .noBorder
-            scrollView.documentView = picker
-
-            if let anchor = anchorView {
-                PopoverHelper.show(
-                    scrollView, size: popoverSize, relativeTo: anchor.bounds, of: anchor,
-                    preferredEdge: .maxY, type: .translate)
-            } else {
-                PopoverHelper.showAtPoint(
-                    scrollView, size: popoverSize,
-                    at: NSPoint(x: anchorRect.maxX + 4, y: anchorRect.midY),
-                    in: self, preferredEdge: .maxX, type: .translate)
-            }
-
-            DispatchQueue.main.async {
-                picker.scrollToSelected()
-            }
+            self?.needsDisplay = true
         }
 
-        showPopover(nil)
+        let contentH = picker.frame.height
+        let maxH: CGFloat = 350
+        let popoverSize = NSSize(width: pickerW, height: min(maxH, contentH))
+
+        let scrollView = NSScrollView(frame: NSRect(origin: .zero, size: popoverSize))
+        scrollView.hasVerticalScroller = true
+        scrollView.hasHorizontalScroller = false
+        scrollView.autohidesScrollers = false
+        scrollView.scrollerStyle = .overlay
+        scrollView.drawsBackground = false
+        scrollView.borderType = .noBorder
+        scrollView.documentView = picker
+
+        if let anchor = anchorView {
+            PopoverHelper.show(
+                scrollView, size: popoverSize, relativeTo: anchor.bounds, of: anchor,
+                preferredEdge: .maxY, type: .translate)
+        } else {
+            PopoverHelper.showAtPoint(
+                scrollView, size: popoverSize,
+                at: NSPoint(x: anchorRect.maxX + 4, y: anchorRect.midY),
+                in: self, preferredEdge: .maxY, type: .translate)
+        }
+
+        DispatchQueue.main.async {
+            picker.scrollToSelected()
+        }
     }
 
     func showBeautifyGradientPopover(anchorView: NSView? = nil, anchorRect: NSRect = .zero) {
@@ -273,6 +264,12 @@ extension OverlayView {
             y += 28
         }
 
+        // Helper to attach handler to control
+        func attachHandler<H: NSObject>(_ control: NSControl, handler: H) {
+            control.target = handler
+            objc_setAssociatedObject(control, "handler", RetainedHandler(handler), .OBJC_ASSOCIATION_RETAIN)
+        }
+
         // Read current effective values (session override > UserDefaults default)
         let effectiveFPS =
             sessionRecordingFPS
@@ -293,24 +290,9 @@ extension OverlayView {
             fpsPopup.selectItem(at: 3)
         }
 
-        // Handlers write to session overrides, not UserDefaults
-        class FPSHandler: NSObject {
-            weak var overlayView: OverlayView?
-            init(overlayView: OverlayView?) {
-                self.overlayView = overlayView
-                super.init()
-            }
-            @objc func changed(_ sender: NSPopUpButton) {
-                if let title = sender.selectedItem?.title, let fps = Int(title) {
-                    overlayView?.sessionRecordingFPS = fps
-                }
-            }
-        }
-
         let fpsHandler = FPSHandler(overlayView: self)
-        fpsPopup.target = fpsHandler
         fpsPopup.action = #selector(FPSHandler.changed(_:))
-        objc_setAssociatedObject(fpsPopup, "handler", fpsHandler, .OBJC_ASSOCIATION_RETAIN)
+        attachHandler(fpsPopup, handler: fpsHandler)
 
         // Delay popup
         let delayPopup = NSPopUpButton()
@@ -325,22 +307,9 @@ extension OverlayView {
             delayPopup.selectItem(at: idx)
         }
 
-        class DelayHandler: NSObject {
-            weak var overlayView: OverlayView?
-            let options: [Int]
-            init(overlayView: OverlayView?, options: [Int]) {
-                self.overlayView = overlayView
-                self.options = options
-                super.init()
-            }
-            @objc func changed(_ sender: NSPopUpButton) {
-                overlayView?.sessionRecordingDelay = options[sender.indexOfSelectedItem]
-            }
-        }
         let delayHandler = DelayHandler(overlayView: self, options: delayOptions)
-        delayPopup.target = delayHandler
         delayPopup.action = #selector(DelayHandler.changed(_:))
-        objc_setAssociatedObject(delayPopup, "handler", delayHandler, .OBJC_ASSOCIATION_RETAIN)
+        attachHandler(delayPopup, handler: delayHandler)
 
         // Recording controls popup
         let effectiveControlsMode =
@@ -351,21 +320,9 @@ extension OverlayView {
         controlsPopup.font = NSFont.systemFont(ofSize: 11)
         controlsPopup.selectItem(at: effectiveControlsMode == .menuBar ? 1 : 0)
 
-        class ControlsModeHandler: NSObject {
-            weak var overlayView: OverlayView?
-            init(overlayView: OverlayView?) { self.overlayView = overlayView; super.init() }
-            @objc func changed(_ sender: NSPopUpButton) {
-                let values = [
-                    RecordingControlsMode.floatingHUD.rawValue,
-                    RecordingControlsMode.menuBar.rawValue,
-                ]
-                overlayView?.sessionRecordingControlsMode = values[sender.indexOfSelectedItem]
-            }
-        }
         let controlsModeHandler = ControlsModeHandler(overlayView: self)
-        controlsPopup.target = controlsModeHandler
         controlsPopup.action = #selector(ControlsModeHandler.changed(_:))
-        objc_setAssociatedObject(controlsPopup, "handler", controlsModeHandler, .OBJC_ASSOCIATION_RETAIN)
+        attachHandler(controlsPopup, handler: controlsModeHandler)
 
         addRow(label: L("FPS:"), control: fpsPopup)
         addRow(label: L("Delay:"), control: delayPopup)
@@ -391,19 +348,9 @@ extension OverlayView {
             default: posSeg.selectedSegment = 1
             }
 
-            class PosHandler: NSObject {
-                weak var overlayView: OverlayView?
-                init(overlayView: OverlayView?) { self.overlayView = overlayView; super.init() }
-                @objc func changed(_ sender: NSSegmentedControl) {
-                    let values = ["bottomLeft", "bottomRight", "topLeft", "topRight"]
-                    UserDefaults.standard.set(values[sender.selectedSegment], forKey: "webcamPosition")
-                    overlayView?.updateWebcamSetupPreview()
-                }
-            }
-            let posHandler = PosHandler(overlayView: self)
-            posSeg.target = posHandler
-            posSeg.action = #selector(PosHandler.changed(_:))
-            objc_setAssociatedObject(posSeg, "handler", posHandler, .OBJC_ASSOCIATION_RETAIN)
+            let posHandler = WebcamPosHandler(overlayView: self)
+            posSeg.action = #selector(WebcamPosHandler.changed(_:))
+            attachHandler(posSeg, handler: posHandler)
 
             // Size
             let sizeSeg = NSSegmentedControl(labels: ["S", "M", "L"], trackingMode: .selectOne, target: nil, action: nil)
@@ -415,38 +362,18 @@ extension OverlayView {
             default: sizeSeg.selectedSegment = 1
             }
 
-            class SizeHandler: NSObject {
-                weak var overlayView: OverlayView?
-                init(overlayView: OverlayView?) { self.overlayView = overlayView; super.init() }
-                @objc func changed(_ sender: NSSegmentedControl) {
-                    let values = ["small", "medium", "large"]
-                    UserDefaults.standard.set(values[sender.selectedSegment], forKey: "webcamSize")
-                    overlayView?.updateWebcamSetupPreview()
-                }
-            }
-            let sizeHandler = SizeHandler(overlayView: self)
-            sizeSeg.target = sizeHandler
-            sizeSeg.action = #selector(SizeHandler.changed(_:))
-            objc_setAssociatedObject(sizeSeg, "handler", sizeHandler, .OBJC_ASSOCIATION_RETAIN)
+            let sizeHandler = WebcamSizeHandler(overlayView: self)
+            sizeSeg.action = #selector(WebcamSizeHandler.changed(_:))
+            attachHandler(sizeSeg, handler: sizeHandler)
 
             // Shape
             let shapeSeg = NSSegmentedControl(labels: ["●", "▢"], trackingMode: .selectOne, target: nil, action: nil)
             let currentShape = UserDefaults.standard.string(forKey: "webcamShape") ?? "circle"
             shapeSeg.selectedSegment = currentShape == "roundedRect" ? 1 : 0
 
-            class ShapeHandler: NSObject {
-                weak var overlayView: OverlayView?
-                init(overlayView: OverlayView?) { self.overlayView = overlayView; super.init() }
-                @objc func changed(_ sender: NSSegmentedControl) {
-                    let values = ["circle", "roundedRect"]
-                    UserDefaults.standard.set(values[sender.selectedSegment], forKey: "webcamShape")
-                    overlayView?.updateWebcamSetupPreview()
-                }
-            }
-            let shapeHandler = ShapeHandler(overlayView: self)
-            shapeSeg.target = shapeHandler
-            shapeSeg.action = #selector(ShapeHandler.changed(_:))
-            objc_setAssociatedObject(shapeSeg, "handler", shapeHandler, .OBJC_ASSOCIATION_RETAIN)
+            let shapeHandler = WebcamShapeHandler(overlayView: self)
+            shapeSeg.action = #selector(WebcamShapeHandler.changed(_:))
+            attachHandler(shapeSeg, handler: shapeHandler)
 
             addRow(label: L("Cam pos:"), control: posSeg)
             addRow(label: L("Cam size:"), control: sizeSeg)
@@ -466,78 +393,147 @@ extension OverlayView {
                 in: self, preferredEdge: .maxY, type: .recordingSettings)
         }
     }
+}
+
+// MARK: - Recording Settings Handlers
+
+private class FPSHandler: NSObject {
+    weak var overlayView: OverlayView?
+    init(overlayView: OverlayView?) {
+        self.overlayView = overlayView
+        super.init()
+    }
+    @objc func changed(_ sender: NSPopUpButton) {
+        if let title = sender.selectedItem?.title, let fps = Int(title) {
+            overlayView?.sessionRecordingFPS = fps
+        }
+    }
+}
+
+private class DelayHandler: NSObject {
+    weak var overlayView: OverlayView?
+    let options: [Int]
+    init(overlayView: OverlayView?, options: [Int]) {
+        self.overlayView = overlayView
+        self.options = options
+        super.init()
+    }
+    @objc func changed(_ sender: NSPopUpButton) {
+        overlayView?.sessionRecordingDelay = options[sender.indexOfSelectedItem]
+    }
+}
+
+private class ControlsModeHandler: NSObject {
+    weak var overlayView: OverlayView?
+    init(overlayView: OverlayView?) { self.overlayView = overlayView; super.init() }
+    @objc func changed(_ sender: NSPopUpButton) {
+        let values = [
+            RecordingControlsMode.floatingHUD.rawValue,
+            RecordingControlsMode.menuBar.rawValue,
+        ]
+        overlayView?.sessionRecordingControlsMode = values[sender.indexOfSelectedItem]
+    }
+}
+
+private class WebcamPosHandler: NSObject {
+    weak var overlayView: OverlayView?
+    init(overlayView: OverlayView?) { self.overlayView = overlayView; super.init() }
+    @objc func changed(_ sender: NSSegmentedControl) {
+        let values = ["bottomLeft", "bottomRight", "topLeft", "topRight"]
+        UserDefaults.standard.set(values[sender.selectedSegment], forKey: "webcamPosition")
+        overlayView?.updateWebcamSetupPreview()
+    }
+}
+
+private class WebcamSizeHandler: NSObject {
+    weak var overlayView: OverlayView?
+    init(overlayView: OverlayView?) { self.overlayView = overlayView; super.init() }
+    @objc func changed(_ sender: NSSegmentedControl) {
+        let values = ["small", "medium", "large"]
+        UserDefaults.standard.set(values[sender.selectedSegment], forKey: "webcamSize")
+        overlayView?.updateWebcamSetupPreview()
+    }
+}
+
+private class WebcamShapeHandler: NSObject {
+    weak var overlayView: OverlayView?
+    init(overlayView: OverlayView?) { self.overlayView = overlayView; super.init() }
+    @objc func changed(_ sender: NSSegmentedControl) {
+        let values = ["circle", "roundedRect"]
+        UserDefaults.standard.set(values[sender.selectedSegment], forKey: "webcamShape")
+        overlayView?.updateWebcamSetupPreview()
+    }
+}
+
+extension OverlayView {
 
     // MARK: - Auto-redact & Translate actions
 
-    func performAutoRedact() {
-        guard state == .selected, let screenshot = screenshotImage else { return }
-        let tool: AnnotationTool = currentTool == .pixelate ? .pixelate : .rectangle
-        let sourceImg = tool == .pixelate ? screenshotImage : nil
-        AutoRedactor.redactPII(
-            screenshot: screenshot, selectionRect: selectionRect, captureDrawRect: captureDrawRect,
-            redactTool: tool, color: currentColor, sourceImage: sourceImg,
-            sourceImageBounds: captureDrawRect
-        ) { [weak self] anns in
+    private func performRedaction(using redactFunc: @escaping ((@escaping ([Annotation]) -> Void) -> Void)) {
+        guard state == .selected, screenshotImage != nil else { return }
+        redactFunc { [weak self] anns in
             guard let self = self, !anns.isEmpty else { return }
             self.annotations.append(contentsOf: anns)
             self.undoStack.append(contentsOf: anns.map { .added($0) })
             self.redoStack.removeAll()
             self.cachedCompositedImage = nil
             self.needsDisplay = true
+        }
+    }
+
+    func performAutoRedact() {
+        performRedaction { [weak self] callback in
+            guard let self = self else { return }
+            AutoRedactor.redactPII(
+                screenshot: self.screenshotImage!, selectionRect: self.selectionRect, captureDrawRect: self.captureDrawRect,
+                redactTool: self.currentTool == .pixelate ? .pixelate : .rectangle,
+                color: self.currentColor,
+                sourceImage: self.currentTool == .pixelate ? self.screenshotImage : nil,
+                sourceImageBounds: self.captureDrawRect,
+                completion: callback
+            )
         }
     }
 
     func performRedactAllText() {
-        guard state == .selected, let screenshot = screenshotImage else { return }
-        let tool: AnnotationTool = currentTool == .pixelate ? .pixelate : .rectangle
-        let sourceImg = tool == .pixelate ? screenshotImage : nil
-        AutoRedactor.redactAllText(
-            screenshot: screenshot, selectionRect: selectionRect, captureDrawRect: captureDrawRect,
-            redactTool: tool, color: currentColor, sourceImage: sourceImg,
-            sourceImageBounds: captureDrawRect
-        ) { [weak self] anns in
-            guard let self = self, !anns.isEmpty else { return }
-            self.annotations.append(contentsOf: anns)
-            self.undoStack.append(contentsOf: anns.map { .added($0) })
-            self.redoStack.removeAll()
-            self.cachedCompositedImage = nil
-            self.needsDisplay = true
+        performRedaction { [weak self] callback in
+            guard let self = self else { return }
+            AutoRedactor.redactAllText(
+                screenshot: self.screenshotImage!, selectionRect: self.selectionRect, captureDrawRect: self.captureDrawRect,
+                redactTool: self.currentTool == .pixelate ? .pixelate : .rectangle,
+                color: self.currentColor,
+                sourceImage: self.currentTool == .pixelate ? self.screenshotImage : nil,
+                sourceImageBounds: self.captureDrawRect,
+                completion: callback
+            )
         }
     }
 
     func performRedactFaces() {
-        guard state == .selected, let screenshot = screenshotImage else { return }
-        let tool: AnnotationTool = currentTool == .pixelate ? .pixelate : .rectangle
-        let sourceImg = tool == .pixelate ? screenshotImage : nil
-        AutoRedactor.redactFaces(
-            screenshot: screenshot, selectionRect: selectionRect, captureDrawRect: captureDrawRect,
-            redactTool: tool, color: currentColor, sourceImage: sourceImg,
-            sourceImageBounds: captureDrawRect
-        ) { [weak self] anns in
-            guard let self = self, !anns.isEmpty else { return }
-            self.annotations.append(contentsOf: anns)
-            self.undoStack.append(contentsOf: anns.map { .added($0) })
-            self.redoStack.removeAll()
-            self.cachedCompositedImage = nil
-            self.needsDisplay = true
+        performRedaction { [weak self] callback in
+            guard let self = self else { return }
+            AutoRedactor.redactFaces(
+                screenshot: self.screenshotImage!, selectionRect: self.selectionRect, captureDrawRect: self.captureDrawRect,
+                redactTool: self.currentTool == .pixelate ? .pixelate : .rectangle,
+                color: self.currentColor,
+                sourceImage: self.currentTool == .pixelate ? self.screenshotImage : nil,
+                sourceImageBounds: self.captureDrawRect,
+                completion: callback
+            )
         }
     }
 
     func performRedactPeople() {
-        guard state == .selected, let screenshot = screenshotImage else { return }
-        let tool: AnnotationTool = currentTool == .pixelate ? .pixelate : .rectangle
-        let sourceImg = tool == .pixelate ? screenshotImage : nil
-        AutoRedactor.redactPeople(
-            screenshot: screenshot, selectionRect: selectionRect, captureDrawRect: captureDrawRect,
-            redactTool: tool, color: currentColor, sourceImage: sourceImg,
-            sourceImageBounds: captureDrawRect
-        ) { [weak self] anns in
-            guard let self = self, !anns.isEmpty else { return }
-            self.annotations.append(contentsOf: anns)
-            self.undoStack.append(contentsOf: anns.map { .added($0) })
-            self.redoStack.removeAll()
-            self.cachedCompositedImage = nil
-            self.needsDisplay = true
+        performRedaction { [weak self] callback in
+            guard let self = self else { return }
+            AutoRedactor.redactPeople(
+                screenshot: self.screenshotImage!, selectionRect: self.selectionRect, captureDrawRect: self.captureDrawRect,
+                redactTool: self.currentTool == .pixelate ? .pixelate : .rectangle,
+                color: self.currentColor,
+                sourceImage: self.currentTool == .pixelate ? self.screenshotImage : nil,
+                sourceImageBounds: self.captureDrawRect,
+                completion: callback
+            )
         }
     }
 
@@ -733,12 +729,14 @@ private final class BeautifyPopoverView: NSView {
 
         // 创建8列的渐变选择器
         let picker = InlineGradientPickerView(selectedIndex: ov.beautifyStyleIndex)
-        picker.onSelect = { [unowned self] idx in
-            guard let ov = self.overlayView else { return }
+        currentGradientPicker = picker
+        picker.onSelect = { [weak self] idx in
+            guard let self = self, let ov = self.overlayView else { return }
             ov.beautifyStyleIndex = idx
             UserDefaults.standard.set(idx, forKey: "beautifyStyleIndex")
             if idx >= 0 {
                 ov.customBeautifyBackground = nil
+                picker.invalidateThumbnailCache()
             } else {
                 ov.loadCustomBeautifyBackground()
             }
@@ -747,18 +745,21 @@ private final class BeautifyPopoverView: NSView {
             // 重建UI以显示/隐藏模糊滑块
             self.buildUI()
         }
-        picker.onCustomImage = { [unowned self] in
-            self.pickCustomImage()
+        picker.onCustomImage = { [weak self] in
+            self?.pickCustomImage()
         }
-        picker.onRemoveCustomImage = { [unowned self] in
-            guard let ov = self.overlayView else { return }
+        picker.onRemoveCustomImage = { [weak self] in
+            guard let self = self, let ov = self.overlayView else { return }
             ov.removeCustomBeautifyBackgroundSelection()
+            picker.invalidateThumbnailCache()
             self.buildUI()
         }
         picker.frame.origin = NSPoint(x: 14, y: currentY)
         addSubview(picker)
         currentY += picker.frame.height + 12
     }
+
+    private var currentGradientPicker: InlineGradientPickerView?
 
     private func pickCustomImage() {
         guard let ov = overlayView else { return }
@@ -783,6 +784,7 @@ private final class BeautifyPopoverView: NSView {
             ov.customBeautifyBackground = image
             ov.cachedCompositedImage = nil
             ov.needsDisplay = true
+            self.currentGradientPicker?.invalidateThumbnailCache()
             self.buildUI()
         }
     }
@@ -839,21 +841,34 @@ private class InlineGradientPickerView: NSView {
     var onCustomImage: (() -> Void)?
     var onRemoveCustomImage: (() -> Void)?
 
+    func invalidateThumbnailCache() {
+        cachedThumbnail = nil
+    }
+
+    private func invalidateMeshCache() {
+        cachedMeshImages = nil
+    }
+
     private let styles = beautifyStyles
+    private let styleCount: Int
+    private let hasCustomImage: Bool
     private let cols = 8  // 改为8列
     private let swSize: CGFloat = 28
     /// 仅上下内边距；水平不设 padding，总宽与 `BeautifyPopoverView` 内分段控件一致（x:14、宽 `contentWidth - 28` = 252），避免相对 280 内容区右缘裁切
     private let paddingV: CGFloat = 8
     private let gap: CGFloat = 4
 
-    private var hasCustomImage: Bool {
-        UserDefaults.standard.data(forKey: "beautifyCustomBgImageData") != nil
-    }
+    // Cached rendering resources
+    private var cachedGradients: [NSGradient]?
+    private var cachedThumbnail: NSImage?
+    private var cachedMeshImages: [NSImage?]?
+    private var meshCacheVersion: Int = 0  // Track when to rebuild mesh cache
 
     init(selectedIndex: Int) {
         self.selectedIndex = selectedIndex
-        let hasCustom = UserDefaults.standard.data(forKey: "beautifyCustomBgImageData") != nil
-        let total = beautifyStyles.count + (hasCustom ? 1 : 0) + 1
+        self.hasCustomImage = UserDefaults.standard.data(forKey: "beautifyCustomBgImageData") != nil
+        self.styleCount = beautifyStyles.count
+        let total = styleCount + (hasCustomImage ? 1 : 0) + 1
         let rows = (total + 7) / 8  // 8列
         let w = CGFloat(cols) * swSize + CGFloat(cols - 1) * gap
         let h = paddingV * 2 + CGFloat(rows) * swSize + CGFloat(max(0, rows - 1)) * gap
@@ -881,21 +896,47 @@ private class InlineGradientPickerView: NSView {
         return NSRect(x: sx, y: sy, width: swSize, height: swSize)
     }
 
+    private func ensureGradientsCached() {
+        guard cachedGradients == nil else { return }
+        cachedGradients = styles.compactMap { style in
+            NSGradient(colors: style.stops.map { $0.0 }, atLocations: style.stops.map { $0.1 }, colorSpace: .deviceRGB)
+        }
+    }
+
     override func draw(_ dirtyRect: NSRect) {
+        ensureGradientsCached()
+        guard let gradients = cachedGradients else { return }
+
         var idx = 0
 
         // Draw gradient swatches
         for (i, style) in styles.enumerated() {
             let sr = rectForIndex(idx)
             let path = NSBezierPath(roundedRect: sr, xRadius: 6, yRadius: 6)
-            if #available(macOS 15.0, *), let mesh = style.meshDef,
-               let img = BeautifyRenderer.renderMeshSwatch(mesh, size: swSize) {
-                NSGraphicsContext.saveGraphicsState()
-                path.addClip()
-                img.draw(in: sr, from: .zero, operation: .sourceOver, fraction: 1.0)
-                NSGraphicsContext.restoreGraphicsState()
-            } else if let grad = NSGradient(colors: style.stops.map { $0.0 }, atLocations: style.stops.map { $0.1 }, colorSpace: .deviceRGB) {
-                grad.draw(in: path, angle: style.angle - 90)
+            if #available(macOS 15.0, *), let mesh = style.meshDef {
+                // Cache mesh images
+                if var meshCache = cachedMeshImages, meshCache.count == styleCount {
+                    if meshCache[i] == nil {
+                        meshCache[i] = BeautifyRenderer.renderMeshSwatch(mesh, size: swSize)
+                        cachedMeshImages = meshCache
+                    }
+                    if let img = meshCache[i] {
+                        NSGraphicsContext.saveGraphicsState()
+                        path.addClip()
+                        img.draw(in: sr, from: .zero, operation: .sourceOver, fraction: 1.0)
+                        NSGraphicsContext.restoreGraphicsState()
+                    }
+                } else {
+                    // Fallback: render directly
+                    if let img = BeautifyRenderer.renderMeshSwatch(mesh, size: swSize) {
+                        NSGraphicsContext.saveGraphicsState()
+                        path.addClip()
+                        img.draw(in: sr, from: .zero, operation: .sourceOver, fraction: 1.0)
+                        NSGraphicsContext.restoreGraphicsState()
+                    }
+                }
+            } else {
+                gradients[i].draw(in: path, angle: style.angle - 90)
             }
             if i == selectedIndex {
                 ToolbarLayout.accentColor.setStroke()
@@ -949,13 +990,11 @@ private class InlineGradientPickerView: NSView {
     override func mouseDown(with event: NSEvent) {
         window?.makeFirstResponder(self)
         let point = convert(event.locationInWindow, from: nil)
-        let hasCustom = hasCustomImage
-        let total = beautifyStyles.count + (hasCustom ? 1 : 0) + 1
+        let total = styleCount + (hasCustomImage ? 1 : 0) + 1
 
         for i in 0..<total {
             if rectForIndex(i).contains(point) {
-                let styleCount = beautifyStyles.count
-                if i == styleCount && hasCustom {
+                if i == styleCount && hasCustomImage {
                     // Clicked custom image swatch
                     selectedIndex = -1
                     onSelect?(-1)
@@ -977,6 +1016,7 @@ private class InlineGradientPickerView: NSView {
         let isDeleteKey = event.keyCode == 51 || event.keyCode == 117
         if isDeleteKey, selectedIndex == -1, hasCustomImage {
             onRemoveCustomImage?()
+            invalidateThumbnailCache()
             return
         }
         if moveSelection(with: event.keyCode) {
@@ -987,10 +1027,10 @@ private class InlineGradientPickerView: NSView {
 
     @discardableResult
     private func moveSelection(with keyCode: UInt16) -> Bool {
-        let selectableCount = styles.count + (hasCustomImage ? 1 : 0)
+        let selectableCount = styleCount + (hasCustomImage ? 1 : 0)
         guard selectableCount > 0 else { return false }
 
-        let currentSlot = selectedIndex == -1 ? styles.count : max(0, min(selectedIndex, styles.count - 1))
+        let currentSlot = selectedIndex == -1 ? styleCount : max(0, min(selectedIndex, styleCount - 1))
         let targetSlot: Int?
 
         switch keyCode {
@@ -1007,7 +1047,7 @@ private class InlineGradientPickerView: NSView {
         }
 
         guard let slot = targetSlot else { return false }
-        let newIndex = hasCustomImage && slot == styles.count ? -1 : slot
+        let newIndex = hasCustomImage && slot == styleCount ? -1 : slot
         selectedIndex = newIndex
         onSelect?(newIndex)
         needsDisplay = true
@@ -1029,6 +1069,7 @@ private class InlineGradientPickerView: NSView {
     }
 
     private func customBackgroundThumbnail() -> NSImage? {
+        if let cached = cachedThumbnail { return cached }
         guard let data = UserDefaults.standard.data(forKey: "beautifyCustomBgImageData"),
               let image = NSImage(data: data) else { return nil }
         let size = NSSize(width: swSize, height: swSize)
@@ -1038,6 +1079,7 @@ private class InlineGradientPickerView: NSView {
                    from: NSRect(origin: .zero, size: image.size),
                    operation: .copy, fraction: 1.0)
         thumb.unlockFocus()
+        cachedThumbnail = thumb
         return thumb
     }
 }

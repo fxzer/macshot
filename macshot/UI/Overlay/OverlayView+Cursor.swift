@@ -371,8 +371,7 @@ extension OverlayView {
 
     func supportsDrawingCursorPreview(for tool: AnnotationTool) -> Bool {
         switch tool {
-        case .pencil, .marker, .line, .arrow, .rectangle, .filledRectangle, .ellipse, .measure,
-            .number, .pixelate, .blur:
+        case .pencil, .marker, .line, .arrow, .measure, .number:
             return true
         default:
             return false

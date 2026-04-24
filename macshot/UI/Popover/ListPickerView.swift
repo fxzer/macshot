@@ -107,6 +107,14 @@ class ListPickerView: NSView {
             rv.frame.size.width = newSize.width
         }
     }
+
+    /// Update a single item without rebuilding the entire list.
+    func updateItem(at index: Int, isSelected: Bool) {
+        guard index >= 0 && index < rowViews.count else { return }
+        let rv = rowViews[index]
+        rv.isItemSelected = isSelected
+        rv.needsDisplay = true
+    }
 }
 
 // MARK: - Row View
