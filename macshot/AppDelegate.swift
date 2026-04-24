@@ -1029,14 +1029,16 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             thumbnailControllers.removeAll()
         }
 
-        let screen = NSScreen.main ?? NSScreen.screens[0]
+        let screen = currentCaptureTargetScreen() ?? NSScreen.main ?? NSScreen.screens[0]
+        let displayID = screenDisplayID(for: screen)
         let screenFrame = screen.visibleFrame
         let padding: CGFloat = 16
         let gap: CGFloat = 8
 
-        // Compute Y: stack above any existing thumbnails
+        // Stack independently per screen so multi-display captures don't leave gaps.
+        let screenControllers = thumbnailControllers.filter { $0.anchorDisplayID == displayID }
         var yOrigin = screenFrame.minY + padding
-        if let topController = thumbnailControllers.last {
+        if let topController = screenControllers.last {
             let topFrame = topController.windowFrame
             yOrigin = topFrame.maxY + gap
         }
@@ -1044,8 +1046,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         let controller = FloatingThumbnailController(image: image)
         controller.historyEntryID = historyEntryID
         controller.onDismiss = { [weak self] in
+            let displayID = controller.anchorDisplayID
             self?.thumbnailControllers.removeAll { $0 === controller }
-            self?.reflowThumbnails()
+            self?.reflowThumbnails(onDisplayID: displayID)
         }
         controller.onCopy = { [weak self] in
             guard let self = self else { return }
@@ -1085,7 +1088,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             self?.saveAllThumbnailsToFolder()
         }
         thumbnailControllers.append(controller)
-        controller.show(atY: yOrigin)
+        controller.show(on: screen, atY: yOrigin)
     }
 
     private func saveAllThumbnailsToFolder() {
@@ -1127,15 +1130,31 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         }
     }
 
-    private func reflowThumbnails() {
-        let screen = NSScreen.main ?? NSScreen.screens[0]
+    private func reflowThumbnails(onDisplayID targetDisplayID: CGDirectDisplayID? = nil) {
         let padding: CGFloat = 16
         let gap: CGFloat = 8
-        var y = screen.visibleFrame.minY + padding
-        for c in thumbnailControllers {
-            let h = c.windowFrame.height  // height doesn't change, only Y moves
-            c.moveTo(y: y)
-            y += h + gap
+
+        let displayIDs: [CGDirectDisplayID?]
+        if let targetDisplayID {
+            displayIDs = [targetDisplayID]
+        } else {
+            var orderedDisplayIDs: [CGDirectDisplayID?] = []
+            for controller in thumbnailControllers where !orderedDisplayIDs.contains(controller.anchorDisplayID) {
+                orderedDisplayIDs.append(controller.anchorDisplayID)
+            }
+            displayIDs = orderedDisplayIDs
+        }
+
+        for displayID in displayIDs {
+            let screen = NSScreen.screens.first { screenDisplayID(for: $0) == displayID }
+                ?? NSScreen.main
+                ?? NSScreen.screens[0]
+            var y = screen.visibleFrame.minY + padding
+            for controller in thumbnailControllers where controller.anchorDisplayID == displayID {
+                let h = controller.windowFrame.height  // height doesn't change, only Y moves
+                controller.moveTo(y: y)
+                y += h + gap
+            }
         }
     }
 

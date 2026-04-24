@@ -3,14 +3,20 @@ import Cocoa
 @MainActor
 class FloatingThumbnailController: NSObject, NSDraggingSource {
 
-    private func screenWithMouse() -> NSScreen? {
-        let mouseLocation = NSEvent.mouseLocation
-        return NSScreen.screens.first { $0.frame.contains(mouseLocation) }
+    private func displayID(for screen: NSScreen?) -> CGDirectDisplayID? {
+        guard let screen else { return nil }
+        return screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID
+    }
+
+    private func anchoredScreen() -> NSScreen? {
+        guard let anchorDisplayID else { return window?.screen }
+        return NSScreen.screens.first { displayID(for: $0) == anchorDisplayID } ?? window?.screen
     }
 
     private var window: NSPanel?
     private var dismissTask: DispatchWorkItem?
     private(set) var image: NSImage
+    private(set) var anchorDisplayID: CGDirectDisplayID?
     private var thumbnailView: ThumbnailView?
     /// History entry ID — used to match and update the thumbnail when the editor saves.
     var historyEntryID: String?
@@ -35,9 +41,9 @@ class FloatingThumbnailController: NSObject, NSDraggingSource {
 
     // MARK: - Show
 
-    func show(atY y: CGFloat) {
-        let screen = screenWithMouse() ?? NSScreen.main ?? NSScreen.screens[0]
+    func show(on screen: NSScreen, atY y: CGFloat) {
         let screenFrame = screen.visibleFrame
+        anchorDisplayID = displayID(for: screen)
 
         // Fit image within max bounds preserving aspect ratio, then enforce
         // a minimum window size so hover buttons always fit (letterbox if needed).
@@ -163,7 +169,10 @@ class FloatingThumbnailController: NSObject, NSDraggingSource {
     private func animateOut() {
         guard let window = window else { return }
         let frame = window.frame
-        let screen = screenWithMouse() ?? NSScreen.main ?? NSScreen.screens[0]
+        let screen = anchoredScreen()
+            ?? NSScreen.screens.first { $0.visibleFrame.intersects(frame) }
+            ?? NSScreen.main
+            ?? NSScreen.screens[0]
         let offscreenX = screen.visibleFrame.maxX + 10
 
         NSAnimationContext.runAnimationGroup({ ctx in
