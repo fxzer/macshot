@@ -3,6 +3,11 @@ import Cocoa
 @MainActor
 class FloatingThumbnailController: NSObject, NSDraggingSource {
 
+    private func screenWithMouse() -> NSScreen? {
+        let mouseLocation = NSEvent.mouseLocation
+        return NSScreen.screens.first { $0.frame.contains(mouseLocation) }
+    }
+
     private var window: NSPanel?
     private var dismissTask: DispatchWorkItem?
     private(set) var image: NSImage
@@ -31,7 +36,7 @@ class FloatingThumbnailController: NSObject, NSDraggingSource {
     // MARK: - Show
 
     func show(atY y: CGFloat) {
-        let screen = NSScreen.main ?? NSScreen.screens[0]
+        let screen = screenWithMouse() ?? NSScreen.main ?? NSScreen.screens[0]
         let screenFrame = screen.visibleFrame
 
         // Fit image within max bounds preserving aspect ratio, then enforce
@@ -158,7 +163,7 @@ class FloatingThumbnailController: NSObject, NSDraggingSource {
     private func animateOut() {
         guard let window = window else { return }
         let frame = window.frame
-        let screen = NSScreen.main ?? NSScreen.screens[0]
+        let screen = screenWithMouse() ?? NSScreen.main ?? NSScreen.screens[0]
         let offscreenX = screen.visibleFrame.maxX + 10
 
         NSAnimationContext.runAnimationGroup({ ctx in

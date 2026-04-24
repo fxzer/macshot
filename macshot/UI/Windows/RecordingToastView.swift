@@ -3,6 +3,11 @@ import Cocoa
 @MainActor
 final class RecordingToastController {
 
+    private func screenWithMouse() -> NSScreen? {
+        let mouseLocation = NSEvent.mouseLocation
+        return NSScreen.screens.first { $0.frame.contains(mouseLocation) }
+    }
+
     private let url: URL
     private var window: NSPanel?
     private var toastView: RecordingToastView?
@@ -20,7 +25,7 @@ final class RecordingToastController {
 
     func show() {
         let size = NSSize(width: 360, height: 96)
-        let screen = NSScreen.main ?? NSScreen.screens[0]
+        let screen = screenWithMouse() ?? NSScreen.main ?? NSScreen.screens[0]
         let visibleFrame = screen.visibleFrame
         let padding: CGFloat = 16
         let frame = NSRect(
