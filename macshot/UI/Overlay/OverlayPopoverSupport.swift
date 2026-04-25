@@ -124,9 +124,17 @@ func makeOverlaySegmented(_ labels: [String], selected: Int, onChange: @escaping
 }
 
 func makeOverlayCheckbox(_ title: String, isOn: Bool, onChange: @escaping (Bool) -> Void) -> NSButton {
-    let control = NSButton(checkboxWithTitle: title, target: nil, action: nil)
+    let control = NSButton(checkboxWithTitle: "", target: nil, action: nil)
     control.state = isOn ? .on : .off
     control.font = NSFont.systemFont(ofSize: 12, weight: .medium)
+
+    // Use attributed title to apply custom foreground color
+    let attrs: [NSAttributedString.Key: Any] = [
+        .font: NSFont.systemFont(ofSize: 12, weight: .medium),
+        .foregroundColor: ToolbarLayout.iconColor
+    ]
+    control.attributedTitle = NSAttributedString(string: title, attributes: attrs)
+
     control.bindOverlayAction { onChange(($0 as? NSButton)?.state == .on) }
     return control
 }

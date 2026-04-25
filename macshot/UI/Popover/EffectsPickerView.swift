@@ -117,7 +117,7 @@ class EffectsPickerView: NSView {
     private func makeLabel(_ text: String, at origin: NSPoint) -> NSTextField {
         let label = NSTextField(labelWithString: text)
         label.font = NSFont.systemFont(ofSize: 10, weight: .semibold)
-        label.textColor = .secondaryLabelColor
+        label.textColor = OverlayPopoverPalette.label
         label.frame.origin = origin
         label.sizeToFit()
         return label
@@ -129,7 +129,7 @@ class EffectsPickerView: NSView {
 
         let lbl = NSTextField(labelWithString: label)
         lbl.font = NSFont.systemFont(ofSize: 10, weight: .medium)
-        lbl.textColor = .labelColor
+        lbl.textColor = OverlayPopoverPalette.label
         lbl.frame = NSRect(x: padding, y: y + 3, width: sliderLabelWidth, height: 16)
         addSubview(lbl)
 
