@@ -405,7 +405,6 @@ extension DetachedEditorWindowController: OverlayViewDelegate {
         guard let raw = overlayView?.captureSelectedRegion() else { return }
         let image = applyPostProcessing(raw)
         ImageEncoder.copyToClipboard(image)
-        playCopySound()
         (NSApp.delegate as? AppDelegate)?.showFloatingThumbnail(image: image)
         autoSaveToHistoryIfNeeded(compositedImage: image)
         window?.close()
@@ -428,7 +427,6 @@ extension DetachedEditorWindowController: OverlayViewDelegate {
                 (NSApp.delegate as? AppDelegate)?.showSaveResultToast(result)
                 if case .success(let fileURL) = result {
                     SaveDirectoryAccess.save(url: fileURL.deletingLastPathComponent())
-                    self?.playCopySound()
                     self?.autoSaveToHistoryIfNeeded(compositedImage: image)
                     self?.window?.close()
                 }
@@ -439,7 +437,6 @@ extension DetachedEditorWindowController: OverlayViewDelegate {
     func overlayViewDidRequestPin() {
         guard let raw = overlayView?.captureSelectedRegion() else { return }
         let image = applyPostProcessing(raw)
-        playCopySound()
         (NSApp.delegate as? AppDelegate)?.showPin(image: image)
         autoSaveToHistoryIfNeeded(compositedImage: image)
 
@@ -494,7 +491,6 @@ extension DetachedEditorWindowController: OverlayViewDelegate {
                 appDelegate.saveImageToPreferredDirectory(image) { [weak self] result in
                     guard let self = self else { return }
                     if case .success = result {
-                        self.playCopySound()
                         self.window?.close()
                     }
                 }
@@ -503,7 +499,6 @@ extension DetachedEditorWindowController: OverlayViewDelegate {
                     guard let self = self else { return }
                     switch result {
                     case .success:
-                        self.playCopySound()
                         self.window?.close()
                     case .failure(let error):
                         let message = error.localizedDescription.isEmpty ? L("Save failed") : error.localizedDescription
@@ -519,7 +514,7 @@ extension DetachedEditorWindowController: OverlayViewDelegate {
             if actions.pinToScreen {
                 (NSApp.delegate as? AppDelegate)?.showPin(image: image)
             }
-            playCopySound()
+            SoundManager.shared.playCapture()
             if actions.showQuickAccessOverlay {
                 (NSApp.delegate as? AppDelegate)?.showFloatingThumbnail(image: image)
             }
@@ -537,7 +532,6 @@ extension DetachedEditorWindowController: OverlayViewDelegate {
                 guard let self = self else { return }
                 switch result {
                 case .success:
-                    self.playCopySound()
                     self.autoSaveToHistoryIfNeeded(compositedImage: image)
                     self.window?.close()
                 case .failure:
@@ -549,7 +543,6 @@ extension DetachedEditorWindowController: OverlayViewDelegate {
                 guard let self = self else { return }
                 switch result {
                 case .success:
-                    self.playCopySound()
                     self.autoSaveToHistoryIfNeeded(compositedImage: image)
                     self.window?.close()
                 case .failure(let error):
@@ -587,7 +580,6 @@ extension DetachedEditorWindowController: OverlayViewDelegate {
     func overlayViewDidRequestUpload() {
         guard let raw = overlayView?.captureSelectedRegion() else { return }
         let image = applyPostProcessing(raw)
-        playCopySound()
         (NSApp.delegate as? AppDelegate)?.uploadImage(image)
         autoSaveToHistoryIfNeeded(compositedImage: image)
         window?.close()
@@ -628,7 +620,6 @@ extension DetachedEditorWindowController: OverlayViewDelegate {
             switch result {
             case .success(let finalImage):
                 ImageEncoder.copyToClipboard(finalImage)
-                self.playCopySound()
                 (NSApp.delegate as? AppDelegate)?.showFloatingThumbnail(image: finalImage)
             case .failure(let error):
                 self.overlayView?.showOverlayError(error.localizedDescription)
@@ -705,13 +696,6 @@ extension DetachedEditorWindowController: OverlayViewDelegate {
         window?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         window?.makeFirstResponder(view)
-    }
-
-    private func playCopySound() {
-        let enabled = UserDefaults.standard.object(forKey: "playCopySound") as? Bool ?? true
-        guard enabled else { return }
-        AppDelegate.captureSound?.stop()
-        AppDelegate.captureSound?.play()
     }
 }
 

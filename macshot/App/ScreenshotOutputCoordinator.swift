@@ -5,7 +5,6 @@ final class ScreenshotOutputCoordinator: NSObject, PinWindowControllerDelegate {
 
     struct Dependencies {
         let resolveTargetScreen: () -> NSScreen?
-        let playCopySound: () -> Void
     }
 
     private let dependencies: Dependencies
@@ -17,6 +16,10 @@ final class ScreenshotOutputCoordinator: NSObject, PinWindowControllerDelegate {
     init(dependencies: Dependencies) {
         self.dependencies = dependencies
         super.init()
+    }
+
+    private var resolveTargetScreen: NSScreen? {
+        dependencies.resolveTargetScreen()
     }
 
     var hasVisibleFloatingPanels: Bool {
@@ -67,7 +70,7 @@ final class ScreenshotOutputCoordinator: NSObject, PinWindowControllerDelegate {
             thumbnailControllers.removeAll()
         }
 
-        let screen = dependencies.resolveTargetScreen() ?? NSScreen.main ?? NSScreen.screens[0]
+        let screen = resolveTargetScreen ?? NSScreen.main ?? NSScreen.screens[0]
         let displayID = screenDisplayID(for: screen)
         let screenFrame = screen.visibleFrame
         let padding: CGFloat = 16
@@ -86,9 +89,8 @@ final class ScreenshotOutputCoordinator: NSObject, PinWindowControllerDelegate {
             self?.thumbnailControllers.removeAll { $0 === controller }
             self?.reflowThumbnails(onDisplayID: displayID)
         }
-        controller.onCopy = { [weak self] in
+        controller.onCopy = {
             ImageEncoder.copyToClipboard(image)
-            self?.dependencies.playCopySound()
         }
         controller.onSave = { [weak self] in
             self?.saveImageToPreferredDirectory(image)
@@ -96,7 +98,6 @@ final class ScreenshotOutputCoordinator: NSObject, PinWindowControllerDelegate {
         controller.onPin = { [weak self] in
             ScreenshotHistory.shared.add(image: image)
             self?.showPin(image: image)
-            self?.dependencies.playCopySound()
         }
         controller.onEdit = {
             if let data = annotationData {
@@ -178,7 +179,7 @@ final class ScreenshotOutputCoordinator: NSObject, PinWindowControllerDelegate {
             showFloatingThumbnail(image: image, annotationData: annotationData, historyEntryID: historyEntryID)
         }
 
-        dependencies.playCopySound()
+        SoundManager.shared.playCapture()
     }
 
     func saveImageToPreferredDirectory(
@@ -267,7 +268,6 @@ final class ScreenshotOutputCoordinator: NSObject, PinWindowControllerDelegate {
                             message: error.localizedDescription.isEmpty ? L("Save failed") : error.localizedDescription
                         )
                     } else {
-                        self.dependencies.playCopySound()
                         let all = self.thumbnailControllers
                         self.thumbnailControllers.removeAll()
                         for controller in all {

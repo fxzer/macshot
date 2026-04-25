@@ -322,13 +322,6 @@ class OverlayWindowController {
             NSStringFromRect(screen.frame), forKey: "lastSelectionScreenFrame")
     }
 
-    func playCopySound() {
-        let soundEnabled = UserDefaults.standard.object(forKey: "playCopySound") as? Bool ?? true
-        guard soundEnabled else { return }
-        AppDelegate.captureSound?.stop()
-        AppDelegate.captureSound?.play()
-    }
-
     func captureRegion() -> NSImage? {
         return overlayDelegate?.overlayCrossScreenImage(self)
             ?? overlayView?.captureSelectedRegion()

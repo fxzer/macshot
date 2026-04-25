@@ -3,11 +3,10 @@ import Cocoa
 @MainActor
 final class HistoryMenuController: NSObject, NSMenuDelegate {
 
-    private let onPlayCopySound: () -> Void
     private weak var managedMenu: NSMenu?
 
-    init(onPlayCopySound: @escaping () -> Void) {
-        self.onPlayCopySound = onPlayCopySound
+    override init() {
+        super.init()
     }
 
     func makeMenuItem() -> NSMenuItem {
@@ -62,7 +61,6 @@ final class HistoryMenuController: NSObject, NSMenuDelegate {
 
     @objc private func copyHistoryEntry(_ sender: NSMenuItem) {
         ScreenshotHistory.shared.copyEntry(at: sender.tag)
-        onPlayCopySound()
     }
 
     @objc private func clearHistory(_ sender: NSMenuItem) {

@@ -58,9 +58,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             defaultInteractionScreen: { [weak self] in self?.defaultInteractionScreen() }
         )
     )
-    private lazy var historyMenuController = HistoryMenuController(
-        onPlayCopySound: { [weak self] in self?.playCopySound() }
-    )
+    private lazy var historyMenuController = HistoryMenuController()
     private lazy var routeHandler = AppRouteHandler(
         actions: .init(
             captureArea: { [weak self] in self?.beginCapture(intent: .area, triggerOrigin: .external) },
@@ -132,8 +130,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
     )
     private lazy var outputCoordinator = ScreenshotOutputCoordinator(
         dependencies: .init(
-            resolveTargetScreen: { [weak self] in self?.preferredOutputScreen() },
-            playCopySound: { [weak self] in self?.playCopySound() }
+            resolveTargetScreen: { [weak self] in self?.preferredOutputScreen() }
         )
     )
     lazy var recordingFlowCoordinator = RecordingFlowCoordinator(
@@ -154,7 +151,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             statusBarSetRecordingPaused: { [weak self] paused in
                 self?.statusBarController.setRecordingPaused(paused)
             },
-            playCopySound: { [weak self] in self?.playCopySound() },
             restartCapture: { [weak self] in
                 // Restart capture flow to re-show overlays after countdown cancellation
                 self?.beginCapture(intent: .area, triggerOrigin: .external)
@@ -174,14 +170,21 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         )
     )
 
-    /// Shared capture sound — loaded once, reused everywhere.
-    static let captureSound: NSSound? = {
-        let path = "/System/Library/Components/CoreAudio.component/Contents/SharedSupport/SystemSounds/system/Screen Capture.aif"
-        return NSSound(contentsOfFile: path, byReference: true) ?? NSSound(named: "Tink")
-    }()
-
     func applicationDidFinishLaunching(_ aNotification: Notification) {
+        migrateSoundSettings()
         guard launchCoordinator.applicationDidFinishLaunching(updaterDelegate: self) else { return }
+    }
+
+    /// Migrate old sound settings to new semantic keys.
+    private func migrateSoundSettings() {
+        let oldKey = "playCopySound"
+        let newCaptureKey = SoundSettings.captureEnabled
+
+        // Only migrate if new key doesn't exist but old key does
+        if UserDefaults.standard.object(forKey: newCaptureKey) == nil,
+           let oldValue = UserDefaults.standard.object(forKey: oldKey) as? Bool {
+            UserDefaults.standard.set(oldValue, forKey: newCaptureKey)
+        }
     }
 
     private func showOnboarding(on preferredScreen: NSScreen? = nil) {
@@ -303,13 +306,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
 
     func refreshThumbnail(for entryID: String, image: NSImage) {
         outputCoordinator.refreshThumbnail(for: entryID, image: image)
-    }
-
-    private func playCopySound() {
-        let soundEnabled = UserDefaults.standard.object(forKey: "playCopySound") as? Bool ?? true
-        guard soundEnabled else { return }
-        Self.captureSound?.stop()
-        Self.captureSound?.play()
     }
 
     func performScreenshotPostActions(

@@ -8,6 +8,7 @@ private final class KeyablePanel: NSPanel {
 /// Drop-down panel showing recent screenshot history as a horizontal scrolling strip.
 /// Slides down from the top of the screen. Left-click to copy, right-click for more actions,
 /// ESC or click outside to dismiss.
+@MainActor
 final class HistoryOverlayController: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDelegate {
 
     private var panel: NSPanel?
@@ -153,11 +154,6 @@ final class HistoryOverlayController: NSObject, QLPreviewPanelDataSource, QLPrev
 
     func copyAndDismiss(index: Int) {
         ScreenshotHistory.shared.copyEntry(at: index)
-        let soundEnabled = UserDefaults.standard.object(forKey: "playCopySound") as? Bool ?? true
-        if soundEnabled {
-            AppDelegate.captureSound?.stop()
-            AppDelegate.captureSound?.play()
-        }
         dismiss()
     }
 

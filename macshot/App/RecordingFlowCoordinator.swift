@@ -13,7 +13,6 @@ final class RecordingFlowCoordinator {
         let statusBarExitRecordingMode: () -> Void
         let statusBarUpdateRecordingSeconds: (Int) -> Void
         let statusBarSetRecordingPaused: (Bool) -> Void
-        let playCopySound: () -> Void
         let restartCapture: () -> Void
     }
 
@@ -502,7 +501,6 @@ final class RecordingFlowCoordinator {
         } else {
             pasteboard.writeObjects([url as NSURL])
         }
-        dependencies.playCopySound()
     }
 
     private func makeStatusToast() -> UploadToastController {

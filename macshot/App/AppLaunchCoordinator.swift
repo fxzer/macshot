@@ -68,12 +68,8 @@ final class AppLaunchCoordinator: NSObject {
             ToolbarButtonView.preloadCommonIcons()
         }
 
-        if let sound = AppDelegate.captureSound {
-            sound.volume = 0
-            sound.play()
-            sound.stop()
-            sound.volume = 1
-        }
+        // Prime the audio system to avoid delay on first use
+        SoundManager.shared.primeAudio()
 
         registerObservers()
         checkScreenRecordingPermission()

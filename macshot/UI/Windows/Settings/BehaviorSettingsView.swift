@@ -29,8 +29,7 @@ struct BehaviorSettingsView: View {
     private var recordingOpenVideoEditor = true
 
     // Sound feedback
-    @AppStorage("playCopySound") private var playCopySound = true
-    @AppStorage("playRecordingSound") private var playRecordingSound = false
+    @AppStorage(SoundSettings.captureEnabled) private var captureSoundEnabled = true
 
     // OCR
     @AppStorage("ocrShowWindow") private var ocrShowWindow = true
@@ -49,8 +48,8 @@ struct BehaviorSettingsView: View {
                 actionMatrixHeader()
 
                 actionMatrixRow(
-                    screenshotBinding: $playCopySound,
-                    recordingBinding: $playRecordingSound,
+                    screenshotBinding: $captureSoundEnabled,
+                    recordingBinding: nil,
                     title: L("Play sound")
                 )
                 actionMatrixRow(

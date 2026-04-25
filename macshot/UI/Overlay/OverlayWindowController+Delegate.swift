@@ -92,7 +92,6 @@ extension OverlayWindowController: OverlayViewDelegate {
     func overlayViewDidRequestPin() {
         guard var image = captureRegion() else { return }
         image = applyBeautifyIfNeeded(image) ?? image
-        playCopySound()
 
         let globalOrigin = selectionPinOrigin() ?? .zero
 
@@ -106,7 +105,6 @@ extension OverlayWindowController: OverlayViewDelegate {
             return
         }
 
-        playCopySound()
         overlayDelegate?.overlayDidStartOCR(self)
 
         let request = VisionOCR.makeTextRecognitionRequest { [self] request, error in
@@ -133,7 +131,6 @@ extension OverlayWindowController: OverlayViewDelegate {
     func overlayViewDidRequestUpload() {
         guard var image = captureRegion() else { return }
         image = applyBeautifyIfNeeded(image) ?? image
-        playCopySound()
         dismiss()
         overlayDelegate?.overlayDidRequestUpload(self, image: image)
     }
@@ -501,7 +498,6 @@ extension OverlayWindowController: OverlayViewDelegate {
             guard let self = self else { return }
             switch result {
             case .success:
-                self.playCopySound()
                 self.dismiss()
                 self.overlayDelegate?.overlayDidConfirm(
                     self,
@@ -551,7 +547,6 @@ extension OverlayWindowController: OverlayViewDelegate {
                 case .success(let fileURL):
                     (NSApp.delegate as? AppDelegate)?.showSaveResultToast(.success(fileURL))
                     SaveDirectoryAccess.save(url: fileURL.deletingLastPathComponent())
-                    self.playCopySound()
                     self.dismiss()
                     self.overlayDelegate?.overlayDidConfirm(
                         self,
