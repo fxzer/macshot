@@ -1,9 +1,3 @@
-//
-//  YoudaoModels.swift
-//  macshot
-//
-//  有道翻译数据模型
-//
 
 import Foundation
 

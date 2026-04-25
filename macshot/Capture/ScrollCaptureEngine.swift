@@ -2,7 +2,7 @@ import Cocoa
 import ScreenCaptureKit
 import Vision
 
-// MARK: - ScrollCaptureController
+// MARK: - ScrollCaptureEngine
 
 /// Scroll capture engine:
 ///
@@ -23,7 +23,7 @@ import Vision
 /// - **Scrollbar exclusion** — auto-detects scrollbar width, excludes from comparisons.
 /// - **Max height: 30,000 pixels** (configurable via UserDefaults).
 @MainActor
-final class ScrollCaptureController {
+final class ScrollCaptureEngine {
 
     // MARK: - Public state
 

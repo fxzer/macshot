@@ -25,25 +25,33 @@ macshot/
 ├── AppDelegate.swift                   # App lifecycle, status bar, hotkey, capture orchestration
 │
 ├── Model/
-│   └── Annotation.swift                # Data model + drawing for all annotation types
+│   └── Annotation.swift                # Annotation data model + geometry / hit-testing
 │
 ├── Capture/
 │   ├── ScreenCaptureManager.swift      # Multi-screen capture via ScreenCaptureKit (async/await)
 │   ├── RecordingEngine.swift           # Screen recording (MP4 via AVAssetWriter, GIF via GIFEncoder)
-│   ├── ScrollCaptureController.swift   # Scroll capture with SAD-based stitching
-│   └── GIFEncoder.swift               # Animated GIF from video frames
+│   └── ScrollCaptureEngine.swift       # Scroll capture with SAD-based stitching
+│
+├── Store/
+│   ├── BeautifyBackgroundStore.swift   # Custom beautify background persistence
+│   ├── KeychainStore.swift             # Secrets / token persistence
+│   ├── SaveDirectoryAccess.swift       # Security-scoped bookmark persistence
+│   └── ScreenshotHistory.swift         # Local history in ~/Library/Application Support/
+│
+├── Processors/
+│   ├── BackgroundRemovalProcessor.swift # Foreground subject extraction
+│   ├── BeautifyRenderer.swift          # Gradient frame / background beautification
+│   ├── GIFEncoder.swift                # Animated GIF from video frames
+│   ├── ImageEffects.swift              # Core Image-based image effects
+│   └── ImageEncoder.swift              # PNG/JPEG/HEIC/WebP encoding, clipboard copy, scaling
 │
 ├── Services/
-│   ├── ImageEncoder.swift              # PNG/JPEG/HEIC/WebP encoding, clipboard copy, resolution scaling
-│   ├── BeautifyRenderer.swift          # Gradient frame / background beautification (linear + mesh gradients)
 │   ├── AutoRedactor.swift              # PII regex detection + Vision OCR → redaction annotations
 │   ├── BarcodeDetector.swift           # Async Vision barcode/QR scanning, badge drawing, hit-testing
 │   ├── TranslationOverlay.swift        # OCR → translate → overlay annotations
 │   ├── TranslationService.swift        # Google Translate API wrapper
 │   ├── VisionOCR.swift                 # Vision text recognition request factory
-│   ├── HotkeyManager.swift            # Global keyboard shortcut (Carbon RegisterEventHotKey)
-│   ├── ScreenshotHistory.swift         # Local history in ~/Library/Application Support/
-│   └── SaveDirectoryAccess.swift       # Security-scoped bookmark for save directory
+│   └── HotkeyManager.swift             # Global keyboard shortcut (Carbon RegisterEventHotKey)
 │
 ├── Upload/
 │   ├── ImgbbUploader.swift             # imgbb image upload
@@ -52,6 +60,9 @@ macshot/
 │
 ├── UI/
 │   ├── Overlay/
+│   │   ├── Renderers/
+│   │   │   ├── Annotation+Rendering.swift     # Annotation draw dispatch
+│   │   │   └── Annotation+Drawing*.swift      # Tool-specific annotation rendering
 │   │   ├── OverlayView.swift           # Base canvas: selection, drawing, annotation rendering, input routing
 │   │   ├── OverlayView+Popovers.swift  # Popover factories + auto-redact/translate action helpers
 │   │   ├── OverlayView+Recording.swift # Recording HUD, mouse highlight monitor

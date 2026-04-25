@@ -11,7 +11,7 @@ final class ScrollCaptureFlowCoordinator {
 
     private let dependencies: Dependencies
 
-    private var scrollCaptureController: ScrollCaptureController?
+    private var scrollCaptureEngine: ScrollCaptureEngine?
     private weak var scrollCaptureOverlayController: OverlayWindowController?
     private var scrollCapturePreviewPanel: ScrollCapturePreviewPanel?
 
@@ -36,9 +36,9 @@ final class ScrollCaptureFlowCoordinator {
 
         scrollCaptureOverlayController = controller
 
-        let coordinator = ScrollCaptureController(captureRect: rect, screen: screen)
+        let coordinator = ScrollCaptureEngine(captureRect: rect, screen: screen)
         coordinator.excludedWindowIDs = dependencies.overlayControllers().map(\.windowNumber)
-        scrollCaptureController = coordinator
+        scrollCaptureEngine = coordinator
 
         let maxHeight = UserDefaults.standard.object(forKey: "scrollMaxHeight") as? Int ?? 30000
         controller.setScrollCaptureState(isActive: true, maxHeight: maxHeight)
@@ -54,7 +54,7 @@ final class ScrollCaptureFlowCoordinator {
         }
 
         coordinator.onStripAdded = { [weak self, weak controller] count in
-            guard let self, let coordinator = self.scrollCaptureController else { return }
+            guard let self, let coordinator = self.scrollCaptureEngine else { return }
             controller?.updateScrollCaptureProgress(
                 stripCount: count,
                 pixelSize: coordinator.stitchedPixelSize,
@@ -65,7 +65,7 @@ final class ScrollCaptureFlowCoordinator {
             self?.scrollCapturePreviewPanel?.updatePreview(image: image)
         }
         coordinator.onAutoScrollStarted = { [weak self, weak controller] in
-            guard let self, let coordinator = self.scrollCaptureController else { return }
+            guard let self, let coordinator = self.scrollCaptureEngine else { return }
             controller?.updateScrollCaptureProgress(
                 stripCount: coordinator.stripCount,
                 pixelSize: coordinator.stitchedPixelSize,
@@ -82,11 +82,11 @@ final class ScrollCaptureFlowCoordinator {
     }
 
     func stopScrollCapture() {
-        scrollCaptureController?.stopSession()
+        scrollCaptureEngine?.stopSession()
     }
 
     func toggleAutoScroll(from controller: OverlayWindowController) {
-        guard let coordinator = scrollCaptureController else { return }
+        guard let coordinator = scrollCaptureEngine else { return }
 
         if !coordinator.autoScrollActive && !AXIsProcessTrusted() {
             cancelSession(resetOverlayState: true)
@@ -121,20 +121,20 @@ final class ScrollCaptureFlowCoordinator {
     }
 
     private func cancelSession(resetOverlayState: Bool) {
-        guard scrollCaptureController != nil || scrollCaptureOverlayController != nil || scrollCapturePreviewPanel != nil else {
+        guard scrollCaptureEngine != nil || scrollCaptureOverlayController != nil || scrollCapturePreviewPanel != nil else {
             return
         }
 
         detachCallbacks()
-        scrollCaptureController?.cancelSession()
+        scrollCaptureEngine?.cancelSession()
         clearSessionState(resetOverlayState: resetOverlayState)
     }
 
     private func detachCallbacks() {
-        scrollCaptureController?.onStripAdded = nil
-        scrollCaptureController?.onPreviewUpdated = nil
-        scrollCaptureController?.onAutoScrollStarted = nil
-        scrollCaptureController?.onSessionDone = nil
+        scrollCaptureEngine?.onStripAdded = nil
+        scrollCaptureEngine?.onPreviewUpdated = nil
+        scrollCaptureEngine?.onAutoScrollStarted = nil
+        scrollCaptureEngine?.onSessionDone = nil
     }
 
     private func clearSessionState(resetOverlayState: Bool) {
@@ -144,6 +144,6 @@ final class ScrollCaptureFlowCoordinator {
             scrollCaptureOverlayController?.setScrollCaptureState(isActive: false)
         }
         scrollCaptureOverlayController = nil
-        scrollCaptureController = nil
+        scrollCaptureEngine = nil
     }
 }
