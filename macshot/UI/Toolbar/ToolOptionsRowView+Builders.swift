@@ -137,7 +137,7 @@ extension ToolOptionsRowView {
         stack.addArrangedSubview(label)
     }
 
-    func addLineStyleSegment(to stack: NSStackView, ov: OverlayView) {
+    func addLineStyleSegment(to stack: NSStackView, tool: AnnotationTool, ov: OverlayView) {
         let seg = NSSegmentedControl()
         seg.segmentCount = LineStyle.allCases.count
         seg.trackingMode = .selectOne
@@ -148,14 +148,15 @@ extension ToolOptionsRowView {
             seg.setImage(Self.lineStyleImage(style), forSegment: i)
             seg.setWidth(36, forSegment: i)
         }
-        let currentStyle = editingAnnotation?.lineStyle ?? ov.currentLineStyle
+        let currentStyle = editingAnnotation?.lineStyle ?? ov.lineStyle(for: tool)
         seg.selectedSegment = currentStyle.rawValue
         (seg.cell as? NSSegmentedCell)?.segmentStyle = .roundRect
         stack.addArrangedSubview(seg)
 
         // Disable dashed/dotted for rect/ellipse when outline is enabled
-        let isShapeTool = [AnnotationTool.rectangle, .ellipse].contains(editingAnnotation?.tool ?? ov.currentTool)
-        let hasOutline = editingAnnotation?.outlineColor != nil
+        let activeTool = editingAnnotation?.tool ?? tool
+        let isShapeTool = [AnnotationTool.rectangle, .ellipse].contains(activeTool)
+        let hasOutline = editingAnnotation?.outlineColor != nil || ov.outlineEnabled(for: activeTool)
         if isShapeTool && hasOutline {
             for (i, style) in LineStyle.allCases.enumerated() {
                 if style != .solid { seg.setEnabled(false, forSegment: i) }
@@ -164,10 +165,9 @@ extension ToolOptionsRowView {
                 seg.selectedSegment = LineStyle.solid.rawValue
                 if let ann = editingAnnotation {
                     ann.lineStyle = .solid
-                    ov.cachedCompositedImage = nil
-                } else {
-                    ov.currentLineStyle = .solid
+                    ov.invalidateCommittedAnnotationRendering()
                 }
+                ov.setLineStyle(.solid, for: activeTool)
             }
         }
     }
@@ -182,7 +182,7 @@ extension ToolOptionsRowView {
             seg.setImage(Self.arrowStyleImage(style), forSegment: i)
             seg.setWidth(30, forSegment: i)
         }
-        seg.selectedSegment = (editingAnnotation?.arrowStyle ?? ov.currentArrowStyle).rawValue
+        seg.selectedSegment = (editingAnnotation?.arrowStyle ?? ov.arrowStyle(for: .arrow)).rawValue
         (seg.cell as? NSSegmentedCell)?.segmentStyle = .roundRect
         stack.addArrangedSubview(seg)
     }
@@ -198,7 +198,7 @@ extension ToolOptionsRowView {
             seg.setImage(Self.shapeFillImage(style, oval: isOval), forSegment: i)
             seg.setWidth(30, forSegment: i)
         }
-        seg.selectedSegment = (editingAnnotation?.rectFillStyle ?? ov.currentRectFillStyle).rawValue
+        seg.selectedSegment = (editingAnnotation?.rectFillStyle ?? ov.rectFillStyle(for: tool)).rawValue
         (seg.cell as? NSSegmentedCell)?.segmentStyle = .roundRect
         stack.addArrangedSubview(seg)
     }
@@ -397,7 +397,7 @@ extension ToolOptionsRowView {
         label.textColor = ToolbarLayout.iconColor.withAlphaComponent(0.4)
         stack.addArrangedSubview(label)
 
-        let radiusVal = editingAnnotation?.rectCornerRadius ?? ov.currentRectCornerRadius
+        let radiusVal = editingAnnotation?.rectCornerRadius ?? ov.rectCornerRadius(for: .rectangle)
         let slider = NSSlider(value: Double(radiusVal),
                               minValue: 0, maxValue: 30,
                               target: self, action: #selector(cornerRadiusChanged(_:)))
@@ -724,14 +724,14 @@ extension ToolOptionsRowView {
         stack.addArrangedSubview(label)
     }
 
-    func addOutlineControls(to stack: NSStackView, ov: OverlayView) {
+    func addOutlineControls(to stack: NSStackView, tool: AnnotationTool, ov: OverlayView) {
         let outlineEnabled: Bool
         let outlineCol: NSColor
         if let ann = editingAnnotation {
             outlineEnabled = ann.outlineColor != nil
             outlineCol = ann.outlineColor ?? ToolOptionsRowView.savedOutlineColor
         } else {
-            outlineEnabled = UserDefaults.standard.bool(forKey: "annotationOutlineEnabled")
+            outlineEnabled = ov.outlineEnabled(for: tool)
             outlineCol = ToolOptionsRowView.savedOutlineColor
         }
         let outlineBtn = NSButton(title: L("Outline"), target: self, action: #selector(annotationOutlineToggled(_:)))

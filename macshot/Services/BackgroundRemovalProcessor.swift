@@ -2,6 +2,36 @@ import Cocoa
 import Vision
 
 enum BackgroundRemovalProcessor {
+    final class CancellationToken {
+        private let lock = NSLock()
+        private var cancelled = false
+        private var request: VNRequest?
+
+        func cancel() {
+            lock.lock()
+            cancelled = true
+            let request = request
+            lock.unlock()
+            request?.cancel()
+        }
+
+        var isCancelled: Bool {
+            lock.lock()
+            defer { lock.unlock() }
+            return cancelled
+        }
+
+        fileprivate func attach(_ request: VNRequest) {
+            lock.lock()
+            self.request = request
+            let shouldCancel = cancelled
+            lock.unlock()
+            if shouldCancel {
+                request.cancel()
+            }
+        }
+    }
+
     enum ProcessingError: LocalizedError {
         case invalidImage
         case noSubjectFound
@@ -28,23 +58,30 @@ enum BackgroundRemovalProcessor {
     )
 
     @available(macOS 14.0, *)
+    @discardableResult
     static func removeBackground(
         from image: NSImage,
-        completion: @escaping (Result<NSImage, Error>) -> Void
-    ) {
+        completion: @escaping (CancellationToken, Result<NSImage, Error>) -> Void
+    ) -> CancellationToken {
+        let token = CancellationToken()
         guard let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
             DispatchQueue.main.async {
-                completion(.failure(ProcessingError.invalidImage))
+                guard !token.isCancelled else { return }
+                completion(token, .failure(ProcessingError.invalidImage))
             }
-            return
+            return token
         }
 
         queue.async {
+            guard !token.isCancelled else { return }
+
             let request = VNGenerateForegroundInstanceMaskRequest()
+            token.attach(request)
             let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
 
             do {
                 try handler.perform([request])
+                guard !token.isCancelled else { return }
                 guard
                     let result = request.results?.first,
                     !result.allInstances.isEmpty
@@ -56,9 +93,11 @@ enum BackgroundRemovalProcessor {
                     forInstances: result.allInstances,
                     from: handler
                 )
+                guard !token.isCancelled else { return }
 
                 let originalCIImage = CIImage(cgImage: cgImage)
                 let softenedMask = try softenedMask(from: maskPixelBuffer)
+                guard !token.isCancelled else { return }
 
                 guard let blendFilter = CIFilter(name: "CIBlendWithMask") else {
                     throw ProcessingError.filterUnavailable("CIBlendWithMask")
@@ -82,14 +121,18 @@ enum BackgroundRemovalProcessor {
 
                 let finalImage = NSImage(cgImage: finalCGImage, size: image.size)
                 DispatchQueue.main.async {
-                    completion(.success(finalImage))
+                    guard !token.isCancelled else { return }
+                    completion(token, .success(finalImage))
                 }
             } catch {
                 DispatchQueue.main.async {
-                    completion(.failure(error))
+                    guard !token.isCancelled else { return }
+                    completion(token, .failure(error))
                 }
             }
         }
+
+        return token
     }
 
     @available(macOS 14.0, *)

@@ -1,8 +1,7 @@
 import Cocoa
 
 /// Standalone editor view — subclass of OverlayView for the editor window.
-/// When inside an NSScrollView, coordinate transforms are identity (view coords = canvas coords).
-/// NSScrollView handles zoom, pan, centering, momentum — no manual math needed.
+/// NSScrollView handles zoom, pan, centering, momentum.
 class EditorView: OverlayView {
 
     override var isEditorMode: Bool { true }
@@ -49,10 +48,19 @@ class EditorView: OverlayView {
 
     // MARK: - Coordinate transforms
     // Base: identity (scroll view handles zoom/pan).
-    // When beautify is active, a translation offset is applied so the expanded
-    // beautify rect fits within the enlarged document view frame.
+    // When beautify is active, the actual image/annotation canvas is shifted by
+    // beautifyEditorOffset inside the enlarged document view, so hit-testing and
+    // cursor previews must apply the inverse offset too.
 
-    override func adjustPointForEditor(_ p: NSPoint) -> NSPoint { p }
+    override func adjustPointForEditor(_ p: NSPoint) -> NSPoint {
+        let off = beautifyEditorOffset
+        return off == .zero ? p : NSPoint(x: p.x - off.x, y: p.y - off.y)
+    }
+
+    override func restorePointFromEditor(_ p: NSPoint) -> NSPoint {
+        let off = beautifyEditorOffset
+        return off == .zero ? p : NSPoint(x: p.x + off.x, y: p.y + off.y)
+    }
 
     override func applyEditorTransform(to context: NSGraphicsContext) {
         let off = beautifyEditorOffset
@@ -71,9 +79,11 @@ class EditorView: OverlayView {
 
     override func mouseMoved(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
-        if selectionRect.contains(point) {
+        if pointIsInSelection(point) {
             super.mouseMoved(with: event)
         } else {
+            cursorVisualMode = .system
+            updateToolCursorPreviews(at: point)
             NSCursor.arrow.set()
         }
     }

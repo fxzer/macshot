@@ -3,6 +3,100 @@ import AppKit
 /// Extension for integrating the color sampler magnifier into OverlayView.
 extension OverlayView {
 
+    // MARK: - Color Persistence and Sampling
+
+    /// Compare two colors by RGB components (ignoring minor floating point differences).
+    private func colorToHexString(_ color: NSColor) -> String {
+        guard let rgb = color.usingColorSpace(.sRGB) else { return "000000" }
+        let r = Int(round(rgb.redComponent * 255))
+        let g = Int(round(rgb.greenComponent * 255))
+        let b = Int(round(rgb.blueComponent * 255))
+        return String(format: "%02X%02X%02X", r, g, b)
+    }
+
+    func saveCustomColors() {
+        let hexArray = customColors.map { color -> String in
+            guard let c = color else { return "" }
+            return colorToHexString(c)
+        }
+        UserDefaults.standard.set(hexArray, forKey: "customColors")
+    }
+
+    /// Sample a pixel color from the screenshot at the given canvas-space point.
+    /// Returns (NSColor for display, hex string with values in the specified color gamut).
+    func sampleColor(from image: NSImage, at canvasPoint: NSPoint, gamut: ColorGamut = .srgb) -> (
+        color: NSColor, hex: String
+    )? {
+        // Use original CGImage if available for accurate color sampling
+        // Falls back to NSImage's cgImage(forProposedRect:) if not set
+        let cgImage: CGImage
+        if let original = originalCGImage {
+            cgImage = original
+        } else {
+            guard let img = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
+                return nil
+            }
+            cgImage = img
+        }
+
+        let imgSize = image.size
+        let drawRect = captureDrawRect
+
+        let px = (canvasPoint.x - drawRect.origin.x) * imgSize.width / drawRect.width
+        let py = (canvasPoint.y - drawRect.origin.y) * imgSize.height / drawRect.height
+        guard px >= 0, py >= 0, px < imgSize.width, py < imgSize.height else { return nil }
+
+        // Map to CGImage pixel coordinates.
+        let scaleX = CGFloat(cgImage.width) / imgSize.width
+        let scaleY = CGFloat(cgImage.height) / imgSize.height
+        let cgX = Int(px * scaleX)
+        let cgY = Int(CGFloat(cgImage.height) - 1 - py * scaleY)  // flip Y for CGImage (top-left origin)
+        guard cgX >= 0, cgX < cgImage.width, cgY >= 0, cgY < cgImage.height else { return nil }
+
+        // First, always sample in sRGB to get the base color values
+        // (screenshots are captured in sRGB color space)
+        let srgbColorSpace = CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB()
+        guard
+            let ctx = CGContext(
+                data: nil, width: 1, height: 1,
+                bitsPerComponent: 8, bytesPerRow: 4,
+                space: srgbColorSpace,
+                bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue)
+        else { return nil }
+        ctx.draw(
+            cgImage,
+            in: CGRect(
+                x: -CGFloat(cgX), y: -(CGFloat(cgImage.height) - 1 - CGFloat(cgY)),
+                width: CGFloat(cgImage.width), height: CGFloat(cgImage.height)))
+        guard let data = ctx.data else { return nil }
+        let ptr = data.assumingMemoryBound(to: UInt8.self)
+
+        // Read sRGB values
+        let srgbR = ptr[0]
+        let srgbG = ptr[1]
+        let srgbB = ptr[2]
+
+        // Convert to target color space based on gamut setting
+        let (r, g, b) = gamut.convertFromSRGB(srgbR, srgbG, srgbB)
+
+        let hex = String(format: "#%02X%02X%02X", r, g, b)
+        let color = NSColor(
+            srgbRed: CGFloat(r) / 255, green: CGFloat(g) / 255, blue: CGFloat(b) / 255, alpha: 1)
+        return (color, hex)
+    }
+
+    /// Public method to sample color at a canvas point (for color sampler magnifier).
+    func getSampledColor(at canvasPoint: NSPoint, gamut: ColorGamut = .srgb) -> (color: NSColor, hex: String)? {
+        guard let screenshot = screenshotImage else { return nil }
+        return sampleColor(from: screenshot, at: canvasPoint, gamut: gamut)
+    }
+
+    /// Get the current color gamut setting from UserDefaults.
+    var currentColorGamut: ColorGamut {
+        let gamutRaw = UserDefaults.standard.integer(forKey: "colorSamplerGamut")
+        return ColorGamut(rawValue: gamutRaw) ?? .srgb
+    }
+
     // MARK: - Associated Object Keys
 
     private static var magnifierViewKey: UInt8 = 0

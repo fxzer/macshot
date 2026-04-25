@@ -52,14 +52,18 @@ struct InterfaceSettingsView: View {
                 .onChange(of: selectedLanguageIndex) { newValue in
                     let languages = LanguageManager.availableLanguages
                     guard newValue >= 0, newValue < languages.count else { return }
-                    LanguageManager.shared.currentLanguage = languages[newValue].code
+                    let selectedCode = languages[newValue].code
+                    DispatchQueue.main.async {
+                        LanguageManager.shared.currentLanguage = selectedCode
+                    }
                 }
 
                 HStack {
                     ColorPicker(L("Accent color"), selection: $accentColor, supportsOpacity: false)
                         .onChange(of: accentColor) { newValue in
-                            ToolbarLayout.saveAccentColor(NSColor(newValue))
-                            postToolbarColorsDidChange()
+                            applyToolbarColorChange {
+                                ToolbarLayout.saveAccentColor(NSColor(newValue))
+                            }
                         }
                     Button(L("Reset")) {
                         resetAccentColor()
@@ -69,8 +73,9 @@ struct InterfaceSettingsView: View {
                 HStack {
                     ColorPicker(L("Icon color"), selection: $iconColor, supportsOpacity: false)
                         .onChange(of: iconColor) { newValue in
-                            ToolbarLayout.saveIconColor(NSColor(newValue))
-                            postToolbarColorsDidChange()
+                            applyToolbarColorChange {
+                                ToolbarLayout.saveIconColor(NSColor(newValue))
+                            }
                         }
                     Button(L("Reset")) {
                         resetIconColor()
@@ -80,8 +85,9 @@ struct InterfaceSettingsView: View {
                 HStack {
                     ColorPicker(L("Background color"), selection: $bgColor, supportsOpacity: true)
                         .onChange(of: bgColor) { newValue in
-                            ToolbarLayout.saveBgColor(NSColor(newValue))
-                            postToolbarColorsDidChange()
+                            applyToolbarColorChange {
+                                ToolbarLayout.saveBgColor(NSColor(newValue))
+                            }
                         }
                     Button(L("Reset")) {
                         resetBackgroundColor()
@@ -227,6 +233,13 @@ struct InterfaceSettingsView: View {
 
     private func postToolbarColorsDidChange() {
         NotificationCenter.default.post(name: .toolbarColorsDidChange, object: nil)
+    }
+
+    private func applyToolbarColorChange(_ update: @escaping () -> Void) {
+        DispatchQueue.main.async {
+            update()
+            postToolbarColorsDidChange()
+        }
     }
 
     @ViewBuilder

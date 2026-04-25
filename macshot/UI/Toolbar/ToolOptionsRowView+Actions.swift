@@ -18,84 +18,68 @@ extension ToolOptionsRowView {
     @objc func strokeSliderChanged(_ sender: NSSlider) {
         guard let ov = overlayView else { return }
         let val = CGFloat(sender.floatValue)
+        let tool = editingAnnotation?.tool ?? currentTool
         if let ann = editingAnnotation {
             ensureSnapshot()
             ann.strokeWidth = val
-            ov.cachedCompositedImage = nil
-            if let tool = currentTool { ov.setActiveStrokeWidth(val, for: tool) }
-        } else {
-            if let tool = currentTool { ov.setActiveStrokeWidth(val, for: tool) }
+            ov.invalidateCommittedAnnotationRendering()
         }
+        if let tool { ov.setActiveStrokeWidth(val, for: tool) }
         if let label = viewWithTag(ToolOptionTag.strokeValueLabel.rawValue) as? NSTextField {
-            label.stringValue = currentTool == .loupe ? "\(Int(val))" : "\(Int(val))px"
+            label.stringValue = tool == .loupe ? "\(Int(val))" : "\(Int(val))px"
         }
         ov.needsDisplay = true
     }
 
     @objc func lineStyleChanged(_ sender: NSSegmentedControl) {
         guard let ov = overlayView else { return }
-        if let style = LineStyle(rawValue: sender.selectedSegment) {
-            if let ann = editingAnnotation {
-                ensureSnapshot()
-                ann.lineStyle = style
-                ov.cachedCompositedImage = nil
-                ov.currentLineStyle = style
-                UserDefaults.standard.set(style.rawValue, forKey: "currentLineStyle")
-            } else {
-                ov.currentLineStyle = style
-                UserDefaults.standard.set(style.rawValue, forKey: "currentLineStyle")
-            }
-            ov.needsDisplay = true
+        guard let style = LineStyle(rawValue: sender.selectedSegment) else { return }
+        let tool = editingAnnotation?.tool ?? currentTool ?? .line
+        if let ann = editingAnnotation {
+            ensureSnapshot()
+            ann.lineStyle = style
+            ov.invalidateCommittedAnnotationRendering()
         }
+        ov.setLineStyle(style, for: tool)
+        ov.needsDisplay = true
     }
 
     @objc func arrowStyleChanged(_ sender: NSSegmentedControl) {
         guard let ov = overlayView else { return }
-        if let style = ArrowStyle(rawValue: sender.selectedSegment) {
-            if let ann = editingAnnotation {
-                ensureSnapshot()
-                ann.arrowStyle = style
-                ov.cachedCompositedImage = nil
-                ov.currentArrowStyle = style
-                UserDefaults.standard.set(style.rawValue, forKey: "currentArrowStyle")
-            } else {
-                ov.currentArrowStyle = style
-                UserDefaults.standard.set(style.rawValue, forKey: "currentArrowStyle")
-            }
-            ov.needsDisplay = true
+        guard let style = ArrowStyle(rawValue: sender.selectedSegment) else { return }
+        let tool = editingAnnotation?.tool ?? currentTool ?? .arrow
+        if let ann = editingAnnotation {
+            ensureSnapshot()
+            ann.arrowStyle = style
+            ov.invalidateCommittedAnnotationRendering()
         }
+        ov.setArrowStyle(style, for: tool)
+        ov.needsDisplay = true
     }
 
     @objc func shapeFillChanged(_ sender: NSSegmentedControl) {
         guard let ov = overlayView else { return }
-        if let style = RectFillStyle(rawValue: sender.selectedSegment) {
-            if let ann = editingAnnotation {
-                ensureSnapshot()
-                ann.rectFillStyle = style
-                ov.cachedCompositedImage = nil
-                ov.currentRectFillStyle = style
-                UserDefaults.standard.set(style.rawValue, forKey: "currentRectFillStyle")
-            } else {
-                ov.currentRectFillStyle = style
-                UserDefaults.standard.set(style.rawValue, forKey: "currentRectFillStyle")
-            }
-            ov.needsDisplay = true
+        guard let style = RectFillStyle(rawValue: sender.selectedSegment) else { return }
+        let tool = editingAnnotation?.tool ?? currentTool ?? .rectangle
+        if let ann = editingAnnotation {
+            ensureSnapshot()
+            ann.rectFillStyle = style
+            ov.invalidateCommittedAnnotationRendering()
         }
+        ov.setRectFillStyle(style, for: tool)
+        ov.needsDisplay = true
     }
 
     @objc func cornerRadiusChanged(_ sender: NSSlider) {
         guard let ov = overlayView else { return }
         let val = CGFloat(sender.floatValue)
+        let tool = editingAnnotation?.tool ?? currentTool ?? .rectangle
         if let ann = editingAnnotation {
             ensureSnapshot()
             ann.rectCornerRadius = val
-            ov.cachedCompositedImage = nil
-            ov.currentRectCornerRadius = val
-            UserDefaults.standard.set(sender.doubleValue, forKey: "currentRectCornerRadius")
-        } else {
-            ov.currentRectCornerRadius = val
-            UserDefaults.standard.set(sender.doubleValue, forKey: "currentRectCornerRadius")
+            ov.invalidateCommittedAnnotationRendering()
         }
+        ov.setRectCornerRadius(val, for: tool)
         if let label = viewWithTag(ToolOptionTag.cornerRadiusLabel.rawValue) as? NSTextField {
             label.stringValue = "\(Int(val))px"
         }
@@ -121,7 +105,7 @@ extension ToolOptionsRowView {
         }
         ann.bakedBlurNSImage = nil
         ann.bakePixelate()
-        ov.cachedCompositedImage = nil
+        ov.invalidateCommittedAnnotationRendering()
         ov.needsDisplay = true
     }
 
@@ -154,7 +138,7 @@ extension ToolOptionsRowView {
         overlayView.map { ov in
             ov.applyTextFormattingToSelectedAnnotations()
             ov.needsDisplay = true
-            rebuild(for: ov.currentTool)
+            updateFormattingButtons()
         }
     }
 
@@ -163,7 +147,7 @@ extension ToolOptionsRowView {
         overlayView.map { ov in
             ov.applyTextFormattingToSelectedAnnotations()
             ov.needsDisplay = true
-            rebuild(for: ov.currentTool)
+            updateFormattingButtons()
         }
     }
 
@@ -172,7 +156,7 @@ extension ToolOptionsRowView {
         overlayView.map { ov in
             ov.applyTextFormattingToSelectedAnnotations()
             ov.needsDisplay = true
-            rebuild(for: ov.currentTool)
+            updateFormattingButtons()
         }
     }
 
@@ -181,7 +165,7 @@ extension ToolOptionsRowView {
         overlayView.map { ov in
             ov.applyTextFormattingToSelectedAnnotations()
             ov.needsDisplay = true
-            rebuild(for: ov.currentTool)
+            updateFormattingButtons()
         }
     }
 
@@ -192,7 +176,7 @@ extension ToolOptionsRowView {
         if let ann = editingAnnotation, ann.tool == .measure {
             ensureSnapshot()
             ann.measureInPoints = ov.currentMeasureInPoints
-            ov.cachedCompositedImage = nil
+            ov.invalidateCommittedAnnotationRendering()
         }
         ov.needsDisplay = true
     }
@@ -237,7 +221,7 @@ extension ToolOptionsRowView {
         }
         ann.bakedBlurNSImage = nil
         ann.bakePixelate()
-        ov.cachedCompositedImage = nil
+        ov.invalidateCommittedAnnotationRendering()
         ov.needsDisplay = true
     }
 
@@ -293,12 +277,7 @@ extension ToolOptionsRowView {
             ov.textEditor.alignment = align
             ov.textEditor.applyAlignment()
             ov.applyTextFormattingToSelectedAnnotations()
-            for case let btn as NSButton in subviews where
-                btn.tag == NSTextAlignment.left.rawValue ||
-                btn.tag == NSTextAlignment.center.rawValue ||
-                btn.tag == NSTextAlignment.right.rawValue {
-                btn.state = btn.tag == align.rawValue ? .on : .off
-            }
+            updateFormattingButtons()
             ov.needsDisplay = true
         }
     }
@@ -373,14 +352,14 @@ extension ToolOptionsRowView {
     @objc func annotationOutlineToggled(_ sender: NSButton) {
         guard let ov = overlayView else { return }
         let isOn = sender.state == .on
-        UserDefaults.standard.set(isOn, forKey: "annotationOutlineEnabled")
+        let tool = editingAnnotation?.tool ?? ov.currentTool
+        ov.setOutlineEnabled(isOn, for: tool)
         if let swatch = viewWithTag(ToolOptionTag.annotationOutlineColorSwatch.rawValue) { swatch.layer?.opacity = isOn ? 1.0 : 0.3 }
         if let ann = editingAnnotation {
             ensureSnapshot()
             ann.outlineColor = isOn ? ToolOptionsRowView.savedOutlineColor : nil
-            ov.cachedCompositedImage = nil
+            ov.invalidateCommittedAnnotationRendering()
         }
-        let tool = editingAnnotation?.tool ?? ov.currentTool
         if tool == .rectangle || tool == .ellipse {
             if let ann = editingAnnotation {
                 rebuild(forAnnotation: ann)

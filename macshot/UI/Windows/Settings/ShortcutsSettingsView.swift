@@ -29,6 +29,7 @@ struct KeyRecorderField: View {
     let onReset: () -> Void
 
     @State private var isHovered = false
+    @State private var suppressNextStartRecording = false
     private let accessoryWidth: CGFloat = 14
     private let fieldWidth: CGFloat = 112
 
@@ -50,7 +51,11 @@ struct KeyRecorderField: View {
                 Group {
                     if !isRecording && currentDisplay != L("None") && isHovered {
                         Button {
+                            suppressNextStartRecording = true
                             onClear()
+                            DispatchQueue.main.async {
+                                suppressNextStartRecording = false
+                            }
                         } label: {
                             Image(systemName: "xmark.circle.fill")
                                 .font(.system(size: 10))
@@ -77,6 +82,7 @@ struct KeyRecorderField: View {
         )
         .contentShape(RoundedRectangle(cornerRadius: 6))
         .onTapGesture {
+            guard !suppressNextStartRecording else { return }
             onStartRecording()
         }
         .onHover { hovering in
@@ -639,6 +645,11 @@ struct ShortcutsSettingsView: View {
             hotkeyModel.onHotkeyChanged = onHotkeyChanged
             aspectRatioModel.refreshAll()
             loadAspectRatios()
+        }
+        .onDisappear {
+            hotkeyModel.stopRecording()
+            toolModel.stopRecording()
+            aspectRatioModel.stopRecording()
         }
         .onReceive(NotificationCenter.default.publisher(for: .aspectRatiosDidChange)) { _ in
             aspectRatioModel.refreshAll()

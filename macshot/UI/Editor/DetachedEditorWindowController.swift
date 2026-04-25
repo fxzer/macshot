@@ -24,6 +24,7 @@ class DetachedEditorWindowController: NSObject, NSWindowDelegate {
     private var window: NSWindow?
     private var overlayView: OverlayView?
     private var topBar: EditorTopBarView?
+    private var backgroundRemovalToken: BackgroundRemovalProcessor.CancellationToken?
     private var addCaptureHandler: AddCaptureOverlayHandler?
     private var ocrController: OCRResultController?
     private static var activeControllers: [DetachedEditorWindowController] = []
@@ -222,6 +223,7 @@ class DetachedEditorWindowController: NSObject, NSWindowDelegate {
         DispatchQueue.main.async { [weak self, weak view] in
             if let view = view {
                 self?.enforceAspectFitVisibility(logicalSize: view.logicalSize)
+                view.updateCursorForCurrentTool()
             }
         }
     }
@@ -279,6 +281,8 @@ class DetachedEditorWindowController: NSObject, NSWindowDelegate {
     }
 
     func windowWillClose(_ notification: Notification) {
+        backgroundRemovalToken?.cancel()
+        backgroundRemovalToken = nil
         overlayView?.reset()
         overlayView?.overlayDelegate = nil
         window?.contentView = nil
@@ -446,7 +450,7 @@ extension DetachedEditorWindowController: OverlayViewDelegate {
     func overlayViewDidRequestOCR() {
         guard let image = overlayView?.captureSelectedRegion(),
               let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return }
-        let shouldShowWindow = UserDefaults.standard.bool(forKey: "ocrShowWindow")
+        let shouldShowWindow = OCRPreferences.shouldShowWindow
         if shouldShowWindow {
             ocrController?.close()
             let ocr = OCRResultController.loading()
@@ -458,7 +462,7 @@ extension DetachedEditorWindowController: OverlayViewDelegate {
             let text = lines.joined(separator: "\n")
             DispatchQueue.main.async {
                 guard let self = self else { return }
-                let shouldCopy = UserDefaults.standard.bool(forKey: "ocrCopyToClipboard")
+                let shouldCopy = OCRPreferences.shouldCopyToClipboard
 
                 if shouldCopy && !text.isEmpty {
                     NSPasteboard.general.clearContents()
@@ -613,8 +617,11 @@ extension DetachedEditorWindowController: OverlayViewDelegate {
         // Show loading state
         overlayView?.isRemovingBackground = true
 
-        BackgroundRemovalProcessor.removeBackground(from: image) { [weak self] result in
+        backgroundRemovalToken?.cancel()
+        backgroundRemovalToken = BackgroundRemovalProcessor.removeBackground(from: image) { [weak self] token, result in
             guard let self = self else { return }
+            guard self.backgroundRemovalToken === token else { return }
+            self.backgroundRemovalToken = nil
             self.overlayView?.isRemovingBackground = false
             self.overlayView?.needsDisplay = true
 

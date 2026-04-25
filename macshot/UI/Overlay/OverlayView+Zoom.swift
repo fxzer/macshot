@@ -15,7 +15,7 @@ extension OverlayView {
 
     /// Convert a canvas-space point to view-space (reverse of viewToCanvas).
     func canvasToView(_ p: NSPoint) -> NSPoint {
-        if isInsideScrollView { return p }
+        if isInsideScrollView { return restorePointFromEditor(p) }
         var q = p
         if zoomLevel != 1.0 || zoomAnchorCanvas != .zero || zoomAnchorView != .zero {
             q = NSPoint(
@@ -23,12 +23,12 @@ extension OverlayView {
                 y: zoomAnchorView.y + (p.y - zoomAnchorCanvas.y) * zoomLevel
             )
         }
-        return q
+        return restorePointFromEditor(q)
     }
 
     /// Convert a point in view space to canvas (annotation) space by reversing the zoom transform.
     func viewToCanvas(_ p: NSPoint) -> NSPoint {
-        if isInsideScrollView { return p }
+        if isInsideScrollView { return adjustPointForEditor(p) }
         let q = adjustPointForEditor(p)
         if zoomLevel == 1.0 && zoomAnchorCanvas == .zero && zoomAnchorView == .zero { return q }
         guard zoomAnchorCanvas != .zero || zoomAnchorView != .zero else { return q }

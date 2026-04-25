@@ -171,8 +171,12 @@ class ToolOptionsRowView: NSView {
     /// Rebuild the options row for the given tool. Call when tool or state changes.
     func rebuild(for tool: AnnotationTool) {
         // Remove old subviews
-        stackView.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        stackView.views.forEach { $0.removeFromSuperview() }
+        // Properly remove and de-anchor arranged subviews to prevent layout ambiguity or leaks
+        while !stackView.arrangedSubviews.isEmpty {
+            let v = stackView.arrangedSubviews[0]
+            stackView.removeArrangedSubview(v)
+            v.removeFromSuperview()
+        }
         guard let ov = overlayView else { return }
 
         currentTool = tool
@@ -192,7 +196,7 @@ class ToolOptionsRowView: NSView {
         let hasLineStyle = [.line, .pencil, .rectangle, .arrow, .ellipse].contains(tool)
         if hasLineStyle {
             if hasStroke { addSeparator(to: stackView) }
-            addLineStyleSegment(to: stackView, ov: ov)
+            addLineStyleSegment(to: stackView, tool: tool, ov: ov)
         }
 
         // ── Arrow style + outline + reverse toggle ──
@@ -200,17 +204,16 @@ class ToolOptionsRowView: NSView {
             addSeparator(to: stackView)
             addArrowStyleSegment(to: stackView, ov: ov)
             addSeparator(to: stackView)
-            addOutlineControls(to: stackView, ov: ov)
+            addOutlineControls(to: stackView, tool: tool, ov: ov)
             addSeparator(to: stackView)
-            let flipIsOn = editingAnnotation?.arrowReversed ?? ov.arrowReversed
+            let flipIsOn = editingAnnotation?.arrowReversed ?? ov.arrowReversed(for: .arrow)
             addToggle(to: stackView, title: L("Flip"), isOn: flipIsOn) { [weak self, weak ov] isOn in
                 if let ann = self?.editingAnnotation {
                     self?.ensureSnapshot()
                     ann.arrowReversed = isOn
-                    ov?.cachedCompositedImage = nil
+                    ov?.invalidateCommittedAnnotationRendering()
                 }
-                ov?.arrowReversed = isOn
-                UserDefaults.standard.set(isOn, forKey: "arrowReversed")
+                ov?.setArrowReversed(isOn, for: .arrow)
                 ov?.needsDisplay = true
             }
         }
@@ -313,7 +316,7 @@ class ToolOptionsRowView: NSView {
         let hasOutlineGeneric: [AnnotationTool] = [.line, .rectangle, .ellipse, .number]
         if hasOutlineGeneric.contains(tool) {
             addSeparator(to: stackView)
-            addOutlineControls(to: stackView, ov: ov)
+            addOutlineControls(to: stackView, tool: tool, ov: ov)
         }
 
         // Since NSStackView manages layout, we update layout and calculate width
@@ -326,6 +329,46 @@ class ToolOptionsRowView: NSView {
         // Add a flexible spacer before text buttons if needed to right-align them
         // Actually, for simplicity we just let them sit next to the other options.
 
+    }
+
+    // MARK: - Partial Updates
+
+    /// Update the visual state (background color/toggle state) of formatting buttons
+    /// (Bold, Italic, Alignment, etc.) without rebuilding the entire row.
+    func updateFormattingButtons() {
+        guard let ov = overlayView else { return }
+        
+        // Find buttons within the stackView hierarchy (recursively)
+        func updateInView(_ view: NSView) {
+            for sub in view.subviews {
+                if let btn = sub as? NSButton {
+                    let tag = btn.tag
+                    // Bold, Italic, Underline, Strikethrough (tags 980-983)
+                    if tag >= 980 && tag <= 983 {
+                        let isOn: Bool
+                        switch tag {
+                        case 980: isOn = ov.textEditor.bold
+                        case 981: isOn = ov.textEditor.italic
+                        case 982: isOn = ov.textEditor.underline
+                        case 983: isOn = ov.textEditor.strikethrough
+                        default: isOn = false
+                        }
+                        btn.layer?.backgroundColor = isOn ? ToolbarLayout.accentColor.withAlphaComponent(0.85).cgColor : nil
+                        if let attrTitle = btn.attributedTitle.mutableCopy() as? NSMutableAttributedString {
+                            attrTitle.addAttribute(.foregroundColor, value: ToolbarLayout.iconColor.withAlphaComponent(isOn ? 1.0 : 0.6), range: NSRange(location: 0, length: attrTitle.length))
+                            btn.attributedTitle = attrTitle
+                        }
+                    }
+                    // Alignment buttons (tags matching NSTextAlignment raw values)
+                    else if tag == NSTextAlignment.left.rawValue || tag == NSTextAlignment.center.rawValue || tag == NSTextAlignment.right.rawValue {
+                        btn.state = (tag == ov.textEditor.alignment.rawValue) ? .on : .off
+                    }
+                }
+                updateInView(sub)
+            }
+        }
+        
+        updateInView(stackView)
     }
 
     // MARK: - Section builders

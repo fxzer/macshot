@@ -189,6 +189,71 @@ extension OverlayView {
         overlayHintColorString = nil
         overlayHintAttributedString = nil
     }
+
+    func drawOverlayHintIfNeeded() {
+        guard overlayHintOpacity > 0.01, isMouseOnCurrentScreen() else { return }
+
+        let attributedHint: NSAttributedString?
+        let plainHint: String?
+
+        if let cached = overlayHintAttributedString {
+            attributedHint = cached
+            plainHint = nil
+        } else if let message = overlayHintMessage {
+            attributedHint = nil
+            plainHint = message
+        } else {
+            attributedHint = nil
+            plainHint = nil
+        }
+
+        guard attributedHint != nil || plainHint != nil else { return }
+
+        let displayString: NSAttributedString
+        if let attributedHint {
+            displayString = attributedHint
+        } else {
+            let attributes: [NSAttributedString.Key: Any] = [
+                .font: NSFont.systemFont(ofSize: 13, weight: .medium),
+                .foregroundColor: NSColor.white.withAlphaComponent(overlayHintOpacity),
+            ]
+            displayString = NSAttributedString(string: plainHint!, attributes: attributes)
+        }
+
+        let stringSize = displayString.size()
+        let colorSwatchSize: CGFloat = 20
+        let colorSwatchPadding: CGFloat = 8
+        let hasColorSwatch = overlayHintColorString != nil
+        let padding: CGFloat = 12
+        let hintWidth = stringSize.width + padding * 2
+            + (hasColorSwatch ? colorSwatchSize + colorSwatchPadding : 0)
+        let hintHeight = max(stringSize.height + padding, colorSwatchSize + padding)
+        let layoutBounds = isEditorMode ? visibleRect : bounds
+        let topMargin: CGFloat = isEditorMode ? 12 : 40
+        let hintRect = NSRect(
+            x: layoutBounds.midX - hintWidth / 2,
+            y: layoutBounds.maxY - hintHeight - topMargin,
+            width: hintWidth,
+            height: hintHeight)
+
+        NSColor.black.withAlphaComponent(overlayHintOpacity * 0.7).setFill()
+        NSBezierPath(roundedRect: hintRect, xRadius: 8, yRadius: 8).fill()
+
+        let textY = hintRect.minY + (hintHeight - stringSize.height) / 2
+        displayString.draw(at: NSPoint(x: hintRect.minX + padding, y: textY))
+
+        if let colorString = overlayHintColorString, let color = hintSwatchColor(from: colorString) {
+            let swatchRect = NSRect(
+                x: hintRect.minX + padding + stringSize.width + colorSwatchPadding,
+                y: hintRect.minY + (hintHeight - colorSwatchSize) / 2,
+                width: colorSwatchSize,
+                height: colorSwatchSize)
+            color.setFill()
+            NSBezierPath(roundedRect: swatchRect, xRadius: 4, yRadius: 4).fill()
+            NSColor.white.withAlphaComponent(0.3 * overlayHintOpacity).setStroke()
+            NSBezierPath(roundedRect: swatchRect, xRadius: 4, yRadius: 4).stroke()
+        }
+    }
 }
 
 // MARK: - Associated Keys

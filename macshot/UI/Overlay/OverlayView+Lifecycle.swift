@@ -1,0 +1,171 @@
+//
+//  OverlayView+Lifecycle.swift
+//  macshot
+//
+//  Overlay editor state, selection lifecycle, and reset helpers.
+//
+
+import AppKit
+
+extension OverlayView {
+
+    // MARK: - Cleanup
+
+    func snapshotEditorState() -> OverlayEditorState {
+        return OverlayEditorState(
+            screenshotImage: screenshotImage,
+            selectionRect: selectionRect,
+            annotations: annotations,
+            undoStack: undoStack,
+            redoStack: redoStack,
+            currentTool: currentTool,
+            currentColor: currentColor,
+            currentStrokeWidth: currentStrokeWidth,
+            currentMarkerSize: currentMarkerSize,
+            currentNumberSize: currentNumberSize,
+            numberCounter: numberCounter,
+            beautifyEnabled: beautifyEnabled,
+            beautifyStyleIndex: beautifyStyleIndex,
+            effectsPreset: effectsPreset,
+            effectsBrightness: effectsBrightness,
+            effectsContrast: effectsContrast,
+            effectsSaturation: effectsSaturation,
+            effectsSharpness: effectsSharpness
+        )
+    }
+
+    func setAnnotations(_ anns: [Annotation]) {
+        if let img = screenshotImage {
+            let bounds = captureDrawRect
+            for ann in anns {
+                if ann.tool == .loupe
+                    || ((ann.tool == .pixelate || ann.tool == .blur) && ann.bakedBlurNSImage == nil)
+                {
+                    ann.sourceImage = img
+                    ann.sourceImageBounds = bounds
+                    if ann.tool == .loupe { ann.bakeLoupe() }
+                    if ann.tool == .pixelate { ann.bakePixelate() }
+                }
+            }
+        }
+        annotations = anns
+        undoStack = anns.map { .added($0) }
+        redoStack = []
+        cachedCompositedImage = nil
+        needsDisplay = true
+    }
+
+    func applySelection(_ rect: NSRect, restoredFromMemory: Bool = false) {
+        selectionRect = rect
+        selectionStart = rect.origin
+        state = .selected
+        selectionWasRestoredFromMemory = restoredFromMemory
+
+        hideColorSamplerMagnifier()
+        if currentTool == .colorSampler {
+            showColorSamplerMagnifier()
+        }
+
+        showToolbars = true
+        needsDisplay = true
+    }
+
+    func applyFullScreenSelection() {
+        selectionRect = bounds
+        selectionStart = bounds.origin
+        state = .selected
+        selectionWasRestoredFromMemory = false
+
+        hideColorSamplerMagnifier()
+        if currentTool == .colorSampler {
+            showColorSamplerMagnifier()
+        }
+
+        aspectRatioLock = .none
+        showToolbars = true
+        scheduleBarcodeDetection()
+        overlayDelegate?.overlayViewDidFinishSelection(selectionRect)
+        needsDisplay = true
+    }
+
+    func clearSelection() {
+        state = .idle
+        selectionRect = .zero
+        selectionWasRestoredFromMemory = false
+        clearSelectionSizeSnapState()
+        remoteSelectionRect = .zero
+        remoteSelectionFullRect = .zero
+        showToolbars = false
+        if screenshotImage != nil {
+            showColorSamplerMagnifier()
+        }
+        needsDisplay = true
+    }
+
+    func reset() {
+        state = .idle
+        selectionRect = .zero
+        selectionWasRestoredFromMemory = false
+        clearSelectionSizeSnapState()
+        selectionIsWindowSnap = false
+        snappedWindowID = nil
+        snappedWindowImage = nil
+        remoteSelectionRect = .zero
+        remoteSelectionFullRect = .zero
+        annotations.removeAll()
+        undoStack.removeAll()
+        redoStack.removeAll()
+        currentAnnotation = nil
+        numberCounter = 0
+        showToolbars = false
+        bottomStripView?.isHidden = true
+        rightStripView?.isHidden = true
+        toolOptionsRowView?.isHidden = true
+        PopoverHelper.dismiss()
+        editorTooltipView?.removeFromSuperview()
+        editorTooltipView = nil
+        isTranslating = false
+        translateEnabled = false
+        autoMeasurePreview = nil
+        autoMeasureKeyHeld = false
+        autoMeasureBitmapCtx = nil
+        selectedAnnotation = nil
+        isDraggingAnnotation = false
+        hoveredAnnotationClearTimer?.invalidate()
+        hoveredAnnotationClearTimer = nil
+        hoveredAnnotation = nil
+        colorWheel.dismiss()
+        beautifyEnabled = UserDefaults.standard.bool(forKey: "beautifyEnabled")
+        beautifyStyleIndex = UserDefaults.standard.integer(forKey: "beautifyStyleIndex")
+        beautifyMode =
+            BeautifyMode(rawValue: UserDefaults.standard.integer(forKey: "beautifyMode")) ?? .window
+        beautifyPadding = CGFloat(
+            UserDefaults.standard.object(forKey: "beautifyPadding") as? Double ?? 48)
+        beautifyCornerRadius = CGFloat(
+            UserDefaults.standard.object(forKey: "beautifyCornerRadius") as? Double ?? 10)
+        beautifyShadowRadius = CGFloat(
+            UserDefaults.standard.object(forKey: "beautifyShadowRadius") as? Double ?? 20)
+        beautifyBgRadius = CGFloat(
+            UserDefaults.standard.object(forKey: "beautifyBgRadius") as? Double ?? 8)
+        previewState.lineStylePerTool.removeAll()
+        previewState.rectFillStylePerTool.removeAll()
+        previewState.rectCornerRadiusPerTool.removeAll()
+        previewState.outlineEnabledPerTool.removeAll()
+        previewState.currentArrowStyle =
+            ArrowStyle(rawValue: UserDefaults.standard.integer(forKey: "currentArrowStyle"))
+            ?? .single
+        previewState.arrowReversed = UserDefaults.standard.bool(forKey: "arrowReversed")
+        textEditor.dismiss()
+
+        isResizingAnnotation = false
+        loupeCursorPoint = .zero
+        overlayErrorTimer?.invalidate()
+        overlayErrorTimer = nil
+        overlayErrorMessage = nil
+        resetHintState()
+        barcodeDetector.cancel()
+        hoveredWindowRect = nil
+        isRecording = false
+        needsDisplay = true
+    }
+}

@@ -370,7 +370,7 @@ extension OverlayWindowController: OverlayViewDelegate {
 
         let tool = view.currentTool
         let color = view.currentColor
-        let stroke = view.currentStrokeWidth
+        let stroke = view.activeStrokeWidthForTool(tool)
 
         dismiss()
         overlayDelegate?.overlayDidCancel(self)
@@ -387,8 +387,11 @@ extension OverlayWindowController: OverlayViewDelegate {
         // Show loading state
         overlayView?.isRemovingBackground = true
 
-        BackgroundRemovalProcessor.removeBackground(from: image) { [weak self] result in
+        backgroundRemovalToken?.cancel()
+        backgroundRemovalToken = BackgroundRemovalProcessor.removeBackground(from: image) { [weak self] token, result in
             guard let self = self else { return }
+            guard self.backgroundRemovalToken === token else { return }
+            self.backgroundRemovalToken = nil
             self.overlayView?.isRemovingBackground = false
             self.overlayView?.needsDisplay = true
 

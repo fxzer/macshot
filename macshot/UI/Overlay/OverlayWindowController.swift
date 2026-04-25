@@ -63,6 +63,7 @@ class OverlayWindowController {
     weak var overlayDelegate: OverlayWindowControllerDelegate?
     var capturedWindowTitle: String?
 
+    var backgroundRemovalToken: BackgroundRemovalProcessor.CancellationToken?
     var overlayView: OverlayView?
     var overlayWindow: OverlayWindow?
     var shareDelegate: SharePickerDelegate?
@@ -294,6 +295,8 @@ class OverlayWindowController {
     }
 
     func dismiss() {
+        backgroundRemovalToken?.cancel()
+        backgroundRemovalToken = nil
         saveSelectionIfNeeded()
         overlayView?.reset()
         overlayView?.screenshotImage = nil

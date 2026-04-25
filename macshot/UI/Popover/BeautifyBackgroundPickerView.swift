@@ -51,12 +51,20 @@ final class BeautifyBackgroundPickerView: NSView {
 
     required init?(coder: NSCoder) { fatalError() }
 
+    deinit {
+        clearCachedImages()
+    }
+
     override var isFlipped: Bool { true }
     override var acceptsFirstResponder: Bool { true }
     var preferredSize: NSSize { frame.size }
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
+        guard window != nil else {
+            clearCachedImages()
+            return
+        }
         DispatchQueue.main.async { [weak self] in
             self?.window?.makeFirstResponder(self)
         }
@@ -227,5 +235,10 @@ final class BeautifyBackgroundPickerView: NSView {
         thumbnail.unlockFocus()
         cachedThumbnail = thumbnail
         return thumbnail
+    }
+
+    private func clearCachedImages() {
+        meshImages = Array(repeating: nil, count: meshImages.count)
+        cachedThumbnail = nil
     }
 }

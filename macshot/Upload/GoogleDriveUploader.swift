@@ -61,7 +61,6 @@ final class GoogleDriveUploader: NSObject, ASWebAuthenticationPresentationContex
     func signIn(from window: NSWindow?, completion: @escaping (Bool) -> Void) {
         Self.lastSignInError = nil
         NSLog("[GoogleDrive] Starting sign in flow...")
-        NSLog("[GoogleDrive] Starting sign in flow...")
         let codeVerifier = generateCodeVerifier()
         let codeChallenge = generateCodeChallenge(from: codeVerifier)
         let redirectURI = "\(callbackScheme):/oauthredirect"

@@ -10,9 +10,11 @@ struct SwiftUISettingsView: View {
     var onWindowClose: (() -> Void)?
 
     var body: some View {
+        let refreshToken = languageIndex
+
         VStack(spacing: 0) {
             // Custom tab bar
-            CustomTabBar(selectedTab: $selectedTab)
+            CustomTabBar(selectedTab: $selectedTab, refreshToken: refreshToken)
 
             // Tab content
             Group {
@@ -39,13 +41,14 @@ struct SwiftUISettingsView: View {
             .background(Color(nsColor: .windowBackgroundColor))
 
             // Footer
-            SettingsFooter()
+            SettingsFooter(refreshToken: refreshToken)
         }
         .onReceive(NotificationCenter.default.publisher(for: LanguageManager.changedNotification)) { _ in
-            // Force view refresh when language changes
-            languageIndex += 1
+            DispatchQueue.main.async {
+                languageIndex += 1
+            }
         }
-        .id(languageIndex) // Force view recreation on language change
+        .accessibilityIdentifier("settings-root-\(refreshToken)")
     }
 }
 
@@ -94,6 +97,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
 
 struct CustomTabBar: View {
     @Binding var selectedTab: SettingsTab
+    let refreshToken: Int
 
     private var tabs: [SettingsTab] { SettingsTab.allCases }
 
@@ -117,6 +121,7 @@ struct CustomTabBar: View {
                 .frame(height: 1),
             alignment: .bottom
         )
+        .id(refreshToken)
     }
 }
 
@@ -199,6 +204,8 @@ struct TabBarButton: View {
 // MARK: - Settings Footer
 
 struct SettingsFooter: View {
+    let refreshToken: Int
+
     var body: some View {
         HStack {
             Text("\(L("Made by")) fxzer")
@@ -217,6 +224,7 @@ struct SettingsFooter: View {
         .padding(.horizontal, 20)
         .padding(.vertical, 8)
         .background(Color(nsColor: .windowBackgroundColor))
+        .id(refreshToken)
         .overlay(
             Rectangle()
                 .fill(Color(nsColor: .separatorColor))

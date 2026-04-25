@@ -60,8 +60,10 @@ extension OverlayView {
             cachedCompositedImage = nil
             resetZoom()
         }
+        invalidateAnnotationCaches()
+        cachedCompositedImage = nil
+        syncToolOptionsForCurrentSelection()
         needsDisplay = true
-        updateUndoRedoButtonStates()
     }
 
     func redo() {
@@ -106,8 +108,10 @@ extension OverlayView {
             cachedCompositedImage = nil
             if !isInsideScrollView { resetZoom() }
         }
+        invalidateAnnotationCaches()
+        cachedCompositedImage = nil
+        syncToolOptionsForCurrentSelection()
         needsDisplay = true
-        updateUndoRedoButtonStates()
     }
 
     // MARK: - Private Helpers
