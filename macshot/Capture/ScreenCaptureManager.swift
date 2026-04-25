@@ -236,6 +236,7 @@ class ScreenCaptureManager {
                                 config.height = display.height * scale
                                 config.showsCursor = false
                                 config.captureResolution = .best
+                                config.colorSpaceName = CGColorSpace.sRGB
 
                                 guard let image = try? await SCScreenshotManager.captureImage(
                                     contentFilter: filter, configuration: config
@@ -323,6 +324,7 @@ class ScreenCaptureManager {
                     config.height = display.height * scale
                     config.showsCursor = false
                     config.captureResolution = .best
+                    config.colorSpaceName = CGColorSpace.sRGB
 
                     guard let image = try? await SCScreenshotManager.captureImage(
                         contentFilter: filter,
@@ -372,7 +374,6 @@ class ScreenCaptureManager {
     /// in the **sRGB** color space. Using sRGB ensures that pixel values correspond directly
     /// to standard hex color codes (#RRGGBB) and that color sampling is accurate regardless
     /// of the display's native color space (e.g. Display P3).
-    /// CoreGraphics will automatically convert sRGB images to the display profile when drawing.
     static func convertTo8BitBGRA(_ src: CGImage) -> CGImage? {
         let w = src.width
         let h = src.height
@@ -424,6 +425,7 @@ class ScreenCaptureManager {
             config.height = Int(scWindow.frame.height) * scale
             config.showsCursor = false
             config.captureResolution = .best
+            config.colorSpaceName = CGColorSpace.sRGB
 
             guard let image = try? await SCScreenshotManager.captureImage(
                 contentFilter: filter, configuration: config

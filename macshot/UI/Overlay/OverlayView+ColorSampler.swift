@@ -63,6 +63,7 @@ extension OverlayView {
                 space: srgbColorSpace,
                 bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue)
         else { return nil }
+        ctx.interpolationQuality = .none
         ctx.draw(
             cgImage,
             in: CGRect(
