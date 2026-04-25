@@ -18,17 +18,21 @@ enum ImageUploader {
     }
 
     static func upload(image: NSImage, completion: @escaping (Result<ImageUploadResult, Error>) -> Void) {
-        guard let key = apiKey else {
+        func finish(_ result: Result<ImageUploadResult, Error>) {
             DispatchQueue.main.async {
-                completion(.failure(NSError(domain: "ImageUploader", code: 5, userInfo: [NSLocalizedDescriptionKey: L("ImgBB API key not configured. Please add your API key in Settings.")])))
+                completion(result)
             }
+        }
+
+        guard let key = apiKey else {
+            finish(.failure(NSError(domain: "ImageUploader", code: 5, userInfo: [NSLocalizedDescriptionKey: L("ImgBB API key not configured. Please add your API key in Settings.")])))
             return
         }
 
         guard let tiffData = image.tiffRepresentation,
               let bitmap = NSBitmapImageRep(data: tiffData),
               let pngData = bitmap.representation(using: .png, properties: [:]) else {
-            completion(.failure(NSError(domain: "ImageUploader", code: 1, userInfo: [NSLocalizedDescriptionKey: "Failed to encode image"])))
+            finish(.failure(NSError(domain: "ImageUploader", code: 1, userInfo: [NSLocalizedDescriptionKey: "Failed to encode image"])))
             return
         }
 
@@ -36,7 +40,7 @@ enum ImageUploader {
 
         let urlString = "https://api.imgbb.com/1/upload?key=\(key)"
         guard let url = URL(string: urlString) else {
-            completion(.failure(NSError(domain: "ImageUploader", code: 2, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"])))
+            finish(.failure(NSError(domain: "ImageUploader", code: 2, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"])))
             return
         }
 
@@ -58,14 +62,12 @@ enum ImageUploader {
 
         URLSession.shared.dataTask(with: request) { data, response, error in
             if let error = error {
-                DispatchQueue.main.async { completion(.failure(error)) }
+                finish(.failure(error))
                 return
             }
 
             guard let data = data else {
-                DispatchQueue.main.async {
-                    completion(.failure(NSError(domain: "ImageUploader", code: 3, userInfo: [NSLocalizedDescriptionKey: "No response data"])))
-                }
+                finish(.failure(NSError(domain: "ImageUploader", code: 3, userInfo: [NSLocalizedDescriptionKey: "No response data"])))
                 return
             }
 
@@ -87,16 +89,14 @@ enum ImageUploader {
                     } else {
                         errorMsg = "Unknown error"
                     }
-                    DispatchQueue.main.async {
-                        completion(.failure(NSError(domain: "ImageUploader", code: 4, userInfo: [NSLocalizedDescriptionKey: errorMsg])))
-                    }
+                    finish(.failure(NSError(domain: "ImageUploader", code: 4, userInfo: [NSLocalizedDescriptionKey: errorMsg])))
                     return
                 }
 
                 let result = ImageUploadResult(link: imageURL, deleteURL: deleteURL)
-                DispatchQueue.main.async { completion(.success(result)) }
+                finish(.success(result))
             } catch {
-                DispatchQueue.main.async { completion(.failure(error)) }
+                finish(.failure(error))
             }
         }.resume()
     }

@@ -35,7 +35,9 @@ enum TranslationService {
     }
 
     /// Cached Youdao key data (secretKey, aesKey, aesIv, expiry)
+    /// Protected by cachedYoudaoKeyLock for thread-safe access from URLSession callbacks.
     private static var cachedYoudaoKey: (secretKey: String, aesKey: String, aesIv: String, expiry: Date)?
+    private static let cachedYoudaoKeyLock = NSLock()
 
     // MARK: - Target language
 
@@ -331,11 +333,15 @@ enum TranslationService {
     static func fetchYoudaoKey(
         completion: @escaping (Result<(secretKey: String, aesKey: String, aesIv: String), Error>) -> Void
     ) {
-        // Check cache first
+        // Check cache first (thread-safe)
+        cachedYoudaoKeyLock.lock()
         if let cached = cachedYoudaoKey, cached.expiry > Date() {
-            completion(.success((cached.secretKey, cached.aesKey, cached.aesIv)))
+            let result = (cached.secretKey, cached.aesKey, cached.aesIv)
+            cachedYoudaoKeyLock.unlock()
+            completion(.success(result))
             return
         }
+        cachedYoudaoKeyLock.unlock()
 
         let timestamp = currentTimestamp()
         let sign = generateYoudaoSign(
@@ -381,13 +387,15 @@ enum TranslationService {
             do {
                 let youdaoKey = try JSONDecoder().decode(YoudaoKey.self, from: data)
                 if youdaoKey.code == 0 {
-                    // Cache for 10 minutes
+                    // Cache for 10 minutes (thread-safe)
+                    cachedYoudaoKeyLock.lock()
                     cachedYoudaoKey = (
                         secretKey: youdaoKey.data.secretKey,
                         aesKey: youdaoKey.data.aesKey,
                         aesIv: youdaoKey.data.aesIv,
                         expiry: Date().addingTimeInterval(600)
                     )
+                    cachedYoudaoKeyLock.unlock()
                     completion(.success((youdaoKey.data.secretKey, youdaoKey.data.aesKey, youdaoKey.data.aesIv)))
                 } else {
                     completion(.failure(TranslationError.parseError))

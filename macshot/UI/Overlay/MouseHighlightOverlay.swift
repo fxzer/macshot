@@ -99,7 +99,7 @@ private class MouseHighlightView: NSView {
 
     private func startAnimationIfNeeded() {
         guard animationTimer == nil else { return }
-        animationTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 30, repeats: true) { [weak self] _ in
+        let timer = Timer(timeInterval: 1.0 / 30, repeats: true) { [weak self] _ in
             guard let self = self else { return }
             let now = Date()
             self.highlights.removeAll { now.timeIntervalSince($0.time) > 0.3 }
@@ -109,6 +109,8 @@ private class MouseHighlightView: NSView {
             }
             self.needsDisplay = true
         }
+        animationTimer = timer
+        RunLoop.main.add(timer, forMode: .common)
     }
 
     func stopAnimation() {

@@ -12,6 +12,7 @@ struct HistoryEntry {
 
     private static let dateFormatter: DateFormatter = {
         let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
         f.dateFormat = "MMM d, HH:mm"
         return f
     }()
@@ -28,6 +29,7 @@ struct HistoryEntry {
     }
 }
 
+@MainActor
 class ScreenshotHistory {
 
     static let shared = ScreenshotHistory()

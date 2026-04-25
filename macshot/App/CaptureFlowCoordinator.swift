@@ -132,7 +132,7 @@ final class CaptureFlowCoordinator {
     private func startOverlayMouseScreenTracking() {
         stopOverlayMouseScreenTracking()
         guard isCapturing, overlayControllersStorage.count == 1 else { return }
-        let timer = Timer(timeInterval: 0.05, repeats: true) { [weak self] _ in
+        let timer = Timer(timeInterval: 0.1, repeats: true) { [weak self] _ in
             self?.updateOverlayScreenForMouseIfNeeded()
         }
         overlayMouseScreenTimer = timer

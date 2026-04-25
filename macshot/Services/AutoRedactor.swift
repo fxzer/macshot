@@ -57,18 +57,24 @@ enum AutoRedactor {
         completion: @escaping ([Annotation]) -> Void
     ) {
         let cgImage = cropToCGImage(screenshot: screenshot, selectionRect: selectionRect, captureDrawRect: captureDrawRect)
-        guard let cgImage = cgImage else { completion([]); return }
+        guard let cgImage = cgImage else { DispatchQueue.main.async { completion([]) }; return }
 
+        let censorMode = CensorMode(rawValue: UserDefaults.standard.integer(forKey: "censorMode")) ?? .pixelate
         let request = VisionOCR.makeTextRecognitionRequest { request, _ in
-            guard let observations = request.results as? [VNRecognizedTextObservation] else { completion([]); return }
+            guard let observations = request.results as? [VNRecognizedTextObservation] else {
+                DispatchQueue.main.async { completion([]) }
+                return
+            }
             let annotations = buildPIIRedactions(
                 observations: observations, selectionRect: selectionRect,
                 redactTool: redactTool, color: color,
                 sourceImage: sourceImage, sourceImageBounds: sourceImageBounds
             )
-            let censorMode = CensorMode(rawValue: UserDefaults.standard.integer(forKey: "censorMode")) ?? .pixelate
-            for ann in annotations { ann.censorMode = censorMode; ann.bakePixelate() }
-            DispatchQueue.main.async { completion(annotations) }
+            // Apply censor settings on main thread to avoid concurrent mutation of Annotation objects
+            DispatchQueue.main.async {
+                for ann in annotations { ann.censorMode = censorMode; ann.bakePixelate() }
+                completion(annotations)
+            }
         }
 
         DispatchQueue.global(qos: .userInitiated).async {
@@ -88,10 +94,14 @@ enum AutoRedactor {
         completion: @escaping ([Annotation]) -> Void
     ) {
         let cgImage = cropToCGImage(screenshot: screenshot, selectionRect: selectionRect, captureDrawRect: captureDrawRect)
-        guard let cgImage = cgImage else { completion([]); return }
+        guard let cgImage = cgImage else { DispatchQueue.main.async { completion([]) }; return }
 
+        let censorMode = CensorMode(rawValue: UserDefaults.standard.integer(forKey: "censorMode")) ?? .pixelate
         let request = VisionOCR.makeTextRecognitionRequest { request, _ in
-            guard let observations = request.results as? [VNRecognizedTextObservation] else { completion([]); return }
+            guard let observations = request.results as? [VNRecognizedTextObservation] else {
+                DispatchQueue.main.async { completion([]) }
+                return
+            }
             let groupID = UUID()
             let padding: CGFloat = 2
             var annotations: [Annotation] = []
@@ -114,13 +124,15 @@ enum AutoRedactor {
                 }
                 annotations.append(ann)
             }
-            let censorMode = CensorMode(rawValue: UserDefaults.standard.integer(forKey: "censorMode")) ?? .pixelate
-            for ann in annotations {
-                ann.censorMode = censorMode
-                ann.censorDrawScope = .textOnly
-                ann.bakePixelate()
+            // Apply censor settings on main thread to avoid concurrent mutation
+            DispatchQueue.main.async {
+                for ann in annotations {
+                    ann.censorMode = censorMode
+                    ann.censorDrawScope = .textOnly
+                    ann.bakePixelate()
+                }
+                completion(annotations)
             }
-            DispatchQueue.main.async { completion(annotations) }
         }
 
         DispatchQueue.global(qos: .userInitiated).async {
@@ -142,10 +154,14 @@ enum AutoRedactor {
         completion: @escaping ([Annotation]) -> Void
     ) {
         let cgImage = cropToCGImage(screenshot: screenshot, selectionRect: selectionRect, captureDrawRect: captureDrawRect)
-        guard let cgImage = cgImage else { completion([]); return }
+        guard let cgImage = cgImage else { DispatchQueue.main.async { completion([]) }; return }
 
+        let censorMode = CensorMode(rawValue: UserDefaults.standard.integer(forKey: "censorMode")) ?? .pixelate
         let request = VNDetectFaceRectanglesRequest { request, _ in
-            guard let observations = request.results as? [VNFaceObservation] else { completion([]); return }
+            guard let observations = request.results as? [VNFaceObservation] else {
+                DispatchQueue.main.async { completion([]) }
+                return
+            }
             let groupID = UUID()
             let padding: CGFloat = 4
             var annotations: [Annotation] = []
@@ -168,13 +184,15 @@ enum AutoRedactor {
                 }
                 annotations.append(ann)
             }
-            let censorMode = CensorMode(rawValue: UserDefaults.standard.integer(forKey: "censorMode")) ?? .pixelate
-            for ann in annotations {
-                ann.censorMode = censorMode
-                ann.censorDrawScope = .textOnly
-                ann.bakePixelate()
+            // Apply censor settings on main thread to avoid concurrent mutation
+            DispatchQueue.main.async {
+                for ann in annotations {
+                    ann.censorMode = censorMode
+                    ann.censorDrawScope = .textOnly
+                    ann.bakePixelate()
+                }
+                completion(annotations)
             }
-            DispatchQueue.main.async { completion(annotations) }
         }
 
         DispatchQueue.global(qos: .userInitiated).async {
@@ -194,10 +212,14 @@ enum AutoRedactor {
         completion: @escaping ([Annotation]) -> Void
     ) {
         let cgImage = cropToCGImage(screenshot: screenshot, selectionRect: selectionRect, captureDrawRect: captureDrawRect)
-        guard let cgImage = cgImage else { completion([]); return }
+        guard let cgImage = cgImage else { DispatchQueue.main.async { completion([]) }; return }
 
+        let censorMode = CensorMode(rawValue: UserDefaults.standard.integer(forKey: "censorMode")) ?? .pixelate
         let request = VNDetectHumanRectanglesRequest { request, _ in
-            guard let observations = request.results as? [VNHumanObservation] else { completion([]); return }
+            guard let observations = request.results as? [VNHumanObservation] else {
+                DispatchQueue.main.async { completion([]) }
+                return
+            }
             let groupID = UUID()
             let padding: CGFloat = 4
             var annotations: [Annotation] = []
@@ -220,13 +242,15 @@ enum AutoRedactor {
                 }
                 annotations.append(ann)
             }
-            let censorMode = CensorMode(rawValue: UserDefaults.standard.integer(forKey: "censorMode")) ?? .pixelate
-            for ann in annotations {
-                ann.censorMode = censorMode
-                ann.censorDrawScope = .textOnly
-                ann.bakePixelate()
+            // Apply censor settings on main thread to avoid concurrent mutation
+            DispatchQueue.main.async {
+                for ann in annotations {
+                    ann.censorMode = censorMode
+                    ann.censorDrawScope = .textOnly
+                    ann.bakePixelate()
+                }
+                completion(annotations)
             }
-            DispatchQueue.main.async { completion(annotations) }
         }
 
         DispatchQueue.global(qos: .userInitiated).async {

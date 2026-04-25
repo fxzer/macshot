@@ -192,11 +192,17 @@ final class RecordingEngine: NSObject {
             try setupAssetWriter(url: outURL, width: pixelW, height: pixelH)
 
             let output = RecordingStreamOutput()
+            // ScreenCaptureKit delivers samples on recordingQueue, but RecordingEngine
+            // owns main-actor state and writer inputs. Always hop back before mutating it.
             output.onFrame = { [weak self] pixelBuffer, presentationTime in
-                self?.handleFrame(pixelBuffer: pixelBuffer, presentationTime: presentationTime)
+                DispatchQueue.main.async {
+                    self?.handleFrame(pixelBuffer: pixelBuffer, presentationTime: presentationTime)
+                }
             }
             output.onAudioSample = { [weak self] sampleBuffer in
-                self?.handleAudioSample(sampleBuffer)
+                DispatchQueue.main.async {
+                    self?.handleAudioSample(sampleBuffer)
+                }
             }
             output.onStopped = { [weak self] in
                 self?.stopRecording()
@@ -306,7 +312,9 @@ final class RecordingEngine: NSObject {
         let dataOutput = AVCaptureAudioDataOutput()
         let delegate = MicCaptureDelegate()
         delegate.onSample = { [weak self] sampleBuffer in
-            self?.handleMicSample(sampleBuffer)
+            DispatchQueue.main.async {
+                self?.handleMicSample(sampleBuffer)
+            }
         }
         dataOutput.setSampleBufferDelegate(delegate, queue: recordingQueue)
         guard session.canAddOutput(dataOutput) else { return }

@@ -134,13 +134,12 @@ class HotkeyManager {
     private func installEventHandler() {
         guard eventHandlerRef == nil else { return }
         var eventType = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
-        let selfPtr = Unmanaged.passUnretained(self).toOpaque()
 
         InstallEventHandler(
             GetEventDispatcherTarget(),
-            { (_, event, userData) -> OSStatus in
-                guard let userData = userData, let event = event else { return OSStatus(eventNotHandledErr) }
-                let mgr = Unmanaged<HotkeyManager>.fromOpaque(userData).takeUnretainedValue()
+            { (_, event, _) -> OSStatus in
+                guard let event = event else { return OSStatus(eventNotHandledErr) }
+                let mgr = HotkeyManager.shared
 
                 var hotkeyID = EventHotKeyID()
                 GetEventParameter(event, EventParamName(kEventParamDirectObject), EventParamType(typeEventHotKeyID),
@@ -157,7 +156,7 @@ class HotkeyManager {
                 }
                 return noErr
             },
-            1, &eventType, selfPtr, &eventHandlerRef
+            1, &eventType, nil, &eventHandlerRef
         )
     }
 

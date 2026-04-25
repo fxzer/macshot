@@ -265,6 +265,10 @@ class Annotation {
         c.textAlignment = textAlignment
         c.fontFamilyName = fontFamilyName
         c.outlineColor = outlineColor
+        c.sourceImage = sourceImage
+        c.sourceImageBounds = sourceImageBounds
+        c.outlineGlowImage = outlineGlowImage
+        c.outlineGlowRect = outlineGlowRect
         return c
     }
 
