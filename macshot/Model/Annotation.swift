@@ -75,6 +75,9 @@ enum RectFillStyle: Int, CaseIterable {
     case stroke = 0         // outline only
     case strokeAndFill = 1  // outline + semi-transparent fill
     case fill = 2           // filled only (respects color opacity)
+
+    /// Fill opacity multiplier for strokeAndFill style (0.2 = 20% opacity)
+    static let strokeAndFillOpacity: CGFloat = 0.2
 }
 
 enum NumberFormat: Int, CaseIterable {

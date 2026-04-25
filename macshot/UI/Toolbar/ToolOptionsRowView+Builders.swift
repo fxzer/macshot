@@ -379,7 +379,7 @@ extension ToolOptionsRowView {
                 path.stroke()
             case .strokeAndFill:
                 path.stroke()
-                ToolbarLayout.iconColor.withAlphaComponent(0.25).setFill()
+                ToolbarLayout.iconColor.withAlphaComponent(RectFillStyle.strokeAndFillOpacity).setFill()
                 path.fill()
             case .fill:
                 ToolbarLayout.iconColor.setFill()

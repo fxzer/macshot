@@ -85,7 +85,7 @@ extension Annotation {
             NSBezierPath(roundedRect: rect, xRadius: cornerRadius, yRadius: cornerRadius).fill()
 
         case .strokeAndFill:
-            let fillAlpha = color.alphaComponent * 0.5
+            let fillAlpha = color.alphaComponent * RectFillStyle.strokeAndFillOpacity
             color.withAlphaComponent(fillAlpha).setFill()
             NSBezierPath(roundedRect: rect, xRadius: cornerRadius, yRadius: cornerRadius).fill()
             let path = NSBezierPath(roundedRect: rect, xRadius: cornerRadius, yRadius: cornerRadius)
@@ -231,7 +231,7 @@ extension Annotation {
             NSBezierPath(ovalIn: rect).fill()
 
         case .strokeAndFill:
-            let fillAlpha = color.alphaComponent * 0.5
+            let fillAlpha = color.alphaComponent * RectFillStyle.strokeAndFillOpacity
             color.withAlphaComponent(fillAlpha).setFill()
             NSBezierPath(ovalIn: rect).fill()
             let path = NSBezierPath(ovalIn: rect)
