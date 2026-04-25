@@ -30,7 +30,7 @@ class ScrollCaptureHUDView: NSView {
         autoScrollButton.bezelStyle = .recessed
         autoScrollButton.isBordered = false
         autoScrollButton.wantsLayer = true
-        autoScrollButton.layer?.backgroundColor = NSColor.systemBlue.withAlphaComponent(0.85).cgColor
+        autoScrollButton.layer?.backgroundColor = ToolbarLayout.accentColor.withAlphaComponent(0.85).cgColor
         autoScrollButton.layer?.cornerRadius = 12
         autoScrollButton.contentTintColor = .white
         autoScrollButton.font = .systemFont(ofSize: 12, weight: .semibold)
@@ -78,7 +78,7 @@ class ScrollCaptureHUDView: NSView {
             autoScrollButton.layer?.backgroundColor = NSColor.systemOrange.withAlphaComponent(0.85).cgColor
         } else {
             autoScrollButton.title = L("Auto Scroll")
-            autoScrollButton.layer?.backgroundColor = NSColor.systemBlue.withAlphaComponent(0.85).cgColor
+            autoScrollButton.layer?.backgroundColor = ToolbarLayout.accentColor.withAlphaComponent(0.85).cgColor
         }
     }
 

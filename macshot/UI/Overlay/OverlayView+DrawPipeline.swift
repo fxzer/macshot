@@ -193,9 +193,9 @@ extension OverlayView {
         drawSnapGuides()
 
         if isLassoSelecting && lassoRect.width > 0 && lassoRect.height > 0 {
-            NSColor.systemBlue.withAlphaComponent(0.1).setFill()
+            ToolbarLayout.accentColor.withAlphaComponent(0.1).setFill()
             NSBezierPath(rect: lassoRect).fill()
-            NSColor.systemBlue.withAlphaComponent(0.6).setStroke()
+            ToolbarLayout.accentColor.withAlphaComponent(0.6).setStroke()
             let border = NSBezierPath(rect: lassoRect)
             border.lineWidth = 1.0
             let pattern: [CGFloat] = [4, 3]
