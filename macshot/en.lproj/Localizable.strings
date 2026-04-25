@@ -286,7 +286,7 @@
 "Appearance" = "Appearance";
 "Window" = "Window";
 "Accent color:" = "Accent color:";
-"Icon color:" = "Icon color:";
+"Icon color:" = "Foreground color:";
 "Background color" = "Background color";
 "Background color:" = "Background color:";
 "Reset" = "Reset";
@@ -592,7 +592,7 @@
 "Recording frame rate" = "Recording frame rate";
 "Recording Settings" = "Recording Settings";
 "History size" = "History size";
-"Icon color" = "Icon color";
+"Icon color" = "Foreground color";
 "Image format" = "Image format";
 "Max height" = "Max height";
 "OCR Capture" = "OCR Capture";

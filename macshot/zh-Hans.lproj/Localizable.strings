@@ -274,7 +274,7 @@
 "Remove" = "移除";
 "Appearance" = "外观";
 "Accent color:" = "强调色:";
-"Icon color:" = "图标颜色:";
+"Icon color:" = "前景色:";
 "Background color:" = "背景颜色:";
 "Reset" = "重置";
 "OCR" = "OCR";
@@ -599,7 +599,7 @@
 "Recording frame rate" = "录制帧率";
 "Recording Settings" = "录制设置";
 "History size" = "历史数量";
-"Icon color" = "图标颜色";
+"Icon color" = "前景色";
 "Background color" = "背景颜色";
 "Image format" = "图片格式";
 "Max height" = "最大高度";
