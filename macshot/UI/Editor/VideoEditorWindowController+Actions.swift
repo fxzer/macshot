@@ -67,6 +67,7 @@ extension VideoEditorView {
             copyGIFData(from: url)
         } else {
             pasteboard.writeObjects([url as NSURL])
+            videoNeverExported = false
             showStatus(L("Copied to clipboard!"))
         }
     }
@@ -80,6 +81,7 @@ extension VideoEditorView {
             item.setString(url.absoluteString, forType: .fileURL)
             pasteboard.writeObjects([item])
         }
+        videoNeverExported = false
         showStatus(L("Copied to clipboard!"))
     }
 
@@ -151,14 +153,14 @@ extension VideoEditorView {
         return session
     }
 
-    func saveVideo() {
+    func saveVideo(completion: ((Bool) -> Void)? = nil) {
         if exportAsGIF && !isGIF {
             // GIF mode: need Save As panel since extension changes
-            saveVideoAs()
+            saveVideoAs(completion: completion)
             return
         }
         guard let dirURL = SaveDirectoryAccess.resolveRecordingDirectoryIfAccessible() else {
-            saveVideoAs()
+            saveVideoAs(completion: completion)
             return
         }
         let kind: FilenameOutputKind = exportAsGIF || isGIF ? .gif : .recording
@@ -169,13 +171,13 @@ extension VideoEditorView {
             fileExtension: ext
         )
         if exportAsGIF && !isGIF {
-            convertToGIF(destURL: destURL)
+            convertToGIF(destURL: destURL, completion: completion)
         } else {
-            saveToDestination(destURL, dirURL: dirURL)
+            saveToDestination(destURL, dirURL: dirURL, completion: completion)
         }
     }
 
-    func saveVideoAs() {
+    func saveVideoAs(completion: ((Bool) -> Void)? = nil) {
         let panel = NSSavePanel()
         let saveAsGIF = exportAsGIF && !isGIF
         panel.allowedContentTypes = saveAsGIF ? [.gif] : (isGIF ? [.gif] : [.mpeg4Movie])
@@ -185,11 +187,14 @@ extension VideoEditorView {
         panel.directoryURL = SaveDirectoryAccess.recordingDirectoryHint()
         panel.level = .statusBar + 3
         panel.begin { [weak self] response in
-            guard let self = self, response == .OK, let url = panel.url else { return }
+            guard let self = self, response == .OK, let url = panel.url else {
+                completion?(false)
+                return
+            }
             if saveAsGIF {
-                self.convertToGIF(destURL: url)
+                self.convertToGIF(destURL: url, completion: completion)
             } else {
-                self.saveToDestination(url, dirURL: nil)
+                self.saveToDestination(url, dirURL: nil, completion: completion)
             }
         }
     }
@@ -295,6 +300,7 @@ extension VideoEditorView {
 
                 await MainActor.run {
                     self?.savedURL = destURL
+                    self?.videoNeverExported = false
                     self?.showStatus(String(format: L("Saved to %@"), destURL.lastPathComponent))
                     self?.needsDisplay = true
                     completion?(true)
@@ -308,7 +314,7 @@ extension VideoEditorView {
         }
     }
 
-    func saveToDestination(_ destURL: URL, dirURL: URL?) {
+    func saveToDestination(_ destURL: URL, dirURL: URL?, completion: ((Bool) -> Void)? = nil) {
         let needsTrim = trimStart > 0.01 || (duration - trimEnd) > 0.01
         let needsScale = exportScale < 0.999
         let needsExport = needsTrim || isMuted || needsScale
@@ -319,15 +325,19 @@ extension VideoEditorView {
             do {
                 try FileManager.default.copyItem(at: videoURL, to: destURL)
                 savedURL = destURL
+                videoNeverExported = false
                 if let dirURL = dirURL { SaveDirectoryAccess.stopAccessing(url: dirURL) }
                 showStatus(String(format: L("Saved to %@"), destURL.lastPathComponent))
                 needsDisplay = true
+                completion?(true)
             } catch {
                 if dirURL != nil {
                     // Bookmarked directory failed — fall back to Save As
                     saveVideoAs()
+                    completion?(false)
                 } else {
                     showStatus(L("Save failed"), isError: true)
+                    completion?(false)
                 }
             }
             return
@@ -355,15 +365,19 @@ extension VideoEditorView {
                     do {
                         try FileManager.default.moveItem(at: tmpURL, to: destURL)
                         self.savedURL = destURL
+                        self.videoNeverExported = false
                         if let dirURL = dirURL { SaveDirectoryAccess.stopAccessing(url: dirURL) }
                         self.showStatus(String(format: L("Saved to %@"), destURL.lastPathComponent))
                         self.needsDisplay = true
+                        completion?(true)
                     } catch {
                         self.showStatus(L("Save failed"), isError: true)
+                        completion?(false)
                     }
                 } else {
                     self.showStatus(L("Export failed"), isError: true)
                     try? FileManager.default.removeItem(at: tmpURL)
+                    completion?(false)
                 }
             }
         }
@@ -401,6 +415,7 @@ extension VideoEditorView {
                 let thumbnail = self?.thumbnailImages.first
                 UploadHistoryStore.append(link: link, provider: provider, thumbnail: thumbnail)
 
+                self?.videoNeverExported = false
                 self?.showStatus(L("Uploaded! Link copied."))
             case .failure(let error):
                 self?.showStatus(String(format: L("Upload failed: %@"), error.localizedDescription), isError: true)

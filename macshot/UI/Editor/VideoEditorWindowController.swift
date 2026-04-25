@@ -70,6 +70,38 @@ final class VideoEditorWindowController: NSObject, NSWindowDelegate {
         self.editorView = view
     }
 
+    func windowShouldClose(_ sender: NSWindow) -> Bool {
+        guard let view = editorView, view.videoNeverExported else { return true }
+
+        let alert = NSAlert()
+        alert.messageText = L("Save video?")
+        alert.informativeText = L("Your video will be lost if you close without saving.")
+        alert.addButton(withTitle: L("Save & Close"))
+        alert.addButton(withTitle: L("Discard"))
+        alert.addButton(withTitle: L("Cancel"))
+        alert.alertStyle = .warning
+
+        alert.beginSheetModal(for: sender) { [weak self] response in
+            guard let self = self, let view = self.editorView else { return }
+            switch response {
+            case .alertFirstButtonReturn:
+                // Save & Close — trigger save, then close after completion
+                view.saveVideo { success in
+                    if success {
+                        sender.close()
+                    }
+                }
+            case .alertSecondButtonReturn:
+                // Discard — close without saving
+                view.videoNeverExported = false
+                sender.close()
+            default:
+                break  // Cancel
+            }
+        }
+        return false
+    }
+
     func windowWillClose(_ notification: Notification) {
         editorView?.cleanup()
         editorView = nil
@@ -117,6 +149,9 @@ final class VideoEditorView: NSView {
     var formatMP4Rect: NSRect = .zero
     var formatGIFRect: NSRect = .zero
 
+    /// Callback invoked when save operation completes (success or failure)
+    var onSaveComplete: ((Bool) -> Void)?
+
     // Export dimensions
     var originalWidth: Int = 0
     var originalHeight: Int = 0
@@ -137,6 +172,9 @@ final class VideoEditorView: NSView {
     var statusMessage: String?
     var statusIsError: Bool = false
     var statusTimer: Timer?
+    /// True if the video has never been exported/saved — closing would lose the recording.
+    /// Set to false on first export/save action.
+    var videoNeverExported: Bool = true
 
     // Layout
     let controlsH: CGFloat = 140

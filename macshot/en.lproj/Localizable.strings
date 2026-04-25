@@ -554,6 +554,8 @@
 "Your annotations will be lost if you close without saving." = "Your annotations will be lost if you close without saving.";
 "Save & Close" = "Save & Close";
 "Discard" = "Discard";
+"Save video?" = "Save video?";
+"Your video will be lost if you close without saving." = "Your video will be lost if you close without saving.";
 "Stop Recording" = "Stop Recording";
 "Pause" = "Pause";
 "Resume" = "Resume";

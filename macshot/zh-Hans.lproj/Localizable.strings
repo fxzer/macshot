@@ -560,6 +560,8 @@
 "Your annotations will be lost if you close without saving." = "如果关闭而不保存，您的标注将会丢失。";
 "Save & Close" = "保存并关闭";
 "Discard" = "丢弃";
+"Save video?" = "保存视频？";
+"Your video will be lost if you close without saving." = "如果关闭而不保存，您的视频将会丢失。";
 "Stop Recording" = "停止录制";
 "Pause" = "暂停";
 "Resume" = "继续";
