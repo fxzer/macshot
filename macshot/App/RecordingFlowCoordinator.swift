@@ -14,6 +14,7 @@ final class RecordingFlowCoordinator {
         let statusBarUpdateRecordingSeconds: (Int) -> Void
         let statusBarSetRecordingPaused: (Bool) -> Void
         let playCopySound: () -> Void
+        let restartCapture: () -> Void
     }
 
     private let dependencies: Dependencies
@@ -207,6 +208,8 @@ final class RecordingFlowCoordinator {
 
     private func cancelRecordingCountdown() {
         resetRecordingCountdownState(removeSelectionBorder: true)
+        // Restart capture flow to re-show overlays after countdown cancellation
+        dependencies.restartCapture()
     }
 
     private func beginRecording(

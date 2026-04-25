@@ -154,7 +154,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             statusBarSetRecordingPaused: { [weak self] paused in
                 self?.statusBarController.setRecordingPaused(paused)
             },
-            playCopySound: { [weak self] in self?.playCopySound() }
+            playCopySound: { [weak self] in self?.playCopySound() },
+            restartCapture: { [weak self] in
+                // Restart capture flow to re-show overlays after countdown cancellation
+                self?.beginCapture(intent: .area, triggerOrigin: .external)
+            }
         )
     )
     lazy var overlaySessionCoordinator = OverlaySessionCoordinator(
