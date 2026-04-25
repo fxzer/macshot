@@ -18,7 +18,7 @@ struct ToolsSettingsView: View {
     private let shapeTools: [(tag: Int, label: String)] = [
         (AnnotationTool.rectangle.rawValue, L("Rectangle")),
         (AnnotationTool.ellipse.rawValue, L("Ellipse")),
-        (AnnotationTool.pixelate.rawValue, L("Pixelate")),
+        (AnnotationTool.pixelate.rawValue, L("Censor")),
         (AnnotationTool.loupe.rawValue, L("Loupe")),
     ]
 
@@ -26,7 +26,7 @@ struct ToolsSettingsView: View {
     private let annotationTools: [(tag: Int, label: String)] = [
         (AnnotationTool.text.rawValue, L("Text")),
         (AnnotationTool.number.rawValue, L("Number")),
-        (AnnotationTool.stamp.rawValue, L("Stamp")),
+        (AnnotationTool.stamp.rawValue, L("Stamp / Emoji")),
         (AnnotationTool.measure.rawValue, L("Measure")),
     ]
 
@@ -44,11 +44,24 @@ struct ToolsSettingsView: View {
         (1006, L("Auto-Redact")),
     ]
 
+    // 快捷操作 Quick Actions - 对应底部工具栏的取色/固定/保存/复制
+    private let quickActions: [(tag: Int, label: String)] = [
+        (1016, L("Color Picker")),  // 1016 = Color Picker action tag
+        (1002, L("Pin")),
+        (1014, L("Save")),
+        (1015, L("Copy")),
+    ]
+
+    // 会话操作 Session Actions - 对应右侧工具栏的关闭/在编辑器打开/上传/分享
+    private let sessionActions: [(tag: Int, label: String)] = [
+        (1017, L("Cancel")),  // 1017 = Cancel action tag
+        (1018, L("Open in Editor")),  // 1018 = Detach action tag
+        (1001, L("Upload")),
+        (1012, L("Share")),
+    ]
+
     // 捕获操作 Capture Actions
     private let otherActions: [(tag: Int, label: String)] = [
-        (1012, L("Share")),
-        (1001, L("Upload")),
-        (1002, L("Pin")),
         (1003, L("OCR")),
         (1008, L("Translate")),
         (1010, L("Scroll Capture")),
@@ -64,7 +77,7 @@ struct ToolsSettingsView: View {
             AnnotationTool.pixelate.rawValue, AnnotationTool.loupe.rawValue,
             AnnotationTool.stamp.rawValue, AnnotationTool.measure.rawValue,
         ]
-        let allActionDefaults: [Int] = [1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008, 1009, 1010]
+        let allActionDefaults: [Int] = [1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008, 1009, 1010, 1011, 1012, 1013, 1014, 1015, 1016, 1017, 1018]
 
         let tools = UserDefaults.standard.array(forKey: "enabledTools") as? [Int] ?? allToolDefaults
         let actions = UserDefaults.standard.array(forKey: "enabledActions") as? [Int] ?? allActionDefaults
@@ -95,11 +108,18 @@ struct ToolsSettingsView: View {
                 Text(L("Annotation"))
             }
 
-            // MARK: - 颜色工具
+            // MARK: - 快捷操作
             Section {
-                ToolGrid(items: colorTools, enabled: $enabledTools, key: "enabledTools")
+                ToolGrid(items: quickActions, enabled: $enabledActions, key: "enabledActions")
             } header: {
-                Text(L("Color"))
+                Text(L("Quick Actions"))
+            }
+
+            // MARK: - 会话操作
+            Section {
+                ToolGrid(items: sessionActions, enabled: $enabledActions, key: "enabledActions")
+            } header: {
+                Text(L("Session Actions"))
             }
 
             // MARK: - 效果

@@ -9,12 +9,10 @@ class ToolbarStripView: NSView {
     let orientation: Orientation
     private(set) var buttonViews: [ToolbarButtonView] = []
     private var separatorViews: [ToolbarSeparatorView] = []  // Separator views
-    /// Parallel to `buttonViews`: draw a horizontal separator before this button (vertical strip only).
+    /// Parallel to `buttonViews`: draw a separator before this button when true.
     private var sectionBreakBeforeForButtonIndex: [Bool] = []
     /// Set to true in editor mode so gap clicks pass through to the image beneath.
     var passesThrough = false
-    /// Indices after which a vertical separator is inserted in horizontal strips.
-    var horizontalSeparatorAfterIndices: Set<Int> = []
 
     var onClick: ((ToolbarButtonAction) -> Void)?
     var onRightClick: ((ToolbarButtonAction, NSView) -> Void)?
@@ -41,8 +39,9 @@ class ToolbarStripView: NSView {
         sectionBreakBeforeForButtonIndex = buttons.map(\.sectionBreakBefore)
 
         for (index, data) in buttons.enumerated() {
-            if orientation == .vertical, data.sectionBreakBefore, index > 0 {
-                let separator = ToolbarSeparatorView(kind: .horizontalRule)
+            if data.sectionBreakBefore, index > 0 {
+                let separator = ToolbarSeparatorView(
+                    kind: orientation == .horizontal ? .verticalBar : .horizontalRule)
                 addSubview(separator)
                 separatorViews.append(separator)
             }
@@ -57,21 +56,17 @@ class ToolbarStripView: NSView {
             bv.onHover = { [weak self] action, hovered in self?.onHover?(action, hovered) }
             addSubview(bv)
             buttonViews.append(bv)
-
-            if orientation == .horizontal,
-                horizontalSeparatorAfterIndices.contains(index),
-                index < buttons.count - 1
-            {
-                let separator = ToolbarSeparatorView(kind: .verticalBar)
-                addSubview(separator)
-                separatorViews.append(separator)
-            }
         }
         layoutButtons()
     }
 
     /// Update visual state without rebuilding.
     func updateState(from buttons: [ToolbarButton]) {
+        guard canUpdateState(from: buttons) else {
+            setButtons(buttons)
+            return
+        }
+
         var buttonIndex = 0
         for view in buttonViews {
             guard let btn = view as? ToolbarButtonView else { continue }
@@ -81,9 +76,23 @@ class ToolbarStripView: NSView {
             btn.tintColor = data.tintColor
             btn.swatchColor = data.bgColor
             btn.sfSymbol = data.sfSymbol
+            btn.hasContextMenu = data.hasContextMenu
+            btn.tooltipText = data.tooltip
             btn.needsDisplay = true
             buttonIndex += 1
         }
+    }
+
+    private func canUpdateState(from buttons: [ToolbarButton]) -> Bool {
+        guard buttonViews.count == buttons.count,
+            sectionBreakBeforeForButtonIndex == buttons.map(\.sectionBreakBefore)
+        else { return false }
+
+        for (index, data) in buttons.enumerated() {
+            guard buttonViews[index].action == data.action else { return false }
+        }
+
+        return true
     }
 
     private func layoutButtons() {
@@ -93,24 +102,36 @@ class ToolbarStripView: NSView {
         switch orientation {
         case .horizontal:
             var x: CGFloat = padding
-            var maxWidth: CGFloat = padding * 2
+            var maxWidth: CGFloat = padding * 2 - spacing
+            var separatorCount = 0
+            for i in 1..<buttonViews.count {
+                guard i < sectionBreakBeforeForButtonIndex.count,
+                    sectionBreakBeforeForButtonIndex[i]
+                else { continue }
+                let sep = separatorViews[separatorCount]
+                separatorCount += 1
+                maxWidth += separatorSpacing + sep.intrinsicContentSize.width + separatorSpacing
+            }
+
             var separatorIndex = 0
 
             for (index, btn) in buttonViews.enumerated() {
+                if index > 0, index < sectionBreakBeforeForButtonIndex.count, sectionBreakBeforeForButtonIndex[index] {
+                    x += separatorSpacing
+                    let sep = separatorViews[separatorIndex]
+                    separatorIndex += 1
+                    let sepSize = sep.intrinsicContentSize
+                    sep.frame = NSRect(
+                        x: x,
+                        y: padding + (btnSize - sepSize.height) / 2,
+                        width: sepSize.width,
+                        height: sepSize.height)
+                    x += sepSize.width + separatorSpacing
+                }
+
                 btn.frame = NSRect(x: x, y: padding, width: btnSize, height: btnSize)
                 x += btnSize + spacing
                 maxWidth += btnSize + spacing
-
-                // 检查是否需要在这个按钮后添加分隔线
-                if horizontalSeparatorAfterIndices.contains(index) && separatorIndex < separatorViews.count {
-                    let sep = separatorViews[separatorIndex]
-                    x += separatorSpacing
-                    let sepSize = sep.intrinsicContentSize
-                    sep.frame = NSRect(x: x, y: padding + (btnSize - sepSize.height) / 2, width: sepSize.width, height: sepSize.height)
-                    x += sepSize.width + separatorSpacing
-                    maxWidth += sepSize.width + separatorSpacing * 2
-                    separatorIndex += 1
-                }
             }
             frame.size = NSSize(width: maxWidth, height: btnSize + padding * 2)
 

@@ -7,7 +7,7 @@ extension Notification.Name {
 // Toolbar buttons drawn directly in the OverlayView (not a separate window).
 // This avoids window-level z-order issues and matches Flameshot's look.
 
-enum ToolbarButtonAction {
+enum ToolbarButtonAction: Equatable {
     case tool(AnnotationTool)
     case color
     case sizeDisplay
@@ -56,7 +56,7 @@ struct ToolbarButton {
     var tintColor: NSColor = ToolbarLayout.iconColor
     var bgColor: NSColor? = nil  // for color swatches
     var hasContextMenu: Bool = false  // draw small corner triangle to indicate right-click options
-    /// When true, a separator is drawn before this button in the vertical right toolbar (ignored on bottom bar).
+    /// When true, a separator is drawn before this button in any toolbar strip.
     var sectionBreakBefore: Bool = false
 }
 
@@ -204,7 +204,17 @@ class ToolbarLayout {
             (.measure, "ruler", L("Measure (px)")),
         ]
 
-        var toolIndex = 0
+        var hasPlacedDrawingSection = false
+        var hasPlacedShapesSection = false
+        var hasPlacedAnnotationSection = false
+
+        func beginSection(_ flag: inout Bool, button: inout ToolbarButton) {
+            if !flag {
+                button.sectionBreakBefore = true
+                flag = true
+            }
+        }
+
         for (tool, symbol, tip) in tools {
             // Skip if disabled
             if let enabledRawValues = enabledRawValues, !enabledRawValues.contains(tool.rawValue) {
@@ -213,20 +223,19 @@ class ToolbarLayout {
             var btn = ToolbarButton(action: .tool(tool), sfSymbol: symbol, label: nil, tooltip: tip)
             btn.isSelected = (tool == selectedTool)
 
-            // 每组4个工具后添加分割线（第5、9个工具前）
-            if toolIndex == 4 || toolIndex == 8 {
-                btn.sectionBreakBefore = true
-            }
-
-
+            // 根据工具类型确定分组
             switch tool {
-            case .pencil, .line, .arrow, .rectangle, .ellipse, .marker, .number, .loupe:
-                break  // options shown in the tool options row, not via right-click
+            case .pencil, .line, .arrow, .marker:
+                beginSection(&hasPlacedDrawingSection, button: &btn)
+            case .rectangle, .ellipse, .pixelate, .loupe:
+                beginSection(&hasPlacedShapesSection, button: &btn)
+            case .text, .number, .stamp, .measure:
+                beginSection(&hasPlacedAnnotationSection, button: &btn)
             default:
                 break
             }
+
             buttons.append(btn)
-            toolIndex += 1
         }
 
         // 撤销/重做按钮
@@ -236,26 +245,73 @@ class ToolbarLayout {
         let redoBtn = ToolbarButton(action: .redo, sfSymbol: "arrow.uturn.forward", label: nil, tooltip: L("Redo"))
         buttons.append(redoBtn)
 
-        // 快捷操作按钮（取色、固定、保存、复制）
-        var colorSamplerBtn = ToolbarButton(
-            action: .tool(.colorSampler), sfSymbol: "eyedropper", label: nil,
-            tooltip: L("Color Picker"))
-        colorSamplerBtn.isSelected = (selectedTool == .colorSampler)
-        buttons.append(colorSamplerBtn)
+        // Get enabled actions from UserDefaults
+        let allKnownActionTags: [Int] = [
+            1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008, 1009, 1010, 1011, 1012, 1013, 1014, 1015, 1016, 1017, 1018,
+        ]
+        var enabledActions = UserDefaults.standard.array(forKey: "enabledActions") as? [Int]
+        let knownActionTags = UserDefaults.standard.array(forKey: "knownActionTags") as? [Int]
+        let newTags = allKnownActionTags.filter { !(knownActionTags ?? []).contains($0) }
+        if !newTags.isEmpty {
+            if enabledActions == nil {
+                enabledActions = allKnownActionTags
+            } else if knownActionTags == nil {
+                // Upgrading from a version before knownActionTags tracking was added.
+            } else {
+                enabledActions = (enabledActions! + newTags)
+            }
+            UserDefaults.standard.set(enabledActions, forKey: "enabledActions")
+            UserDefaults.standard.set(allKnownActionTags, forKey: "knownActionTags")
+        }
+        func actionEnabled(_ tag: Int) -> Bool {
+            return enabledActions == nil || enabledActions!.contains(tag)
+        }
 
-        let pinBtn = ToolbarButton(action: .pin, sfSymbol: "pin.fill", label: nil, tooltip: L("Pin"))
-        buttons.append(pinBtn)
+        // 快捷操作按钮（取色、固定、保存、复制）- 支持启用/禁用
+        var hasPlacedQuickActionSection = false
 
-        var saveBtn = ToolbarButton(
-            action: .save, sfSymbol: "square.and.arrow.down.fill", label: nil,
-            tooltip:
-                "\(L("Save to")) \(URL(fileURLWithPath: SaveDirectoryAccess.displayPath).lastPathComponent)"
-        )
-        saveBtn.hasContextMenu = true
-        buttons.append(saveBtn)
+        func beginQuickActionSection(_ button: inout ToolbarButton) {
+            if !hasPlacedQuickActionSection {
+                button.sectionBreakBefore = true
+                hasPlacedQuickActionSection = true
+            }
+        }
 
-        let copyBtn = ToolbarButton(action: .copy, sfSymbol: "doc.on.doc", label: nil, tooltip: L("Copy"))
-        buttons.append(copyBtn)
+        // Color Picker (1016)
+        if actionEnabled(1016) {
+            var colorSamplerBtn = ToolbarButton(
+                action: .tool(.colorSampler), sfSymbol: "eyedropper", label: nil,
+                tooltip: L("Color Picker"))
+            colorSamplerBtn.isSelected = (selectedTool == .colorSampler)
+            beginQuickActionSection(&colorSamplerBtn)
+            buttons.append(colorSamplerBtn)
+        }
+
+        // Pin (1002)
+        if actionEnabled(1002) {
+            var pinBtn = ToolbarButton(action: .pin, sfSymbol: "pin.fill", label: nil, tooltip: L("Pin"))
+            beginQuickActionSection(&pinBtn)
+            buttons.append(pinBtn)
+        }
+
+        // Save (1014)
+        if actionEnabled(1014) {
+            var saveBtn = ToolbarButton(
+                action: .save, sfSymbol: "square.and.arrow.down.fill", label: nil,
+                tooltip:
+                    "\(L("Save to")) \(URL(fileURLWithPath: SaveDirectoryAccess.displayPath).lastPathComponent)"
+            )
+            saveBtn.hasContextMenu = true
+            beginQuickActionSection(&saveBtn)
+            buttons.append(saveBtn)
+        }
+
+        // Copy (1015)
+        if actionEnabled(1015) {
+            var copyBtn = ToolbarButton(action: .copy, sfSymbol: "doc.on.doc", label: nil, tooltip: L("Copy"))
+            beginQuickActionSection(&copyBtn)
+            buttons.append(copyBtn)
+        }
 
         return buttons
     }
@@ -343,7 +399,7 @@ class ToolbarLayout {
         }
 
         let allKnownActionTags: [Int] = [
-            1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008, 1009, 1010, 1011, 1012, 1013,
+            1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008, 1009, 1010, 1011, 1012, 1013, 1014, 1015, 1016, 1017, 1018,
         ]
         // Migrate: only add action tags that are brand-new (never seen before).
         // knownActionTags tracks which tags have been introduced so user-disabled tags are
@@ -369,9 +425,8 @@ class ToolbarLayout {
             return enabledActions == nil || enabledActions!.contains(tag)
         }
 
-        var hasPlacedUtilitySection = false
+        var hasPlacedSessionSection = false
         var hasPlacedContentSection = false
-        var hasPlacedOutputSection = false
         var hasPlacedImageEffectsSection = false
         var hasPlacedAdvancedSection = false
 
@@ -382,16 +437,18 @@ class ToolbarLayout {
             }
         }
 
-        // 右侧第一组：会话/轻工具
-        if !isEditorMode {
+        // 右侧第一组：会话操作（关闭、在编辑器打开、上传、分享）
+        if !isEditorMode && actionEnabled(1017) {
             var closeBtn = ToolbarButton(action: .cancel, sfSymbol: "xmark", label: nil, tooltip: L("Cancel"))
-            beginSection(&hasPlacedUtilitySection, button: &closeBtn)
+            beginSection(&hasPlacedSessionSection, button: &closeBtn)
             buttons.append(closeBtn)
+        }
 
+        if !isEditorMode && actionEnabled(1018) {
             var detachBtn = ToolbarButton(
                 action: .detach, sfSymbol: "arrow.up.forward.app", label: nil,
                 tooltip: L("Open in Editor"))
-            beginSection(&hasPlacedUtilitySection, button: &detachBtn)
+            beginSection(&hasPlacedSessionSection, button: &detachBtn)
             buttons.append(detachBtn)
         }
 
@@ -399,14 +456,14 @@ class ToolbarLayout {
             var uploadBtn = ToolbarButton(
                 action: .upload, sfSymbol: "icloud.and.arrow.up", label: nil, tooltip: L("Upload"))
             uploadBtn.hasContextMenu = true
-            beginSection(&hasPlacedOutputSection, button: &uploadBtn)
+            beginSection(&hasPlacedSessionSection, button: &uploadBtn)
             buttons.append(uploadBtn)
         }
 
         if actionEnabled(1012) {
             var shareBtn = ToolbarButton(
                 action: .share, sfSymbol: "square.and.arrow.up", label: nil, tooltip: L("Share"))
-            beginSection(&hasPlacedOutputSection, button: &shareBtn)
+            beginSection(&hasPlacedSessionSection, button: &shareBtn)
             buttons.append(shareBtn)
         }
 
@@ -443,6 +500,15 @@ class ToolbarLayout {
                 tooltip: L("Remove Background"))
             beginSection(&hasPlacedImageEffectsSection, button: &removeBackgroundBtn)
             buttons.append(removeBackgroundBtn)
+        }
+
+        if actionEnabled(1006) {
+            var autoRedactBtn = ToolbarButton(
+                action: .autoRedact, sfSymbol: "checkerboard.rectangle", label: nil,
+                tooltip: L("Auto-Redact"))
+            autoRedactBtn.hasContextMenu = true
+            beginSection(&hasPlacedImageEffectsSection, button: &autoRedactBtn)
+            buttons.append(autoRedactBtn)
         }
 
         // 内容处理（翻译、OCR — 在图像效果组下方）

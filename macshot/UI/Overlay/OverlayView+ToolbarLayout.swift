@@ -39,7 +39,6 @@ extension OverlayView {
         let parent = chromeParentView ?? self
         if bottomStripView == nil {
             let strip = ToolbarStripView(orientation: .horizontal)
-            strip.horizontalSeparatorAfterIndices = [3, 7]
             parent.addSubview(strip)
             bottomStripView = strip
         }
@@ -49,7 +48,6 @@ extension OverlayView {
             rightStripView = strip
         }
 
-        bottomStripView?.horizontalSeparatorAfterIndices = [3, 7, 11, 13]
         if bottomStripView?.buttonViews.count == bottomButtons.count
             && bottomStripView?.buttonViews.count ?? 0 > 0
         {
