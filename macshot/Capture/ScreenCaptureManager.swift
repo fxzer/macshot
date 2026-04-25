@@ -234,7 +234,7 @@ class ScreenCaptureManager {
                                 let scale = Int(screen.backingScaleFactor)
                                 config.width = display.width * scale
                                 config.height = display.height * scale
-                                config.showsCursor = UserDefaults.standard.bool(forKey: "captureCursor")
+                                config.showsCursor = false
                                 config.captureResolution = .best
 
                                 guard let image = try? await SCScreenshotManager.captureImage(
@@ -321,7 +321,7 @@ class ScreenCaptureManager {
                     let scale = Int(matchedScreen.backingScaleFactor)
                     config.width = display.width * scale
                     config.height = display.height * scale
-                    config.showsCursor = UserDefaults.standard.bool(forKey: "captureCursor")
+                    config.showsCursor = false
                     config.captureResolution = .best
 
                     guard let image = try? await SCScreenshotManager.captureImage(

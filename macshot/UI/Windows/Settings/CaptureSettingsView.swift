@@ -8,7 +8,6 @@ struct CaptureSettingsView: View {
     @AppStorage("snapGuidesEnabled") private var snapGuidesEnabled = true
     @AppStorage("selectionSizeSnapMode")
     private var selectionSizeSnapMode = SelectionSizeSnapMode.lockedAspectRatioOnly.rawValue
-    @AppStorage("captureCursor") private var captureCursor = false
 
     // Image Output
     @AppStorage("imageFormat") private var imageFormat = "png"
@@ -38,7 +37,6 @@ struct CaptureSettingsView: View {
                     Text(L("All selections")).tag(SelectionSizeSnapMode.allSelections.rawValue)
                 }
                 Toggle(L("Show snap alignment guides"), isOn: $snapGuidesEnabled)
-                Toggle(L("Capture mouse cursor in screenshot"), isOn: $captureCursor)
             } header: {
                 Text(L("Capture Settings"))
             }
