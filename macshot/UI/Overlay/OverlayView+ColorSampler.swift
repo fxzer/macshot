@@ -141,6 +141,9 @@ extension OverlayView {
     func showColorSamplerMagnifier() {
         guard magnifierView == nil else { return }
         keyboardSamplePoint = nil
+        // Seed Shift state from the current modifier flags so the capture hotkey's
+        // Shift key doesn't get treated as a fresh format-toggle press.
+        wasShiftPressed = NSEvent.modifierFlags.contains(.shift)
 
         let magnifier = ColorSamplerMagnifierView()
 
@@ -172,6 +175,7 @@ extension OverlayView {
         magnifierView?.removeFromSuperview()
         magnifierView = nil
         keyboardSamplePoint = nil
+        wasShiftPressed = false
     }
 
     /// Update magnifier position and content (call from mouseMoved/mouseDragged).
