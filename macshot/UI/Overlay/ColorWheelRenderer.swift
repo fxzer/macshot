@@ -11,26 +11,21 @@ class ColorWheelRenderer {
 
     private let radius: CGFloat = 72
     private let swatchRadius: CGFloat = 12
-    /// Rainbow hue spectrum + neutrals, all on one ring.
-    /// 12 hues evenly spaced + 4 neutrals = 16 swatches around the circle.
-    let colors: [NSColor] = [
-        NSColor(calibratedHue: 0.0,   saturation: 0.85, brightness: 1.0, alpha: 1),  // red
-        NSColor(calibratedHue: 1/12,  saturation: 0.85, brightness: 1.0, alpha: 1),  // orange
-        NSColor(calibratedHue: 2/12,  saturation: 0.85, brightness: 1.0, alpha: 1),  // yellow
-        NSColor(calibratedHue: 3/12,  saturation: 0.85, brightness: 1.0, alpha: 1),  // lime
-        NSColor(calibratedHue: 4/12,  saturation: 0.85, brightness: 1.0, alpha: 1),  // green
-        NSColor(calibratedHue: 5/12,  saturation: 0.85, brightness: 1.0, alpha: 1),  // teal
-        NSColor(calibratedHue: 6/12,  saturation: 0.85, brightness: 1.0, alpha: 1),  // cyan
-        NSColor(calibratedHue: 7/12,  saturation: 0.85, brightness: 1.0, alpha: 1),  // azure
-        NSColor(calibratedHue: 8/12,  saturation: 0.85, brightness: 1.0, alpha: 1),  // blue
-        NSColor(calibratedHue: 9/12,  saturation: 0.85, brightness: 1.0, alpha: 1),  // purple
-        NSColor(calibratedHue: 10/12, saturation: 0.85, brightness: 1.0, alpha: 1),  // magenta
-        NSColor(calibratedHue: 11/12, saturation: 0.85, brightness: 1.0, alpha: 1),  // pink
-        .white,
-        NSColor(white: 0.7, alpha: 1),
-        NSColor(white: 0.4, alpha: 1),
-        .black,
-    ]
+    /// Canonical annotation color palette shared with ColorPickerView.
+    /// 12 hues evenly spaced at saturation 0.85 + 4 neutrals = 16 swatches.
+    static let paletteColors: [NSColor] = {
+        let hues = (0..<12).map {
+            NSColor(calibratedHue: CGFloat($0) / 12, saturation: 0.85, brightness: 1.0, alpha: 1)
+        }
+        return hues + [
+            .white,
+            NSColor(white: 0.7, alpha: 1),
+            NSColor(white: 0.4, alpha: 1),
+            .black,
+        ]
+    }()
+
+    private var colors: [NSColor] { Self.paletteColors }
 
     func show(at point: NSPoint) {
         center = point
@@ -93,7 +88,7 @@ class ColorWheelRenderer {
             border.stroke()
 
             // Check mark for current color
-            if colorsMatch(color, currentColor) && !isHovered {
+            if Self.colorsMatch(color, currentColor) && !isHovered {
                 let s: CGFloat = 8
                 let checkPath = NSBezierPath()
                 checkPath.lineWidth = 2
@@ -111,12 +106,12 @@ class ColorWheelRenderer {
     }
 
     /// Approximate color match (handles different color spaces).
-    private func colorsMatch(_ a: NSColor, _ b: NSColor) -> Bool {
+    static func colorsMatch(_ a: NSColor, _ b: NSColor, tolerance: CGFloat = 0.02) -> Bool {
         guard let ac = a.usingColorSpace(.sRGB), let bc = b.usingColorSpace(.sRGB) else { return a == b }
-        return abs(ac.redComponent - bc.redComponent) < 0.02
-            && abs(ac.greenComponent - bc.greenComponent) < 0.02
-            && abs(ac.blueComponent - bc.blueComponent) < 0.02
-            && abs(ac.alphaComponent - bc.alphaComponent) < 0.02
+        return abs(ac.redComponent - bc.redComponent) < tolerance
+            && abs(ac.greenComponent - bc.greenComponent) < tolerance
+            && abs(ac.blueComponent - bc.blueComponent) < tolerance
+            && abs(ac.alphaComponent - bc.alphaComponent) < tolerance
     }
 
     private func indexAt(_ point: NSPoint) -> Int {
@@ -124,8 +119,10 @@ class ColorWheelRenderer {
         let dy = point.y - center.y
         let dist = hypot(dx, dy)
 
-        // Dead zone at center only
+        // Dead zone at center
         if dist < radius * 0.25 { return -1 }
+        // Outer boundary — ignore clicks beyond the visual edge
+        if dist > radius + swatchRadius + 8 { return -1 }
 
         // Purely angle-based — works at any distance
         let count = colors.count

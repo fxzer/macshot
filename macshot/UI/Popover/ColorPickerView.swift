@@ -34,12 +34,9 @@ class ColorPickerView: NSView {
 
     // MARK: - Constants
 
-    private static let presetColors: [NSColor] = [
-        .systemRed, .systemOrange, .systemYellow, .systemGreen, .systemBlue, .systemPurple,
-        .systemPink, .white, .lightGray, .gray, .darkGray, .black,
-    ]
+    private static let presetColors: [NSColor] = ColorWheelRenderer.paletteColors
 
-    private let cols = 6
+    private let cols = 8
     private let swatchSize: CGFloat = 24
     private let padding: CGFloat = 6
     private let customSlotSize: CGFloat = 20
@@ -110,7 +107,7 @@ class ColorPickerView: NSView {
             color.setFill()
             NSBezierPath(roundedRect: r, xRadius: 4, yRadius: 4).fill()
 
-            if colorsMatch(selectedColor, color) {
+            if ColorWheelRenderer.colorsMatch(selectedColor, color) {
                 ToolbarLayout.iconColor.setStroke()
                 let border = NSBezierPath(roundedRect: r.insetBy(dx: -1, dy: -1), xRadius: 5, yRadius: 5)
                 border.lineWidth = 2
@@ -422,14 +419,6 @@ class ColorPickerView: NSView {
         saturation = s
         brightness = b
         cachedGradientImage = nil
-    }
-
-    private func colorsMatch(_ a: NSColor, _ b: NSColor) -> Bool {
-        guard let ac = a.usingColorSpace(.sRGB), let bc = b.usingColorSpace(.sRGB) else { return a == b }
-        let t: CGFloat = 0.01
-        return abs(ac.redComponent - bc.redComponent) < t
-            && abs(ac.greenComponent - bc.greenComponent) < t
-            && abs(ac.blueComponent - bc.blueComponent) < t
     }
 
     private func colorToHex(_ color: NSColor) -> String {
