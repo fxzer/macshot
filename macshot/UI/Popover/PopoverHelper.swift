@@ -98,7 +98,11 @@ enum PopoverHelper {
         currentPopoverType = nil
     }
 
-    static var isVisible: Bool { activePopover?.isShown == true }
+    static var isVisible: Bool {
+        guard let popover = activePopover else { return false }
+        // Double-check: popover must exist AND be shown to be considered visible
+        return popover.isShown
+    }
 
     static var isMouseInsidePopover: Bool {
         guard let popover = activePopover, popover.isShown,

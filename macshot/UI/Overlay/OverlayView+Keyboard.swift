@@ -147,6 +147,11 @@ extension OverlayView {
                 cancelTextEditing()
             } else if PopoverHelper.isVisible {
                 PopoverHelper.dismiss()
+                // After dismissing popover, check if we should also cancel overlay
+                // This handles edge case where popover was dismissed but overlay should also close
+                if state == .idle && selectionRect.isEmpty {
+                    overlayDelegate?.overlayViewDidCancel()
+                }
             } else if !selectedAnnotations.isEmpty {
                 selectedAnnotations = []
                 needsDisplay = true
