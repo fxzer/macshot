@@ -1,6 +1,51 @@
 import AppKit
 
 extension OverlayView {
+    func shouldHandleEscapeFromMonitor() -> Bool {
+        guard let window else { return true }
+        guard let responder = window.firstResponder else { return true }
+        guard let textView = responder as? NSTextView else { return true }
+        if let activeTextEditView = textEditView, textView === activeTextEditView {
+            return true
+        }
+        return false
+    }
+
+    @discardableResult
+    func handleEscapeKey() -> Bool {
+        if isRecording {
+            handleToolbarAction(.stopRecord)
+            return true
+        }
+        if isScrollCapturing {
+            overlayDelegate?.overlayViewDidRequestStopScrollCapture()
+            return true
+        }
+        if colorWheel.isVisible && colorWheel.isSticky {
+            colorWheel.dismiss()
+            needsDisplay = true
+            return true
+        }
+        if textEditView != nil {
+            cancelTextEditing()
+            return true
+        }
+        if PopoverHelper.isVisible {
+            PopoverHelper.dismiss()
+            if state == .idle {
+                overlayDelegate?.overlayViewDidCancel()
+            }
+            return true
+        }
+        if !selectedAnnotations.isEmpty {
+            selectedAnnotations = []
+            needsDisplay = true
+            return true
+        }
+        overlayDelegate?.overlayViewDidCancel()
+        return true
+    }
+
     override func flagsChanged(with event: NSEvent) {
         // Re-apply shift constraint immediately when Shift is pressed/released during annotation drag
         if currentAnnotation != nil, let lastPoint = lastDragPoint {
@@ -106,7 +151,7 @@ extension OverlayView {
         // In recording mode, only allow Escape (to exit recording mode)
         if isRecording {
             if event.keyCode == 53 { // Escape
-                handleToolbarAction(.stopRecord)
+                _ = handleEscapeKey()
             }
             return
         }
@@ -136,28 +181,7 @@ extension OverlayView {
 
         switch event.keyCode {
         case 53:  // Escape
-            if isScrollCapturing {
-                overlayDelegate?.overlayViewDidRequestStopScrollCapture()
-                return
-            }
-            if colorWheel.isVisible && colorWheel.isSticky {
-                colorWheel.dismiss()
-                needsDisplay = true
-            } else if textEditView != nil {
-                cancelTextEditing()
-            } else if PopoverHelper.isVisible {
-                PopoverHelper.dismiss()
-                // After dismissing popover, check if we should also cancel overlay
-                // This handles edge case where popover was dismissed but overlay should also close
-                if state == .idle && selectionRect.isEmpty {
-                    overlayDelegate?.overlayViewDidCancel()
-                }
-            } else if !selectedAnnotations.isEmpty {
-                selectedAnnotations = []
-                needsDisplay = true
-            } else {
-                overlayDelegate?.overlayViewDidCancel()
-            }
+            _ = handleEscapeKey()
         case 48:  // Tab
             if state == .idle {
                 // Toggle window snapping in idle state

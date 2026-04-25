@@ -104,6 +104,10 @@ enum PopoverHelper {
         return popover.isShown
     }
 
+    static var window: NSWindow? {
+        activePopover?.contentViewController?.view.window
+    }
+
     static var isMouseInsidePopover: Bool {
         guard let popover = activePopover, popover.isShown,
               let popoverWindow = popover.contentViewController?.view.window else { return false }

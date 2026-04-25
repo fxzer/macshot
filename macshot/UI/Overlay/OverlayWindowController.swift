@@ -160,6 +160,9 @@ class OverlayWindowController {
         if let view = overlayView {
             window.makeFirstResponder(view)
         }
+        DispatchQueue.main.async { [weak self] in
+            self?.makeKey()
+        }
         // Color sampling image is now prepared in background before window show
     }
 

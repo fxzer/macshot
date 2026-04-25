@@ -23,6 +23,7 @@ final class CaptureFlowCoordinator {
     private var activeCaptureIntent: CaptureIntent?
     private var overlayScreenSwitchInFlight = false
     private var overlayMouseScreenTimer: Timer?
+    private var overlayEscMonitor: Any?
     private var countdownWindow: NSWindow?
     private var countdownTimer: Timer?
     private var countdownEscMonitor: Any?
@@ -56,6 +57,7 @@ final class CaptureFlowCoordinator {
 
     func dismissOverlays(refocusPreviousApp: Bool = true) {
         stopOverlayMouseScreenTracking()
+        removeOverlayEscMonitor()
         overlayScreenSwitchInFlight = false
         autoreleasepool {
             for controller in overlayControllersStorage {
@@ -140,6 +142,59 @@ final class CaptureFlowCoordinator {
     private func stopOverlayMouseScreenTracking() {
         overlayMouseScreenTimer?.invalidate()
         overlayMouseScreenTimer = nil
+    }
+
+    private func installOverlayEscMonitor() {
+        guard overlayEscMonitor == nil else { return }
+        overlayEscMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self, event.keyCode == 53, self.hasActiveOverlaySession else { return event }
+            guard self.shouldRouteEscapeToOverlay(for: event.window),
+                  let controller = self.controllerHandlingEscape(for: event.window),
+                  controller.overlayView?.shouldHandleEscapeFromMonitor() == true,
+                  controller.overlayView?.handleEscapeKey() == true
+            else {
+                return event
+            }
+            return nil
+        }
+    }
+
+    private func removeOverlayEscMonitor() {
+        if let monitor = overlayEscMonitor {
+            NSEvent.removeMonitor(monitor)
+            overlayEscMonitor = nil
+        }
+    }
+
+    private func shouldRouteEscapeToOverlay(for eventWindow: NSWindow?) -> Bool {
+        guard let eventWindow else { return false }
+        if overlayControllersStorage.contains(where: { $0.overlayWindow === eventWindow }) {
+            return true
+        }
+        if let popoverWindow = PopoverHelper.window, popoverWindow === eventWindow {
+            return true
+        }
+        return false
+    }
+
+    private func controllerHandlingEscape(for eventWindow: NSWindow?) -> OverlayWindowController? {
+        if let eventWindow,
+           let directController = overlayControllersStorage.first(where: { $0.overlayWindow === eventWindow })
+        {
+            return directController
+        }
+        if let keyController = overlayControllersStorage.first(where: { $0.overlayWindow?.isKeyWindow == true }) {
+            return keyController
+        }
+        if let mouseScreen = currentMouseScreen(),
+           let screenController = overlayControllersStorage.first(where: { $0.screen == mouseScreen }) {
+            return screenController
+        }
+        return overlayControllersStorage.first
+    }
+
+    private func makePrimaryOverlayKey() {
+        controllerHandlingEscape(for: nil)?.makeKey()
     }
 
     private func clearOverlayControllersForScreenSwitch() {
@@ -318,6 +373,9 @@ final class CaptureFlowCoordinator {
         let captureIntent = activeCaptureIntent
 
         stopOverlayMouseScreenTracking()
+        if activateApp {
+            NSApp.activate(ignoringOtherApps: true)
+        }
 
         for (index, capture) in captures.enumerated() {
             let controllerT0 = CFAbsoluteTimeGetCurrent()
@@ -368,8 +426,9 @@ final class CaptureFlowCoordinator {
         NSLog("[PERF] TOTAL startCapture→overlay visible: \(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - t0) * 1000))ms")
         #endif
 
-        if activateApp {
-            NSApp.activate(ignoringOtherApps: true)
+        installOverlayEscMonitor()
+        DispatchQueue.main.async { [weak self] in
+            self?.makePrimaryOverlayKey()
         }
 
         if restoreLastSelection && (captureIntent?.shouldRestoreLastSelection ?? true) {

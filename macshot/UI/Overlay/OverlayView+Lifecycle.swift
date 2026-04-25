@@ -96,6 +96,8 @@ extension OverlayView {
         remoteSelectionRect = .zero
         remoteSelectionFullRect = .zero
         showToolbars = false
+        PopoverHelper.dismiss()
+        colorWheel.dismiss()
         if screenshotImage != nil {
             showColorSamplerMagnifier()
         }
