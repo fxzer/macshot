@@ -7,15 +7,11 @@ extension OverlayView {
 
     override func viewDidMoveToWindow() {
         let t0 = CFAbsoluteTimeGetCurrent()
-        #if DEBUG
-        NSLog("[PERF] OverlayView.viewDidMoveToWindow BEGIN")
-        #endif
+        CaptureDiagnostics.log("[macshot-perf][overlayView] viewDidMoveToWindow BEGIN")
         super.viewDidMoveToWindow()
-        #if DEBUG
-        NSLog(
-            "[PERF] OverlayView.viewDidMoveToWindow: super DONE elapsed=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - t0) * 1000))ms"
+        CaptureDiagnostics.log(
+            "[macshot-perf][overlayView] viewDidMoveToWindow super elapsed=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - t0) * 1000))ms"
         )
-        #endif
         window?.makeFirstResponder(self)
         window?.acceptsMouseMovedEvents = true
         let area = NSTrackingArea(
@@ -32,7 +28,7 @@ extension OverlayView {
         }
 
         if showToolbars {
-            rebuildToolbarLayout()
+            scheduleDeferredToolbarRebuild()
         }
 
         NotificationCenter.default.removeObserver(

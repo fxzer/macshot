@@ -65,6 +65,15 @@ enum CaptureIntent {
         !appliesFullScreenSelection
     }
 
+    var prefersImmediateOverlayPresentation: Bool {
+        switch self {
+        case .area, .fullScreen:
+            return true
+        default:
+            return false
+        }
+    }
+
     var debugName: String {
         switch self {
         case .area:

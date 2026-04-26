@@ -242,9 +242,9 @@ final class StatusBarController: NSObject {
     }
 
     @objc private func statusBarIconClicked(_ sender: NSStatusBarButton) {
-        ScreenCaptureManager.prewarm()
         interactionScreen = sender.window?.screen
             ?? NSScreen.screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) })
+        ScreenCaptureManager.prewarm(screen: interactionScreen, mode: .full)
         let fallbackAnchorRect = statusBarMenuAnchorRect(for: sender)
 
         if let modalWindow = NSApp.modalWindow {

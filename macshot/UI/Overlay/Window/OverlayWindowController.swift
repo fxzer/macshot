@@ -84,15 +84,10 @@ class OverlayWindowController {
     var sessionRecordingDelay: Int? { overlayView?.sessionRecordingDelay }
     var sessionRecordingControlsMode: String? { overlayView?.sessionRecordingControlsMode }
 
-    init(capture: ScreenCapture) {
-        let t0 = CFAbsoluteTimeGetCurrent()
-        #if DEBUG
-        NSLog("[PERF] OverlayWindowController.init BEGIN for screen=\(capture.screen.localizedName)")
-        #endif
-        let screen = capture.screen
+    init(screen: NSScreen) {
+        var perf = PerfMonitor(label: "OWC.init[\(screen.localizedName)]")
         self.screen = screen
 
-        let windowT0 = CFAbsoluteTimeGetCurrent()
         let window = OverlayWindow(
             contentRect: screen.frame,
             styleMask: [.borderless],
@@ -107,18 +102,11 @@ class OverlayWindowController {
         window.acceptsMouseMovedEvents = true
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         window.isReleasedWhenClosed = false
-        #if DEBUG
-        NSLog("[PERF] OverlayWindowController.init: window created elapsed=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - windowT0) * 1000))ms")
-        #endif
+        perf.step("window")
 
-        let viewT0 = CFAbsoluteTimeGetCurrent()
         let view = OverlayView()
-        #if DEBUG
-        NSLog("[PERF] OverlayWindowController.init: OverlayView created elapsed=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - viewT0) * 1000))ms")
-        #endif
-        let nsImage = capture.asset.displayImage
-        view.screenshotImage = nsImage
-        view.setDisplayCGImage(capture.asset.displayCGImage)
+        perf.step("OverlayView()")
+
         view.frame = NSRect(origin: .zero, size: screen.frame.size)
         view.autoresizingMask = [.width, .height]
         view.overlayDelegate = self
@@ -126,51 +114,54 @@ class OverlayWindowController {
         window.contentView = view
         self.overlayWindow = window
         self.overlayView = view
-        self.captureAsset = capture.asset
         view.onFirstFrameDrawn = { [weak self] in
-            #if DEBUG
-            NSLog("[PERF] OverlayWindowController: onFirstFrameDrawn callback for screen=\(self?.screen.localizedName ?? "unknown")")
-            #endif
+            CaptureDiagnostics.log("[macshot-perf][OWC.init] onFirstFrameDrawn screen=\(self?.screen.localizedName ?? "?")")
             self?.onFirstFrameShown?()
             self?.onFirstFrameShown = nil
         }
-        #if DEBUG
-        NSLog("[PERF] OverlayWindowController.init DONE total=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - t0) * 1000))ms")
-        #endif
+        perf.finish()
+    }
+
+    convenience init(capture: ScreenCapture) {
+        self.init(screen: capture.screen)
+        applyCapture(capture)
+    }
+
+    func applyCapture(_ capture: ScreenCapture) {
+        screen = capture.screen
+        captureAsset = capture.asset
+
+        let nsImage = capture.asset.displayImage
+        CaptureDiagnostics.log(
+            "[macshot-perf][OWC.capture] apply displayImage \(String(format: "%.0f", nsImage.size.width))x\(String(format: "%.0f", nsImage.size.height))"
+        )
+        overlayView?.screenshotImage = nsImage
+        overlayView?.setDisplayCGImage(capture.asset.displayCGImage)
+        overlayView?.needsDisplay = true
+
+        if overlayWindow?.isVisible == true {
+            prepareCaptureImageInBackground()
+        }
     }
 
     func showOverlay() {
-        let t0 = CFAbsoluteTimeGetCurrent()
+        var perf = PerfMonitor(label: "showOverlay[\(screen.localizedName)]")
         guard let window = overlayWindow else { return }
-        #if DEBUG
-        NSLog("[PERF] showOverlay: BEGIN for screen=\(screen.localizedName)")
-        #endif
         // Show immediately; do not call displayIfNeeded() here — it blocks the main thread
         // until the full frame is rendered and makes the hotkey→drag path feel sluggish.
         overlayView?.needsDisplay = true
 
         // Prepare color sampling image BEFORE showing the window to avoid blocking first frame
         prepareCaptureImageInBackground()
+        perf.step("prepareCaptureImage")
 
-        let makeKeyT0 = CFAbsoluteTimeGetCurrent()
-        window.makeKeyAndOrderFront(nil)
-        #if DEBUG
-        NSLog("[PERF] showOverlay: makeKeyAndOrderFront DONE elapsed=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - t0) * 1000))ms (makeKeyAndOrderFront=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - makeKeyT0) * 1000))ms)")
-        #endif
-        if let view = overlayView {
-            window.makeFirstResponder(view)
-        }
-        DispatchQueue.main.async { [weak self] in
-            self?.makeKey()
-        }
-        // Color sampling image is now prepared in background before window show
+        presentWindow(window)
+        perf.step("presentWindow")
+        perf.finish()
     }
 
     func makeKey() {
-        overlayWindow?.makeKeyAndOrderFront(nil)
-        if let view = overlayView {
-            overlayWindow?.makeFirstResponder(view)
-        }
+        promoteWindowToKeyWhenReady()
     }
 
     func prepareCaptureImageInBackground() {
@@ -184,6 +175,44 @@ class OverlayWindowController {
         // Start conversion immediately in background without waiting
         captureAsset.preloadColorSamplingImage { [weak self] converted in
             self?.overlayView?.setColorSamplingCGImage(converted)
+        }
+    }
+
+    private func presentWindow(_ window: OverlayWindow) {
+        if NSApp.isActive {
+            promoteWindowToKey(window)
+            return
+        }
+
+        window.orderFrontRegardless()
+        promoteWindowToKeyWhenReady()
+    }
+
+    private func promoteWindowToKeyWhenReady(attempt: Int = 0) {
+        guard let window = overlayWindow else { return }
+        if NSApp.isActive {
+            promoteWindowToKey(window)
+            return
+        }
+
+        if attempt == 0 {
+            NSRunningApplication.current.activate(options: .activateIgnoringOtherApps)
+        }
+
+        guard attempt < 12 else {
+            promoteWindowToKey(window)
+            return
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) { [weak self] in
+            self?.promoteWindowToKeyWhenReady(attempt: attempt + 1)
+        }
+    }
+
+    private func promoteWindowToKey(_ window: OverlayWindow) {
+        window.makeKeyAndOrderFront(nil)
+        if let view = overlayView {
+            window.makeFirstResponder(view)
         }
     }
 

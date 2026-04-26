@@ -21,6 +21,9 @@ final class CaptureImageAsset {
         self.displayImage = NSImage(cgImage: displayCGImage, size: pointSize)
         self.pointSize = pointSize
         self.standardizer = standardizer
+        CaptureDiagnostics.log(
+            "[macshot-perf][CaptureImageAsset] init cgImage=\(displayCGImage.width)x\(displayCGImage.height) bpp=\(displayCGImage.bitsPerComponent)"
+        )
     }
 
     convenience init?(
@@ -58,7 +61,11 @@ final class CaptureImageAsset {
             return cachedColorSamplingCGImage
         }
 
+        let t0 = CFAbsoluteTimeGetCurrent()
         let resolved = standardizer(displayCGImage) ?? displayCGImage
+        CaptureDiagnostics.log(
+            "[macshot-perf][CaptureImageAsset] standardizer elapsed=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - t0) * 1000))ms"
+        )
         cachedColorSamplingCGImage = resolved
         return resolved
     }

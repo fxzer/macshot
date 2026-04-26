@@ -4,6 +4,9 @@ import Cocoa
 /// Dynamically rebuilds its content when the selected tool changes.
 class ToolOptionsRowView: NSView {
 
+    static let defaultWidth: CGFloat = 200
+    static let defaultHeight: CGFloat = 34
+
     weak var overlayView: OverlayView?
     private(set) var currentTool: AnnotationTool?
     private weak var strokeSliderView: NSSlider?
@@ -76,8 +79,15 @@ class ToolOptionsRowView: NSView {
         if let seg = view as? NSSegmentedControl { seg.selectedSegmentBezelColor = ToolbarLayout.accentColor }
     }
 
-    override init(frame: NSRect) {
-        super.init(frame: frame)
+    override init(frame frameRect: NSRect) {
+        let resolvedFrame: NSRect
+        if frameRect.size.width <= 0 || frameRect.size.height <= 0 {
+            resolvedFrame = NSRect(x: 0, y: 0, width: Self.defaultWidth, height: Self.defaultHeight)
+        } else {
+            resolvedFrame = frameRect
+        }
+        super.init(frame: resolvedFrame)
+        translatesAutoresizingMaskIntoConstraints = true
         addSubview(stackView)
         stackView.translatesAutoresizingMaskIntoConstraints = false
         stackView.orientation = .horizontal
@@ -186,6 +196,7 @@ class ToolOptionsRowView: NSView {
     /// Rebuild the options row for the given tool. Call when tool or state changes.
     func rebuild(for tool: AnnotationTool) {
         strokeSliderView = nil
+        setFrameSize(NSSize(width: max(contentWidth, Self.defaultWidth), height: rowHeight))
         // Remove old subviews
         // Properly remove and de-anchor arranged subviews to prevent layout ambiguity or leaks
         while !stackView.arrangedSubviews.isEmpty {
@@ -339,9 +350,9 @@ class ToolOptionsRowView: NSView {
         // Since NSStackView manages layout, we update layout and calculate width
         stackView.needsLayout = true
         stackView.layoutSubtreeIfNeeded()
-        let totalW = max(stackView.fittingSize.width + padding * 2, 200)
+        let totalW = max(stackView.fittingSize.width + padding * 2, Self.defaultWidth)
         contentWidth = totalW
-        frame.size = NSSize(width: totalW, height: rowHeight)
+        setFrameSize(NSSize(width: totalW, height: rowHeight))
         
         // Add a flexible spacer before text buttons if needed to right-align them
         // Actually, for simplicity we just let them sit next to the other options.

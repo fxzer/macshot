@@ -8,6 +8,11 @@ struct ScreenCapture {
 
 class ScreenCaptureManager {
 
+    enum PrewarmMode: Equatable {
+        case lightweight
+        case full
+    }
+
     private static func screenDisplayID(for screen: NSScreen) -> CGDirectDisplayID? {
         screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID
     }
@@ -32,9 +37,9 @@ class ScreenCaptureManager {
     /// Cached shareable content to avoid repeated (slow) enumeration.
     private static var cachedContent: SCShareableContent?
     private static var cachedContentTime: Date = .distantPast
-    /// Cache is valid for 2 seconds — long enough to survive the hotkey→capture gap,
-    /// short enough that display changes are picked up.
-    private static let cacheTTL: TimeInterval = 2.0
+    /// Cache is valid for 120 seconds — shareable content only truly changes on display
+    /// hotplug; the cost of a stale entry is at most capturing a window that just closed.
+    private static let cacheTTL: TimeInterval = 120.0
 
     /// Coalesces concurrent `shareableContent()` callers (e.g. `prewarm()` Task + capture Task)
     /// so two overlapping requests only trigger one `SCShareableContent` enumeration.
@@ -48,6 +53,15 @@ class ScreenCaptureManager {
     private static var lastScreenshotWarmTime: Date = .distantPast
     private static var inFlightScreenshotWarm: Task<Void, Never>?
     private static let screenshotWarmTTL: TimeInterval = 10.0
+
+    /// When true, pipeline warmup is suppressed so it doesn't compete with the real capture.
+    private static var captureInProgress = false
+
+    private static func isCaptureInProgress() -> Bool {
+        screenshotWarmLock.lock()
+        defer { screenshotWarmLock.unlock() }
+        return captureInProgress
+    }
 
     /// Fetch shareable content, using a short-lived cache to avoid redundant enumeration.
     private static func shareableContent() async throws -> SCShareableContent {
@@ -82,11 +96,10 @@ class ScreenCaptureManager {
     /// enumeration when every excluded window ID is present; otherwise refreshes once so
     /// windows created after the cache (e.g. floating thumbnails) are visible to ScreenCaptureKit.
     private static func shareableContentForCapture(excludingWindowNumbers: [CGWindowID]) async throws -> (SCShareableContent, [SCWindow]) {
+        var perf = PerfMonitor(label: "SCContent")
         if excludingWindowNumbers.isEmpty {
-            #if DEBUG
-            NSLog("[macshot] shareableContentForCapture: no exclusions, using cached content")
-            #endif
             let content = try await shareableContent()
+            perf.step("cached content (no exclusions)")
             return (content, [])
         }
 
@@ -100,14 +113,10 @@ class ScreenCaptureManager {
 
         var content = try await shareableContent()
         var resolved = resolve(content)
-        var didRefresh = false
 
         if resolved.count != uniqueIDs.count {
             // Cache is missing one or more windows to exclude — enumerate again and refresh cache.
-            #if DEBUG
             let missingIDs = uniqueIDs.filter { id in !resolved.contains(where: { CGWindowID($0.windowID) == id }) }
-            NSLog("[macshot] shareableContentForCapture: cache missing \(missingIDs.count) windows, refreshing: \(missingIDs)")
-            #endif
             let fresh = try await SCShareableContent.excludingDesktopWindows(true, onScreenWindowsOnly: true)
             shareableFetchLock.lock()
             cachedContent = fresh
@@ -115,36 +124,43 @@ class ScreenCaptureManager {
             shareableFetchLock.unlock()
             content = fresh
             resolved = resolve(content)
-            didRefresh = true
+            perf.step("cache miss, refreshed resolved=\(resolved.count)/\(uniqueIDs.count)")
         } else {
-            #if DEBUG
-            NSLog("[macshot] shareableContentForCapture: cache HIT for all \(uniqueIDs.count) excluded windows")
-            #endif
+            perf.step("cache HIT excluded=\(uniqueIDs.count)")
         }
 
-        // Use the already-resolved windows instead of re-filtering (SCContentFilter doesn't care about order)
-        #if DEBUG
-        if didRefresh {
-            NSLog("[macshot] shareableContentForCapture: after refresh, resolved \(resolved.count)/\(uniqueIDs.count) windows")
-        }
-        #endif
         return (content, resolved)
     }
 
-    /// Pre-warm the shareable content cache so the next capture is instant.
-    /// Call this when the menu bar opens or a hotkey is pressed — before the actual capture starts.
-    static func prewarm() {
+    /// Pre-warm capture prerequisites ahead of an upcoming capture.
+    /// - note: `.lightweight` only primes shareable content. `.full` additionally warms
+    ///   the screenshot pipeline when the app has a short idle gap (e.g. menu bar click).
+    static func prewarm(screen: NSScreen? = nil, mode: PrewarmMode = .full) {
         Task {
             _ = try? await shareableContent()
         }
-        warmScreenshotPipelineIfNeeded()
+        guard mode == .full else { return }
+        warmScreenshotPipelineIfNeeded(screen: screen)
+    }
+
+    /// Signal that a real capture is starting/ending, so pipeline warmup is suppressed.
+    static func setCaptureInProgress(_ value: Bool) {
+        screenshotWarmLock.lock()
+        captureInProgress = value
+        let task = value ? inFlightScreenshotWarm : nil
+        screenshotWarmLock.unlock()
+        if value {
+            task?.cancel()
+        }
     }
 
     /// Warm ScreenCaptureKit's screenshot path with tiny throwaway captures.
     /// This reduces the cold-start spike without holding large screenshots in memory or
     /// risking menu-window ghosts from reusing a real cached capture.
-    private static func warmScreenshotPipelineIfNeeded() {
+    private static func warmScreenshotPipelineIfNeeded(screen: NSScreen?) {
         guard #available(macOS 14.0, *) else { return }
+        // Don't run throwaway captures alongside a real capture — they compete for GPU.
+        guard !isCaptureInProgress() else { return }
 
         screenshotWarmLock.lock()
         if Date().timeIntervalSince(lastScreenshotWarmTime) < screenshotWarmTTL {
@@ -165,10 +181,21 @@ class ScreenCaptureManager {
 
             let t0 = CFAbsoluteTimeGetCurrent()
             guard let content = try? await shareableContent() else { return }
+            guard !Task.isCancelled, !isCaptureInProgress() else { return }
+
+            let displaysToWarm: [SCDisplay]
+            if let screen, let (display, _) = pair(for: screen, in: content) {
+                displaysToWarm = [display]
+            } else if let display = content.displays.first {
+                displaysToWarm = [display]
+            } else {
+                displaysToWarm = []
+            }
 
             await withTaskGroup(of: Void.self) { group in
-                for display in content.displays {
+                for display in displaysToWarm {
                     group.addTask {
+                        guard !Task.isCancelled, !isCaptureInProgress() else { return }
                         let filter = SCContentFilter(display: display, excludingWindows: [])
                         let config = SCStreamConfiguration()
                         let targetWidth = min(display.width, 64)
@@ -187,12 +214,14 @@ class ScreenCaptureManager {
                 }
             }
 
+            guard !Task.isCancelled, !isCaptureInProgress() else { return }
+
             screenshotWarmLock.lock()
             lastScreenshotWarmTime = Date()
             screenshotWarmLock.unlock()
-            #if DEBUG
-            NSLog("[PERF] prewarm screenshot pipeline: \(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - t0) * 1000))ms")
-            #endif
+            CaptureDiagnostics.log(
+                "[macshot-perf][prewarm] screenshot pipeline warm=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - t0) * 1000))ms"
+            )
         }
 
         inFlightScreenshotWarm = task
@@ -202,11 +231,9 @@ class ScreenCaptureManager {
     static func captureAllScreens(excludingWindowNumbers: [CGWindowID] = [], completion: @escaping ([ScreenCapture]) -> Void) {
         Task {
             do {
-                let scT0 = CFAbsoluteTimeGetCurrent()
+                var perf = PerfMonitor(label: "captureAll")
                 let (content, excludedSCWindows) = try await shareableContentForCapture(excludingWindowNumbers: excludingWindowNumbers)
-                #if DEBUG
-                NSLog("[PERF] shareableContentForCapture: \(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - scT0) * 1000))ms")
-                #endif
+                perf.step("shareableContent")
                 let displays = content.displays
                 let screens = NSScreen.screens
 
@@ -241,9 +268,9 @@ class ScreenCaptureManager {
                                 guard let image = try? await SCScreenshotManager.captureImage(
                                     contentFilter: filter, configuration: config
                                 ) else { return nil }
-                                #if DEBUG
-                                NSLog("[PERF] SCScreenshotManager.captureImage(display=\(display.displayID)): \(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - taskT0) * 1000))ms")
-                                #endif
+                                 CaptureDiagnostics.log(
+                                     "[macshot-perf][captureAll] captureImage display=\(display.displayID) elapsed=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - taskT0) * 1000))ms"
+                                 )
                                 // Skip expensive pixel conversion on the capture path —
                                 // CoreAnimation composites the GPU-native ARGB16F image
                                 // directly without CPU readback. Convert to 8-bit BGRA
@@ -282,9 +309,7 @@ class ScreenCaptureManager {
                     }
                     return results
                 }
-                #if DEBUG
-                NSLog("[PERF] all displays captured (concurrent): \(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - capT0) * 1000))ms")
-                #endif
+                perf.step("all displays captured")
 
                 await MainActor.run { completion(captures) }
             } catch {
@@ -303,11 +328,9 @@ class ScreenCaptureManager {
     ) {
         Task {
             do {
-                let scT0 = CFAbsoluteTimeGetCurrent()
+                var perf = PerfMonitor(label: "capture1")
                 let (content, excludedSCWindows) = try await shareableContentForCapture(excludingWindowNumbers: excludingWindowNumbers)
-                #if DEBUG
-                NSLog("[PERF] shareableContentForCapture(single): \(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - scT0) * 1000))ms")
-                #endif
+                perf.step("shareableContent")
 
                 guard let (display, matchedScreen) = pair(for: screen, in: content) else {
                     await MainActor.run { completion(nil) }
@@ -333,9 +356,7 @@ class ScreenCaptureManager {
                         await MainActor.run { completion(nil) }
                         return
                     }
-                    #if DEBUG
-                    NSLog("[PERF] SCScreenshotManager.captureImage(single display=\(display.displayID)): \(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - taskT0) * 1000))ms")
-                    #endif
+                    perf.step("SCScreenshotManager display=\(display.displayID)")
                     capture = ScreenCapture(
                         screen: matchedScreen,
                         asset: makeAsset(screen: matchedScreen, image: image)

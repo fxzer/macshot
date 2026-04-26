@@ -485,9 +485,7 @@ extension OverlayView {
     /// Rebuild toolbar button content. Call when tool, color, or state changes — NOT on every draw.
     func rebuildToolbarLayout() {
         let t0 = CFAbsoluteTimeGetCurrent()
-        #if DEBUG
-        NSLog("[PERF] rebuildToolbarLayout BEGIN")
-        #endif
+        CaptureDiagnostics.log("[macshot-perf][toolbar] rebuild BEGIN")
         hoveredTooltip = nil
         hoveredTooltipButtonView = nil
 
@@ -563,7 +561,14 @@ extension OverlayView {
 
         if toolHasOptionsRow {
             if toolOptionsRowView == nil {
-                let row = ToolOptionsRowView()
+                let row = ToolOptionsRowView(
+                    frame: NSRect(
+                        x: 0,
+                        y: 0,
+                        width: ToolOptionsRowView.defaultWidth,
+                        height: ToolOptionsRowView.defaultHeight
+                    )
+                )
                 row.overlayView = self
                 parent.addSubview(row)
                 toolOptionsRowView = row
@@ -577,11 +582,9 @@ extension OverlayView {
 
         repositionToolbars()
         updateUndoRedoButtonStates()
-        #if DEBUG
-        NSLog(
-            "[PERF] rebuildToolbarLayout DONE elapsed=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - t0) * 1000))ms"
+        CaptureDiagnostics.log(
+            "[macshot-perf][toolbar] rebuild DONE elapsed=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - t0) * 1000))ms"
         )
-        #endif
     }
 
     /// Update undo/redo button enabled states based on stack availability.

@@ -22,6 +22,7 @@ final class CaptureFlowCoordinator {
     private var isCapturing = false
     private var activeCaptureIntent: CaptureIntent?
     private var overlayScreenSwitchInFlight = false
+    private var captureRequestID = 0
     private var overlayMouseScreenTimer: Timer?
     private var overlayEscMonitor: Any?
     private var countdownWindow: NSWindow?
@@ -45,14 +46,8 @@ final class CaptureFlowCoordinator {
     }
 
     func beginCapture(intent: CaptureIntent, triggerOrigin: String) {
-        let t0 = CFAbsoluteTimeGetCurrent()
-        #if DEBUG
-        NSLog("[PERF] ========== beginCapture START intent=\(intent.debugName) origin=\(triggerOrigin) ==========")
-        #endif
+        CaptureDiagnostics.log("[macshot-perf] ========== beginCapture intent=\(intent.debugName) origin=\(triggerOrigin) ==========")
         startCapture(intent: intent, triggerOrigin: triggerOrigin)
-        #if DEBUG
-        NSLog("[PERF] ========== beginCapture END elapsed=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - t0) * 1000))ms ==========")
-        #endif
     }
 
     func dismissOverlays(refocusPreviousApp: Bool = true) {
@@ -67,6 +62,7 @@ final class CaptureFlowCoordinator {
         }
         isCapturing = false
         activeCaptureIntent = nil
+        ScreenCaptureManager.setCaptureInProgress(false)
         dependencies.showThumbnails()
         if refocusPreviousApp {
             dependencies.restoreFocusIfNeeded()
@@ -78,12 +74,12 @@ final class CaptureFlowCoordinator {
         guard !dependencies.isRecordingInProgress() else { return }
         isCapturing = true
         activeCaptureIntent = intent
-        let t0 = CFAbsoluteTimeGetCurrent()
-        #if DEBUG
-        NSLog("[PERF] startCapture BEGIN intent=\(intent.debugName) origin=\(triggerOrigin) t=\(t0)")
-        #endif
+        var perf = PerfMonitor(label: "capture")
 
-        ScreenCaptureManager.prewarm()
+        ScreenCaptureManager.prewarm(screen: currentCaptureTargetScreen(), mode: .lightweight)
+        perf.step("prewarm")
+        ScreenCaptureManager.setCaptureInProgress(true)
+
         let delay = UserDefaults.standard.integer(forKey: "captureDelaySeconds")
 
         let rememberTool = UserDefaults.standard.object(forKey: "rememberLastTool") as? Bool ?? true
@@ -97,22 +93,19 @@ final class CaptureFlowCoordinator {
         }
 
         dependencies.rememberPreviousApp(NSWorkspace.shared.frontmostApplication)
+        perf.step("rememberPreviousApp")
 
-        #if DEBUG
-        NSLog("[PERF] startCapture: prewarm + dismissOverlays + hideThumbnails BEGIN")
-        #endif
         if !overlayControllersStorage.isEmpty {
             dismissOverlays(refocusPreviousApp: false)
+            perf.step("dismissOverlays")
         }
         dependencies.hideThumbnails()
-        #if DEBUG
-        NSLog("[PERF] startCapture: dismissOverlays + hideThumbnails DONE elapsed=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - t0) * 1000))ms")
-        #endif
+        perf.step("hideThumbnails")
 
         if delay > 0 {
             showPreCaptureCountdown(seconds: delay)
         } else {
-            performCapture(t0: t0)
+            performCapture(t0: perf.start)
         }
     }
 
@@ -232,6 +225,7 @@ final class CaptureFlowCoordinator {
             guard let capture else {
                 self.isCapturing = false
                 self.activeCaptureIntent = nil
+                ScreenCaptureManager.setCaptureInProgress(false)
                 self.dependencies.showOnboarding(screen)
                 return
             }
@@ -315,13 +309,13 @@ final class CaptureFlowCoordinator {
         removeCountdownEscMonitors()
         isCapturing = false
         activeCaptureIntent = nil
+        ScreenCaptureManager.setCaptureInProgress(false)
         stopOverlayMouseScreenTracking()
     }
 
     private func performCapture(t0: CFAbsoluteTime = 0) {
-        #if DEBUG
-        NSLog("[PERF] performCapture BEGIN elapsed=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - t0) * 1000))ms")
-        #endif
+        var perf = PerfMonitor(label: "capture")
+        perf.step("performCapture BEGIN (t0=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - t0) * 1000))ms from trigger)")
 
         let excludeIDs = dependencies.excludedWindowNumbers()
         let targetScreen = currentCaptureTargetScreen()
@@ -333,31 +327,79 @@ final class CaptureFlowCoordinator {
         targetScreen: NSScreen?,
         t0: CFAbsoluteTime
     ) {
-        #if DEBUG
-        NSLog("[PERF] performCapture: no prepared result, calling captureScreen...")
-        #endif
         guard let targetScreen else {
             isCapturing = false
             activeCaptureIntent = nil
+            ScreenCaptureManager.setCaptureInProgress(false)
             dependencies.showOnboarding(dependencies.defaultInteractionScreen())
             return
         }
-        let captureT0 = CFAbsoluteTimeGetCurrent()
-        ScreenCaptureManager.captureScreen(targetScreen, excludingWindowNumbers: excludeIDs) { [weak self] capture in
+        captureRequestID += 1
+        let requestID = captureRequestID
+        let placeholderController =
+            (activeCaptureIntent?.prefersImmediateOverlayPresentation == true)
+            ? showImmediateOverlay(on: targetScreen, t0: t0)
+            : nil
+        let effectiveExcludeIDs = placeholderController.map { excludeIDs + [$0.windowNumber] } ?? excludeIDs
+
+        CaptureDiagnostics.log(
+            "[macshot-perf][capture] captureScreen BEGIN screen=\(targetScreen.localizedName) excludes=\(effectiveExcludeIDs.count)"
+        )
+        ScreenCaptureManager.captureScreen(targetScreen, excludingWindowNumbers: effectiveExcludeIDs) { [weak self, weak placeholderController] capture in
             guard let self else { return }
-            #if DEBUG
-            NSLog("[PERF] captureScreen callback: elapsed=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - t0) * 1000))ms (capture itself=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - captureT0) * 1000))ms)")
-            #endif
+            guard requestID == self.captureRequestID, self.isCapturing else { return }
+            CaptureDiagnostics.log(
+                "[macshot-perf][capture] captureScreen DONE total=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - t0) * 1000))ms"
+            )
+            ScreenCaptureManager.setCaptureInProgress(false)
 
             guard let capture else {
+                if let placeholderController {
+                    self.overlayControllersStorage.removeAll { $0 === placeholderController }
+                    placeholderController.dismiss()
+                }
                 self.isCapturing = false
                 self.activeCaptureIntent = nil
                 self.dependencies.showOnboarding(targetScreen)
                 return
             }
 
+            if let placeholderController,
+               self.overlayControllersStorage.contains(where: { $0 === placeholderController }) {
+                placeholderController.applyCapture(capture)
+                self.startOverlayMouseScreenTracking()
+                return
+            }
+
             self.showOverlays(for: [capture], t0: t0)
         }
+    }
+
+    private func showImmediateOverlay(on screen: NSScreen, t0: CFAbsoluteTime) -> OverlayWindowController {
+        var perf = PerfMonitor(label: "overlay-immediate")
+        let captureIntent = activeCaptureIntent
+
+        stopOverlayMouseScreenTracking()
+        NSApp.activate(ignoringOtherApps: true)
+        perf.step("NSApp.activate")
+
+        let controller = OverlayWindowController(screen: screen)
+        configureController(controller, screenName: screen.localizedName, t0: t0)
+        controller.showOverlay()
+        perf.step("controller screen=\(screen.localizedName)")
+        overlayControllersStorage.append(controller)
+        perf.finish()
+
+        installOverlayEscMonitor()
+        DispatchQueue.main.async { [weak self] in
+            self?.makePrimaryOverlayKey()
+        }
+
+        if captureIntent?.shouldRestoreLastSelection == true {
+            restoreLastSelectionIfNeeded(controllers: [controller])
+        }
+        applyInitialOverlayStateIfNeeded(to: controller, captureScreen: screen, captureIntent: captureIntent)
+        return controller
     }
 
     private func showOverlays(
@@ -366,65 +408,28 @@ final class CaptureFlowCoordinator {
         activateApp: Bool = true,
         restoreLastSelection: Bool = true
     ) {
-        #if DEBUG
-        NSLog("[PERF] showOverlays BEGIN: \(captures.count) screens")
-        #endif
-        let createT0 = CFAbsoluteTimeGetCurrent()
+        var perf = PerfMonitor(label: "overlay")
         let captureIntent = activeCaptureIntent
 
         stopOverlayMouseScreenTracking()
         if activateApp {
             NSApp.activate(ignoringOtherApps: true)
+            perf.step("NSApp.activate")
         }
 
         for (index, capture) in captures.enumerated() {
-            let controllerT0 = CFAbsoluteTimeGetCurrent()
-            #if DEBUG
-            NSLog("[PERF] showOverlays: creating controller \(index) for screen=\(capture.screen.localizedName)")
-            #endif
             let controller = OverlayWindowController(capture: capture)
-            controller.overlayDelegate = dependencies.overlayDelegateProvider()
-            controller.onFirstFrameShown = {
-                #if DEBUG
-                NSLog("[PERF] first overlay frame drawn elapsed=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - t0) * 1000))ms screen=\(capture.screen.localizedName)")
-                #endif
-            }
-            if captureIntent?.startsInRecordingMode == true {
-                controller.setAutoRecordMode()
-            }
-            if captureIntent?.startsInOCRMode == true {
-                controller.setAutoOCRMode()
-            }
-            if captureIntent?.startsInQuickSaveMode == true {
-                controller.setAutoQuickSaveMode()
-            }
-            if captureIntent?.startsInScrollCaptureMode == true {
-                controller.setAutoScrollCaptureMode()
-            }
-            let showT0 = CFAbsoluteTimeGetCurrent()
+            configureController(controller, screenName: capture.screen.localizedName, t0: t0)
             controller.showOverlay()
-            #if DEBUG
-            NSLog("[PERF] showOverlays: controller \(index) showOverlay DONE elapsed=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - controllerT0) * 1000))ms (showOverlay call=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - showT0) * 1000))ms)")
-            #endif
-            let mouseScreen = NSScreen.screens.first { $0.frame.contains(NSEvent.mouseLocation) }
-            let isMouseScreen = (capture.screen == mouseScreen) || (mouseScreen == nil && capture.screen == NSScreen.main)
-            if captureIntent?.appliesFullScreenSelection == true && isMouseScreen {
-                controller.applyFullScreenSelection()
-            }
-            if captureIntent?.startsInRecordingMode == true
-                && captureIntent?.appliesFullScreenSelection == true
-                && isMouseScreen {
-                controller.enterRecordingMode()
-                if captureIntent?.autoStartsFullScreenRecording == true {
-                    controller.autoStartRecording()
-                }
-            }
+            perf.step("controller[\(index)] screen=\(capture.screen.localizedName)")
+            applyInitialOverlayStateIfNeeded(
+                to: controller,
+                captureScreen: capture.screen,
+                captureIntent: captureIntent
+            )
             overlayControllersStorage.append(controller)
         }
-        #if DEBUG
-        NSLog("[PERF] OverlayWindowControllers created+shown elapsed=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - createT0) * 1000))ms")
-        NSLog("[PERF] TOTAL startCapture→overlay visible: \(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - t0) * 1000))ms")
-        #endif
+        perf.finish()
 
         installOverlayEscMonitor()
         DispatchQueue.main.async { [weak self] in
@@ -435,6 +440,47 @@ final class CaptureFlowCoordinator {
             restoreLastSelectionIfNeeded(controllers: overlayControllersStorage)
         }
         startOverlayMouseScreenTracking()
+    }
+
+    private func configureController(_ controller: OverlayWindowController, screenName: String, t0: CFAbsoluteTime) {
+        controller.overlayDelegate = dependencies.overlayDelegateProvider()
+        controller.onFirstFrameShown = {
+            CaptureDiagnostics.log(
+                "[macshot-perf][overlay] FIRST FRAME DRAWN total=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - t0) * 1000))ms screen=\(screenName)"
+            )
+        }
+        if activeCaptureIntent?.startsInRecordingMode == true {
+            controller.setAutoRecordMode()
+        }
+        if activeCaptureIntent?.startsInOCRMode == true {
+            controller.setAutoOCRMode()
+        }
+        if activeCaptureIntent?.startsInQuickSaveMode == true {
+            controller.setAutoQuickSaveMode()
+        }
+        if activeCaptureIntent?.startsInScrollCaptureMode == true {
+            controller.setAutoScrollCaptureMode()
+        }
+    }
+
+    private func applyInitialOverlayStateIfNeeded(
+        to controller: OverlayWindowController,
+        captureScreen: NSScreen,
+        captureIntent: CaptureIntent?
+    ) {
+        let mouseScreen = NSScreen.screens.first { $0.frame.contains(NSEvent.mouseLocation) }
+        let isMouseScreen = (captureScreen == mouseScreen) || (mouseScreen == nil && captureScreen == NSScreen.main)
+        if captureIntent?.appliesFullScreenSelection == true && isMouseScreen {
+            controller.applyFullScreenSelection()
+        }
+        if captureIntent?.startsInRecordingMode == true
+            && captureIntent?.appliesFullScreenSelection == true
+            && isMouseScreen {
+            controller.enterRecordingMode()
+            if captureIntent?.autoStartsFullScreenRecording == true {
+                controller.autoStartRecording()
+            }
+        }
     }
 
     private func restoreLastSelectionIfNeeded(controllers: [OverlayWindowController]) {

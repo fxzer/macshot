@@ -131,8 +131,8 @@ final class MarkerToolHandler: AnnotationToolHandler {
             session.maxPointCount = max(session.maxPointCount, pointCount)
             let elapsedMs = (CFAbsoluteTimeGetCurrent() - session.startedAt) * 1000
             if !session.didLogLongStrokeProgress, elapsedMs >= 150, pointCount >= 120 {
-                NSLog(
-                    "[PERF][Marker] stroke in progress elapsed=\(String(format: "%.1f", elapsedMs))ms points=\(pointCount) updates=\(session.updateCount) smart=\(session.smartMode ? 1 : 0)"
+                CaptureDiagnostics.log(
+                    "[macshot-perf][Marker] stroke in progress elapsed=\(String(format: "%.1f", elapsedMs))ms points=\(pointCount) updates=\(session.updateCount) smart=\(session.smartMode ? 1 : 0)"
                 )
                 session.didLogLongStrokeProgress = true
             }
@@ -373,8 +373,8 @@ final class MarkerToolHandler: AnnotationToolHandler {
         let finalPointCount = annotation.points?.count ?? 0
         let eagerOCR = session.eagerOCRElapsedMs.map { String(format: "%.1f", $0) } ?? "-"
         let snapOCR = session.snapOCRElapsedMs.map { String(format: "%.1f", $0) } ?? "-"
-        NSLog(
-            "[PERF][Marker] stroke finished status=\(status) total=\(String(format: "%.1f", totalElapsedMs))ms updates=\(session.updateCount) points=\(finalPointCount) peakPoints=\(session.maxPointCount) strokeWidth=\(String(format: "%.1f", annotation.strokeWidth)) smart=\(session.smartMode ? 1 : 0) eagerOCR=\(eagerOCR)ms snapOCR=\(snapOCR)ms cachedSnap=\(session.usedCachedOCRForSnap ? 1 : 0) observations=\(session.observationCount)"
+        CaptureDiagnostics.log(
+            "[macshot-perf][Marker] stroke finished status=\(status) total=\(String(format: "%.1f", totalElapsedMs))ms updates=\(session.updateCount) points=\(finalPointCount) peakPoints=\(session.maxPointCount) strokeWidth=\(String(format: "%.1f", annotation.strokeWidth)) smart=\(session.smartMode ? 1 : 0) eagerOCR=\(eagerOCR)ms snapOCR=\(snapOCR)ms cachedSnap=\(session.usedCachedOCRForSnap ? 1 : 0) observations=\(session.observationCount)"
         )
         perfSession = nil
     }

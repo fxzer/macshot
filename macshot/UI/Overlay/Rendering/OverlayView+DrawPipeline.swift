@@ -6,7 +6,9 @@ extension OverlayView {
 
         guard let context = NSGraphicsContext.current else { return }
 
+        let drawT0 = CFAbsoluteTimeGetCurrent()
         drawOverlayBackdrop(in: context)
+        let backdropMs = (CFAbsoluteTimeGetCurrent() - drawT0) * 1000
         drawWindowSnapHighlight()
 
         if state == .idle {
@@ -33,7 +35,11 @@ extension OverlayView {
 
         drawHoveredTooltip()
 
+        let totalDrawMs = (CFAbsoluteTimeGetCurrent() - drawT0) * 1000
         if !hasEmittedFirstFrame {
+            CaptureDiagnostics.log(
+                "[macshot-perf] draw() FIRST FRAME: backdrop=\(String(format: "%.1f", backdropMs))ms total=\(String(format: "%.1f", totalDrawMs))ms size=\(bounds.size)"
+            )
             hasEmittedFirstFrame = true
             onFirstFrameDrawn?()
             onFirstFrameDrawn = nil
