@@ -399,12 +399,7 @@ extension VideoEditorView {
             return
         }
 
-        let providerLabel = provider == "s3" ? "S3" : "Drive"
-        showStatus(String(format: L("Uploading to %@... %d%%"), providerLabel, 0))
-
-        let progressHandler: (Double) -> Void = { [weak self] fraction in
-            self?.showStatus(String(format: L("Uploading to %@... %d%%"), providerLabel, Int(fraction * 100)))
-        }
+        showStatus(L("Uploading..."))
 
         let completionHandler: (Result<String, Error>) -> Void = { [weak self] result in
             switch result {
@@ -428,8 +423,11 @@ extension VideoEditorView {
                 completionHandler(result)
             }
             if provider == "s3" {
-                S3Uploader.shared.uploadVideo(url: fileURL, progress: progressHandler, completion: wrappedCompletion)
+                S3Uploader.shared.uploadVideo(url: fileURL, progress: nil, completion: wrappedCompletion)
             } else {
+                let progressHandler: (Double) -> Void = { [weak self] fraction in
+                    self?.showStatus(String(format: L("Uploading... %d%%"), Int(fraction * 100)))
+                }
                 GoogleDriveUploader.shared.uploadVideo(url: fileURL, progress: progressHandler, completion: wrappedCompletion)
             }
         }

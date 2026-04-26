@@ -4,7 +4,6 @@ import CryptoKit
 import AuthenticationServices
 
 /// Google Drive uploader using OAuth2 with PKCE.
-/// Files are uploaded to a "macshot" folder in the user's Drive, kept private (not shared).
 final class GoogleDriveUploader: NSObject, ASWebAuthenticationPresentationContextProviding {
 
     static let shared = GoogleDriveUploader()
@@ -99,7 +98,7 @@ final class GoogleDriveUploader: NSObject, ASWebAuthenticationPresentationContex
                 // 检查是否是用户取消
                 if nsError.domain == "com.apple.AuthenticationServices" && nsError.code == 1 {
                     NSLog("[GoogleDrive] User cancelled authentication")
-                    Self.lastSignInError = "用户取消了登录"
+                    Self.lastSignInError = L("User cancelled login.")
                 } else {
                     // 其他错误，可能是配置问题
                     let errorMsg = """

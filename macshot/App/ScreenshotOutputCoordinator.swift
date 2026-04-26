@@ -335,9 +335,6 @@ final class ScreenshotOutputCoordinator: NSObject, PinWindowControllerDelegate {
         toast.show(status: L("Uploading..."))
 
         let provider = UserDefaults.standard.string(forKey: "uploadProvider") ?? "imgbb"
-        let progressHandler: (Double) -> Void = { fraction in
-            toast.updateProgress(fraction)
-        }
 
         if provider == "gdrive" && !GoogleDriveUploader.shared.isSignedIn {
             toast.showError(message: L("Sign in to Google Drive in Settings"))
@@ -350,6 +347,9 @@ final class ScreenshotOutputCoordinator: NSObject, PinWindowControllerDelegate {
         }
 
         if provider == "gdrive" {
+            let progressHandler: (Double) -> Void = { fraction in
+                toast.updateProgress(fraction)
+            }
             GoogleDriveUploader.shared.uploadImage(image, progress: progressHandler) { result in
                 switch result {
                 case .success(let link):
@@ -361,7 +361,7 @@ final class ScreenshotOutputCoordinator: NSObject, PinWindowControllerDelegate {
                 }
             }
         } else if provider == "s3" {
-            S3Uploader.shared.uploadImage(image, progress: progressHandler) { result in
+            S3Uploader.shared.uploadImage(image, progress: nil) { result in
                 switch result {
                 case .success(let link):
                     PasteboardWriter.writeString(link)

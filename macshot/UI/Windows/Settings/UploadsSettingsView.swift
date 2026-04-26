@@ -78,7 +78,7 @@ struct UploadsSettingsView: View {
                     Picker(L("Upload provider"), selection: $uploadProvider) {
                         Text("ImgBB").tag("imgbb")
                         Text("Google Drive").tag("gdrive")
-                        Text("S3 兼容存储").tag("s3")
+                        Text(L("S3 Compatible Storage")).tag("s3")
                     }
                     UploadHistoryRow()
                 } header: {
@@ -153,8 +153,8 @@ struct UploadsSettingsView: View {
                         }
                     } header: {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("S3 兼容存储")
-                            Text("兼容 AWS S3、Cloudflare R2、MinIO、阿里云 OSS、腾讯云 COS 及其他遵循 S3 协议的云存储服务。（图片 ✓，视频 ✓）")
+                            Text(L("S3 Compatible Storage"))
+                            Text(L("Compatible with AWS S3, Cloudflare R2, MinIO, Alibaba Cloud OSS, Tencent Cloud COS, and other S3-compatible storage services. (Images ✓, Videos ✓)"))
                                 .font(.subheadline)
                                 .foregroundColor(.secondary)
                         }
@@ -204,7 +204,7 @@ struct UploadsSettingsView: View {
                     if let error = GoogleDriveUploader.lastSignInError {
                         gdriveErrorMessage = error
                     } else {
-                        gdriveErrorMessage = "登录失败，请查看控制台日志了解详情"
+                        gdriveErrorMessage = L("Login failed. Check the console log for details.")
                     }
                     refreshGDriveStatus()
                     return
@@ -223,7 +223,7 @@ struct UploadsSettingsView: View {
 
     private func s3TestConnection() {
         guard S3Uploader.shared.isConfigured else {
-            showAlert(title: "S3 测试", message: "请先填写端点、存储桶和凭证")
+            showAlert(title: L("S3 Test"), message: L("Fill in endpoint, bucket, and credentials first."))
             return
         }
 
@@ -236,9 +236,9 @@ struct UploadsSettingsView: View {
             DispatchQueue.main.async {
                 switch result {
                 case .success:
-                    showAlert(title: "S3 测试", message: "连接成功！")
+                    showAlert(title: L("S3 Test"), message: L("Connection successful!"))
                 case .failure(let error):
-                    showAlert(title: "S3 测试失败", message: error.localizedDescription)
+                    showAlert(title: L("S3 Test Failed"), message: error.localizedDescription)
                 }
             }
         }
@@ -249,7 +249,7 @@ struct UploadsSettingsView: View {
         alert.messageText = title
         alert.informativeText = message
         alert.alertStyle = .informational
-        alert.addButton(withTitle: "确定")
+        alert.addButton(withTitle: L("OK"))
         alert.runModal()
     }
 }
@@ -263,9 +263,9 @@ struct S3ConnectionTestRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Text("连接测试")
+            Text(L("Connection Test"))
             Spacer()
-            Button(testing ? "测试中..." : "测试") {
+            Button(testing ? L("Testing...") : L("Test")) {
                 onTest()
             }
             .disabled(testing || !isAvailable)
@@ -282,12 +282,12 @@ struct UploadHistoryRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Text("上传历史")
+            Text(L("Upload History"))
             Spacer()
             Text(countText)
                 .foregroundColor(.secondary)
                 .lineLimit(1)
-            Button("查看") {
+            Button(L("View")) {
                 showPopover.toggle()
             }
             .popover(isPresented: $showPopover, arrowEdge: .bottom) {
@@ -300,11 +300,9 @@ struct UploadHistoryRow: View {
     private var countText: String {
         let count = historyStore.count(for: uploadProvider)
         if count == 0 {
-            return "暂无记录"
-        } else if count == 1 {
-            return "1 条记录"
+            return L("No records")
         } else {
-            return "\(count) 条记录"
+            return String(format: L("%d records"), count)
         }
     }
 }
@@ -336,7 +334,7 @@ struct UploadHistoryPopoverView: View {
                 Button {
                     clearAllHistory()
                 } label: {
-                    Text("清空历史")
+                    Text(L("Clear History"))
                 }
                 .disabled(history.isEmpty)
             }
@@ -351,7 +349,7 @@ struct UploadHistoryPopoverView: View {
                     Image(systemName: "tray")
                         .font(.system(size: 48))
                         .foregroundColor(.secondary)
-                    Text("暂无上传记录")
+                    Text(L("No uploads yet."))
                         .foregroundColor(.secondary)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -380,7 +378,7 @@ struct UploadHistoryPopoverView: View {
         switch uploadProvider {
         case "imgbb": return "ImgBB"
         case "gdrive": return "Google Drive"
-        case "s3": return "S3 兼容存储"
+        case "s3": return L("S3 Compatible Storage")
         default: return uploadProvider
         }
     }

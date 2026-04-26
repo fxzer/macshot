@@ -145,8 +145,8 @@ struct FormatTokenField: View {
                 }
 
                 HStack(spacing: 8) {
-                    symbolPaletteButton(name: "短横线", symbol: "-", isInserted: false)
-                    symbolPaletteButton(name: "下划线", symbol: "_", isInserted: false)
+                    symbolPaletteButton(name: L("Hyphen"), symbol: "-", isInserted: false)
+                    symbolPaletteButton(name: L("Underscore"), symbol: "_", isInserted: false)
                 }
 
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 140), spacing: 8)], spacing: 8) {
@@ -385,11 +385,13 @@ private struct SaveLocationPopoverView: View {
 
             HStack(alignment: .center, spacing: 10) {
                 Text(path)
-                    .lineLimit(2)
+                    .font(.system(size: 12, design: .monospaced))
+                    .lineLimit(1)
+                    .truncationMode(.middle)
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 10)
-                    .padding(.vertical, 8)
+                    .padding(.vertical, 6)
                     .background(Color(nsColor: .controlBackgroundColor))
                     .cornerRadius(6)
 

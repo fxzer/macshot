@@ -464,12 +464,6 @@ final class RecordingFlowCoordinator {
             return
         }
 
-        let providerLabel = provider == "s3" ? "S3" : "Drive"
-        let progressHandler: (Double) -> Void = { fraction in
-            toast.updateStatus(
-                String(format: L("Uploading to %@... %d%%"), providerLabel, Int(fraction * 100))
-            )
-        }
         let completionHandler: (Result<String, Error>) -> Void = { result in
             switch result {
             case .success(let link):
@@ -482,8 +476,11 @@ final class RecordingFlowCoordinator {
         }
 
         if provider == "s3" {
-            S3Uploader.shared.uploadVideo(url: url, progress: progressHandler, completion: completionHandler)
+            S3Uploader.shared.uploadVideo(url: url, progress: nil, completion: completionHandler)
         } else {
+            let progressHandler: (Double) -> Void = { fraction in
+                toast.updateProgress(fraction)
+            }
             GoogleDriveUploader.shared.uploadVideo(url: url, progress: progressHandler, completion: completionHandler)
         }
     }

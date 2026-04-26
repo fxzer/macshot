@@ -161,7 +161,7 @@ jobs:
           codesign --force --options runtime \
             --sign "$SIGNING_IDENTITY" \
             --keychain "$KEYCHAIN_PATH" \
-            --entitlements macshot/macshot.entitlements \
+            --entitlements macshot/Resources/macshot.entitlements \
             "$APP"
 
           # 7. Verify everything
