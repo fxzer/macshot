@@ -124,7 +124,7 @@ extension OverlayView {
     func drawSnapGuides() {
         guard snapGuidesEnabled else { return }
 
-        let guideColor = NSColor.systemCyan.withAlphaComponent(0.6)
+        let guideColor = NSColor.controlAccentColor.withAlphaComponent(0.8)
         guideColor.setStroke()
 
         if let gx = snapGuideX {

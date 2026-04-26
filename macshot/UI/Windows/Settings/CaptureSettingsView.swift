@@ -31,12 +31,22 @@ struct CaptureSettingsView: View {
                     Toggle("", isOn: $rememberLastSelection).labelsHidden()
                 }
                 Toggle(L("Remember last selected tool"), isOn: $rememberLastTool)
-                Picker(L("Selection size snapping"), selection: $selectionSizeSnapMode) {
-                    Text(L("Off")).tag(SelectionSizeSnapMode.off.rawValue)
-                    Text(L("Locked aspect ratio only")).tag(SelectionSizeSnapMode.lockedAspectRatioOnly.rawValue)
-                    Text(L("All selections")).tag(SelectionSizeSnapMode.allSelections.rawValue)
+                settingWithDescription(
+                    title: L("Selection size snapping"),
+                    description: L("Snap selection edges to 50/100px multiples when resizing")
+                ) {
+                    Picker("", selection: $selectionSizeSnapMode) {
+                        Text(L("Off")).tag(SelectionSizeSnapMode.off.rawValue)
+                        Text(L("Locked aspect ratio only")).tag(SelectionSizeSnapMode.lockedAspectRatioOnly.rawValue)
+                        Text(L("All selections")).tag(SelectionSizeSnapMode.allSelections.rawValue)
+                    }.labelsHidden()
                 }
-                Toggle(L("Show snap alignment guides"), isOn: $snapGuidesEnabled)
+                settingWithDescription(
+                    title: L("Show snap alignment guides"),
+                    description: L("Show guide lines when moving an annotation near other annotations")
+                ) {
+                    Toggle("", isOn: $snapGuidesEnabled).labelsHidden()
+                }
             } header: {
                 Text(L("Capture Settings"))
             }

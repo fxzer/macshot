@@ -2546,6 +2546,22 @@
         }
       }
     },
+    "Snap selection edges to 50/100px multiples when resizing": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Snap selection edges to 50/100px multiples when resizing"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "调整选区尺寸时自动吸附到 50/100 像素整数倍"
+          }
+        }
+      }
+    },
     "Selection size snapping": {
       "localizations": {
         "en": {
@@ -2622,6 +2638,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "登录时启动"
+          }
+        }
+      }
+    },
+    "Show guide lines when moving an annotation near other annotations": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show guide lines when moving an annotation near other annotations"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "拖动单个标注时，接近其他标注边缘或中心时显示对齐参考线"
           }
         }
       }
