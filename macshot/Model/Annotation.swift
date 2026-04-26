@@ -280,6 +280,56 @@ class Annotation {
         clone(includeBakedRenderAssets: false)
     }
 
+    private func hasSameColor(_ lhs: NSColor?, _ rhs: NSColor?) -> Bool {
+        switch (lhs, rhs) {
+        case (nil, nil):
+            return true
+        case let (left?, right?):
+            return left.isEqual(right)
+        default:
+            return false
+        }
+    }
+
+    func hasEquivalentPropertyState(to other: Annotation) -> Bool {
+        guard tool == other.tool,
+              color.isEqual(other.color),
+              strokeWidth == other.strokeWidth,
+              lineStyle == other.lineStyle,
+              arrowStyle == other.arrowStyle,
+              arrowReversed == other.arrowReversed,
+              rectFillStyle == other.rectFillStyle,
+              rectCornerRadius == other.rectCornerRadius,
+              fontSize == other.fontSize,
+              isBold == other.isBold,
+              isItalic == other.isItalic,
+              isUnderline == other.isUnderline,
+              isStrikethrough == other.isStrikethrough,
+              hasSameColor(textBgColor, other.textBgColor),
+              hasSameColor(textOutlineColor, other.textOutlineColor),
+              textAlignment == other.textAlignment,
+              fontFamilyName == other.fontFamilyName,
+              numberFormat == other.numberFormat,
+              measureInPoints == other.measureInPoints,
+              censorMode == other.censorMode,
+              censorDrawScope == other.censorDrawScope,
+              hasSameColor(outlineColor, other.outlineColor),
+              sourceImage === other.sourceImage,
+              sourceImageBounds == other.sourceImageBounds,
+              loupeMagnification == other.loupeMagnification
+        else {
+            return false
+        }
+
+        if tool == .loupe {
+            return startPoint == other.startPoint
+                && endPoint == other.endPoint
+                && loupeSourcePoint == other.loupeSourcePoint
+        }
+
+        return true
+    }
+
     /// Copy all visual/style properties from another annotation (for undo/redo of property edits).
     func copyProperties(from src: Annotation) {
         color = src.color
@@ -298,6 +348,7 @@ class Annotation {
         textOutlineColor = src.textOutlineColor
         textAlignment = src.textAlignment
         fontFamilyName = src.fontFamilyName
+        outlineColor = src.outlineColor
         numberFormat = src.numberFormat
         measureInPoints = src.measureInPoints
         censorMode = src.censorMode

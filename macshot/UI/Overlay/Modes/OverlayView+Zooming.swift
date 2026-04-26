@@ -550,7 +550,7 @@ extension OverlayView {
                         UserDefaults.standard.set(newSize, forKey: "numberStrokeWidth")
                         if self.annotations.contains(where: { $0 === ann }) {
                             let snapshot = ann.propertyChangeSnapshot()
-                            self.undoStack.append(.propertyChange(annotation: ann, snapshot: snapshot))
+                            self.pushPropertyChangeUndo(annotation: ann, snapshot: snapshot)
                         }
                     }
                 }
@@ -568,7 +568,7 @@ extension OverlayView {
                         UserDefaults.standard.set(newSize, forKey: "markerStrokeWidth")
                         if self.annotations.contains(where: { $0 === ann }) {
                             let snapshot = ann.propertyChangeSnapshot()
-                            self.undoStack.append(.propertyChange(annotation: ann, snapshot: snapshot))
+                            self.pushPropertyChangeUndo(annotation: ann, snapshot: snapshot)
                         }
                     }
                 }
@@ -589,7 +589,7 @@ extension OverlayView {
                         guard let self = self else { return }
                         UserDefaults.standard.set(newSize, forKey: "loupeSize")
                         if self.annotations.contains(where: { $0 === ann }) {
-                            self.undoStack.append(.propertyChange(annotation: ann, snapshot: oldSnapshot))
+                            self.pushPropertyChangeUndo(annotation: ann, snapshot: oldSnapshot)
                         }
                     }
                 }

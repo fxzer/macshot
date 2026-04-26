@@ -20,6 +20,7 @@ extension OverlayView {
     }
 
     func pushPropertyChangeUndo(annotation: Annotation, snapshot: Annotation) {
+        guard !annotation.hasEquivalentPropertyState(to: snapshot) else { return }
         undoStack.append(.propertyChange(annotation: annotation, snapshot: snapshot))
         redoStack.removeAll()
         cachedCompositedImage = nil
