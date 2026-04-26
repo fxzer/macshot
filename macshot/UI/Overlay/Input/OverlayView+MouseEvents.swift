@@ -464,52 +464,16 @@ extension OverlayView {
                     annotation.endPoint = NSPoint(x: newRect.maxX, y: newRect.maxY)
                     annotation.textDrawRect = newRect
 
-                    // Corner handles: scale font size proportionally, render at exact dragged size
+                    // Corner handles: scale font size proportionally, but defer image rasterization
+                    // until mouseUp so dragging doesn't allocate a new NSImage every frame.
                     if isCornerHandle, origRect.width > 0, annotationResizeOrigFontSize > 0 {
                         let scaleFactor = newRect.width / origRect.width
                         let newFontSize = max(6, min(200, annotationResizeOrigFontSize * scaleFactor))
                         annotation.fontSize = newFontSize
-                        // Rebuild attributed string with new font size (inline, don't call
-                        // reRenderTextImage which overrides textDrawRect)
-                        if let attrText = annotation.attributedText {
-                            let mutable = NSMutableAttributedString(attributedString: attrText)
-                            let range = NSRange(location: 0, length: mutable.length)
-                            var font: NSFont
-                            if let familyName = annotation.fontFamilyName, familyName != "System",
-                               let familyFont = NSFont(name: familyName, size: newFontSize) {
-                                font = familyFont
-                            } else {
-                                font = NSFont.systemFont(ofSize: newFontSize)
-                            }
-                            if annotation.isBold && annotation.isItalic {
-                                font = NSFontManager.shared.convert(font, toHaveTrait: [.boldFontMask, .italicFontMask])
-                            } else if annotation.isBold {
-                                font = NSFontManager.shared.convert(font, toHaveTrait: .boldFontMask)
-                            } else if annotation.isItalic {
-                                font = NSFontManager.shared.convert(font, toHaveTrait: .italicFontMask)
-                            }
-                            mutable.addAttribute(.font, value: font, range: range)
-                            annotation.attributedText = mutable
-
-                            let inset: CGFloat = 4
-                            let img = NSImage(size: newRect.size, flipped: true) { _ in
-                                mutable.draw(in: NSRect(x: inset, y: inset,
-                                    width: newRect.width - inset * 2, height: newRect.height - inset * 2))
-                                return true
-                            }
-                            annotation.textImage = img
-                        }
+                        annotation.attributedText = annotation.styledAttributedTextForCurrentAppearance()
                         annotation.outlineGlowImage = nil
-                    } else if let attrStr = annotation.attributedText {
-                        // Edge handles: reflow text at same font size
-                        let inset: CGFloat = 4
-                        let img = NSImage(size: newRect.size, flipped: true) { _ in
-                            attrStr.draw(in: NSRect(x: inset, y: inset,
-                                width: newRect.width - inset * 2, height: newRect.height - inset * 2))
-                            return true
-                        }
-                        annotation.textImage = img
                     }
+                    annotation.textImage = nil
                     cachedCompositedImage = nil
                     needsDisplay = true
                     return
@@ -771,12 +735,15 @@ extension OverlayView {
         }
         if isResizingAnnotation {
             isResizingAnnotation = false
-            invalidateAnnotationCaches()
             annotationResizeHandle = .none
             if let ann = selectedAnnotation {
+                if ann.tool == .text {
+                    ann.reRenderTextImage()
+                }
                 if ann.tool == .loupe { ann.bakeLoupe() }
                 if ann.tool == .pixelate { ann.bakedBlurNSImage = nil; ann.bakePixelate() }
             }
+            invalidateAnnotationCaches()
             NSCursor.openHand.set()
             needsDisplay = true
             return

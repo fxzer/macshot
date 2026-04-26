@@ -43,6 +43,11 @@ enum AutoRedactor {
         }
     }()
 
+    private static let pass3CVVPattern = try? NSRegularExpression(pattern: #"^\d{3,4}$"#)
+    private static let pass3ExpiryPattern = try? NSRegularExpression(
+        pattern: #"^\d{4}[-/]\d{2}$|^\d{2}[-/]\d{2,4}$"#
+    )
+
     // MARK: - Public API
 
     /// Redact PII patterns in the selected region. Runs OCR on background thread, calls completion with annotations.
@@ -370,13 +375,13 @@ enum AutoRedactor {
 
         // Pass 3: CVV/expiry near card data
         if !redactedObservations.isEmpty {
-            let cvv = try? NSRegularExpression(pattern: #"^\d{3,4}$"#)
-            let expiry = try? NSRegularExpression(pattern: #"^\d{4}[-/]\d{2}$|^\d{2}[-/]\d{2,4}$"#)
             for (i, obs) in observations.enumerated() {
                 guard !redactedObservations.contains(i), let c = obs.topCandidates(1).first else { continue }
                 let text = c.string.trimmingCharacters(in: .whitespaces)
                 let range = NSRange(location: 0, length: (text as NSString).length)
-                if cvv?.firstMatch(in: text, range: range) != nil || expiry?.firstMatch(in: text, range: range) != nil {
+                if pass3CVVPattern?.firstMatch(in: text, range: range) != nil
+                    || pass3ExpiryPattern?.firstMatch(in: text, range: range) != nil
+                {
                     addRedaction(box: obs.boundingBox); redactedObservations.insert(i)
                 }
             }

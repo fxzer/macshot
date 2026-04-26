@@ -193,15 +193,26 @@ class OverlayView: NSView {
     }
 
     func setCachedAnnotationLayer(_ image: NSImage?) {
+        if image != nil {
+            cachedAnnotationLayerExcludingSelected = nil
+        }
         cachedAnnotationLayer = image
         recalculateCacheMemoryUsage()
         evictAnnotationCachesIfNeeded()
     }
 
     func setCachedAnnotationLayerExcludingSelected(_ image: NSImage?) {
+        if image != nil {
+            cachedAnnotationLayer = nil
+        }
         cachedAnnotationLayerExcludingSelected = image
         recalculateCacheMemoryUsage()
         evictAnnotationCachesIfNeeded()
+    }
+
+    func buildInteractionAnnotationLayer(excluding excluded: Set<ObjectIdentifier>) -> NSImage {
+        setCachedAnnotationLayer(nil)
+        return buildAnnotationLayer(excluding: excluded)
     }
 
     /// Invalidate cache with memory tracking

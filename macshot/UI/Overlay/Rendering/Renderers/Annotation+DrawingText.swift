@@ -5,7 +5,7 @@ import Cocoa
 extension Annotation {
 
     func drawText() {
-        guard let image = textImage, textDrawRect != .zero else { return }
+        guard textDrawRect != .zero else { return }
         let pad: CGFloat = 4
         let pillRect = textDrawRect.insetBy(dx: -pad, dy: -pad)
         let cornerR: CGFloat = 4
@@ -24,17 +24,64 @@ extension Annotation {
             outlinePath.stroke()
         }
 
-        image.draw(in: textDrawRect)
+        if let image = textImage {
+            image.draw(in: textDrawRect)
+        } else if let attrText = attributedText {
+            drawAttributedTextLive(attrText, in: textDrawRect)
+        } else if let attrText = styledAttributedTextForCurrentAppearance() {
+            drawAttributedTextLive(attrText, in: textDrawRect)
+        }
     }
 
     /// Re-render the text image from attributedText with current formatting properties.
     /// Call after changing fontSize, bold, italic, font family, alignment, etc. on a committed text annotation.
     func reRenderTextImage() {
-        guard tool == .text, let attrText = attributedText, textDrawRect != .zero else { return }
+        guard tool == .text, textDrawRect != .zero,
+              let mutable = styledAttributedTextForCurrentAppearance()
+        else { return }
+        attributedText = mutable
 
-        // Rebuild attributed string with updated properties
+        // Calculate new size using the current textDrawRect width
+        let inset: CGFloat = 4
+        let drawWidth = textDrawRect.width - inset * 2
+        let boundingRect = mutable.boundingRect(
+            with: NSSize(width: drawWidth, height: .greatestFiniteMagnitude),
+            options: [.usesLineFragmentOrigin, .usesFontLeading])
+        let newHeight = max(textDrawRect.height, ceil(boundingRect.height) + inset * 2)
+        let imgSize = NSSize(width: textDrawRect.width, height: newHeight)
+
+        // Re-render image
+        let img = NSImage(size: imgSize, flipped: true) { _ in
+            self.drawAttributedTextLive(
+                mutable,
+                in: NSRect(
+                    x: 0,
+                    y: 0,
+                    width: imgSize.width,
+                    height: imgSize.height)
+            )
+            return true
+        }
+        textImage = img
+
+        // Update draw rect height (keep top edge fixed in AppKit coords: maxY stays the same)
+        let heightDelta = newHeight - textDrawRect.height
+        if heightDelta != 0 {
+            textDrawRect = NSRect(
+                x: textDrawRect.minX, y: textDrawRect.minY - heightDelta,
+                width: textDrawRect.width, height: newHeight)
+            startPoint = textDrawRect.origin
+            endPoint = NSPoint(x: textDrawRect.maxX, y: textDrawRect.maxY)
+        }
+
+        outlineGlowImage = nil
+    }
+
+    func styledAttributedTextForCurrentAppearance() -> NSMutableAttributedString? {
+        guard let attrText = attributedText else { return nil }
         let mutable = NSMutableAttributedString(attributedString: attrText)
         let range = NSRange(location: 0, length: mutable.length)
+        guard range.length > 0 else { return mutable }
 
         var font: NSFont
         if let familyName = fontFamilyName, familyName != "System",
@@ -65,39 +112,17 @@ extension Annotation {
         let paraStyle = NSMutableParagraphStyle()
         paraStyle.alignment = textAlignment
         mutable.addAttribute(.paragraphStyle, value: paraStyle, range: range)
+        return mutable
+    }
 
-        attributedText = mutable
-
-        // Calculate new size using the current textDrawRect width
+    func drawAttributedTextLive(_ attrText: NSAttributedString, in drawRect: NSRect) {
         let inset: CGFloat = 4
-        let drawWidth = textDrawRect.width - inset * 2
-        let boundingRect = mutable.boundingRect(
-            with: NSSize(width: drawWidth, height: .greatestFiniteMagnitude),
-            options: [.usesLineFragmentOrigin, .usesFontLeading])
-        let newHeight = max(textDrawRect.height, ceil(boundingRect.height) + inset * 2)
-        let imgSize = NSSize(width: textDrawRect.width, height: newHeight)
-
-        // Re-render image
-        let img = NSImage(size: imgSize, flipped: true) { _ in
-            mutable.draw(in: NSRect(
-                x: inset, y: inset,
-                width: imgSize.width - inset * 2,
-                height: imgSize.height - inset * 2))
-            return true
-        }
-        textImage = img
-
-        // Update draw rect height (keep top edge fixed in AppKit coords: maxY stays the same)
-        let heightDelta = newHeight - textDrawRect.height
-        if heightDelta != 0 {
-            textDrawRect = NSRect(
-                x: textDrawRect.minX, y: textDrawRect.minY - heightDelta,
-                width: textDrawRect.width, height: newHeight)
-            startPoint = textDrawRect.origin
-            endPoint = NSPoint(x: textDrawRect.maxX, y: textDrawRect.maxY)
-        }
-
-        outlineGlowImage = nil
+        attrText.draw(in: NSRect(
+            x: drawRect.minX + inset,
+            y: drawRect.minY + inset,
+            width: drawRect.width - inset * 2,
+            height: drawRect.height - inset * 2
+        ))
     }
 
     func drawNumber() {

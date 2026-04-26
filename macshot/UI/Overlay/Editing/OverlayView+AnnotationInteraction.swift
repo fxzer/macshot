@@ -60,7 +60,7 @@ extension OverlayView {
                 didMoveAnnotation = false
                 annotationDragStart = point
                 setCachedAnnotationLayerExcludingSelected(
-                    buildAnnotationLayer(excluding: Set(selectedAnnotations.map { ObjectIdentifier($0) }))
+                    buildInteractionAnnotationLayer(excluding: Set(selectedAnnotations.map { ObjectIdentifier($0) }))
                 )
                 NSCursor.closedHand.set()
                 needsDisplay = true
@@ -106,7 +106,7 @@ extension OverlayView {
                         self.didMoveAnnotation = false
                         self.annotationDragStart = point
                         self.setCachedAnnotationLayerExcludingSelected(
-                            self.buildAnnotationLayer(
+                            self.buildInteractionAnnotationLayer(
                                 excluding: Set(self.selectedAnnotations.map { ObjectIdentifier($0) }))
                         )
                         self.currentAnnotation = nil
@@ -234,7 +234,7 @@ extension OverlayView {
             if rect.insetBy(dx: -4, dy: -4).contains(handleTestPoint) {
                 isResizingAnnotation = true
                 setCachedAnnotationLayerExcludingSelected(
-                    buildAnnotationLayer(excluding: Set(selectedAnnotations.map { ObjectIdentifier($0) }))
+                    buildInteractionAnnotationLayer(excluding: Set(selectedAnnotations.map { ObjectIdentifier($0) }))
                 )
                 annotationResizeHandle = handle
                 annotationResizeOrigStart = selected.startPoint
@@ -269,7 +269,7 @@ extension OverlayView {
         {
             isRotatingAnnotation = true
             setCachedAnnotationLayerExcludingSelected(
-                buildAnnotationLayer(excluding: Set(selectedAnnotations.map { ObjectIdentifier($0) }))
+                buildInteractionAnnotationLayer(excluding: Set(selectedAnnotations.map { ObjectIdentifier($0) }))
             )
             let center = NSPoint(x: selected.boundingRect.midX, y: selected.boundingRect.midY)
             rotationStartAngle = atan2(point.x - center.x, point.y - center.y)
@@ -322,7 +322,7 @@ extension OverlayView {
             didMoveAnnotation = false
             annotationDragStart = point
             setCachedAnnotationLayerExcludingSelected(
-                buildAnnotationLayer(excluding: Set(selectedAnnotations.map { ObjectIdentifier($0) }))
+                buildInteractionAnnotationLayer(excluding: Set(selectedAnnotations.map { ObjectIdentifier($0) }))
             )
             NSCursor.closedHand.set()
             needsDisplay = true

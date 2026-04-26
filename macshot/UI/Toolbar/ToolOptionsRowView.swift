@@ -190,7 +190,7 @@ class ToolOptionsRowView: NSView {
     /// Take a snapshot before the first edit so we can undo.
     func ensureSnapshot() {
         guard let ann = editingAnnotation, editingSnapshot == nil else { return }
-        editingSnapshot = ann.clone()
+        editingSnapshot = ann.propertyChangeSnapshot()
     }
 
     /// Rebuild the options row for the given tool. Call when tool or state changes.

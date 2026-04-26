@@ -228,7 +228,7 @@ class Annotation {
 
     // NOTE: When adding new properties, also update CodableAnnotation in AnnotationCodable.swift
     // (toCodable + fromCodable) so they are preserved in editable history.
-    func clone() -> Annotation {
+    func clone(includeBakedRenderAssets: Bool = true) -> Annotation {
         let c = Annotation(tool: tool, startPoint: startPoint, endPoint: endPoint, color: color, strokeWidth: strokeWidth)
         c.text = text
         c.attributedText = attributedText
@@ -236,7 +236,9 @@ class Annotation {
         c.numberFormat = numberFormat
         c.points = points
         c.pressures = pressures
-        c.bakedBlurNSImage = bakedBlurNSImage
+        if includeBakedRenderAssets {
+            c.bakedBlurNSImage = bakedBlurNSImage
+        }
         c.loupeSourcePoint = loupeSourcePoint
         c.loupeMagnification = loupeMagnification
         c.textImage = textImage
@@ -267,9 +269,15 @@ class Annotation {
         c.outlineColor = outlineColor
         c.sourceImage = sourceImage
         c.sourceImageBounds = sourceImageBounds
-        c.outlineGlowImage = outlineGlowImage
-        c.outlineGlowRect = outlineGlowRect
+        if includeBakedRenderAssets {
+            c.outlineGlowImage = outlineGlowImage
+            c.outlineGlowRect = outlineGlowRect
+        }
         return c
+    }
+
+    func propertyChangeSnapshot() -> Annotation {
+        clone(includeBakedRenderAssets: false)
     }
 
     /// Copy all visual/style properties from another annotation (for undo/redo of property edits).
@@ -294,6 +302,8 @@ class Annotation {
         measureInPoints = src.measureInPoints
         censorMode = src.censorMode
         censorDrawScope = src.censorDrawScope
+        sourceImage = src.sourceImage
+        sourceImageBounds = src.sourceImageBounds
         bakedBlurNSImage = src.bakedBlurNSImage
         loupeMagnification = src.loupeMagnification
         if tool == .loupe {
@@ -354,6 +364,9 @@ class Annotation {
             }
             return false
         case .line, .measure:
+            if !boundingRect.insetBy(dx: -threshold, dy: -threshold).contains(point) {
+                return false
+            }
             if hasMultiAnchor {
                 return distanceToPolyline(point: point, waypoints: waypoints) < threshold
             }
@@ -368,6 +381,9 @@ class Annotation {
                 // Match the actual drawn shape width: shaft is strokeWidth*1.5, head is strokeWidth*3
                 let shaftHalf = max(4, strokeWidth * 1.5) * sizeScale
                 let hitThreshold = max(threshold, shaftHalf + 4)
+                if !boundingRect.insetBy(dx: -hitThreshold, dy: -hitThreshold).contains(point) {
+                    return false
+                }
                 if hasMultiAnchor {
                     return distanceToPolyline(point: point, waypoints: waypoints) < hitThreshold
                 }
@@ -375,6 +391,9 @@ class Annotation {
                     return distanceToQuadCurve(point: point, from: startPoint, control: cp, to: endPoint) < hitThreshold
                 }
                 return distanceToLineSegment(point: point, from: startPoint, to: endPoint) < hitThreshold
+            }
+            if !boundingRect.insetBy(dx: -threshold, dy: -threshold).contains(point) {
+                return false
             }
             if hasMultiAnchor {
                 return distanceToPolyline(point: point, waypoints: waypoints) < threshold
@@ -516,17 +535,8 @@ class Annotation {
         if pts.count == 2 {
             return distanceToLineSegment(point: point, from: pts[0], to: pts[1])
         }
-        // Sample the Catmull-Rom spline for distance check
-        let steps = pts.count * 15
         var minDist = CGFloat.greatestFiniteMagnitude
-        var prev = pts[0]
-        for s in 1...steps {
-            let t = CGFloat(s) / CGFloat(steps)
-            let totalSegments = CGFloat(pts.count - 1)
-            let segF = t * totalSegments
-            let seg = min(Int(segF), pts.count - 2)
-            let localT = segF - CGFloat(seg)
-
+        for seg in 0..<(pts.count - 1) {
             let p0 = seg > 0 ? pts[seg - 1] : pts[seg]
             let p1 = pts[seg]
             let p2 = pts[seg + 1]
@@ -534,15 +544,35 @@ class Annotation {
 
             let cp1 = NSPoint(x: p1.x + (p2.x - p0.x) / 6, y: p1.y + (p2.y - p0.y) / 6)
             let cp2 = NSPoint(x: p2.x - (p3.x - p1.x) / 6, y: p2.y - (p3.y - p1.y) / 6)
+            let segmentBounds = NSRect(
+                x: min(min(p1.x, p2.x), min(cp1.x, cp2.x)),
+                y: min(min(p1.y, p2.y), min(cp1.y, cp2.y)),
+                width: max(max(p1.x, p2.x), max(cp1.x, cp2.x)) - min(min(p1.x, p2.x), min(cp1.x, cp2.x)),
+                height: max(max(p1.y, p2.y), max(cp1.y, cp2.y)) - min(min(p1.y, p2.y), min(cp1.y, cp2.y))
+            )
+            if minDist.isFinite
+                && !segmentBounds.insetBy(dx: -minDist, dy: -minDist).contains(point)
+            {
+                continue
+            }
 
-            let u = 1 - localT
-            let px = u*u*u*p1.x + 3*u*u*localT*cp1.x + 3*u*localT*localT*cp2.x + localT*localT*localT*p2.x
-            let py = u*u*u*p1.y + 3*u*u*localT*cp1.y + 3*u*localT*localT*cp2.y + localT*localT*localT*p2.y
-            let cur = NSPoint(x: px, y: py)
+            let segmentLength = max(
+                hypot(p2.x - p1.x, p2.y - p1.y),
+                Self.approxBezierLength(from: p1, cp1: cp1, cp2: cp2, to: p2, steps: 8)
+            )
+            let steps = max(6, min(18, Int(ceil(segmentLength / 24))))
+            var prev = p1
+            for step in 1...steps {
+                let localT = CGFloat(step) / CGFloat(steps)
+                let u = 1 - localT
+                let px = u*u*u*p1.x + 3*u*u*localT*cp1.x + 3*u*localT*localT*cp2.x + localT*localT*localT*p2.x
+                let py = u*u*u*p1.y + 3*u*u*localT*cp1.y + 3*u*localT*localT*cp2.y + localT*localT*localT*p2.y
+                let cur = NSPoint(x: px, y: py)
 
-            let d = distanceToLineSegment(point: point, from: prev, to: cur)
-            if d < minDist { minDist = d }
-            prev = cur
+                let d = distanceToLineSegment(point: point, from: prev, to: cur)
+                if d < minDist { minDist = d }
+                prev = cur
+            }
         }
         return minDist
     }

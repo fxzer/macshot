@@ -519,7 +519,7 @@ extension OverlayView {
             if !isScrollAdjustingProperty {
                 isScrollAdjustingProperty = true
                 setCachedAnnotationLayerExcludingSelected(
-                    buildAnnotationLayer(excluding: Set(selectedAnnotations.map { ObjectIdentifier($0) }))
+                    buildInteractionAnnotationLayer(excluding: Set(selectedAnnotations.map { ObjectIdentifier($0) }))
                 )
             }
 
@@ -532,7 +532,7 @@ extension OverlayView {
                     sharedToolOptionsRowView?.updateFontSizeDisplay(value: newSize)
                     scheduleScrollPropertyCommit { [weak self] in
                         guard let self = self else { return }
-                        let snapshot = ann.clone()
+                        let snapshot = ann.propertyChangeSnapshot()
                         self.pushPropertyChangeUndo(annotation: ann, snapshot: snapshot)
                     }
                 }
@@ -549,7 +549,7 @@ extension OverlayView {
                         guard let self = self else { return }
                         UserDefaults.standard.set(newSize, forKey: "numberStrokeWidth")
                         if self.annotations.contains(where: { $0 === ann }) {
-                            let snapshot = ann.clone()
+                            let snapshot = ann.propertyChangeSnapshot()
                             self.undoStack.append(.propertyChange(annotation: ann, snapshot: snapshot))
                         }
                     }
@@ -567,7 +567,7 @@ extension OverlayView {
                         guard let self = self else { return }
                         UserDefaults.standard.set(newSize, forKey: "markerStrokeWidth")
                         if self.annotations.contains(where: { $0 === ann }) {
-                            let snapshot = ann.clone()
+                            let snapshot = ann.propertyChangeSnapshot()
                             self.undoStack.append(.propertyChange(annotation: ann, snapshot: snapshot))
                         }
                     }
@@ -575,7 +575,7 @@ extension OverlayView {
                 return true
             } else if ann.tool == .loupe {
                 let oldSize = currentLoupeSize
-                let oldSnapshot = ann.clone()
+                let oldSnapshot = ann.propertyChangeSnapshot()
                 let newSize = min(320, max(50, oldSize + delta * step * 10))
                 if newSize != oldSize {
                     currentLoupeSize = newSize
@@ -604,7 +604,7 @@ extension OverlayView {
                     sharedToolOptionsRowView?.updateStrokeSlider(value: newWidth)
                     scheduleScrollPropertyCommit { [weak self] in
                         guard let self = self else { return }
-                        let snapshot = ann.clone()
+                        let snapshot = ann.propertyChangeSnapshot()
                         self.pushPropertyChangeUndo(annotation: ann, snapshot: snapshot)
                     }
                 }

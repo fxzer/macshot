@@ -43,8 +43,14 @@ extension OverlayView {
             redoStack.append(.deleted(ann, idx))
         case .propertyChange(let ann, let snapshot):
             // Undo property change — swap current state with snapshot
-            let currentSnapshot = ann.clone()
+            let currentSnapshot = ann.propertyChangeSnapshot()
             ann.copyProperties(from: snapshot)
+            if ann.tool == .loupe, ann.bakedBlurNSImage == nil {
+                ann.bakeLoupe()
+            }
+            if (ann.tool == .pixelate || ann.tool == .blur), ann.bakedBlurNSImage == nil {
+                ann.bakePixelate()
+            }
             redoStack.append(.propertyChange(annotation: ann, snapshot: currentSnapshot))
             cachedCompositedImage = nil
         case .imageTransform(let previousImage, _):
@@ -92,8 +98,14 @@ extension OverlayView {
             undoStack.append(.deleted(ann, idx))
         case .propertyChange(let ann, let snapshot):
             // Redo property change — swap again
-            let currentSnapshot = ann.clone()
+            let currentSnapshot = ann.propertyChangeSnapshot()
             ann.copyProperties(from: snapshot)
+            if ann.tool == .loupe, ann.bakedBlurNSImage == nil {
+                ann.bakeLoupe()
+            }
+            if (ann.tool == .pixelate || ann.tool == .blur), ann.bakedBlurNSImage == nil {
+                ann.bakePixelate()
+            }
             undoStack.append(.propertyChange(annotation: ann, snapshot: currentSnapshot))
             cachedCompositedImage = nil
         case .imageTransform(let redoImage, _):

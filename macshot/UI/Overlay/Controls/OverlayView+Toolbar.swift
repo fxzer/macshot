@@ -78,6 +78,28 @@ extension OverlayView {
             at: NSPoint(x: clamped.minX + pad, y: clamped.minY + pad / 2), withAttributes: attrs)
     }
 
+    private func toolbarButtonView(for action: ToolbarButtonAction) -> ToolbarButtonView? {
+        for strip in [bottomStripView, rightStripView] {
+            if let button = strip?.buttonViews.first(where: { $0.action == action }) {
+                return button
+            }
+        }
+        return nil
+    }
+
+    private func updateToolbarButton(
+        _ action: ToolbarButtonAction,
+        isOn: Bool,
+        sfSymbol: String? = nil
+    ) {
+        guard let button = toolbarButtonView(for: action) else { return }
+        button.isOn = isOn
+        if let sfSymbol {
+            button.sfSymbol = sfSymbol
+        }
+        button.needsDisplay = true
+    }
+
     /// In editor mode, show tooltip as a floating NSView in the chrome parent (container),
     /// since EditorView's draw() can only paint within the image bounds.
     private func updateEditorTooltipView() {
@@ -273,8 +295,16 @@ extension OverlayView {
     }
 
     func handleToolbarAction(_ action: ToolbarButtonAction, mousePoint: NSPoint = .zero) {
+        var shouldRebuildToolbar = false
+        defer {
+            if shouldRebuildToolbar {
+                rebuildToolbarLayout()
+            }
+        }
+
         switch action {
         case .tool(let tool):
+            shouldRebuildToolbar = true
             commitTextFieldIfNeeded()
             if currentTool == tool {
                 currentTool = .select
@@ -306,6 +336,7 @@ extension OverlayView {
             toolOptionsRowView?.rebuild(for: currentTool)
             needsDisplay = true
         case .loupe:
+            shouldRebuildToolbar = true
             currentTool = .loupe
             needsDisplay = true
         case .color:
@@ -326,7 +357,7 @@ extension OverlayView {
                 selectionIsWindowSnap = false
                 snappedWindowID = nil
                 snappedWindowImage = nil
-                rebuildToolbarLayout()
+                shouldRebuildToolbar = true
             }
             hoveredTooltip = L("Drag to reposition")
             needsDisplay = true
@@ -357,8 +388,10 @@ extension OverlayView {
             scheduleBarcodeDetection()
             needsDisplay = true
         case .undo:
+            shouldRebuildToolbar = true
             undo()
         case .redo:
+            shouldRebuildToolbar = true
             redo()
         case .copy:
             overlayDelegate?.overlayViewDidConfirm()
@@ -431,6 +464,7 @@ extension OverlayView {
         case .delayCapture:
             break
         case .translate:
+            shouldRebuildToolbar = true
             if translateEnabled {
                 translateEnabled = false
                 annotations.removeAll { $0.tool == .translateOverlay }
@@ -449,14 +483,20 @@ extension OverlayView {
             overlayDelegate?.overlayViewDidCancel()
         case .mouseHighlight:
             let current = UserDefaults.standard.bool(forKey: "recordMouseHighlight")
-            UserDefaults.standard.set(!current, forKey: "recordMouseHighlight")
-            rebuildToolbarLayout()
+            let next = !current
+            UserDefaults.standard.set(next, forKey: "recordMouseHighlight")
+            updateToolbarButton(.mouseHighlight, isOn: next)
         case .showKeystrokes:
             toggleKeystrokeOverlay()
         case .systemAudio:
             let current = UserDefaults.standard.bool(forKey: "recordSystemAudio")
-            UserDefaults.standard.set(!current, forKey: "recordSystemAudio")
-            rebuildToolbarLayout()
+            let next = !current
+            UserDefaults.standard.set(next, forKey: "recordSystemAudio")
+            updateToolbarButton(
+                .systemAudio,
+                isOn: next,
+                sfSymbol: next ? "speaker.wave.2.fill" : "speaker.slash"
+            )
         case .micAudio:
             toggleMicAudio()
         case .webcam:
@@ -476,8 +516,6 @@ extension OverlayView {
             }
             showRecordingSettingsPopover(anchorView: gearBtn)
         }
-
-        rebuildToolbarLayout()
     }
 
     // MARK: - Toolbar Layout
