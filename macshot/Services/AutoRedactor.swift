@@ -261,15 +261,35 @@ enum AutoRedactor {
     // MARK: - Helpers
 
     private static func cropToCGImage(screenshot: NSImage, selectionRect: NSRect, captureDrawRect: NSRect) -> CGImage? {
-        let regionImage = NSImage(size: selectionRect.size, flipped: false) { _ in
-            screenshot.draw(in: NSRect(x: -selectionRect.origin.x, y: -selectionRect.origin.y,
-                                        width: captureDrawRect.width, height: captureDrawRect.height),
-                            from: .zero, operation: .copy, fraction: 1.0)
-            return true
-        }
-        guard let tiffData = regionImage.tiffRepresentation,
-              let bitmap = NSBitmapImageRep(data: tiffData) else { return nil }
-        return bitmap.cgImage
+        guard
+            !selectionRect.isEmpty,
+            !captureDrawRect.isEmpty,
+            let cgImage = screenshot.cgImage(forProposedRect: nil, context: nil, hints: nil)
+        else { return nil }
+
+        let croppedSelection = selectionRect.intersection(captureDrawRect)
+        guard !croppedSelection.isEmpty else { return nil }
+
+        let normalizedX = (croppedSelection.minX - captureDrawRect.minX) / captureDrawRect.width
+        let normalizedY = (croppedSelection.minY - captureDrawRect.minY) / captureDrawRect.height
+        let normalizedWidth = croppedSelection.width / captureDrawRect.width
+        let normalizedHeight = croppedSelection.height / captureDrawRect.height
+
+        let cgWidth = CGFloat(cgImage.width)
+        let cgHeight = CGFloat(cgImage.height)
+        let rawMinX = max(0, normalizedX * cgWidth)
+        let rawMinY = max(0, (1.0 - normalizedY - normalizedHeight) * cgHeight)
+        let rawMaxX = min(cgWidth, rawMinX + normalizedWidth * cgWidth)
+        let rawMaxY = min(cgHeight, rawMinY + normalizedHeight * cgHeight)
+        let pixelRect = CGRect(
+            x: floor(rawMinX),
+            y: floor(rawMinY),
+            width: max(0, ceil(rawMaxX) - floor(rawMinX)),
+            height: max(0, ceil(rawMaxY) - floor(rawMinY))
+        )
+
+        guard pixelRect.width > 0, pixelRect.height > 0 else { return nil }
+        return cgImage.cropping(to: pixelRect)
     }
 
     private static func buildPIIRedactions(

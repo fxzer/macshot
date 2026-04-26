@@ -122,6 +122,7 @@ extension OverlayView {
 
     func showZoomLabel() {
         zoomLabelOpacity = 1.0
+        zoomFadingOut = false
         zoomFadeTimer?.invalidate()
         zoomFadeTimer = nil
         if zoomLevel == 1.0 {
@@ -136,12 +137,14 @@ extension OverlayView {
         guard zoomLevel == 1.0 else { return }
         zoomFadingOut = true
         let step: CGFloat = 0.08
-        Timer.scheduledTimer(withTimeInterval: 0.016, repeats: true) { [weak self] t in
-            guard let self = self else { t.invalidate(); return }
+        zoomFadeTimer?.invalidate()
+        zoomFadeTimer = Timer.scheduledTimer(withTimeInterval: 0.016, repeats: true) { [weak self] timer in
+            guard let self = self else { timer.invalidate(); return }
             if self.zoomLevel != 1.0 {
                 self.zoomLabelOpacity = 1.0
                 self.zoomFadingOut = false
-                t.invalidate()
+                timer.invalidate()
+                if self.zoomFadeTimer === timer { self.zoomFadeTimer = nil }
                 self.needsDisplay = true
                 return
             }
@@ -149,7 +152,8 @@ extension OverlayView {
             if self.zoomLabelOpacity <= 0 {
                 self.zoomLabelOpacity = 0
                 self.zoomFadingOut = false
-                t.invalidate()
+                timer.invalidate()
+                if self.zoomFadeTimer === timer { self.zoomFadeTimer = nil }
             }
             self.needsDisplay = true
         }
