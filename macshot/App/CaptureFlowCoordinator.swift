@@ -54,6 +54,8 @@ final class CaptureFlowCoordinator {
         stopOverlayMouseScreenTracking()
         removeOverlayEscMonitor()
         overlayScreenSwitchInFlight = false
+        // Memory optimization: use autoreleasepool to ensure overlay resources
+        // (screenshot images, capture assets) are released promptly
         autoreleasepool {
             for controller in overlayControllersStorage {
                 controller.dismiss()
@@ -191,6 +193,8 @@ final class CaptureFlowCoordinator {
     }
 
     private func clearOverlayControllersForScreenSwitch() {
+        // Memory optimization: use autoreleasepool to ensure overlay resources
+        // are released promptly during screen switches
         autoreleasepool {
             for controller in overlayControllersStorage {
                 controller.dismiss()

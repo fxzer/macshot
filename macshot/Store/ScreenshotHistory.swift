@@ -81,7 +81,12 @@ class ScreenshotHistory {
 
         let hasAnns = annotations != nil && !(annotations!.isEmpty) && rawImage != nil
 
-        // Create entry with a placeholder thumbnail (tiny, fast)
+        // Memory optimization: create thumbnail immediately on main thread to avoid
+        // capturing the large image in the async closure. This reduces memory pressure
+        // during rapid screenshot captures.
+        let thumb = makeScaledImage(image, maxDimension: 36)
+
+        // Create entry with the real thumbnail (no placeholder needed)
         let entry = HistoryEntry(
             id: id,
             fileExtension: ext,
@@ -89,7 +94,7 @@ class ScreenshotHistory {
             pixelWidth: Int(size.width * scale),
             pixelHeight: Int(size.height * scale),
             hasAnnotations: hasAnns,
-            thumbnail: NSImage(size: NSSize(width: 1, height: 1))
+            thumbnail: thumb
         )
         entries.insert(entry, at: 0)
 
@@ -102,7 +107,7 @@ class ScreenshotHistory {
         // Serialize annotations on main thread (fast — just JSON encoding)
         let annotationData: Data? = hasAnns ? AnnotationSerializer.encode(annotations!) : nil
 
-        // Move all expensive work off main thread: thumbnail, preview, PNG encoding, index save
+        // Move expensive work off main thread: preview, PNG encoding, index save
         let fileURL = historyDir.appendingPathComponent("\(id).\(ext)")
         let thumbURL = historyDir.appendingPathComponent("\(id)_thumb.png")
         let previewURL = historyDir.appendingPathComponent("\(id)_preview.png")
@@ -111,24 +116,19 @@ class ScreenshotHistory {
         let histDir = historyDir
         DispatchQueue.global(qos: .utility).async { [weak self] in
             guard let self = self else { return }
-            let thumb = self.makeScaledImage(image, maxDimension: 36)
-            let preview = self.makeScaledImage(image, maxDimension: 240)
+            // Memory optimization: use autoreleasepool to ensure temporary objects
+            // (NSBitmapImageRep, CGImageRefs created during scaling) are released promptly
+            autoreleasepool {
+                let preview = self.makeScaledImage(image, maxDimension: 240)
 
-            // Update the entry's thumbnail on main thread
-            DispatchQueue.main.async {
-                if let idx = self.entries.firstIndex(where: { $0.id == id }) {
-                    self.entries[idx].thumbnail = thumb
+                // Write images using direct CGImageDestination (avoids tiff→bitmap→png overhead)
+                Self.writePNG(image, to: fileURL)
+                Self.writePNG(thumb, to: thumbURL)
+                Self.writePNG(preview, to: previewURL)
+                if let raw = rawImage { Self.writePNG(raw, to: rawURL) }
+                if let annData = annotationData {
+                    try? annData.write(to: annURL, options: .atomic)
                 }
-                self.saveIndex()
-            }
-
-            // Write images using direct CGImageDestination (avoids tiff→bitmap→png overhead)
-            Self.writePNG(image, to: fileURL)
-            Self.writePNG(thumb, to: thumbURL)
-            Self.writePNG(preview, to: previewURL)
-            if let raw = rawImage { Self.writePNG(raw, to: rawURL) }
-            if let annData = annotationData {
-                try? annData.write(to: annURL, options: .atomic)
             }
         }
     }
@@ -157,19 +157,22 @@ class ScreenshotHistory {
 
         DispatchQueue.global(qos: .utility).async { [weak self] in
             guard let self = self else { return }
-            Self.writePNG(compositedImage, to: fileURL)
-            Self.writePNG(thumb, to: thumbURL)
-            let preview = self.makeScaledImage(compositedImage, maxDimension: 240)
-            Self.writePNG(preview, to: previewURL)
-            if let raw = rawImage {
-                Self.writePNG(raw, to: rawURL)
-            } else {
-                try? FileManager.default.removeItem(at: rawURL)
-            }
-            if let annData = annotationData {
-                try? annData.write(to: annURL, options: .atomic)
-            } else {
-                try? FileManager.default.removeItem(at: annURL)
+            // Memory optimization: use autoreleasepool to ensure temporary objects are released promptly
+            autoreleasepool {
+                Self.writePNG(compositedImage, to: fileURL)
+                Self.writePNG(thumb, to: thumbURL)
+                let preview = self.makeScaledImage(compositedImage, maxDimension: 240)
+                Self.writePNG(preview, to: previewURL)
+                if let raw = rawImage {
+                    Self.writePNG(raw, to: rawURL)
+                } else {
+                    try? FileManager.default.removeItem(at: rawURL)
+                }
+                if let annData = annotationData {
+                    try? annData.write(to: annURL, options: .atomic)
+                } else {
+                    try? FileManager.default.removeItem(at: annURL)
+                }
             }
         }
     }
@@ -333,6 +336,9 @@ class ScreenshotHistory {
         guard size.width > 0, size.height > 0 else { return image }
         let scale = min(maxDimension / size.width, maxDimension / size.height, 1.0)
         let targetSize = NSSize(width: round(size.width * scale), height: round(size.height * scale))
+
+        // Memory optimization: wrap in autoreleasepool when called from async contexts
+        // to ensure NSBitmapImageRep and other temporary objects are released promptly
         return NSImage(size: targetSize, flipped: false) { _ in
             image.draw(in: NSRect(origin: .zero, size: targetSize), from: .zero, operation: .copy, fraction: 1.0)
             return true

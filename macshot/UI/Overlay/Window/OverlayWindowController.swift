@@ -330,14 +330,21 @@ class OverlayWindowController {
         backgroundRemovalToken?.cancel()
         backgroundRemovalToken = nil
         saveSelectionIfNeeded()
-        overlayView?.reset()
-        overlayView?.screenshotImage = nil
-        overlayView?.overlayDelegate = nil
-        overlayWindow?.contentView = nil
-        overlayView = nil
-        overlayWindow?.orderOut(nil)
-        overlayWindow?.close()
-        overlayWindow = nil
+
+        // Memory optimization: use autoreleasepool to ensure screenshotImage,
+        // captureAsset, and other large objects are released promptly
+        autoreleasepool {
+            overlayView?.reset()
+            overlayView?.screenshotImage = nil
+            captureAsset?.releaseColorSamplingImage()
+            captureAsset = nil
+            overlayView?.overlayDelegate = nil
+            overlayWindow?.contentView = nil
+            overlayView = nil
+            overlayWindow?.orderOut(nil)
+            overlayWindow?.close()
+            overlayWindow = nil
+        }
         NSCursor.arrow.set()
     }
 

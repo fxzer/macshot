@@ -86,6 +86,10 @@ final class ScreenshotOutputCoordinator: NSObject, PinWindowControllerDelegate {
         // The thumbnail is ~240x160 pixels vs the full selection image which can be 8MB+
         let scale = CGFloat(UserDefaults.standard.object(forKey: "thumbnailScale") as? Double ?? 1.0)
         let thumbnailSize = NSSize(width: round(240 * scale), height: round(160 * scale))
+
+        // Capture annotationData for edit action (it's small - just annotations array + raw image reference)
+        let capturedAnnotationData = annotationData
+
         let thumbnailImage = NSImage(size: thumbnailSize, flipped: false) { _ in
             guard let context = NSGraphicsContext.current else { return true }
             // High-quality interpolation for thumbnail
@@ -104,32 +108,32 @@ final class ScreenshotOutputCoordinator: NSObject, PinWindowControllerDelegate {
             self?.thumbnailControllers.removeAll { $0 === controller }
             self?.reflowThumbnails(onDisplayID: displayID)
         }
-        // Keep full image reference for immediate actions (copy, save, pin)
-        // These actions need the full resolution image, not the thumbnail
+        // Memory optimization: closures now load from history instead of capturing the large image
+        // This allows the original image to be released while the thumbnail is visible
         controller.onCopy = { [weak self] in
-            self?.copyImageFromHistory(entryID: historyEntryID, fallbackImage: image)
+            self?.copyImageFromHistory(entryID: historyEntryID, fallbackImage: nil)
         }
         controller.onSave = { [weak self] in
-            self?.saveImageFromHistory(entryID: historyEntryID, fallbackImage: image)
+            self?.saveImageFromHistory(entryID: historyEntryID, fallbackImage: nil)
         }
         controller.onPin = { [weak self] in
-            self?.pinImageFromHistory(entryID: historyEntryID, fallbackImage: image)
+            self?.pinImageFromHistory(entryID: historyEntryID, fallbackImage: nil)
         }
         // Edit loads the full raw image from history for annotation editing
         controller.onEdit = { [weak self] in
-            if let data = annotationData {
+            if let data = capturedAnnotationData {
                 DetachedEditorWindowController.open(
                     image: data.rawImage,
                     annotations: data.annotations,
                     historyEntryID: historyEntryID
                 )
-            } else if let self = self {
+            } else if let self = self, let entryID = historyEntryID {
                 // Fallback: load from history
-                self.openEditorFromHistory(entryID: historyEntryID, fallbackImage: image)
+                self.openEditorFromHistory(entryID: entryID, fallbackImage: nil)
             }
         }
         controller.onUpload = { [weak self] in
-            self?.uploadImageFromHistory(entryID: historyEntryID, fallbackImage: image)
+            self?.uploadImageFromHistory(entryID: historyEntryID, fallbackImage: nil)
         }
         controller.onCloseAll = { [weak self] in
             let all = self?.thumbnailControllers ?? []
@@ -406,51 +410,51 @@ final class ScreenshotOutputCoordinator: NSObject, PinWindowControllerDelegate {
     // MARK: - History Image Loading Helpers
 
     /// Copy image to clipboard from history entry, with fallback to provided image
-    private func copyImageFromHistory(entryID: String?, fallbackImage: NSImage) {
+    private func copyImageFromHistory(entryID: String?, fallbackImage: NSImage?) {
         if let entryID = entryID,
            let entry = ScreenshotHistory.shared.entries.first(where: { $0.id == entryID }),
            let image = ScreenshotHistory.shared.loadImage(for: entry) {
             ImageEncoder.copyToClipboard(image)
-        } else {
-            ImageEncoder.copyToClipboard(fallbackImage)
+        } else if let fallback = fallbackImage {
+            ImageEncoder.copyToClipboard(fallback)
         }
     }
 
     /// Save image from history entry, with fallback to provided image
-    private func saveImageFromHistory(entryID: String?, fallbackImage: NSImage) {
+    private func saveImageFromHistory(entryID: String?, fallbackImage: NSImage?) {
         if let entryID = entryID,
            let entry = ScreenshotHistory.shared.entries.first(where: { $0.id == entryID }),
            let image = ScreenshotHistory.shared.loadImage(for: entry) {
             saveImageToPreferredDirectory(image)
-        } else {
-            saveImageToPreferredDirectory(fallbackImage)
+        } else if let fallback = fallbackImage {
+            saveImageToPreferredDirectory(fallback)
         }
     }
 
     /// Pin image from history entry, with fallback to provided image
-    private func pinImageFromHistory(entryID: String?, fallbackImage: NSImage) {
+    private func pinImageFromHistory(entryID: String?, fallbackImage: NSImage?) {
         if let entryID = entryID,
            let entry = ScreenshotHistory.shared.entries.first(where: { $0.id == entryID }),
            let image = ScreenshotHistory.shared.loadImage(for: entry) {
             showPin(image: image)
-        } else {
-            showPin(image: fallbackImage)
+        } else if let fallback = fallbackImage {
+            showPin(image: fallback)
         }
     }
 
     /// Upload image from history entry, with fallback to provided image
-    private func uploadImageFromHistory(entryID: String?, fallbackImage: NSImage) {
+    private func uploadImageFromHistory(entryID: String?, fallbackImage: NSImage?) {
         if let entryID = entryID,
            let entry = ScreenshotHistory.shared.entries.first(where: { $0.id == entryID }),
            let image = ScreenshotHistory.shared.loadImage(for: entry) {
             uploadImage(image)
-        } else {
-            uploadImage(fallbackImage)
+        } else if let fallback = fallbackImage {
+            uploadImage(fallback)
         }
     }
 
     /// Open editor from history entry, with fallback to provided image
-    private func openEditorFromHistory(entryID: String?, fallbackImage: NSImage) {
+    private func openEditorFromHistory(entryID: String?, fallbackImage: NSImage?) {
         if let entryID = entryID,
            let entry = ScreenshotHistory.shared.entries.first(where: { $0.id == entryID }),
            let rawImage = ScreenshotHistory.shared.loadRawImage(for: entry),
@@ -460,9 +464,9 @@ final class ScreenshotOutputCoordinator: NSObject, PinWindowControllerDelegate {
                 annotations: annotations,
                 historyEntryID: entryID
             )
-        } else {
+        } else if let fallback = fallbackImage {
             DetachedEditorWindowController.open(
-                image: fallbackImage,
+                image: fallback,
                 historyEntryID: entryID,
                 disableBeautify: true
             )
