@@ -137,6 +137,9 @@ extension AnnotationToolHandler {
     /// Commit the active annotation to the canvas annotations array + undo stack.
     func commitAnnotation(_ annotation: Annotation, canvas: AnnotationCanvas) {
         annotation.bakePixelate()
+        // Clear display-only caches: they will be regenerated on demand.
+        // Avoids storing expensive bitmaps in the undo history.
+        annotation.outlineGlowImage = nil
         // Save existing cache before append clears it
         let previousCache = canvas.annotationLayerCache
         canvas.annotations.append(annotation)

@@ -168,6 +168,16 @@ extension OverlayView {
         barcodeDetector.cancel()
         hoveredWindowRect = nil
         isRecording = false
+        // Release all screenshot-derived image data so ARC can reclaim full-screen bitmaps.
+        screenshotImage = nil
+        displayCGImage = nil
+        originalCGImage = nil
+        colorSamplingCGImage = nil
+        _loupeSourceCGImage = nil
+        cachedCompositedImage = nil
+        cachedAnnotationLayer = nil
+        cachedAnnotationLayerExcludingSelected = nil
+        cachedEffectsScreenshot = nil
         needsDisplay = true
     }
 }

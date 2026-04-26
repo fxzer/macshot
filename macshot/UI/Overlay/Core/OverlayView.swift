@@ -80,10 +80,46 @@ class OverlayView: NSView {
         }
     }
     var undoStack: [UndoEntry] = [] {
-        didSet { updateUndoRedoButtonStates() }
+        didSet {
+            // Enforce depth limit: evict oldest entries and release their large image assets.
+            if undoStack.count > maxUndoCount {
+                let overCount = undoStack.count - maxUndoCount
+                for i in 0..<overCount {
+                    releaseUndoEntryImages(undoStack[i])
+                }
+                undoStack.removeFirst(overCount)
+            }
+            updateUndoRedoButtonStates()
+        }
     }
     var redoStack: [UndoEntry] = [] {
-        didSet { updateUndoRedoButtonStates() }
+        didSet {
+            if redoStack.count > maxUndoCount {
+                let overCount = redoStack.count - maxUndoCount
+                for i in 0..<overCount {
+                    releaseUndoEntryImages(redoStack[i])
+                }
+                redoStack.removeFirst(overCount)
+            }
+            updateUndoRedoButtonStates()
+        }
+    }
+
+    /// Release large cached images held by an undo entry that is being evicted.
+    /// This is safe because evicted entries can no longer be undone/redone.
+    private func releaseUndoEntryImages(_ entry: UndoEntry) {
+        switch entry {
+        case .added(let ann), .deleted(let ann, _):
+            ann.outlineGlowImage = nil
+            // sourceImage is a reference to screenshotImage — don't nil it here
+            // (it may still be referenced by live annotations).
+        case .propertyChange(_, let snapshot):
+            snapshot.outlineGlowImage = nil
+            snapshot.textImage = nil
+            snapshot.sourceImage = nil
+        case .imageTransform:
+            break  // NSImage in imageTransform is handled by Swift ARC
+        }
     }
     var currentAnnotation: Annotation?
     /// Whether the user is actively drawing/dragging a new annotation.
@@ -163,6 +199,10 @@ class OverlayView: NSView {
 
     /// Maximum cache memory usage in bytes (100MB)
     private let maxCacheMemory: Int = 100_000_000
+    /// Maximum number of undo/redo steps retained in memory.
+    /// Each entry can hold one or more Annotation objects (with optional baked images),
+    /// so an unbounded stack is the primary cause of post-annotation memory growth.
+    private let maxUndoCount: Int = 30
 
     /// Estimate memory size of an NSImage based on its pixel dimensions (RGBA, 4 bytes/pixel).
     /// Avoids expensive tiffRepresentation which triggers full rasterization.
@@ -178,9 +218,13 @@ class OverlayView: NSView {
     }
 
     private func recalculateCacheMemoryUsage() {
-        estimatedCacheMemory =
-            estimateImageSize(cachedAnnotationLayer) +
-            estimateImageSize(cachedAnnotationLayerExcludingSelected)
+        var total = estimateImageSize(cachedAnnotationLayer)
+            + estimateImageSize(cachedAnnotationLayerExcludingSelected)
+        // Also account for per-annotation glow images (each is a full CIFilter output bitmap).
+        for ann in annotations {
+            total += estimateImageSize(ann.outlineGlowImage)
+        }
+        estimatedCacheMemory = total
     }
 
     private func evictAnnotationCachesIfNeeded() {

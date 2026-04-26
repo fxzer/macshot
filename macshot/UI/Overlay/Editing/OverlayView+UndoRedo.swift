@@ -49,6 +49,12 @@ extension OverlayView {
                 ann.bakeLoupe()
             }
             if (ann.tool == .pixelate || ann.tool == .blur), ann.bakedBlurNSImage == nil {
+                // snapshot.sourceImage may be nil (cleared to save memory); fall back to
+                // the annotation's own sourceImage or the current screenshot.
+                if ann.sourceImage == nil {
+                    ann.sourceImage = screenshotImage
+                    ann.sourceImageBounds = captureDrawRect
+                }
                 ann.bakePixelate()
             }
             redoStack.append(.propertyChange(annotation: ann, snapshot: currentSnapshot))
@@ -104,6 +110,11 @@ extension OverlayView {
                 ann.bakeLoupe()
             }
             if (ann.tool == .pixelate || ann.tool == .blur), ann.bakedBlurNSImage == nil {
+                // Same fallback as undo path above.
+                if ann.sourceImage == nil {
+                    ann.sourceImage = screenshotImage
+                    ann.sourceImageBounds = captureDrawRect
+                }
                 ann.bakePixelate()
             }
             undoStack.append(.propertyChange(annotation: ann, snapshot: currentSnapshot))
