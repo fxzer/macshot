@@ -6,6 +6,7 @@ class ToolOptionsRowView: NSView {
 
     weak var overlayView: OverlayView?
     private(set) var currentTool: AnnotationTool?
+    private weak var strokeSliderView: NSSlider?
     /// When set, the options row edits this annotation's properties instead of global tool state.
     private(set) var editingAnnotation: Annotation?
     /// Snapshot taken before the first property edit, for undo.
@@ -101,15 +102,29 @@ class ToolOptionsRowView: NSView {
     /// Lightweight update: sync stroke slider position and value label without rebuilding entire row.
     /// Call this from scroll-wheel adjustments for smooth, jank-free feedback.
     func updateStrokeSlider(value: CGFloat) {
-        for sub in subviews {
-            if let slider = sub as? NSSlider, slider.action == #selector(strokeSliderChanged(_:)) {
-                slider.doubleValue = Double(value)
-                break
-            }
+        if strokeSliderView?.superview == nil {
+            strokeSliderView = findStrokeSlider(in: stackView)
         }
+        strokeSliderView?.doubleValue = Double(value)
         if let label = viewWithTag(ToolOptionTag.strokeValueLabel.rawValue) as? NSTextField {
             label.stringValue = currentTool == .loupe ? "\(Int(value))" : "\(Int(value))px"
         }
+    }
+
+    private func findStrokeSlider(in view: NSView) -> NSSlider? {
+        if let slider = view as? NSSlider,
+            slider.action == #selector(strokeSliderChanged(_:))
+        {
+            return slider
+        }
+
+        for subview in view.subviews {
+            if let slider = findStrokeSlider(in: subview) {
+                return slider
+            }
+        }
+
+        return nil
     }
 
     /// Lightweight update: sync font size label in the text tool options row.
@@ -170,6 +185,7 @@ class ToolOptionsRowView: NSView {
 
     /// Rebuild the options row for the given tool. Call when tool or state changes.
     func rebuild(for tool: AnnotationTool) {
+        strokeSliderView = nil
         // Remove old subviews
         // Properly remove and de-anchor arranged subviews to prevent layout ambiguity or leaks
         while !stackView.arrangedSubviews.isEmpty {
@@ -190,6 +206,7 @@ class ToolOptionsRowView: NSView {
         let hasStroke = [.pencil, .line, .arrow, .rectangle, .ellipse, .marker, .number, .loupe].contains(tool)
         if hasStroke {
             addStrokeSlider(to: stackView, tool: tool, ov: ov)
+            strokeSliderView = findStrokeSlider(in: stackView)
         }
 
         // ── Line style (line, pencil, rectangle) ──

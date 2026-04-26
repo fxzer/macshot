@@ -60,16 +60,17 @@ macshot/
 │
 ├── UI/
 │   ├── Overlay/
-│   │   ├── Renderers/
-│   │   │   ├── Annotation+Rendering.swift     # Annotation draw dispatch
-│   │   │   └── Annotation+Drawing*.swift      # Tool-specific annotation rendering
-│   │   ├── OverlayView.swift           # Base canvas: selection, drawing, annotation rendering, input routing
-│   │   ├── OverlayView+Popovers.swift  # Popover factories + auto-redact/translate action helpers
-│   │   ├── OverlayView+Recording.swift # Recording HUD, mouse highlight monitor
-│   │   ├── OverlayView+ScrollCaptureHUD.swift  # Scroll capture progress bar + stop button
-│   │   ├── OverlayView+WindowSnapping.swift    # Window detection + snap highlight drawing
-│   │   ├── OverlayWindowController.swift       # One per screen: fullscreen borderless overlay window
-│   │   └── ColorWheelRenderer.swift    # Radial color wheel for right-click quick color pick
+│   │   ├── Core/                       # OverlayView core type, protocols, lifecycle, base routing
+│   │   ├── State/                      # OverlayAppearance/Render/Preview/Toolbar/Tool state containers
+│   │   ├── Input/                      # Mouse, keyboard, cursor, hit-testing
+│   │   ├── Selection/                  # Selection drag/resize/memory/aspect/window snapping
+│   │   ├── Editing/                    # Annotation interaction, properties, undo, text editing
+│   │   ├── Rendering/                  # Draw pipeline, output rendering, cache, previews, guides
+│   │   │   └── Renderers/              # Annotation draw dispatch + tool-specific rendering
+│   │   ├── Controls/                   # Toolbar, tool options, popovers, overlay control chrome
+│   │   ├── Modes/                      # Zooming, color sampler, beautify, scroll capture, translation
+│   │   ├── Panels/                     # HUDs, overlays, preview panels, tooltip views
+│   │   └── Window/                     # OverlayWindowController and delegate/share/window splits
 │   │
 │   ├── Editor/
 │   │   ├── EditorView.swift            # OverlayView subclass: NSScrollView mode, no selection chrome

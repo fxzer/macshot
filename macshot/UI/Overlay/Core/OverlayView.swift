@@ -338,7 +338,7 @@ class OverlayView: NSView {
     func handleTopChromeClick(at point: NSPoint) -> Bool { false }
 
     // MARK: - Drawing
-    // drawZoomLabel → OverlayView+Zoom.swift
+    // drawZoomLabel → Modes/OverlayView+Zooming.swift
     // Helper text / size label / selection handles moved to OverlayView+SelectionFeedback.swift
     // Color persistence / sampling moved to OverlayView+ColorSampler.swift
     // Beautify preview / toolbar animation moved to OverlayView+BeautifyDrawing.swift
@@ -346,22 +346,22 @@ class OverlayView: NSView {
 
     // Snap/alignment guide helpers moved to OverlayView+SnapGuides.swift
     // Auto-measure helpers moved to OverlayView+AutoMeasure.swift
-    // Zoom helpers (canvasToView, viewToCanvas, setZoom, resetZoom, commitCrop, etc.) → OverlayView+Zoom.swift
+    // Zoom helpers (canvasToView, viewToCanvas, setZoom, resetZoom, commitCrop, etc.) → Modes/OverlayView+Zooming.swift
     // Annotation controls moved to OverlayView+AnnotationControls.swift
     // Outline glow rendering moved to OverlayView+AnnotationOutlineGlow.swift
     // Overlay feedback moved to OverlayView+OverlayFeedback.swift
-    // Toolbar layout moved to OverlayView+ToolbarLayout.swift
+    // Toolbar layout moved to Controls/OverlayView+Toolbar.swift
 
     // Handle hit testing moved to OverlayView+HandleHitTesting.swift
 
     // MARK: - Mouse Events
 
-    // Mouse drag override moved to OverlayView+MouseDragged.swift
-    // Zoom events (editorZoom, scrollWheel, magnify) → OverlayView+Zoom.swift
+    // Mouse event overrides moved to Input/OverlayView+MouseEvents.swift
+    // Zoom events (editorZoom, scrollWheel, magnify) → Modes/OverlayView+Zooming.swift
 
     // Selection resizing moved to OverlayView+SelectionResize.swift
 
-    // Toolbar actions moved to OverlayView+ToolbarActions.swift
+    // Toolbar actions moved to Controls/OverlayView+Toolbar.swift
 
     // Annotation property helpers moved to OverlayView+AnnotationProperties.swift
     // Annotation interaction moved to OverlayView+AnnotationInteraction.swift
