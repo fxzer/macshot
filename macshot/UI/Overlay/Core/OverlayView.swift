@@ -72,9 +72,13 @@ class OverlayView: NSView {
     // Annotations
     var annotations: [Annotation] = [] {
         didSet {
-            invalidateAnnotationCaches()
-            cachedCompositedImage = nil
-            cachedEffectsScreenshot = nil
+            // Memory optimization: use autoreleasepool to ensure cached images are released promptly
+            // This reduces memory pressure when annotations change frequently (e.g., during drawing)
+            autoreleasepool {
+                invalidateAnnotationCaches()
+                cachedCompositedImage = nil
+                cachedEffectsScreenshot = nil
+            }
             // Update move button enabled state when annotations change (defer heavy NSView work)
             if showToolbars { scheduleDeferredToolbarRebuild() }
         }
@@ -260,6 +264,8 @@ class OverlayView: NSView {
     }
 
     /// Invalidate cache with memory tracking
+    /// Invalidate annotation caches with explicit memory management.
+    /// This should be called within an autoreleasepool to ensure cached images are released promptly.
     func invalidateAnnotationCaches() {
         setCachedAnnotationLayer(nil)
         setCachedAnnotationLayerExcludingSelected(nil)

@@ -20,6 +20,7 @@ struct InterfaceSettingsView: View {
     @AppStorage("betaUpdatesEnabled") private var betaUpdates = false
 
     // Thumbnail
+    @AppStorage("showFloatingThumbnail") private var showFloatingThumbnail = true
     @AppStorage("thumbnailAutoDismiss") private var thumbnailAutoDismiss: Int = 5
     @AppStorage("thumbnailStacking") private var thumbnailStacking = true
     @AppStorage("thumbnailScale") private var thumbnailScale = 0.8
@@ -154,6 +155,7 @@ struct InterfaceSettingsView: View {
 
             // MARK: - Thumbnail
             Section {
+                Toggle(L("Show quick access overlay"), isOn: $showFloatingThumbnail)
                 Picker(L("Auto-dismiss after"), selection: $thumbnailAutoDismiss) {
                     Text(L("Never")).tag(0)
                     Text("5 " + L("seconds")).tag(5)
