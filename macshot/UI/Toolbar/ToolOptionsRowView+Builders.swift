@@ -153,11 +153,19 @@ extension ToolOptionsRowView {
         (seg.cell as? NSSegmentedCell)?.segmentStyle = .roundRect
         stack.addArrangedSubview(seg)
 
-        // Disable dashed/dotted for rect/ellipse when outline is enabled
+        // Disable unsupported non-solid styles when the current arrow style is thick,
+        // and for rect/ellipse when outline is enabled.
         let activeTool = editingAnnotation?.tool ?? tool
         let isShapeTool = [AnnotationTool.rectangle, .ellipse].contains(activeTool)
         let hasOutline = editingAnnotation?.outlineColor != nil || ov.outlineEnabled(for: activeTool)
-        if isShapeTool && hasOutline {
+        let activeArrowStyle =
+            activeTool == .arrow
+            ? (editingAnnotation?.arrowStyle ?? ov.arrowStyle(for: activeTool))
+            : nil
+        let disallowNonSolid =
+            (isShapeTool && hasOutline)
+            || (activeTool == .arrow && activeArrowStyle == .thick)
+        if disallowNonSolid {
             for (i, style) in LineStyle.allCases.enumerated() {
                 if style != .solid { seg.setEnabled(false, forSegment: i) }
             }

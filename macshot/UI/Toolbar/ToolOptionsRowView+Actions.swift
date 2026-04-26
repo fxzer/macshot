@@ -51,9 +51,20 @@ extension ToolOptionsRowView {
         if let ann = editingAnnotation {
             ensureSnapshot()
             ann.arrowStyle = style
+            if style == .thick {
+                ann.lineStyle = .solid
+            }
             ov.invalidateCommittedAnnotationRendering()
         }
         ov.setArrowStyle(style, for: tool)
+        if style == .thick {
+            ov.setLineStyle(.solid, for: tool)
+        }
+        if let ann = editingAnnotation {
+            rebuild(forAnnotation: ann)
+        } else {
+            rebuild(for: tool)
+        }
         ov.needsDisplay = true
     }
 
