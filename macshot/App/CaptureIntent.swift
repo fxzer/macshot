@@ -68,7 +68,9 @@ enum CaptureIntent {
     var prefersImmediateOverlayPresentation: Bool {
         switch self {
         case .area, .fullScreen:
-            return true
+            // Screenshot overlays must only appear after the base image is captured,
+            // otherwise helper chrome can be baked into the screenshot source.
+            return false
         default:
             return false
         }
