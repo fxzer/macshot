@@ -81,8 +81,22 @@ final class CaptureImageAsset {
 
     func releaseColorSamplingImage() {
         lock.lock()
+        let hadCachedColorSampling = cachedColorSamplingCGImage != nil
         cachedColorSamplingCGImage = nil
         lock.unlock()
+        if hadCachedColorSampling {
+            MemoryDiagnostics.snapshot(
+                "CaptureImageAsset.releaseColorSamplingImage",
+                cgImages: [("displayCGImage", displayCGImage)],
+                metadata: "released standardized color image"
+            )
+        }
+    }
+
+    var hasCachedColorSamplingImage: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return cachedColorSamplingCGImage != nil
     }
 
     private static func makeCGImage(from image: NSImage) -> CGImage? {

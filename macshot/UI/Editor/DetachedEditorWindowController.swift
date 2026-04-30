@@ -46,6 +46,11 @@ class DetachedEditorWindowController: NSObject, NSWindowDelegate {
     /// When `disableBeautify` is true, beautify starts off regardless of UserDefaults
     /// (used when the image already has beautify baked in).
     static func open(image: NSImage, tool: AnnotationTool = .arrow, color: NSColor = .systemRed, strokeWidth: CGFloat = 3, annotations: [Annotation] = [], historyEntryID: String? = nil, fromCapture: Bool = false, disableBeautify: Bool = false) {
+        MemoryDiagnostics.snapshot(
+            "DetachedEditor.open",
+            images: [("image", image)],
+            metadata: "annotations=\(annotations.count) historyEntryID=\(historyEntryID ?? "nil") fromCapture=\(fromCapture)"
+        )
         let controller = DetachedEditorWindowController()
         controller.historyEntryID = historyEntryID
         controller.disableBeautifyOnOpen = disableBeautify
@@ -59,6 +64,11 @@ class DetachedEditorWindowController: NSObject, NSWindowDelegate {
     }
 
     private func show(image: NSImage, tool: AnnotationTool, color: NSColor, strokeWidth: CGFloat, annotations: [Annotation]) {
+        var memory = MemoryDiagnostics.makeScope(
+            "DetachedEditor.show",
+            images: [("image", image)],
+            metadata: "annotations=\(annotations.count) historyEntryID=\(historyEntryID ?? "nil")"
+        )
         let imgSize = image.size
         let screen = NSScreen.main ?? NSScreen.screens.first!
         let screenFrame = screen.visibleFrame
@@ -184,7 +194,7 @@ class DetachedEditorWindowController: NSObject, NSWindowDelegate {
         }
 
         // Observe scroll view magnification for zoom label
-        let updateZoom = { [weak topBar, weak scrollView] (_: Notification) in
+        let updateZoom = { @Sendable [weak topBar, weak scrollView] (_: Notification) in
             if let mag = scrollView?.magnification { topBar?.updateZoom(mag) }
         }
         NotificationCenter.default.addObserver(forName: NSScrollView.didEndLiveMagnifyNotification, object: scrollView, queue: .main, using: updateZoom)
@@ -211,9 +221,11 @@ class DetachedEditorWindowController: NSObject, NSWindowDelegate {
             docView.scroll(NSPoint(x: 0, y: docView.frame.maxY))
         }
 
-        NotificationCenter.default.addObserver(forName: NSWindow.didResizeNotification, object: win, queue: .main) { [weak self, weak view] _ in
-            if let view = view {
-                self?.enforceAspectFitVisibility(logicalSize: view.logicalSize)
+        NotificationCenter.default.addObserver(forName: NSWindow.didResizeNotification, object: win, queue: .main) { @Sendable [weak self, weak view] _ in
+            Task { @MainActor in
+                if let view = view {
+                    self?.enforceAspectFitVisibility(logicalSize: view.logicalSize)
+                }
             }
         }
 
@@ -226,6 +238,7 @@ class DetachedEditorWindowController: NSObject, NSWindowDelegate {
                 view.updateCursorForCurrentTool()
             }
         }
+        memory.finish("window shown", metadata: "windowSize=\(winW)x\(winH)")
     }
 
     // MARK: - NSWindowDelegate
@@ -454,24 +467,24 @@ extension DetachedEditorWindowController: OverlayViewDelegate {
             ocrController = ocr
             ocr.show()
         }
-        let request = VisionOCR.makeTextRecognitionRequest { [weak self] req, _ in
-            let lines = (req.results as? [VNRecognizedTextObservation])?.compactMap { $0.topCandidates(1).first?.string } ?? []
-            let text = lines.joined(separator: "\n")
-            DispatchQueue.main.async {
-                guard let self = self else { return }
-                let shouldCopy = OCRPreferences.shouldCopyToClipboard
+        DispatchQueue.global(qos: .userInitiated).async { [weak self, shouldShowWindow] in
+            guard let self = self else { return }
+            let request = VisionOCR.makeTextRecognitionRequest { req, _ in
+                let lines = (req.results as? [VNRecognizedTextObservation])?.compactMap { $0.topCandidates(1).first?.string } ?? []
+                let text = lines.joined(separator: "\n")
+                DispatchQueue.main.async {
+                    let shouldCopy = OCRPreferences.shouldCopyToClipboard
 
-                if shouldCopy && !text.isEmpty {
-                    NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString(text, forType: .string)
+                    if shouldCopy && !text.isEmpty {
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(text, forType: .string)
+                    }
+                    if shouldShowWindow {
+                        self.ocrController?.showRecognizedText(text)
+                    }
+                    self.window?.close()
                 }
-                if shouldShowWindow {
-                    self.ocrController?.showRecognizedText(text)
-                }
-                self.window?.close()
             }
-        }
-        DispatchQueue.global(qos: .userInitiated).async {
             try? VNImageRequestHandler(cgImage: cgImage, options: [:]).perform([request])
         }
     }

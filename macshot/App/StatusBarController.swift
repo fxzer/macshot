@@ -29,7 +29,7 @@ final class StatusBarController: NSObject {
 
     private var statusBarMenu: NSMenu?
     private var recordingStatusItemView: RecordingStatusItemView?
-    private var pendingMenuAction: (() -> Void)?
+    private var pendingMenuAction: (@Sendable () -> Void)?
     private(set) var interactionScreen: NSScreen?
 
     init(historyMenuController: HistoryMenuController, actions: Actions) {
@@ -296,7 +296,7 @@ final class StatusBarController: NSObject {
         runPendingMenuActionIfNeeded()
     }
 
-    private func enqueueMenuAction(_ action: @escaping () -> Void) {
+    private func enqueueMenuAction(_ action: @escaping @Sendable () -> Void) {
         pendingMenuAction = action
     }
 

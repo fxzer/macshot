@@ -17,6 +17,11 @@ extension OverlayView {
         if let cached = cachedCompositedImage { return cached }
         guard let screenshot = screenshotImage else { return nil }
         if annotations.isEmpty { return screenshot }
+        var memory = MemoryDiagnostics.makeScope(
+            "OverlayView.compositedImage",
+            images: [("screenshot", screenshot)],
+            metadata: "annotations=\(annotations.count)"
+        )
 
         let drawRect = captureDrawRect
         let annotationsCopy = annotations
@@ -36,8 +41,12 @@ extension OverlayView {
         if !success {
             _ = image.cgImage(forProposedRect: nil, context: nil, hints: nil)
         }
-        if !success { return screenshot }
+        if !success {
+            memory.finish("render failed")
+            return screenshot
+        }
         cachedCompositedImage = image
+        memory.finish("rendered", images: [("composited", image)], metadata: "drawRect=\(NSStringFromRect(drawRect))")
         return image
     }
 
@@ -53,6 +62,11 @@ extension OverlayView {
 
     private func renderSelectedRegion(includeAnnotations: Bool) -> NSImage? {
         guard selectionRect.width > 0, selectionRect.height > 0 else { return nil }
+        var memory = MemoryDiagnostics.makeScope(
+            "OverlayView.renderSelectedRegion",
+            images: [("screenshot", screenshotImage)],
+            metadata: "includeAnnotations=\(includeAnnotations) selectionRect=\(NSStringFromRect(selectionRect))"
+        )
 
         let scale: CGFloat
         if let screenshot = screenshotImage,
@@ -72,7 +86,10 @@ extension OverlayView {
 
         let pixelW = Int(snappedRect.width * scale)
         let pixelH = Int(snappedRect.height * scale)
-        guard pixelW > 0, pixelH > 0 else { return nil }
+        guard pixelW > 0, pixelH > 0 else {
+            memory.finish("invalid pixel size")
+            return nil
+        }
 
         let cs: CGColorSpace
         if let screenshot = screenshotImage,
@@ -93,7 +110,10 @@ extension OverlayView {
                 space: cs,
                 bitmapInfo: bitmapInfo
             )
-        else { return nil }
+        else {
+            memory.finish("context allocation failed", metadata: "pixelSize=\(pixelW)x\(pixelH)")
+            return nil
+        }
 
         cgCtx.interpolationQuality = .none
         cgCtx.scaleBy(x: scale, y: scale)
@@ -116,7 +136,17 @@ extension OverlayView {
 
         NSGraphicsContext.restoreGraphicsState()
 
-        guard let cgImage = cgCtx.makeImage() else { return nil }
-        return NSImage(cgImage: cgImage, size: snappedRect.size)
+        guard let cgImage = cgCtx.makeImage() else {
+            memory.finish("makeImage failed", metadata: "pixelSize=\(pixelW)x\(pixelH)")
+            return nil
+        }
+        let image = NSImage(cgImage: cgImage, size: snappedRect.size)
+        memory.finish(
+            "rendered",
+            images: [("output", image)],
+            cgImages: [("outputCGImage", cgImage)],
+            metadata: "pixelSize=\(pixelW)x\(pixelH)"
+        )
+        return image
     }
 }

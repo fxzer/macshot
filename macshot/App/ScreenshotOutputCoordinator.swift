@@ -61,6 +61,14 @@ final class ScreenshotOutputCoordinator: NSObject, PinWindowControllerDelegate {
         annotationData: CaptureAnnotationData? = nil,
         historyEntryID: String? = nil
     ) {
+        var memory = MemoryDiagnostics.makeScope(
+            "ScreenshotOutput.showFloatingThumbnail",
+            images: [
+                ("image", image),
+                ("annotationRawImage", annotationData?.rawImage)
+            ],
+            metadata: "historyEntryID=\(historyEntryID ?? "nil") thumbnails=\(thumbnailControllers.count)"
+        )
         let enabled = UserDefaults.standard.object(forKey: "showFloatingThumbnail") as? Bool ?? true
         guard enabled else { return }
 
@@ -82,26 +90,24 @@ final class ScreenshotOutputCoordinator: NSObject, PinWindowControllerDelegate {
             yOrigin = topController.windowFrame.maxY + gap
         }
 
-        // Memory optimization: create a pre-rendered thumbnail for display instead of holding the full image
-        // The thumbnail is ~240x160 pixels vs the full selection image which can be 8MB+
+        // Memory optimization: keep only a downscaled display image in the floating panel.
+        // The drag/export actions still resolve the full screenshot lazily from history.
         let scale = CGFloat(UserDefaults.standard.object(forKey: "thumbnailScale") as? Double ?? 1.0)
         let thumbnailSize = NSSize(width: round(240 * scale), height: round(160 * scale))
-
-        // Capture annotationData for edit action (it's small - just annotations array + raw image reference)
-        let capturedAnnotationData = annotationData
-
-        let thumbnailImage = NSImage(size: thumbnailSize, flipped: false) { _ in
-            guard let context = NSGraphicsContext.current else { return true }
-            // High-quality interpolation for thumbnail
-            context.imageInterpolation = .high
-            image.draw(in: NSRect(origin: .zero, size: thumbnailSize),
-                     from: NSRect(origin: .zero, size: image.size),
-                     operation: .copy,
-                     fraction: 1.0)
-            return true
+        let thumbnailImage = makeThumbnailDisplayImage(from: image, targetSize: thumbnailSize)
+        let exportImageProvider: () -> NSImage?
+        if let historyEntryID {
+            exportImageProvider = { [weak self] in
+                self?.loadImageFromHistory(entryID: historyEntryID)
+            }
+        } else {
+            exportImageProvider = { image }
         }
 
-        let controller = FloatingThumbnailController(image: thumbnailImage)
+        let controller = FloatingThumbnailController(
+            image: thumbnailImage,
+            exportImageProvider: exportImageProvider
+        )
         controller.historyEntryID = historyEntryID
         controller.onDismiss = { [weak self] in
             let displayID = controller.anchorDisplayID
@@ -119,17 +125,15 @@ final class ScreenshotOutputCoordinator: NSObject, PinWindowControllerDelegate {
         controller.onPin = { [weak self] in
             self?.pinImageFromHistory(entryID: historyEntryID, fallbackImage: nil)
         }
-        // Edit loads the full raw image from history for annotation editing
         controller.onEdit = { [weak self] in
-            if let data = capturedAnnotationData {
+            if let self = self, let historyEntryID {
+                self.openEditorFromHistory(entryID: historyEntryID, fallbackImage: nil)
+            } else if let data = annotationData {
                 DetachedEditorWindowController.open(
                     image: data.rawImage,
                     annotations: data.annotations,
                     historyEntryID: historyEntryID
                 )
-            } else if let self = self, let entryID = historyEntryID {
-                // Fallback: load from history
-                self.openEditorFromHistory(entryID: entryID, fallbackImage: nil)
             }
         }
         controller.onUpload = { [weak self] in
@@ -147,11 +151,16 @@ final class ScreenshotOutputCoordinator: NSObject, PinWindowControllerDelegate {
         }
         thumbnailControllers.append(controller)
         controller.show(on: screen, atY: yOrigin)
+        memory.finish(
+            "thumbnail shown",
+            images: [("thumbnailImage", thumbnailImage)],
+            metadata: "thumbnails=\(thumbnailControllers.count) historyBackedEdit=\(historyEntryID != nil)"
+        )
     }
 
     func refreshThumbnail(for entryID: String, image: NSImage) {
         for controller in thumbnailControllers where controller.historyEntryID == entryID {
-            controller.updateImage(image)
+            controller.updateImage(makeThumbnailDisplayImage(from: image, targetSize: controller.windowFrame.size))
         }
     }
 
@@ -163,19 +172,28 @@ final class ScreenshotOutputCoordinator: NSObject, PinWindowControllerDelegate {
         context: CaptureCompletionContext
     ) {
         let actions = PostCaptureActionPreferences.screenshotActions
+        var memory = MemoryDiagnostics.makeScope(
+            "ScreenshotOutput.performPostActions",
+            images: [("image", image), ("annotationRawImage", annotationData?.rawImage)],
+            metadata: "historyEntryID=\(historyEntryID ?? "nil") context=\(context)"
+        )
 
         if actions.copyToClipboard {
             ImageEncoder.copyToClipboard(image)
+            memory.step("copyToClipboard")
         }
         if actions.saveToFile && context != .manualSave {
             let showInFinder = UserDefaults.standard.bool(forKey: "screenshotShowInFinder")
             saveImageToDefaultDirectory(image, windowTitle: windowTitle, showInFinder: showInFinder)
+            memory.step("saveToFile", metadata: "showInFinder=\(showInFinder)")
         }
         if actions.uploadAndCopyLink {
             uploadImage(image)
+            memory.step("upload")
         }
         if actions.pinToScreen {
             showPin(image: image)
+            memory.step("pin")
         }
         if actions.openEditor {
             if let data = annotationData {
@@ -191,12 +209,18 @@ final class ScreenshotOutputCoordinator: NSObject, PinWindowControllerDelegate {
                     disableBeautify: true
                 )
             }
+            memory.step("openEditor")
         }
         if actions.showQuickAccessOverlay {
             showFloatingThumbnail(image: image, annotationData: annotationData, historyEntryID: historyEntryID)
+            memory.step("showQuickAccessOverlay", metadata: "thumbnails=\(thumbnailControllers.count)")
         }
 
         SoundManager.shared.playCapture()
+        memory.finish(
+            "post actions complete",
+            metadata: "copy=\(actions.copyToClipboard) save=\(actions.saveToFile) upload=\(actions.uploadAndCopyLink) pin=\(actions.pinToScreen) editor=\(actions.openEditor) thumbnail=\(actions.showQuickAccessOverlay)"
+        )
     }
 
     func saveImageToPreferredDirectory(
@@ -232,10 +256,16 @@ final class ScreenshotOutputCoordinator: NSObject, PinWindowControllerDelegate {
     }
 
     func showPin(image: NSImage, at origin: NSPoint? = nil) {
+        MemoryDiagnostics.snapshot(
+            "ScreenshotOutput.showPin",
+            images: [("image", image)],
+            metadata: "pinsBefore=\(pinControllers.count)"
+        )
         let pin = PinWindowController(image: image, at: origin)
         pin.delegate = self
         pin.show()
         pinControllers.append(pin)
+        MemoryDiagnostics.snapshot("ScreenshotOutput.showPin.after", metadata: "pins=\(pinControllers.count)")
     }
 
     func pinWindowDidClose(_ controller: PinWindowController) {
@@ -248,7 +278,7 @@ final class ScreenshotOutputCoordinator: NSObject, PinWindowControllerDelegate {
     }
 
     private func saveAllThumbnailsToFolder() {
-        let images = thumbnailControllers.map(\.image)
+        let images = thumbnailControllers.compactMap { $0.loadExportImage() }
         guard !images.isEmpty else { return }
 
         let panel = NSOpenPanel()
@@ -409,11 +439,46 @@ final class ScreenshotOutputCoordinator: NSObject, PinWindowControllerDelegate {
 
     // MARK: - History Image Loading Helpers
 
+    private func makeThumbnailDisplayImage(from image: NSImage, targetSize: NSSize) -> NSImage {
+        let sourceSize = image.size
+        guard sourceSize.width > 0, sourceSize.height > 0,
+              targetSize.width > 0, targetSize.height > 0 else {
+            return image
+        }
+
+        let scale = min(
+            max(targetSize.width / sourceSize.width, targetSize.height / sourceSize.height),
+            1.0
+        )
+        let renderSize = NSSize(
+            width: max(1, round(sourceSize.width * scale)),
+            height: max(1, round(sourceSize.height * scale))
+        )
+
+        return NSImage(size: renderSize, flipped: false) { _ in
+            guard let context = NSGraphicsContext.current else { return true }
+            context.imageInterpolation = .high
+            image.draw(
+                in: NSRect(origin: .zero, size: renderSize),
+                from: NSRect(origin: .zero, size: sourceSize),
+                operation: .copy,
+                fraction: 1.0
+            )
+            return true
+        }
+    }
+
+    private func loadImageFromHistory(entryID: String?) -> NSImage? {
+        guard let entryID,
+              let entry = ScreenshotHistory.shared.entries.first(where: { $0.id == entryID }) else {
+            return nil
+        }
+        return ScreenshotHistory.shared.loadImage(for: entry)
+    }
+
     /// Copy image to clipboard from history entry, with fallback to provided image
     private func copyImageFromHistory(entryID: String?, fallbackImage: NSImage?) {
-        if let entryID = entryID,
-           let entry = ScreenshotHistory.shared.entries.first(where: { $0.id == entryID }),
-           let image = ScreenshotHistory.shared.loadImage(for: entry) {
+        if let image = loadImageFromHistory(entryID: entryID) {
             ImageEncoder.copyToClipboard(image)
         } else if let fallback = fallbackImage {
             ImageEncoder.copyToClipboard(fallback)
@@ -422,9 +487,7 @@ final class ScreenshotOutputCoordinator: NSObject, PinWindowControllerDelegate {
 
     /// Save image from history entry, with fallback to provided image
     private func saveImageFromHistory(entryID: String?, fallbackImage: NSImage?) {
-        if let entryID = entryID,
-           let entry = ScreenshotHistory.shared.entries.first(where: { $0.id == entryID }),
-           let image = ScreenshotHistory.shared.loadImage(for: entry) {
+        if let image = loadImageFromHistory(entryID: entryID) {
             saveImageToPreferredDirectory(image)
         } else if let fallback = fallbackImage {
             saveImageToPreferredDirectory(fallback)
@@ -433,9 +496,7 @@ final class ScreenshotOutputCoordinator: NSObject, PinWindowControllerDelegate {
 
     /// Pin image from history entry, with fallback to provided image
     private func pinImageFromHistory(entryID: String?, fallbackImage: NSImage?) {
-        if let entryID = entryID,
-           let entry = ScreenshotHistory.shared.entries.first(where: { $0.id == entryID }),
-           let image = ScreenshotHistory.shared.loadImage(for: entry) {
+        if let image = loadImageFromHistory(entryID: entryID) {
             showPin(image: image)
         } else if let fallback = fallbackImage {
             showPin(image: fallback)
@@ -444,9 +505,7 @@ final class ScreenshotOutputCoordinator: NSObject, PinWindowControllerDelegate {
 
     /// Upload image from history entry, with fallback to provided image
     private func uploadImageFromHistory(entryID: String?, fallbackImage: NSImage?) {
-        if let entryID = entryID,
-           let entry = ScreenshotHistory.shared.entries.first(where: { $0.id == entryID }),
-           let image = ScreenshotHistory.shared.loadImage(for: entry) {
+        if let image = loadImageFromHistory(entryID: entryID) {
             uploadImage(image)
         } else if let fallback = fallbackImage {
             uploadImage(fallback)
@@ -455,6 +514,11 @@ final class ScreenshotOutputCoordinator: NSObject, PinWindowControllerDelegate {
 
     /// Open editor from history entry, with fallback to provided image
     private func openEditorFromHistory(entryID: String?, fallbackImage: NSImage?) {
+        MemoryDiagnostics.snapshot(
+            "ScreenshotOutput.openEditorFromHistory.begin",
+            images: [("fallbackImage", fallbackImage)],
+            metadata: "entryID=\(entryID ?? "nil")"
+        )
         if let entryID = entryID,
            let entry = ScreenshotHistory.shared.entries.first(where: { $0.id == entryID }),
            let rawImage = ScreenshotHistory.shared.loadRawImage(for: entry),
@@ -464,11 +528,21 @@ final class ScreenshotOutputCoordinator: NSObject, PinWindowControllerDelegate {
                 annotations: annotations,
                 historyEntryID: entryID
             )
+            MemoryDiagnostics.snapshot(
+                "ScreenshotOutput.openEditorFromHistory.loadedEditable",
+                images: [("rawImage", rawImage)],
+                metadata: "entryID=\(entryID) annotations=\(annotations.count)"
+            )
         } else if let fallback = fallbackImage {
             DetachedEditorWindowController.open(
                 image: fallback,
                 historyEntryID: entryID,
                 disableBeautify: true
+            )
+            MemoryDiagnostics.snapshot(
+                "ScreenshotOutput.openEditorFromHistory.fallback",
+                images: [("fallbackImage", fallback)],
+                metadata: "entryID=\(entryID ?? "nil")"
             )
         }
     }

@@ -22,6 +22,11 @@ extension OverlayWindowController: OverlayViewDelegate {
     }
 
     func overlayViewDidConfirm() {
+        var memory = MemoryDiagnostics.makeScope(
+            "OverlayWindowController.overlayViewDidConfirm",
+            images: [("screenshotImage", overlayView?.screenshotImage)],
+            metadata: "screen=\(screen.localizedName)"
+        )
         // Snapshot post-processing config before dismissing (view will be torn down)
         let hasEffects = overlayView?.effectsActive ?? false
         let effectsCfg = overlayView?.effectsConfig ?? ImageEffectsConfig()
@@ -32,10 +37,12 @@ extension OverlayWindowController: OverlayViewDelegate {
         // Capture the composited image (screenshot + annotations baked in).
         // This is a single render — no double capture.
         guard let compositedImage = captureRegion() else {
+            memory.finish("captureRegion failed")
             dismiss()
             overlayDelegate?.overlayDidCancel(self)
             return
         }
+        memory.step("captureRegion", images: [("compositedImage", compositedImage)])
 
         // Snapshot annotations + selection rect before dismiss (view will be torn down)
         let snapshotAnnotations = overlayView?.annotations ?? []
@@ -51,6 +58,11 @@ extension OverlayWindowController: OverlayViewDelegate {
                 ? snapWindowImg : overlayView?.captureSelectedRegionRaw()
             if let raw = rawImage {
                 annotationData = snapshotAnnotationData(rawImage: raw)
+                memory.step(
+                    "snapshotAnnotationData",
+                    images: [("rawImage", raw)],
+                    metadata: "annotations=\(annotationData?.annotations.count ?? 0)"
+                )
             } else {
                 annotationData = nil
             }
@@ -62,11 +74,13 @@ extension OverlayWindowController: OverlayViewDelegate {
 
         // Dismiss immediately — user is free to continue working
         dismiss()
+        memory.step("dismissed overlay")
 
         // Apply post-processing if needed
         var finalImage = compositedImage
         if hasEffects {
             finalImage = ImageEffects.apply(to: finalImage, config: effectsCfg)
+            memory.step("effects applied", images: [("effectsImage", finalImage)])
         }
         if hasBeautify {
             // For snapped windows, use the independently captured window image (transparent corners)
@@ -75,6 +89,7 @@ extension OverlayWindowController: OverlayViewDelegate {
                 ? compositeAnnotationsOnSnappedWindow(snapWindowImg!, annotations: snapshotAnnotations, selectionRect: snapshotSelRect)
                 : finalImage
             finalImage = BeautifyRenderer.render(image: beautifyInput, config: beautifyCfg)
+            memory.step("beautify applied", images: [("beautifyImage", finalImage)])
         }
 
         // Don't save annotation data if effects/beautify were applied — the raw image
@@ -86,6 +101,11 @@ extension OverlayWindowController: OverlayViewDelegate {
             context: .standard,
             windowTitle: capturedWindowTitle,
             pinOrigin: pinOrigin
+        )
+        memory.finish(
+            "delegate confirm",
+            images: [("finalImage", finalImage), ("annotationRawImage", annotationData?.rawImage)],
+            metadata: "hasAnnotations=\(annotationData != nil) effects=\(hasEffects) beautify=\(hasBeautify)"
         )
     }
 
@@ -107,22 +127,22 @@ extension OverlayWindowController: OverlayViewDelegate {
 
         overlayDelegate?.overlayDidStartOCR(self)
 
-        let request = VisionOCR.makeTextRecognitionRequest { [self] request, error in
-            var lines: [String] = []
-            if let observations = request.results as? [VNRecognizedTextObservation] {
-                for observation in observations {
-                    if let candidate = observation.topCandidates(1).first {
-                        lines.append(candidate.string)
+        DispatchQueue.global(qos: .userInitiated).async { [weak self, cgImage] in
+            guard let self = self else { return }
+            let request = VisionOCR.makeTextRecognitionRequest { request, error in
+                var lines: [String] = []
+                if let observations = request.results as? [VNRecognizedTextObservation] {
+                    for observation in observations {
+                        if let candidate = observation.topCandidates(1).first {
+                            lines.append(candidate.string)
+                        }
                     }
                 }
+                let text = lines.joined(separator: "\n")
+                DispatchQueue.main.async {
+                    self.overlayDelegate?.overlayDidFinishOCR(self, text: text)
+                }
             }
-            let text = lines.joined(separator: "\n")
-            DispatchQueue.main.async {
-                self.overlayDelegate?.overlayDidFinishOCR(self, text: text)
-            }
-        }
-
-        DispatchQueue.global(qos: .userInitiated).async {
             let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
             try? handler.perform([request])
         }
@@ -411,6 +431,11 @@ extension OverlayWindowController: OverlayViewDelegate {
     }
 
     func overlayViewDidRequestQuickSave() {
+        var memory = MemoryDiagnostics.makeScope(
+            "OverlayWindowController.quickSave",
+            images: [("screenshotImage", overlayView?.screenshotImage)],
+            metadata: "screen=\(screen.localizedName)"
+        )
         // Snapshot post-processing config before dismissing
         let hasEffects = overlayView?.effectsActive ?? false
         let effectsCfg = overlayView?.effectsConfig ?? ImageEffectsConfig()
@@ -419,10 +444,12 @@ extension OverlayWindowController: OverlayViewDelegate {
         let snapWindowImg = overlayView?.snappedWindowImage
 
         guard let compositedImage = captureRegion() else {
+            memory.finish("captureRegion failed")
             dismiss()
             overlayDelegate?.overlayDidCancel(self)
             return
         }
+        memory.step("captureRegion", images: [("compositedImage", compositedImage)])
 
         // Snapshot annotations + selection rect before dismiss
         let snapshotAnns = overlayView?.annotations ?? []
@@ -436,6 +463,11 @@ extension OverlayWindowController: OverlayViewDelegate {
                 ? snapWindowImg : overlayView?.captureSelectedRegionRaw()
             if let raw = rawImage {
                 annotationData = snapshotAnnotationData(rawImage: raw)
+                memory.step(
+                    "snapshotAnnotationData",
+                    images: [("rawImage", raw)],
+                    metadata: "annotations=\(annotationData?.annotations.count ?? 0)"
+                )
             } else {
                 annotationData = nil
             }
@@ -444,15 +476,20 @@ extension OverlayWindowController: OverlayViewDelegate {
         }
 
         dismiss()
+        memory.step("dismissed overlay")
 
         // Apply post-processing
         var image = compositedImage
-        if hasEffects { image = ImageEffects.apply(to: image, config: effectsCfg) }
+        if hasEffects {
+            image = ImageEffects.apply(to: image, config: effectsCfg)
+            memory.step("effects applied", images: [("effectsImage", image)])
+        }
         if hasBeautify {
             let beautifyInput = (beautifyCfg.isWindowSnap && snapWindowImg != nil)
                 ? compositeAnnotationsOnSnappedWindow(snapWindowImg!, annotations: snapshotAnns, selectionRect: snapshotSel)
                 : image
             image = BeautifyRenderer.render(image: beautifyInput, config: beautifyCfg)
+            memory.step("beautify applied", images: [("beautifyImage", image)])
         }
 
         let pinOrigin = selectionPinOrigin()
@@ -463,6 +500,11 @@ extension OverlayWindowController: OverlayViewDelegate {
             context: .standard,
             windowTitle: capturedWindowTitle,
             pinOrigin: pinOrigin
+        )
+        memory.finish(
+            "delegate confirm",
+            images: [("finalImage", image), ("annotationRawImage", annotationData?.rawImage)],
+            metadata: "hasAnnotations=\(annotationData != nil) effects=\(hasEffects) beautify=\(hasBeautify)"
         )
     }
 

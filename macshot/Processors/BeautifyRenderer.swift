@@ -173,7 +173,6 @@ class BeautifyRenderer {
     // MARK: - Window mode (macOS title bar chrome)
 
     private static func renderWindow(image: NSImage, config: BeautifyConfig) -> NSImage {
-        let style = config.style
         let imgSize = image.size
         let padding = config.padding
         let windowCornerRadius = config.cornerRadius
@@ -289,8 +288,7 @@ class BeautifyRenderer {
         let padding = config.padding
         let shadowRadius = config.shadowRadius
         let shadowOffset = min(shadowRadius * 0.3, 8)
-        // macOS window corner radius is 10pt
-        let nativeCornerRadius: CGFloat = 10
+        // macOS window corner radius is 10pt (not used in rendering, informational)
 
         let totalWidth = imgSize.width + padding * 2
         let totalHeight = imgSize.height + padding * 2

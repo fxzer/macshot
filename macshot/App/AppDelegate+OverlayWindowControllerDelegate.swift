@@ -15,6 +15,11 @@ extension AppDelegate: OverlayWindowControllerDelegate {
         windowTitle: String?,
         pinOrigin: NSPoint?
     ) {
+        MemoryDiagnostics.snapshot(
+            "AppDelegate.overlayDidConfirm.beforeDismiss",
+            images: [("capturedImage", capturedImage), ("annotationRawImage", annotationData?.rawImage)],
+            metadata: "context=\(context) hasPinOrigin=\(pinOrigin != nil)"
+        )
         dismissOverlays()
         guard let image = capturedImage else { return }
 
@@ -24,6 +29,11 @@ extension AppDelegate: OverlayWindowControllerDelegate {
             annotations: annotationData?.annotations
         )
         let entryID = ScreenshotHistory.shared.entries.first?.id
+        MemoryDiagnostics.snapshot(
+            "AppDelegate.overlayDidConfirm.afterHistory",
+            images: [("capturedImage", image), ("annotationRawImage", annotationData?.rawImage)],
+            metadata: "entryID=\(entryID ?? "nil")"
+        )
         DispatchQueue.main.async { [weak self] in
             self?.performScreenshotPostActions(
                 image: image,
@@ -36,6 +46,11 @@ extension AppDelegate: OverlayWindowControllerDelegate {
     }
 
     func overlayDidRequestPin(_ controller: OverlayWindowController, image: NSImage, at globalOrigin: NSPoint) {
+        MemoryDiagnostics.snapshot(
+            "AppDelegate.overlayDidRequestPin",
+            images: [("image", image)],
+            metadata: "origin=\(NSStringFromPoint(globalOrigin))"
+        )
         ScreenshotHistory.shared.add(image: image)
         performFloatingPanelOverlayAction { [weak self] in
             self?.showPin(image: image, at: globalOrigin)
@@ -51,6 +66,7 @@ extension AppDelegate: OverlayWindowControllerDelegate {
     }
 
     func overlayDidRequestUpload(_ controller: OverlayWindowController, image: NSImage) {
+        MemoryDiagnostics.snapshot("AppDelegate.overlayDidRequestUpload", images: [("image", image)])
         ScreenshotHistory.shared.add(image: image)
         performFloatingPanelOverlayAction { [weak self] in
             self?.uploadImage(image)

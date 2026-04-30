@@ -128,6 +128,11 @@ class OverlayWindowController {
     }
 
     func applyCapture(_ capture: ScreenCapture) {
+        var memory = MemoryDiagnostics.makeScope(
+            "OverlayWindowController.applyCapture",
+            images: [("displayImage", capture.asset.displayImage)],
+            metadata: "screen=\(capture.screen.localizedName)"
+        )
         screen = capture.screen
         captureAsset = capture.asset
 
@@ -138,14 +143,27 @@ class OverlayWindowController {
         overlayView?.screenshotImage = nsImage
         overlayView?.setDisplayCGImage(capture.asset.displayCGImage)
         overlayView?.needsDisplay = true
+        memory.step(
+            "display image applied",
+            images: [("displayImage", nsImage)],
+            cgImages: [("displayCGImage", capture.asset.displayCGImage)],
+            metadata: "colorSamplingCached=\(capture.asset.hasCachedColorSamplingImage)"
+        )
 
         if overlayWindow?.isVisible == true {
             prepareCaptureImageInBackground()
+            memory.step("prepareCaptureImageInBackground", metadata: "windowVisible=true")
         }
+        memory.finish("capture applied")
     }
 
     func showOverlay() {
         var perf = PerfMonitor(label: "showOverlay[\(screen.localizedName)]")
+        var memory = MemoryDiagnostics.makeScope(
+            "OverlayWindowController.showOverlay",
+            images: [("screenshotImage", overlayView?.screenshotImage)],
+            metadata: "screen=\(screen.localizedName)"
+        )
         guard let window = overlayWindow else { return }
         // Show immediately; do not call displayIfNeeded() here — it blocks the main thread
         // until the full frame is rendered and makes the hotkey→drag path feel sluggish.
@@ -154,10 +172,12 @@ class OverlayWindowController {
         // Prepare color sampling image BEFORE showing the window to avoid blocking first frame
         prepareCaptureImageInBackground()
         perf.step("prepareCaptureImage")
+        memory.step("prepareCaptureImage")
 
         presentWindow(window)
         perf.step("presentWindow")
         perf.finish()
+        memory.finish("presented", metadata: "windowVisible=\(window.isVisible)")
     }
 
     func makeKey() {
@@ -170,10 +190,20 @@ class OverlayWindowController {
             bitsPerComponent: captureAsset.displayCGImage.bitsPerComponent
         ) else {
             overlayView?.setColorSamplingCGImage(captureAsset.displayCGImage)
+            MemoryDiagnostics.snapshot(
+                "OverlayWindowController.prepareCaptureImageInBackground",
+                cgImages: [("displayCGImage", captureAsset.displayCGImage)],
+                metadata: "reused displayCGImage screen=\(screen.localizedName)"
+            )
             return
         }
         // Start conversion immediately in background without waiting
         captureAsset.preloadColorSamplingImage { [weak self] converted in
+            MemoryDiagnostics.snapshot(
+                "OverlayWindowController.standardizedColorImage.ready",
+                cgImages: [("standardized", converted)],
+                metadata: "screen=\(self?.screen.localizedName ?? "?")"
+            )
             self?.overlayView?.setColorSamplingCGImage(converted)
         }
     }
@@ -327,6 +357,17 @@ class OverlayWindowController {
     }
 
     func dismiss() {
+        let cacheSummary = overlayView.map {
+            "annotations=\($0.annotations.count) undo=\($0.undoStack.count) redo=\($0.redoStack.count) cacheEstimate=\(MemoryDiagnostics.format(bytes: UInt64($0.estimatedCacheMemory)))"
+        } ?? "overlayView=nil"
+        MemoryDiagnostics.snapshot(
+            "OverlayWindowController.dismiss.before",
+            images: [
+                ("screenshotImage", overlayView?.screenshotImage),
+                ("snappedWindowImage", overlayView?.snappedWindowImage)
+            ],
+            metadata: "screen=\(screen.localizedName) \(cacheSummary)"
+        )
         backgroundRemovalToken?.cancel()
         backgroundRemovalToken = nil
         saveSelectionIfNeeded()
@@ -346,6 +387,7 @@ class OverlayWindowController {
             overlayWindow = nil
         }
         NSCursor.arrow.set()
+        MemoryDiagnostics.snapshot("OverlayWindowController.dismiss.after", metadata: "screen=\(screen.localizedName)")
     }
 
     func saveSelectionIfNeeded() {

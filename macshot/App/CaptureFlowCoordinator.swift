@@ -47,10 +47,18 @@ final class CaptureFlowCoordinator {
 
     func beginCapture(intent: CaptureIntent, triggerOrigin: String) {
         CaptureDiagnostics.log("[macshot-perf] ========== beginCapture intent=\(intent.debugName) origin=\(triggerOrigin) ==========")
+        MemoryDiagnostics.snapshot(
+            "CaptureFlow.beginCapture",
+            metadata: "intent=\(intent.debugName) origin=\(triggerOrigin) overlays=\(overlayControllersStorage.count)"
+        )
         startCapture(intent: intent, triggerOrigin: triggerOrigin)
     }
 
     func dismissOverlays(refocusPreviousApp: Bool = true) {
+        MemoryDiagnostics.snapshot(
+            "CaptureFlow.dismissOverlays.before",
+            metadata: "overlayCount=\(overlayControllersStorage.count) refocus=\(refocusPreviousApp)"
+        )
         stopOverlayMouseScreenTracking()
         removeOverlayEscMonitor()
         overlayScreenSwitchInFlight = false
@@ -69,6 +77,7 @@ final class CaptureFlowCoordinator {
         if refocusPreviousApp {
             dependencies.restoreFocusIfNeeded()
         }
+        MemoryDiagnostics.snapshot("CaptureFlow.dismissOverlays.after", metadata: "overlayCount=\(overlayControllersStorage.count)")
     }
 
     private func startCapture(intent: CaptureIntent, triggerOrigin: String) {
@@ -77,9 +86,14 @@ final class CaptureFlowCoordinator {
         isCapturing = true
         activeCaptureIntent = intent
         var perf = PerfMonitor(label: "capture")
+        var memory = MemoryDiagnostics.makeScope(
+            "CaptureFlow.startCapture",
+            metadata: "intent=\(intent.debugName) origin=\(triggerOrigin)"
+        )
 
         ScreenCaptureManager.prewarm(screen: currentCaptureTargetScreen(), mode: .lightweight)
         perf.step("prewarm")
+        memory.step("prewarm")
         ScreenCaptureManager.setCaptureInProgress(true)
 
         let delay = UserDefaults.standard.integer(forKey: "captureDelaySeconds")
@@ -96,17 +110,22 @@ final class CaptureFlowCoordinator {
 
         dependencies.rememberPreviousApp(NSWorkspace.shared.frontmostApplication)
         perf.step("rememberPreviousApp")
+        memory.step("rememberPreviousApp")
 
         if !overlayControllersStorage.isEmpty {
             dismissOverlays(refocusPreviousApp: false)
             perf.step("dismissOverlays")
+            memory.step("dismissOverlays")
         }
         dependencies.hideThumbnails()
         perf.step("hideThumbnails")
+        memory.step("hideThumbnails", metadata: "delay=\(delay)")
 
         if delay > 0 {
+            memory.finish("waiting for countdown", metadata: "seconds=\(delay)")
             showPreCaptureCountdown(seconds: delay)
         } else {
+            memory.finish("starting live capture")
             performCapture(t0: perf.start)
         }
     }
@@ -128,7 +147,9 @@ final class CaptureFlowCoordinator {
         stopOverlayMouseScreenTracking()
         guard isCapturing, overlayControllersStorage.count == 1 else { return }
         let timer = Timer(timeInterval: 0.1, repeats: true) { [weak self] _ in
-            self?.updateOverlayScreenForMouseIfNeeded()
+            Task { @MainActor [weak self] in
+                self?.updateOverlayScreenForMouseIfNeeded()
+            }
         }
         overlayMouseScreenTimer = timer
         RunLoop.main.add(timer, forMode: .common)
@@ -331,11 +352,16 @@ final class CaptureFlowCoordinator {
         targetScreen: NSScreen?,
         t0: CFAbsoluteTime
     ) {
+        var memory = MemoryDiagnostics.makeScope(
+            "CaptureFlow.startLiveCapture",
+            metadata: "targetScreen=\(targetScreen?.localizedName ?? "nil") excluded=\(excludeIDs.count)"
+        )
         guard let targetScreen else {
             isCapturing = false
             activeCaptureIntent = nil
             ScreenCaptureManager.setCaptureInProgress(false)
             dependencies.showOnboarding(dependencies.defaultInteractionScreen())
+            memory.finish("missing target screen")
             return
         }
         captureRequestID += 1
@@ -349,11 +375,17 @@ final class CaptureFlowCoordinator {
         CaptureDiagnostics.log(
             "[macshot-perf][capture] captureScreen BEGIN screen=\(targetScreen.localizedName) excludes=\(effectiveExcludeIDs.count)"
         )
+        memory.step("captureScreen begin", metadata: "effectiveExcluded=\(effectiveExcludeIDs.count)")
         ScreenCaptureManager.captureScreen(targetScreen, excludingWindowNumbers: effectiveExcludeIDs) { [weak self, weak placeholderController] capture in
             guard let self else { return }
             guard requestID == self.captureRequestID, self.isCapturing else { return }
             CaptureDiagnostics.log(
                 "[macshot-perf][capture] captureScreen DONE total=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - t0) * 1000))ms"
+            )
+            memory.step(
+                "captureScreen done",
+                images: [("captureImage", capture?.asset.displayImage)],
+                metadata: "captureAvailable=\(capture != nil)"
             )
             ScreenCaptureManager.setCaptureInProgress(false)
 
@@ -365,6 +397,7 @@ final class CaptureFlowCoordinator {
                 self.isCapturing = false
                 self.activeCaptureIntent = nil
                 self.dependencies.showOnboarding(targetScreen)
+                memory.finish("capture missing")
                 return
             }
 
@@ -372,27 +405,41 @@ final class CaptureFlowCoordinator {
                self.overlayControllersStorage.contains(where: { $0 === placeholderController }) {
                 placeholderController.applyCapture(capture)
                 self.startOverlayMouseScreenTracking()
+                memory.finish(
+                    "placeholder applied capture",
+                    images: [("captureImage", capture.asset.displayImage)],
+                    metadata: "overlayCount=\(self.overlayControllersStorage.count)"
+                )
                 return
             }
 
+            memory.finish(
+                "show overlays",
+                images: [("captureImage", capture.asset.displayImage)],
+                metadata: "overlayCount=\(self.overlayControllersStorage.count)"
+            )
             self.showOverlays(for: [capture], t0: t0)
         }
     }
 
     private func showImmediateOverlay(on screen: NSScreen, t0: CFAbsoluteTime) -> OverlayWindowController {
         var perf = PerfMonitor(label: "overlay-immediate")
+        var memory = MemoryDiagnostics.makeScope("CaptureFlow.showImmediateOverlay", metadata: "screen=\(screen.localizedName)")
         let captureIntent = activeCaptureIntent
 
         stopOverlayMouseScreenTracking()
         NSApp.activate(ignoringOtherApps: true)
         perf.step("NSApp.activate")
+        memory.step("activate app")
 
         let controller = OverlayWindowController(screen: screen)
         configureController(controller, screenName: screen.localizedName, t0: t0)
         controller.showOverlay()
         perf.step("controller screen=\(screen.localizedName)")
+        memory.step("controller ready", metadata: "overlayCountBeforeAppend=\(overlayControllersStorage.count)")
         overlayControllersStorage.append(controller)
         perf.finish()
+        memory.finish("controller appended", metadata: "overlayCount=\(overlayControllersStorage.count)")
 
         installOverlayEscMonitor()
         DispatchQueue.main.async { [weak self] in
@@ -413,12 +460,17 @@ final class CaptureFlowCoordinator {
         restoreLastSelection: Bool = true
     ) {
         var perf = PerfMonitor(label: "overlay")
+        var memory = MemoryDiagnostics.makeScope(
+            "CaptureFlow.showOverlays",
+            metadata: "captures=\(captures.count) activateApp=\(activateApp)"
+        )
         let captureIntent = activeCaptureIntent
 
         stopOverlayMouseScreenTracking()
         if activateApp {
             NSApp.activate(ignoringOtherApps: true)
             perf.step("NSApp.activate")
+            memory.step("activate app")
         }
 
         for (index, capture) in captures.enumerated() {
@@ -426,6 +478,11 @@ final class CaptureFlowCoordinator {
             configureController(controller, screenName: capture.screen.localizedName, t0: t0)
             controller.showOverlay()
             perf.step("controller[\(index)] screen=\(capture.screen.localizedName)")
+            memory.step(
+                "controller[\(index)] showOverlay",
+                images: [("captureImage", capture.asset.displayImage)],
+                metadata: "screen=\(capture.screen.localizedName)"
+            )
             applyInitialOverlayStateIfNeeded(
                 to: controller,
                 captureScreen: capture.screen,
@@ -434,6 +491,7 @@ final class CaptureFlowCoordinator {
             overlayControllersStorage.append(controller)
         }
         perf.finish()
+        memory.finish("all overlays shown", metadata: "overlayCount=\(overlayControllersStorage.count)")
 
         installOverlayEscMonitor()
         DispatchQueue.main.async { [weak self] in

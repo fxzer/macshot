@@ -284,13 +284,15 @@ final class HistoryOverlayController: NSObject, QLPreviewPanelDataSource, QLPrev
 
     // MARK: - QLPreviewPanelDataSource
 
-    func numberOfPreviewItems(in panel: QLPreviewPanel!) -> Int { 1 }
+    nonisolated func numberOfPreviewItems(in panel: QLPreviewPanel!) -> Int { 1 }
 
-    func previewPanel(_ panel: QLPreviewPanel!, previewItemAt index: Int) -> (any QLPreviewItem)! {
-        let entries = ScreenshotHistory.shared.entries
-        guard quickLookEntryIndex >= 0, quickLookEntryIndex < entries.count else { return nil }
-        let entry = entries[quickLookEntryIndex]
-        return ScreenshotHistory.shared.fileURL(for: entry) as NSURL?
+    nonisolated func previewPanel(_ panel: QLPreviewPanel!, previewItemAt index: Int) -> (any QLPreviewItem)! {
+        MainActor.assumeIsolated {
+            let entries = ScreenshotHistory.shared.entries
+            guard quickLookEntryIndex >= 0, quickLookEntryIndex < entries.count else { return nil }
+            let entry = entries[quickLookEntryIndex]
+            return ScreenshotHistory.shared.fileURL(for: entry) as NSURL?
+        }
     }
 }
 
@@ -417,17 +419,15 @@ private final class HistoryPanelView: NSView, NSDraggingSource {
         applyFilter()
 
         let entriesToLoad = entries
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+        Task { @MainActor [weak self] in
             var loaded: [String: NSImage] = [:]
             for entry in entriesToLoad {
                 if let preview = ScreenshotHistory.shared.loadPreview(for: entry) {
                     loaded[entry.id] = preview
                 }
             }
-            DispatchQueue.main.async {
-                self?.previews = loaded
-                self?.needsDisplay = true
-            }
+            self?.previews = loaded
+            self?.needsDisplay = true
         }
     }
 

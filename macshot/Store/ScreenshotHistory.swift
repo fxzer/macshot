@@ -35,6 +35,12 @@ class ScreenshotHistory {
     static let shared = ScreenshotHistory()
 
     private(set) var entries: [HistoryEntry] = []
+    private struct PendingEditableEntry {
+        let rawImage: NSImage
+        let annotations: [Annotation]
+    }
+    private var pendingCompositedImages: [String: NSImage] = [:]
+    private var pendingEditableEntries: [String: PendingEditableEntry] = [:]
 
     private let historyDir: URL
     private let indexFile: URL
@@ -71,6 +77,11 @@ class ScreenshotHistory {
     func add(image: NSImage, rawImage: NSImage? = nil, annotations: [Annotation]? = nil) {
         let max = maxEntries
         guard max > 0 else { return }
+        var memory = MemoryDiagnostics.makeScope(
+            "ScreenshotHistory.add",
+            images: [("image", image), ("rawImage", rawImage)],
+            metadata: "existingEntries=\(entries.count)"
+        )
 
         let id = UUID().uuidString
         let ext = "png"
@@ -80,6 +91,10 @@ class ScreenshotHistory {
         let scale: CGFloat = ImageEncoder.downscaleRetina ? 1.0 : (NSScreen.main?.backingScaleFactor ?? 2.0)
 
         let hasAnns = annotations != nil && !(annotations!.isEmpty) && rawImage != nil
+        pendingCompositedImages[id] = image
+        if hasAnns, let rawImage, let annotations {
+            pendingEditableEntries[id] = PendingEditableEntry(rawImage: rawImage, annotations: annotations)
+        }
 
         // Memory optimization: create thumbnail immediately on main thread to avoid
         // capturing the large image in the async closure. This reduces memory pressure
@@ -97,12 +112,20 @@ class ScreenshotHistory {
             thumbnail: thumb
         )
         entries.insert(entry, at: 0)
+        memory.step(
+            "entry inserted",
+            images: [("thumbnail", thumb)],
+            metadata: "entries=\(entries.count) hasAnnotations=\(hasAnns)"
+        )
 
         // Prune oldest entries beyond max
         while entries.count > max {
             let removed = entries.removeLast()
+            pendingCompositedImages.removeValue(forKey: removed.id)
+            pendingEditableEntries.removeValue(forKey: removed.id)
             deleteFiles(for: removed.id, ext: removed.fileExtension)
         }
+        memory.step("pruned", metadata: "entries=\(entries.count) max=\(max)")
 
         // Serialize annotations on main thread (fast — just JSON encoding)
         let annotationData: Data? = hasAnns ? AnnotationSerializer.encode(annotations!) : nil
@@ -113,33 +136,58 @@ class ScreenshotHistory {
         let previewURL = historyDir.appendingPathComponent("\(id)_preview.png")
         let rawURL = historyDir.appendingPathComponent("\(id)_raw.png")
         let annURL = historyDir.appendingPathComponent("\(id)_annotations.json")
-        let histDir = historyDir
+
+        // Capture CGImages on main thread (Sendable-safe) before moving to background
+        guard let mainCGImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil),
+              let thumbCGImage = thumb.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
+            return
+        }
+        let rawCGImage = rawImage?.cgImage(forProposedRect: nil, context: nil, hints: nil)
+        let capturedAnnotationData = annotationData
+
         DispatchQueue.global(qos: .utility).async { [weak self] in
             guard let self = self else { return }
             // Memory optimization: use autoreleasepool to ensure temporary objects
             // (NSBitmapImageRep, CGImageRefs created during scaling) are released promptly
             autoreleasepool {
-                let preview = self.makeScaledImage(image, maxDimension: 240)
+                // Create preview from main CGImage (avoids main actor access)
+                let preview = Self.makeScaledImageFromCGImage(mainCGImage, maxDimension: 240)
 
                 // Write images using direct CGImageDestination (avoids tiff→bitmap→png overhead)
-                Self.writePNG(image, to: fileURL)
-                Self.writePNG(thumb, to: thumbURL)
-                Self.writePNG(preview, to: previewURL)
-                if let raw = rawImage { Self.writePNG(raw, to: rawURL) }
-                if let annData = annotationData {
+                Self.writeCGImagePNG(mainCGImage, to: fileURL)
+                Self.writeCGImagePNG(thumbCGImage, to: thumbURL)
+                Self.writeCGImagePNG(preview, to: previewURL)
+                if let raw = rawCGImage { Self.writeCGImagePNG(raw, to: rawURL) }
+                if let annData = capturedAnnotationData {
                     try? annData.write(to: annURL, options: .atomic)
                 }
             }
+            Task { @MainActor [weak self] in
+                self?.pendingCompositedImages.removeValue(forKey: id)
+                self?.pendingEditableEntries.removeValue(forKey: id)
+            }
         }
+        memory.finish("scheduled async persistence", metadata: "pendingEditableEntries=\(pendingEditableEntries.count)")
     }
 
     /// Update an existing history entry in-place (for "Done" in editor).
     /// Rewrites the composited image, raw image, annotations, thumbnail, and preview.
     func updateEntry(id: String, compositedImage: NSImage, rawImage: NSImage?, annotations: [Annotation]?) {
         guard let idx = entries.firstIndex(where: { $0.id == id }) else { return }
+        var memory = MemoryDiagnostics.makeScope(
+            "ScreenshotHistory.updateEntry",
+            images: [("compositedImage", compositedImage), ("rawImage", rawImage)],
+            metadata: "id=\(id)"
+        )
 
         let hasAnns = annotations != nil && !(annotations!.isEmpty) && rawImage != nil
         entries[idx].hasAnnotations = hasAnns
+        pendingCompositedImages[id] = compositedImage
+        if hasAnns, let rawImage, let annotations {
+            pendingEditableEntries[id] = PendingEditableEntry(rawImage: rawImage, annotations: annotations)
+        } else {
+            pendingEditableEntries.removeValue(forKey: id)
+        }
 
         let annotationData: Data? = hasAnns ? AnnotationSerializer.encode(annotations!) : nil
 
@@ -154,27 +202,47 @@ class ScreenshotHistory {
         let thumb = makeScaledImage(compositedImage, maxDimension: 36)
         entries[idx].thumbnail = thumb
         saveIndex()
+        memory.step("updated in-memory thumbnail", images: [("thumbnail", thumb)], metadata: "hasAnnotations=\(hasAnns)")
 
         DispatchQueue.global(qos: .utility).async { [weak self] in
             guard let self = self else { return }
             // Memory optimization: use autoreleasepool to ensure temporary objects are released promptly
             autoreleasepool {
-                Self.writePNG(compositedImage, to: fileURL)
-                Self.writePNG(thumb, to: thumbURL)
-                let preview = self.makeScaledImage(compositedImage, maxDimension: 240)
-                Self.writePNG(preview, to: previewURL)
-                if let raw = rawImage {
-                    Self.writePNG(raw, to: rawURL)
-                } else {
-                    try? FileManager.default.removeItem(at: rawURL)
-                }
-                if let annData = annotationData {
-                    try? annData.write(to: annURL, options: .atomic)
-                } else {
-                    try? FileManager.default.removeItem(at: annURL)
+                // Capture CGImages on main thread first
+                Task { @MainActor [weak self] in
+                    guard let self = self else { return }
+                    guard let mainCGImage = compositedImage.cgImage(forProposedRect: nil, context: nil, hints: nil),
+                          let thumbCGImage = thumb.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
+                        return
+                    }
+                    let rawCGImage = rawImage?.cgImage(forProposedRect: nil, context: nil, hints: nil)
+
+                    DispatchQueue.global(qos: .utility).async {
+                        autoreleasepool {
+                            Self.writeCGImagePNG(mainCGImage, to: fileURL)
+                            Self.writeCGImagePNG(thumbCGImage, to: thumbURL)
+                            let preview = Self.makeScaledImageFromCGImage(mainCGImage, maxDimension: 240)
+                            Self.writeCGImagePNG(preview, to: previewURL)
+                            if let raw = rawCGImage {
+                                Self.writeCGImagePNG(raw, to: rawURL)
+                            } else {
+                                try? FileManager.default.removeItem(at: rawURL)
+                            }
+                            if let annData = annotationData {
+                                try? annData.write(to: annURL, options: .atomic)
+                            } else {
+                                try? FileManager.default.removeItem(at: annURL)
+                            }
+                        }
+                        Task { @MainActor [weak self] in
+                            self?.pendingCompositedImages.removeValue(forKey: id)
+                            self?.pendingEditableEntries.removeValue(forKey: id)
+                        }
+                    }
                 }
             }
         }
+        memory.finish("scheduled async rewrite", metadata: "pendingEditableEntries=\(pendingEditableEntries.count)")
     }
 
     func pruneToMax() {
@@ -184,6 +252,8 @@ class ScreenshotHistory {
         } else {
             while entries.count > max {
                 let removed = entries.removeLast()
+                pendingCompositedImages.removeValue(forKey: removed.id)
+                pendingEditableEntries.removeValue(forKey: removed.id)
                 deleteFiles(for: removed.id, ext: removed.fileExtension)
             }
             saveIndex()
@@ -193,6 +263,8 @@ class ScreenshotHistory {
     func removeEntry(id: String) {
         guard let index = entries.firstIndex(where: { $0.id == id }) else { return }
         let entry = entries.remove(at: index)
+        pendingCompositedImages.removeValue(forKey: id)
+        pendingEditableEntries.removeValue(forKey: id)
         deleteFiles(for: entry.id, ext: entry.fileExtension)
         saveIndex()
     }
@@ -202,6 +274,8 @@ class ScreenshotHistory {
             deleteFiles(for: entry.id, ext: entry.fileExtension)
         }
         entries.removeAll()
+        pendingCompositedImages.removeAll()
+        pendingEditableEntries.removeAll()
         saveIndex()
     }
 
@@ -215,6 +289,9 @@ class ScreenshotHistory {
     }
 
     func loadImage(for entry: HistoryEntry) -> NSImage? {
+        if let pending = pendingCompositedImages[entry.id] {
+            return pending
+        }
         let fileURL = historyDir.appendingPathComponent("\(entry.id).\(entry.fileExtension)")
         guard let data = try? Data(contentsOf: fileURL) else { return nil }
         return NSImage(data: data)
@@ -227,17 +304,43 @@ class ScreenshotHistory {
     /// Load the raw (un-annotated) screenshot for editable history entries.
     func loadRawImage(for entry: HistoryEntry) -> NSImage? {
         guard entry.hasAnnotations else { return nil }
+        if let pending = pendingEditableEntries[entry.id] {
+            MemoryDiagnostics.snapshot(
+                "ScreenshotHistory.loadRawImage",
+                images: [("rawImage", pending.rawImage)],
+                metadata: "source=pending id=\(entry.id)"
+            )
+            return pending.rawImage
+        }
         let rawURL = historyDir.appendingPathComponent("\(entry.id)_raw.png")
-        guard let data = try? Data(contentsOf: rawURL) else { return nil }
-        return NSImage(data: data)
+        guard let data = try? Data(contentsOf: rawURL),
+              let image = NSImage(data: data) else { return nil }
+        MemoryDiagnostics.snapshot(
+            "ScreenshotHistory.loadRawImage",
+            images: [("rawImage", image)],
+            metadata: "source=disk id=\(entry.id)"
+        )
+        return image
     }
 
     /// Load saved annotations for editable history entries.
     func loadAnnotations(for entry: HistoryEntry) -> [Annotation]? {
         guard entry.hasAnnotations else { return nil }
+        if let pending = pendingEditableEntries[entry.id] {
+            MemoryDiagnostics.snapshot(
+                "ScreenshotHistory.loadAnnotations",
+                metadata: "source=pending id=\(entry.id) count=\(pending.annotations.count)"
+            )
+            return pending.annotations
+        }
         let annURL = historyDir.appendingPathComponent("\(entry.id)_annotations.json")
         guard let data = try? Data(contentsOf: annURL) else { return nil }
-        return AnnotationSerializer.decode(data)
+        let annotations = AnnotationSerializer.decode(data)
+        MemoryDiagnostics.snapshot(
+            "ScreenshotHistory.loadAnnotations",
+            metadata: "source=disk id=\(entry.id) count=\(annotations?.count ?? 0)"
+        )
+        return annotations
     }
 
     func loadThumbnail(for entry: HistoryEntry) -> NSImage? {
@@ -259,7 +362,12 @@ class ScreenshotHistory {
 
         // Cache preview to disk for next time (fire and forget)
         DispatchQueue.global(qos: .utility).async {
-            Self.writePNG(preview, to: previewURL)
+            Task { @MainActor in
+                guard let cgPreview = preview.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return }
+                DispatchQueue.global(qos: .utility).async {
+                    Self.writeCGImagePNG(cgPreview, to: previewURL)
+                }
+            }
         }
 
         return preview
@@ -306,6 +414,8 @@ class ScreenshotHistory {
         } else {
             while entries.count > max {
                 let removed = entries.removeLast()
+                pendingCompositedImages.removeValue(forKey: removed.id)
+                pendingEditableEntries.removeValue(forKey: removed.id)
                 deleteFiles(for: removed.id, ext: removed.fileExtension)
             }
             if entries.count < indexEntries.count {
@@ -353,5 +463,38 @@ class ScreenshotHistory {
         else { return }
         CGImageDestinationAddImage(dest, cgImage, nil)
         CGImageDestinationFinalize(dest)
+    }
+
+    /// Write a CGImage to disk as PNG using CGImageDestination.
+    /// Sendable-safe version for background thread use.
+    private static func writeCGImagePNG(_ cgImage: CGImage, to url: URL) {
+        guard let dest = CGImageDestinationCreateWithURL(url as CFURL, UTType.png.identifier as CFString, 1, nil) else { return }
+        CGImageDestinationAddImage(dest, cgImage, nil)
+        CGImageDestinationFinalize(dest)
+    }
+
+    /// Scale a CGImage to fit within maxDimension on its longest side.
+    /// Sendable-safe version for background thread use.
+    private static func makeScaledImageFromCGImage(_ cgImage: CGImage, maxDimension: CGFloat) -> CGImage {
+        let width = CGFloat(cgImage.width)
+        let height = CGFloat(cgImage.height)
+        guard width > 0, height > 0 else { return cgImage }
+        let scale = min(maxDimension / width, maxDimension / height, 1.0)
+        let targetWidth = Int(round(width * scale))
+        let targetHeight = Int(round(height * scale))
+
+        // Use bitmap context for scaling
+        guard let context = CGContext(
+            data: nil,
+            width: targetWidth,
+            height: targetHeight,
+            bitsPerComponent: 8,
+            bytesPerRow: targetWidth * 4,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
+        ) else { return cgImage }
+
+        context.draw(cgImage, in: CGRect(x: 0, y: 0, width: targetWidth, height: targetHeight))
+        return context.makeImage() ?? cgImage
     }
 }

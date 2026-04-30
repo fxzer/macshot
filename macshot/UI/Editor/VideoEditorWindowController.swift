@@ -32,11 +32,36 @@ final class VideoEditorWindowController: NSObject, NSWindowDelegate {
         // Get content dimensions — MP4 uses AVAsset track info
         if url.pathExtension.lowercased() != "gif" {
             let asset = AVAsset(url: url)
-            if let track = asset.tracks(withMediaType: .video).first {
-                let size = track.naturalSize.applying(track.preferredTransform)
-                let backingScale = screen.backingScaleFactor
-                contentW = abs(size.width) / backingScale
-                contentH = abs(size.height) / backingScale
+            if #available(macOS 13.0, *) {
+                // Use new async load API on macOS 13+
+                Task {
+                    do {
+                        let videoTrack = try await asset.loadTracks(withMediaType: .video).first
+                        guard let track = videoTrack else { return }
+                        let size = try await track.load(.naturalSize).applying(try await track.load(.preferredTransform))
+                        let backingScale = screen.backingScaleFactor
+                        await MainActor.run {
+                            // Update window size if needed
+                            let newContentW = abs(size.width) / backingScale
+                            let newContentH = abs(size.height) / backingScale
+                            if newContentW > 0, newContentH > 0 {
+                                self.updateContentSize(width: newContentW, height: newContentH, screen: screen)
+                            }
+                        }
+                    } catch {
+                        #if DEBUG
+                        NSLog("Failed to load video track dimensions: \(error)")
+                        #endif
+                    }
+                }
+            } else {
+                // Fallback to deprecated sync API on macOS 12
+                if let track = asset.tracks(withMediaType: .video).first {
+                    let size = track.naturalSize.applying(track.preferredTransform)
+                    let backingScale = screen.backingScaleFactor
+                    contentW = abs(size.width) / backingScale
+                    contentH = abs(size.height) / backingScale
+                }
             }
         }
         // GIF: keep defaults — AVFoundation can't read GIF dimensions reliably
@@ -68,6 +93,21 @@ final class VideoEditorWindowController: NSObject, NSWindowDelegate {
 
         self.window = win
         self.editorView = view
+    }
+
+    private func updateContentSize(width: CGFloat, height: CGFloat, screen: NSScreen) {
+        let maxW = screen.frame.width * 0.7
+        let maxH = screen.frame.height * 0.6
+        let controlsH: CGFloat = 80
+
+        let scale = min(1.0, min(maxW / width, (maxH - controlsH) / height))
+        let winW = max(820, width * scale)
+        let winH = max(400, height * scale + controlsH)
+
+        guard let window else { return }
+        let winX = screen.frame.midX - winW / 2
+        let winY = screen.frame.midY - winH / 2
+        window.setFrame(NSRect(x: winX, y: winY, width: winW, height: winH), display: true)
     }
 
     func windowShouldClose(_ sender: NSWindow) -> Bool {
@@ -360,6 +400,23 @@ final class VideoEditorView: NSView {
                     self?.needsDisplay = true
                 }
             }
+        }
+    }
+
+    /// Update content size after async asset loading (macOS 13+)
+    private func updateContentSize(width: CGFloat, height: CGFloat, screen: NSScreen) {
+        let maxW = screen.frame.width * 0.7
+        let maxH = screen.frame.height * 0.6
+        let controlsH: CGFloat = 80
+
+        let scale = min(1.0, min(maxW / width, (maxH - controlsH) / height))
+        let winW = max(820, width * scale)
+        let winH = max(400, height * scale + controlsH)
+
+        if let window = self.window {
+            let winX = screen.frame.midX - winW / 2
+            let winY = screen.frame.midY - winH / 2
+            window.setFrame(NSRect(x: winX, y: winY, width: winW, height: winH), display: true)
         }
     }
 

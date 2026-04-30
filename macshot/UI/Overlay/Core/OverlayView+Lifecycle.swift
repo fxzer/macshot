@@ -105,6 +105,18 @@ extension OverlayView {
     }
 
     func reset() {
+        MemoryDiagnostics.snapshot(
+            "OverlayView.reset.before",
+            images: [
+                ("screenshotImage", screenshotImage),
+                ("cachedCompositedImage", cachedCompositedImage),
+                ("cachedAnnotationLayer", cachedAnnotationLayer),
+                ("cachedAnnotationLayerExcludingSelected", cachedAnnotationLayerExcludingSelected),
+                ("cachedEffectsScreenshot", cachedEffectsScreenshot),
+                ("snappedWindowImage", snappedWindowImage)
+            ],
+            metadata: "annotations=\(annotations.count) undo=\(undoStack.count) redo=\(redoStack.count) estimatedCache=\(MemoryDiagnostics.format(bytes: UInt64(estimatedCacheMemory)))"
+        )
         state = .idle
         selectionRect = .zero
         selectionWasRestoredFromMemory = false
@@ -179,5 +191,6 @@ extension OverlayView {
         cachedAnnotationLayerExcludingSelected = nil
         cachedEffectsScreenshot = nil
         needsDisplay = true
+        MemoryDiagnostics.snapshot("OverlayView.reset.after")
     }
 }

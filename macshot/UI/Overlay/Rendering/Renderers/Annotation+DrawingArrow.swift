@@ -197,7 +197,6 @@ extension Annotation {
         } else {
             startAngle = endAngle
         }
-        let spx = -sin(startAngle), spy = cos(startAngle)
 
         // Sizing — scale everything down when arrow is short
         let sizeScale = min(1.0, max(0.2, totalLen / 120))

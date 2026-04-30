@@ -93,9 +93,11 @@ class ToolOptionsRowView: NSView {
         stackView.orientation = .horizontal
         stackView.alignment = .centerY
         stackView.spacing = 8
+        stackView.edgeInsets = NSEdgeInsets(top: 0, left: 0, bottom: 0, right: 0)
+        stackView.setHuggingPriority(.required, for: .horizontal)
+        stackView.setContentCompressionResistancePriority(.required, for: .horizontal)
         NSLayoutConstraint.activate([
             stackView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: padding),
-            stackView.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -padding),
             stackView.centerYAnchor.constraint(equalTo: centerYAnchor),
             stackView.heightAnchor.constraint(equalTo: heightAnchor)
         ])
@@ -196,7 +198,10 @@ class ToolOptionsRowView: NSView {
     /// Rebuild the options row for the given tool. Call when tool or state changes.
     func rebuild(for tool: AnnotationTool) {
         strokeSliderView = nil
-        setFrameSize(NSSize(width: max(contentWidth, Self.defaultWidth), height: rowHeight))
+        // Keep the current frame while rebuilding. The row width is recomputed from the
+        // stack's fitting size at the end, so constraining the content to the previous
+        // placeholder width here only creates avoidable Auto Layout conflicts.
+        frame.size.height = rowHeight
         // Remove old subviews
         // Properly remove and de-anchor arranged subviews to prevent layout ambiguity or leaks
         while !stackView.arrangedSubviews.isEmpty {

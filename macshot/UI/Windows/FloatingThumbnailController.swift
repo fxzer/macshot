@@ -16,6 +16,7 @@ class FloatingThumbnailController: NSObject, NSDraggingSource {
     private var window: NSPanel?
     private var dismissTask: DispatchWorkItem?
     private(set) var image: NSImage
+    private let exportImageProvider: () -> NSImage?
     private(set) var anchorDisplayID: CGDirectDisplayID?
     private var thumbnailView: ThumbnailView?
     /// History entry ID — used to match and update the thumbnail when the editor saves.
@@ -34,8 +35,9 @@ class FloatingThumbnailController: NSObject, NSDraggingSource {
     var onCloseAll: (() -> Void)?
     var onSaveAll:  (() -> Void)?
 
-    init(image: NSImage) {
+    init(image: NSImage, exportImageProvider: @escaping () -> NSImage?) {
         self.image = image
+        self.exportImageProvider = exportImageProvider
         super.init()
     }
 
@@ -153,6 +155,10 @@ class FloatingThumbnailController: NSObject, NSDraggingSource {
         thumbnailView?.updateImage(newImage)
     }
 
+    func loadExportImage() -> NSImage? {
+        exportImageProvider() ?? image
+    }
+
     /// Animate this thumbnail to a new Y position (used when a lower thumbnail is dismissed).
     func moveTo(y: CGFloat) {
         guard let window = window else { return }
@@ -192,14 +198,16 @@ class FloatingThumbnailController: NSObject, NSDraggingSource {
 
     private func startDrag(event: NSEvent) {
         guard let view = thumbnailView else { return }
-        guard let encodedData = ImageEncoder.encode(image) else { return }
+        guard let exportImage = loadExportImage() else { return }
+        guard let encodedData = ImageEncoder.encode(exportImage) else { return }
 
         let tempURL = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("macshot_\(OverlayWindowController.formattedTimestamp()).\(ImageEncoder.fileExtension)")
         do { try encodedData.write(to: tempURL) } catch { return }
 
         let draggingItem = NSDraggingItem(pasteboardWriter: tempURL as NSURL)
-        draggingItem.setDraggingFrame(view.bounds, contents: image)
+        let previewFrame = view.dragPreviewFrame(for: exportImage.size)
+        draggingItem.setDraggingFrame(previewFrame, contents: exportImage)
         view.beginDraggingSession(with: [draggingItem], event: event, source: self)
         dismissTask?.cancel()
     }
@@ -500,5 +508,35 @@ private class ThumbnailView: NSView {
 
     func updateLocalization() {
         needsDisplay = true
+    }
+
+    func dragPreviewFrame(for imageSize: NSSize) -> NSRect {
+        let rect = bounds.integral
+        guard rect.width > 0,
+              rect.height > 0,
+              imageSize.width > 0,
+              imageSize.height > 0 else {
+            return rect
+        }
+
+        let imageAspect = imageSize.width / imageSize.height
+        let viewAspect = rect.width / rect.height
+        var previewSize = rect.size
+
+        if imageAspect > viewAspect {
+            previewSize.height = rect.width / imageAspect
+        } else {
+            previewSize.width = rect.height * imageAspect
+        }
+
+        previewSize.width = round(previewSize.width)
+        previewSize.height = round(previewSize.height)
+
+        return NSRect(
+            x: round(rect.midX - previewSize.width / 2),
+            y: round(rect.midY - previewSize.height / 2),
+            width: previewSize.width,
+            height: previewSize.height
+        )
     }
 }
