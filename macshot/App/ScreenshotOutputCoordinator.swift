@@ -27,7 +27,7 @@ final class ScreenshotOutputCoordinator: NSObject, PinWindowControllerDelegate {
     }
 
     var excludedWindowNumbers: [CGWindowID] {
-        Array(Set(thumbnailControllers.compactMap { $0.windowNumber })).sorted()
+        Array(Set(thumbnailControllers.compactMap { $0.windowNumberForCaptureExclusion })).sorted()
     }
 
     func hideThumbnails() {

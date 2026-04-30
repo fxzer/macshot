@@ -8,6 +8,10 @@ extension OverlayView {
     override func viewDidMoveToWindow() {
         let t0 = CFAbsoluteTimeGetCurrent()
         CaptureDiagnostics.log("[macshot-perf][overlayView] viewDidMoveToWindow BEGIN")
+        if let existing = mouseMovedTrackingArea {
+            removeTrackingArea(existing)
+            mouseMovedTrackingArea = nil
+        }
         super.viewDidMoveToWindow()
         CaptureDiagnostics.log(
             "[macshot-perf][overlayView] viewDidMoveToWindow super elapsed=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - t0) * 1000))ms"
@@ -20,6 +24,7 @@ extension OverlayView {
             owner: self,
             userInfo: nil)
         addTrackingArea(area)
+        mouseMovedTrackingArea = area
 
         windowSnapCooldown = true
         DispatchQueue.main.asyncAfter(deadline: .now() + Self.initialWindowSnapDelay) { [weak self] in

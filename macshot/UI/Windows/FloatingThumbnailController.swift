@@ -146,6 +146,13 @@ class FloatingThumbnailController: NSObject, NSDraggingSource {
         return CGWindowID(w.windowNumber)
     }
 
+    /// Only while the panel is ordered in. After `hideWindow()` (`orderOut`) the ID is not present in
+    /// `SCShareableContent` on-screen enumerations; passing it forces a full refresh and still resolves 0 matches.
+    var windowNumberForCaptureExclusion: CGWindowID? {
+        guard let w = window, w.isVisible else { return nil }
+        return CGWindowID(w.windowNumber)
+    }
+
     func hideWindow() { window?.orderOut(nil) }
     func showWindow() { window?.orderFront(nil) }
 

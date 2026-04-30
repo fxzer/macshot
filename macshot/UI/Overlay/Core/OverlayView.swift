@@ -59,6 +59,9 @@ class OverlayView: NSView {
 
     var state: State = .idle
 
+    /// Mouse-moved tracking installed in `viewDidMoveToWindow`; removed before re-adding to avoid stacking areas.
+    var mouseMovedTrackingArea: NSTrackingArea?
+
     // Debounce timer for scroll wheel property adjustments (prevents memory explosion)
     var scrollPropertyAdjustTimer: Timer?
     var pendingScrollPropertyCommit: (() -> Void)?
