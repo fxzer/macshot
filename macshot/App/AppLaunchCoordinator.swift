@@ -54,6 +54,7 @@ final class AppLaunchCoordinator: NSObject {
             updaterDelegate: updaterDelegate,
             userDriverDelegate: nil
         )
+        TemporaryFileManager.cleanupOnLaunch()
         PostCaptureActionPreferences.migrateIfNeeded()
         AspectRatioPreferences.migrateIfNeeded()
 

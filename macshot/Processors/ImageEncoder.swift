@@ -212,10 +212,9 @@ enum ImageEncoder {
         DispatchQueue.global(qos: .userInitiated).async {
             guard let bitmap = makeBitmap(image),
                   let pngData = bitmap.representation(using: .png, properties: [:]) else { return }
-            // Write a temp file so Finder can paste it as a file
-            let tmpURL = FileManager.default.temporaryDirectory
-                .appendingPathComponent("macshot-clipboard-\(UUID().uuidString).png")
-            let fileURL: URL? = (try? pngData.write(to: tmpURL)) != nil ? tmpURL : nil
+            // Write a temp file so Finder can paste it as a file.
+            // Reuse a single stable path to avoid unbounded tmp growth.
+            let fileURL = TemporaryFileManager.writeClipboardImageData(pngData)
             DispatchQueue.main.async {
                 // Declare both types so image editors get PNG data and Finder gets a file URL.
                 var types: [NSPasteboard.PasteboardType] = [.png]
