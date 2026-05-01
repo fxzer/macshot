@@ -33,7 +33,7 @@ extension OverlayView {
         }
 
         if showToolbars {
-            scheduleDeferredToolbarRebuild()
+            scheduleDeferredToolbarRebuild(reason: "viewDidMoveToWindow")
         }
 
         NotificationCenter.default.removeObserver(

@@ -286,6 +286,9 @@ class OverlayView: NSView {
     // MARK: - Setup
 
     deinit {
+        CaptureDiagnostics.log(
+            "[macshot-life][OverlayView] deinit tool=\(String(describing: currentTool)) annotations=\(annotations.count) undo=\(undoStack.count) redo=\(redoStack.count) cacheEstimate=\(MemoryDiagnostics.format(bytes: UInt64(estimatedCacheMemory))) mem=\(MemoryDiagnostics.currentSummary())"
+        )
         // Clean up all timers to prevent memory leaks
         resetZoomUIState()
 

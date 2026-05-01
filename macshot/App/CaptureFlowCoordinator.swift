@@ -47,6 +47,9 @@ final class CaptureFlowCoordinator {
 
     func beginCapture(intent: CaptureIntent, triggerOrigin: String) {
         CaptureDiagnostics.log("[macshot-perf] ========== beginCapture intent=\(intent.debugName) origin=\(triggerOrigin) ==========")
+        CaptureDiagnostics.log(
+            "[macshot-mem][capture] beginCapture intent=\(intent.debugName) origin=\(triggerOrigin) \(MemoryDiagnostics.currentSummary()) overlays=\(overlayControllersStorage.count)"
+        )
         MemoryDiagnostics.snapshot(
             "CaptureFlow.beginCapture",
             metadata: "intent=\(intent.debugName) origin=\(triggerOrigin) overlays=\(overlayControllersStorage.count)"
@@ -77,6 +80,9 @@ final class CaptureFlowCoordinator {
         if refocusPreviousApp {
             dependencies.restoreFocusIfNeeded()
         }
+        CaptureDiagnostics.log(
+            "[macshot-mem][capture] dismissOverlays.after overlayCount=\(overlayControllersStorage.count) \(MemoryDiagnostics.currentSummary())"
+        )
         MemoryDiagnostics.snapshot("CaptureFlow.dismissOverlays.after", metadata: "overlayCount=\(overlayControllersStorage.count)")
     }
 
@@ -509,6 +515,9 @@ final class CaptureFlowCoordinator {
         controller.onFirstFrameShown = {
             CaptureDiagnostics.log(
                 "[macshot-perf][overlay] FIRST FRAME DRAWN total=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - t0) * 1000))ms screen=\(screenName)"
+            )
+            CaptureDiagnostics.log(
+                "[macshot-mem][overlay] FIRST FRAME DRAWN screen=\(screenName) \(MemoryDiagnostics.currentSummary())"
             )
         }
         if activeCaptureIntent?.startsInRecordingMode == true {

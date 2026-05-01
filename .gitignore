@@ -10,3 +10,4 @@ DerivedData/
 *.app/
 .superpowers
 superpowers
+*.log

@@ -272,7 +272,7 @@ extension ToolOptionsRowView {
             UserDefaults.standard.set(family, forKey: "textFontFamily")
             ov.textEditor.applyFontSizeChange()
             ov.applyTextFormattingToSelectedAnnotations()
-            ov.rebuildToolbarLayout()
+            ov.requestToolbarRebuild(reason: "fontFamily")
             ov.needsDisplay = true
             PopoverHelper.dismiss()
         }

@@ -61,7 +61,11 @@ enum AutoRedactor {
         sourceImageBounds: NSRect,
         completion: @escaping ([Annotation]) -> Void
     ) {
-        let cgImage = cropToCGImage(screenshot: screenshot, selectionRect: selectionRect, captureDrawRect: captureDrawRect)
+        let cgImage = VisionOCR.cropSelectionToCGImage(
+            screenshot: screenshot,
+            selectionRect: selectionRect,
+            captureDrawRect: captureDrawRect
+        )
         guard let cgImage = cgImage else { DispatchQueue.main.async { completion([]) }; return }
 
         let censorMode = CensorMode(rawValue: UserDefaults.standard.integer(forKey: "censorMode")) ?? .pixelate
@@ -98,7 +102,11 @@ enum AutoRedactor {
         sourceImageBounds: NSRect,
         completion: @escaping ([Annotation]) -> Void
     ) {
-        let cgImage = cropToCGImage(screenshot: screenshot, selectionRect: selectionRect, captureDrawRect: captureDrawRect)
+        let cgImage = VisionOCR.cropSelectionToCGImage(
+            screenshot: screenshot,
+            selectionRect: selectionRect,
+            captureDrawRect: captureDrawRect
+        )
         guard let cgImage = cgImage else { DispatchQueue.main.async { completion([]) }; return }
 
         let censorMode = CensorMode(rawValue: UserDefaults.standard.integer(forKey: "censorMode")) ?? .pixelate
@@ -158,7 +166,11 @@ enum AutoRedactor {
         sourceImageBounds: NSRect,
         completion: @escaping ([Annotation]) -> Void
     ) {
-        let cgImage = cropToCGImage(screenshot: screenshot, selectionRect: selectionRect, captureDrawRect: captureDrawRect)
+        let cgImage = VisionOCR.cropSelectionToCGImage(
+            screenshot: screenshot,
+            selectionRect: selectionRect,
+            captureDrawRect: captureDrawRect
+        )
         guard let cgImage = cgImage else { DispatchQueue.main.async { completion([]) }; return }
 
         let censorMode = CensorMode(rawValue: UserDefaults.standard.integer(forKey: "censorMode")) ?? .pixelate
@@ -216,7 +228,11 @@ enum AutoRedactor {
         sourceImageBounds: NSRect,
         completion: @escaping ([Annotation]) -> Void
     ) {
-        let cgImage = cropToCGImage(screenshot: screenshot, selectionRect: selectionRect, captureDrawRect: captureDrawRect)
+        let cgImage = VisionOCR.cropSelectionToCGImage(
+            screenshot: screenshot,
+            selectionRect: selectionRect,
+            captureDrawRect: captureDrawRect
+        )
         guard let cgImage = cgImage else { DispatchQueue.main.async { completion([]) }; return }
 
         let censorMode = CensorMode(rawValue: UserDefaults.standard.integer(forKey: "censorMode")) ?? .pixelate
@@ -264,38 +280,6 @@ enum AutoRedactor {
     }
 
     // MARK: - Helpers
-
-    private static func cropToCGImage(screenshot: NSImage, selectionRect: NSRect, captureDrawRect: NSRect) -> CGImage? {
-        guard
-            !selectionRect.isEmpty,
-            !captureDrawRect.isEmpty,
-            let cgImage = screenshot.cgImage(forProposedRect: nil, context: nil, hints: nil)
-        else { return nil }
-
-        let croppedSelection = selectionRect.intersection(captureDrawRect)
-        guard !croppedSelection.isEmpty else { return nil }
-
-        let normalizedX = (croppedSelection.minX - captureDrawRect.minX) / captureDrawRect.width
-        let normalizedY = (croppedSelection.minY - captureDrawRect.minY) / captureDrawRect.height
-        let normalizedWidth = croppedSelection.width / captureDrawRect.width
-        let normalizedHeight = croppedSelection.height / captureDrawRect.height
-
-        let cgWidth = CGFloat(cgImage.width)
-        let cgHeight = CGFloat(cgImage.height)
-        let rawMinX = max(0, normalizedX * cgWidth)
-        let rawMinY = max(0, (1.0 - normalizedY - normalizedHeight) * cgHeight)
-        let rawMaxX = min(cgWidth, rawMinX + normalizedWidth * cgWidth)
-        let rawMaxY = min(cgHeight, rawMinY + normalizedHeight * cgHeight)
-        let pixelRect = CGRect(
-            x: floor(rawMinX),
-            y: floor(rawMinY),
-            width: max(0, ceil(rawMaxX) - floor(rawMinX)),
-            height: max(0, ceil(rawMaxY) - floor(rawMinY))
-        )
-
-        guard pixelRect.width > 0, pixelRect.height > 0 else { return nil }
-        return cgImage.cropping(to: pixelRect)
-    }
 
     private static func buildPIIRedactions(
         observations: [VNRecognizedTextObservation],

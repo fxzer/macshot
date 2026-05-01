@@ -135,6 +135,10 @@ enum MemoryDiagnostics {
         ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .memory)
     }
 
+    static func currentSummary() -> String {
+        currentSnapshot()?.compactDescription ?? "snapshot=unavailable"
+    }
+
     static func estimatedBytes(for image: NSImage?) -> UInt64 {
         guard let image else { return 0 }
         if let rep = image.representations.first {

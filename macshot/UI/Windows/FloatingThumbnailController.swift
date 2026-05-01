@@ -19,6 +19,7 @@ class FloatingThumbnailController: NSObject, NSDraggingSource {
     private let exportImageProvider: () -> NSImage?
     private(set) var anchorDisplayID: CGDirectDisplayID?
     private var thumbnailView: ThumbnailView?
+    private var dragTemporaryURL: URL?
     /// History entry ID — used to match and update the thumbnail when the editor saves.
     var historyEntryID: String?
     /// The intended final frame — used instead of window.frame to avoid reading
@@ -39,6 +40,11 @@ class FloatingThumbnailController: NSObject, NSDraggingSource {
         self.image = image
         self.exportImageProvider = exportImageProvider
         super.init()
+    }
+
+    deinit {
+        let message = "[macshot-life][FloatingThumbnail] deinit historyEntryID=\(historyEntryID ?? "nil") hasWindow=\(window != nil) mem=\(MemoryDiagnostics.currentSummary())"
+        CaptureDiagnostics.log(message)
     }
 
     // MARK: - Show
@@ -130,6 +136,7 @@ class FloatingThumbnailController: NSObject, NSDraggingSource {
     func dismiss() {
         dismissTask?.cancel()
         dismissTask = nil
+        cleanupDragTemporaryFile()
         window?.orderOut(nil)
         window?.close()
         window = nil
@@ -208,9 +215,11 @@ class FloatingThumbnailController: NSObject, NSDraggingSource {
         guard let exportImage = loadExportImage() else { return }
         guard let encodedData = ImageEncoder.encode(exportImage) else { return }
 
+        cleanupDragTemporaryFile()
         let tempURL = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("macshot_\(OverlayWindowController.formattedTimestamp()).\(ImageEncoder.fileExtension)")
         do { try encodedData.write(to: tempURL) } catch { return }
+        dragTemporaryURL = tempURL
 
         let draggingItem = NSDraggingItem(pasteboardWriter: tempURL as NSURL)
         let previewFrame = view.dragPreviewFrame(for: exportImage.size)
@@ -220,7 +229,16 @@ class FloatingThumbnailController: NSObject, NSDraggingSource {
     }
 
     func draggingSession(_ session: NSDraggingSession, sourceOperationMaskFor context: NSDraggingContext) -> NSDragOperation { .copy }
-    func draggingSession(_ session: NSDraggingSession, endedAt screenPoint: NSPoint, operation: NSDragOperation) { dismiss() }
+    func draggingSession(_ session: NSDraggingSession, endedAt screenPoint: NSPoint, operation: NSDragOperation) {
+        cleanupDragTemporaryFile()
+        dismiss()
+    }
+
+    private func cleanupDragTemporaryFile() {
+        guard let dragTemporaryURL else { return }
+        try? FileManager.default.removeItem(at: dragTemporaryURL)
+        self.dragTemporaryURL = nil
+    }
 
     func updateLocalization() {
         // Update thumbnail view localization

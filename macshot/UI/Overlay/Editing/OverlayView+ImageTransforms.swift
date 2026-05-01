@@ -161,7 +161,7 @@ extension OverlayView {
         selectedAnnotation = ann
 
         expandCanvasToFitAnnotations()
-        rebuildToolbarLayout()
+        requestToolbarRebuild(reason: "imageTransform")
         needsDisplay = true
     }
 

@@ -263,7 +263,7 @@ extension OverlayView {
             resetZoom()
         }
         currentTool = .arrow
-        rebuildToolbarLayout()
+        requestToolbarRebuild(reason: "zoomCrop")
         needsDisplay = true
     }
 

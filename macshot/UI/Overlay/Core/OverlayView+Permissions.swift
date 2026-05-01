@@ -371,8 +371,8 @@ extension OverlayView {
     // MARK: - Cleanup
 
     func resetPermissionState() {
-        micLevelTimer?.invalidate()
-        micLevelTimer = nil
+        stopMicLevelMonitor()
+        dismissWebcamSetupPreview()
     }
 }
 

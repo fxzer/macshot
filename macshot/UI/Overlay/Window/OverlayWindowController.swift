@@ -84,6 +84,11 @@ class OverlayWindowController {
     var sessionRecordingDelay: Int? { overlayView?.sessionRecordingDelay }
     var sessionRecordingControlsMode: String? { overlayView?.sessionRecordingControlsMode }
 
+    deinit {
+        let message = "[macshot-life][OWC] deinit screen=\(screen.localizedName) hasWindow=\(overlayWindow != nil) hasOverlayView=\(overlayView != nil) hasAsset=\(captureAsset != nil) mem=\(MemoryDiagnostics.currentSummary())"
+        CaptureDiagnostics.log(message)
+    }
+
     init(screen: NSScreen) {
         var perf = PerfMonitor(label: "OWC.init[\(screen.localizedName)]")
         self.screen = screen
@@ -155,6 +160,9 @@ class OverlayWindowController {
             memory.step("prepareCaptureImageInBackground", metadata: "windowVisible=true")
         }
         memory.finish("capture applied")
+        CaptureDiagnostics.log(
+            "[macshot-mem][OWC.capture] applied screen=\(capture.screen.localizedName) image=\(capture.asset.displayCGImage.width)x\(capture.asset.displayCGImage.height) cacheEstimate=\(MemoryDiagnostics.format(bytes: UInt64(overlayView?.estimatedCacheMemory ?? 0))) \(MemoryDiagnostics.currentSummary())"
+        )
     }
 
     func showOverlay() {
@@ -178,6 +186,9 @@ class OverlayWindowController {
         perf.step("presentWindow")
         perf.finish()
         memory.finish("presented", metadata: "windowVisible=\(window.isVisible)")
+        CaptureDiagnostics.log(
+            "[macshot-mem][OWC.showOverlay] presented screen=\(screen.localizedName) windowVisible=\(window.isVisible) \(MemoryDiagnostics.currentSummary())"
+        )
     }
 
     func makeKey() {
@@ -360,21 +371,28 @@ class OverlayWindowController {
         let cacheSummary = overlayView.map {
             "annotations=\($0.annotations.count) undo=\($0.undoStack.count) redo=\($0.redoStack.count) cacheEstimate=\(MemoryDiagnostics.format(bytes: UInt64($0.estimatedCacheMemory)))"
         } ?? "overlayView=nil"
+        weak var dismissedWindow = overlayWindow
+        weak var dismissedView = overlayView
+        weak var dismissedAsset = captureAsset
+        let screenName = screen.localizedName
         MemoryDiagnostics.snapshot(
             "OverlayWindowController.dismiss.before",
             images: [
                 ("screenshotImage", overlayView?.screenshotImage),
                 ("snappedWindowImage", overlayView?.snappedWindowImage)
             ],
-            metadata: "screen=\(screen.localizedName) \(cacheSummary)"
+            metadata: "screen=\(screenName) \(cacheSummary)"
         )
         backgroundRemovalToken?.cancel()
         backgroundRemovalToken = nil
+        shareDelegate = nil
+        onFirstFrameShown = nil
         saveSelectionIfNeeded()
 
         // Memory optimization: use autoreleasepool to ensure screenshotImage,
         // captureAsset, and other large objects are released promptly
         autoreleasepool {
+            overlayView?.onFirstFrameDrawn = nil
             overlayView?.reset()
             overlayView?.screenshotImage = nil
             captureAsset?.releaseColorSamplingImage()
@@ -387,7 +405,20 @@ class OverlayWindowController {
             overlayWindow = nil
         }
         NSCursor.arrow.set()
-        MemoryDiagnostics.snapshot("OverlayWindowController.dismiss.after", metadata: "screen=\(screen.localizedName)")
+        MemoryDiagnostics.snapshot("OverlayWindowController.dismiss.after", metadata: "screen=\(screenName)")
+        CaptureDiagnostics.log(
+            "[macshot-mem][OWC.dismiss] screen=\(screenName) \(MemoryDiagnostics.currentSummary())"
+        )
+        DispatchQueue.main.async {
+            CaptureDiagnostics.log(
+                "[macshot-life][OWC.dismissDrain] phase=nextRunLoop screen=\(screenName) windowAlive=\(dismissedWindow != nil) viewAlive=\(dismissedView != nil) assetAlive=\(dismissedAsset != nil) mem=\(MemoryDiagnostics.currentSummary())"
+            )
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            CaptureDiagnostics.log(
+                "[macshot-life][OWC.dismissDrain] phase=0.5s screen=\(screenName) windowAlive=\(dismissedWindow != nil) viewAlive=\(dismissedView != nil) assetAlive=\(dismissedAsset != nil) mem=\(MemoryDiagnostics.currentSummary())"
+            )
+        }
     }
 
     func saveSelectionIfNeeded() {

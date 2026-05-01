@@ -26,6 +26,12 @@ final class CaptureImageAsset {
         )
     }
 
+    deinit {
+        CaptureDiagnostics.log(
+            "[macshot-life][CaptureImageAsset] deinit cgImage=\(displayCGImage.width)x\(displayCGImage.height) cachedColorSampling=\(hasCachedColorSamplingImage) mem=\(MemoryDiagnostics.currentSummary())"
+        )
+    }
+
     convenience init?(
         displayImage: NSImage,
         standardizer: @escaping @Sendable (CGImage) -> CGImage?

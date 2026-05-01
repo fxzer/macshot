@@ -19,14 +19,14 @@ extension OverlayView {
             existingText: existingText, existingFrame: existingFrame,
             canvas: self)
         textEditor.textView?.delegate = self
-        rebuildToolbarLayout()
+        requestToolbarRebuild(reason: "textEditing")
         needsDisplay = true
     }
 
     func cancelTextEditing() {
         textEditor.cancel(canvas: self)
         window?.makeFirstResponder(self)
-        rebuildToolbarLayout()
+        requestToolbarRebuild(reason: "textEditing")
         needsDisplay = true
     }
 
@@ -34,7 +34,7 @@ extension OverlayView {
         guard textEditor.isEditing else { return }
         textEditor.commit(canvas: self)
         window?.makeFirstResponder(self)
-        rebuildToolbarLayout()
+        requestToolbarRebuild(reason: "textEditing")
         needsDisplay = true
     }
 }

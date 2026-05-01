@@ -261,14 +261,14 @@ extension OverlayView {
     @objc private func micMenuNone() {
         UserDefaults.standard.set(false, forKey: "recordMicAudio")
         stopMicLevelMonitor()
-        rebuildToolbarLayout()
+        requestToolbarRebuild(reason: "micMenu")
     }
 
     @objc private func micMenuSelectDevice(_ sender: NSMenuItem) {
         guard let uid = sender.representedObject as? String else { return }
         UserDefaults.standard.set(uid, forKey: "selectedMicDeviceUID")
         UserDefaults.standard.set(true, forKey: "recordMicAudio")
-        rebuildToolbarLayout()
+        requestToolbarRebuild(reason: "micMenu")
         startMicLevelMonitor()
     }
 
@@ -298,7 +298,7 @@ extension OverlayView {
         var shouldRebuildToolbar = false
         defer {
             if shouldRebuildToolbar {
-                rebuildToolbarLayout()
+                requestToolbarRebuild(reason: "toolbarAction")
             }
         }
 
@@ -333,7 +333,6 @@ extension OverlayView {
             if currentTool != .select && currentTool != .marker {
                 clearDrawingCursorPreview()
             }
-            toolOptionsRowView?.rebuild(for: currentTool)
             needsDisplay = true
         case .loupe:
             shouldRebuildToolbar = true
@@ -521,12 +520,19 @@ extension OverlayView {
     // MARK: - Toolbar Layout
 
     /// Rebuild toolbar button content. Call when tool, color, or state changes — NOT on every draw.
-    func rebuildToolbarLayout() {
+    func rebuildToolbarLayout(reason explicitReason: String? = nil) {
         let t0 = CFAbsoluteTimeGetCurrent()
-        CaptureDiagnostics.log("[macshot-perf][toolbar] rebuild BEGIN")
+        toolbarRebuildSequence += 1
+        let rebuildID = toolbarRebuildSequence
+        let reason = explicitReason ?? pendingToolbarRebuildReason ?? "direct"
+        pendingToolbarRebuildReason = nil
+        CaptureDiagnostics.log(
+            "[macshot-perf][toolbar] rebuild BEGIN id=\(rebuildID) reason=\(reason) tool=\(String(describing: currentTool)) state=\(String(describing: state)) annotations=\(annotations.count) selected=\(selectedAnnotations.count) showToolbars=\(showToolbars)"
+        )
         hoveredTooltip = nil
         hoveredTooltipButtonView = nil
 
+        let buttonModelT0 = CFAbsoluteTimeGetCurrent()
         let movableAnnotations = annotations.contains { $0.isMovable }
         bottomButtons = ToolbarLayout.bottomButtons(
             selectedTool: currentTool, selectedColor: currentColor,
@@ -542,8 +548,12 @@ extension OverlayView {
             translateEnabled: translateEnabled,
             isRecording: isRecording,
             isEditorMode: isEditorMode)
+        CaptureDiagnostics.log(
+            "[macshot-perf][toolbar] rebuild STEP id=\(rebuildID) buttonModels elapsed=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - buttonModelT0) * 1000))ms bottomCount=\(bottomButtons.count) rightCount=\(rightButtons.count)"
+        )
 
         let parent = chromeParentView ?? self
+        let stripCreationT0 = CFAbsoluteTimeGetCurrent()
         if bottomStripView == nil {
             let strip = ToolbarStripView(orientation: .horizontal)
             parent.addSubview(strip)
@@ -554,12 +564,19 @@ extension OverlayView {
             parent.addSubview(strip)
             rightStripView = strip
         }
+        CaptureDiagnostics.log(
+            "[macshot-perf][toolbar] rebuild STEP id=\(rebuildID) ensureStrips elapsed=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - stripCreationT0) * 1000))ms parent=\(chromeParentView == nil ? "overlay" : "chromeParent")"
+        )
 
+        var bottomMode = "noop"
+        let bottomStripT0 = CFAbsoluteTimeGetCurrent()
         if bottomStripView?.buttonViews.count == bottomButtons.count
             && bottomStripView?.buttonViews.count ?? 0 > 0
         {
+            bottomMode = "updateState"
             bottomStripView?.updateState(from: bottomButtons)
         } else {
+            bottomMode = "setButtons"
             bottomStripView?.setButtons(bottomButtons)
             bottomStripView?.onClick = { [weak self] action in self?.handleToolbarAction(action) }
             bottomStripView?.onRightClick = { [weak self] action, view in
@@ -569,11 +586,19 @@ extension OverlayView {
                 self?.handleToolbarButtonHover(action, hovered: hovered, strip: self?.bottomStripView)
             }
         }
+        CaptureDiagnostics.log(
+            "[macshot-perf][toolbar] rebuild STEP id=\(rebuildID) bottomStrip elapsed=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - bottomStripT0) * 1000))ms mode=\(bottomMode)"
+        )
+
+        var rightMode = "noop"
+        let rightStripT0 = CFAbsoluteTimeGetCurrent()
         if rightStripView?.buttonViews.count == rightButtons.count
             && rightStripView?.buttonViews.count ?? 0 > 0
         {
+            rightMode = "updateState"
             rightStripView?.updateState(from: rightButtons)
         } else {
+            rightMode = "setButtons"
             rightStripView?.setButtons(rightButtons)
             rightStripView?.onClick = { [weak self] action in self?.handleToolbarAction(action) }
             rightStripView?.onRightClick = { [weak self] action, view in
@@ -583,6 +608,11 @@ extension OverlayView {
                 self?.handleToolbarButtonHover(action, hovered: hovered, strip: self?.rightStripView)
             }
         }
+        CaptureDiagnostics.log(
+            "[macshot-perf][toolbar] rebuild STEP id=\(rebuildID) rightStrip elapsed=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - rightStripT0) * 1000))ms mode=\(rightMode)"
+        )
+
+        let moveButtonT0 = CFAbsoluteTimeGetCurrent()
         for bv in rightStripView?.buttonViews ?? [] {
             if case .moveSelection = bv.action, bv.onMouseDown == nil {
                 bv.onMouseDown = { [weak self] _ in self?.handleToolbarAction(.moveSelection) }
@@ -596,7 +626,12 @@ extension OverlayView {
                 }
             }
         }
+        CaptureDiagnostics.log(
+            "[macshot-perf][toolbar] rebuild STEP id=\(rebuildID) moveHook elapsed=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - moveButtonT0) * 1000))ms"
+        )
 
+        var optionsMode = "hidden"
+        let optionsT0 = CFAbsoluteTimeGetCurrent()
         if toolHasOptionsRow {
             if toolOptionsRowView == nil {
                 let row = ToolOptionsRowView(
@@ -610,18 +645,36 @@ extension OverlayView {
                 row.overlayView = self
                 parent.addSubview(row)
                 toolOptionsRowView = row
+                optionsMode = "create"
             }
             if let ann = selectedAnnotation, toolOptionsRowView?.editingAnnotation === ann {
+                optionsMode = optionsMode == "create" ? "create+updateSwatch" : "updateSwatch"
                 toolOptionsRowView?.updateSwatchColors()
             } else {
+                optionsMode = optionsMode == "create" ? "create+rebuild" : "rebuild"
                 toolOptionsRowView?.rebuild(for: currentTool)
             }
         }
+        CaptureDiagnostics.log(
+            "[macshot-perf][toolbar] rebuild STEP id=\(rebuildID) toolOptions elapsed=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - optionsT0) * 1000))ms mode=\(optionsMode)"
+        )
 
+        let positioningT0 = CFAbsoluteTimeGetCurrent()
         repositionToolbars()
+        CaptureDiagnostics.log(
+            "[macshot-perf][toolbar] rebuild STEP id=\(rebuildID) reposition elapsed=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - positioningT0) * 1000))ms"
+        )
+
+        let undoT0 = CFAbsoluteTimeGetCurrent()
         updateUndoRedoButtonStates()
         CaptureDiagnostics.log(
-            "[macshot-perf][toolbar] rebuild DONE elapsed=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - t0) * 1000))ms"
+            "[macshot-perf][toolbar] rebuild STEP id=\(rebuildID) undoRedo elapsed=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - undoT0) * 1000))ms"
+        )
+        CaptureDiagnostics.log(
+            "[macshot-perf][toolbar] rebuild DONE id=\(rebuildID) elapsed=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - t0) * 1000))ms reason=\(reason) bottomMode=\(bottomMode) rightMode=\(rightMode) options=\(optionsMode)"
+        )
+        CaptureDiagnostics.log(
+            "[macshot-mem][toolbar] rebuild DONE id=\(rebuildID) reason=\(reason) cacheEstimate=\(MemoryDiagnostics.format(bytes: UInt64(estimatedCacheMemory))) \(MemoryDiagnostics.currentSummary())"
         )
     }
 
@@ -644,16 +697,41 @@ extension OverlayView {
         }
     }
 
-    /// Coalesced async toolbar rebuild — avoids blocking event handling (e.g. mouseUp after marquee).
-    func scheduleDeferredToolbarRebuild() {
+    func requestToolbarRebuild(reason: String = "deferred") {
         guard showToolbars else { return }
-        guard !pendingToolbarRebuild else { return }
+        scheduleDeferredToolbarRebuild(reason: reason)
+    }
+
+    /// Coalesced async toolbar rebuild — avoids blocking event handling (e.g. mouseUp after marquee).
+    func scheduleDeferredToolbarRebuild(reason: String = "deferred") {
+        guard showToolbars else {
+            CaptureDiagnostics.log(
+                "[macshot-perf][toolbar] schedule SKIP reason=\(reason) showToolbars=false"
+            )
+            return
+        }
+        guard !pendingToolbarRebuild else {
+            if let existingReason = pendingToolbarRebuildReason,
+               !existingReason.contains(reason) {
+                pendingToolbarRebuildReason = "\(existingReason)|\(reason)"
+            } else if pendingToolbarRebuildReason == nil {
+                pendingToolbarRebuildReason = reason
+            }
+            CaptureDiagnostics.log(
+                "[macshot-perf][toolbar] schedule COALESCE reason=\(reason) pendingReason=\(pendingToolbarRebuildReason ?? reason)"
+            )
+            return
+        }
         pendingToolbarRebuild = true
+        pendingToolbarRebuildReason = reason
+        CaptureDiagnostics.log("[macshot-perf][toolbar] schedule reason=\(reason)")
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
+            let rebuildReason = self.pendingToolbarRebuildReason ?? reason
             self.pendingToolbarRebuild = false
+            self.pendingToolbarRebuildReason = nil
             guard self.showToolbars, self.window != nil else { return }
-            self.rebuildToolbarLayout()
+            self.rebuildToolbarLayout(reason: rebuildReason)
         }
     }
 

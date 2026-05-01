@@ -35,12 +35,12 @@ class ScreenCaptureManager {
     // MARK: - SCShareableContent cache
 
     /// Cached shareable content to avoid repeated (slow) enumeration.
-    private static let cacheTTL: TimeInterval = 120.0
+    private static let cacheTTL: TimeInterval = 600.0
     private static let screenshotWarmTTL: TimeInterval = 10.0
 
     /// Fetch shareable content, using a short-lived cache to avoid redundant enumeration.
     private static func shareableContent() async throws -> SCShareableContent {
-        try await CacheManager.shared.shareableContent()
+        try await CacheManager.shared.shareableContent(cacheTTL: cacheTTL).content
     }
 
     /// Returns shareable content plus `SCWindow` values for exclusion. Uses the cached
@@ -53,11 +53,21 @@ class ScreenCaptureManager {
             metadata: "excludedWindowNumbers=\(excludingWindowNumbers.count)"
         )
         if excludingWindowNumbers.isEmpty {
-            let content = try await shareableContent()
-            perf.step("cached content (no exclusions)")
+            let resolved = try await CacheManager.shared.shareableContent(cacheTTL: cacheTTL)
+            let content = resolved.content
+            let sourceLabel: String
+            switch resolved.source {
+            case .cached:
+                sourceLabel = "cache HIT"
+            case .inFlight:
+                sourceLabel = "cache WAIT inFlight"
+            case .freshFetch:
+                sourceLabel = "cache MISS fetched"
+            }
+            perf.step("\(sourceLabel) (no exclusions)")
             memory.finish(
                 "no exclusions",
-                metadata: "displays=\(content.displays.count) windows=\(content.windows.count)"
+                metadata: "source=\(sourceLabel) displays=\(content.displays.count) windows=\(content.windows.count)"
             )
             return (content, [])
         }
@@ -388,6 +398,11 @@ class ScreenCaptureManager {
                     images: [("displayImage", capture?.asset.displayImage)],
                     metadata: "display=\(display.displayID) colorSamplingCached=\(capture?.asset.hasCachedColorSamplingImage == true)"
                 )
+                if let capture {
+                    CaptureDiagnostics.log(
+                        "[macshot-mem][capture1] screen=\(matchedScreen.localizedName) display=\(display.displayID) image=\(capture.asset.displayCGImage.width)x\(capture.asset.displayCGImage.height) \(MemoryDiagnostics.currentSummary())"
+                    )
+                }
                 await MainActor.run { completion(capture) }
             } catch {
                 #if DEBUG
@@ -474,6 +489,17 @@ class ScreenCaptureManager {
 private actor CacheManager {
     static let shared = CacheManager()
 
+    enum ShareableContentSource {
+        case cached
+        case inFlight
+        case freshFetch
+    }
+
+    struct ShareableContentResult {
+        let content: SCShareableContent
+        let source: ShareableContentSource
+    }
+
     /// Cached shareable content to avoid repeated (slow) enumeration.
     private var cachedContent: SCShareableContent?
     private var cachedContentTime: Date = .distantPast
@@ -501,13 +527,12 @@ private actor CacheManager {
         return task
     }
 
-    func shareableContent() async throws -> SCShareableContent {
-        let cacheTTL: TimeInterval = 120.0
+    func shareableContent(cacheTTL: TimeInterval) async throws -> ShareableContentResult {
         if let cached = cachedContent, Date().timeIntervalSince(cachedContentTime) < cacheTTL {
-            return cached
+            return ShareableContentResult(content: cached, source: .cached)
         }
         if let existing = inFlightShareableFetch {
-            return try await existing.value
+            return ShareableContentResult(content: try await existing.value, source: .inFlight)
         }
         let task = Task<SCShareableContent, Error> {
             let content = try await SCShareableContent.excludingDesktopWindows(true, onScreenWindowsOnly: true)
@@ -517,7 +542,7 @@ private actor CacheManager {
             return content
         }
         inFlightShareableFetch = task
-        return try await task.value
+        return ShareableContentResult(content: try await task.value, source: .freshFetch)
     }
 
     func updateCache(_ content: SCShareableContent) {

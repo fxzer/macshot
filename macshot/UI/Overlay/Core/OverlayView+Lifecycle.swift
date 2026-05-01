@@ -118,6 +118,9 @@ extension OverlayView {
             metadata: "annotations=\(annotations.count) undo=\(undoStack.count) redo=\(redoStack.count) estimatedCache=\(MemoryDiagnostics.format(bytes: UInt64(estimatedCacheMemory)))"
         )
         state = .idle
+        if isScrollCapturing {
+            stopScrollCaptureMode()
+        }
         selectionRect = .zero
         selectionWasRestoredFromMemory = false
         clearSelectionSizeSnapState()
@@ -132,9 +135,7 @@ extension OverlayView {
         currentAnnotation = nil
         numberCounter = 0
         showToolbars = false
-        bottomStripView?.isHidden = true
-        rightStripView?.isHidden = true
-        toolOptionsRowView?.isHidden = true
+        teardownToolbarChrome()
         PopoverHelper.dismiss()
         editorTooltipView?.removeFromSuperview()
         editorTooltipView = nil
@@ -148,6 +149,8 @@ extension OverlayView {
         hoveredAnnotationClearTimer?.invalidate()
         hoveredAnnotationClearTimer = nil
         hoveredAnnotation = nil
+        longPressTimer?.invalidate()
+        longPressTimer = nil
         colorWheel.dismiss()
         beautifyEnabled = UserDefaults.standard.bool(forKey: "beautifyEnabled")
         beautifyStyleIndex = UserDefaults.standard.integer(forKey: "beautifyStyleIndex")
@@ -170,16 +173,32 @@ extension OverlayView {
             ?? .single
         previewState.arrowReversed = UserDefaults.standard.bool(forKey: "arrowReversed")
         textEditor.dismiss()
+        toolOptionsRowView?.clearEditingAnnotation()
+        resetZoomUIState()
+        invalidateEditorZoomTimers()
+        resetPermissionState()
+        resetHintState()
+        stopBackgroundRemovalSpinner()
+        clearDrawingCursorPreview()
+        clearLoupePreview()
+        clearStampPreview()
+        if let markerHandler = toolHandlers[.marker] as? MarkerToolHandler {
+            markerHandler.resetSessionState()
+        }
 
         isResizingAnnotation = false
         loupeCursorPoint = .zero
         overlayErrorTimer?.invalidate()
         overlayErrorTimer = nil
         overlayErrorMessage = nil
-        resetHintState()
         barcodeDetector.cancel()
         hoveredWindowRect = nil
         isRecording = false
+        hideColorSamplerMagnifier()
+        if let trackingArea = mouseMovedTrackingArea {
+            removeTrackingArea(trackingArea)
+            mouseMovedTrackingArea = nil
+        }
         // Release all screenshot-derived image data so ARC can reclaim full-screen bitmaps.
         screenshotImage = nil
         displayCGImage = nil
@@ -192,5 +211,31 @@ extension OverlayView {
         cachedEffectsScreenshot = nil
         needsDisplay = true
         MemoryDiagnostics.snapshot("OverlayView.reset.after")
+    }
+
+    private func teardownToolbarChrome() {
+        PopoverHelper.dismiss()
+
+        toolOptionsRowView?.clearEditingAnnotation()
+        toolOptionsRowView?.overlayView = nil
+        toolOptionsRowView?.removeFromSuperview()
+        toolOptionsRowView = nil
+
+        for strip in [topStripView, bottomStripView, rightStripView].compactMap({ $0 }) {
+            strip.onClick = nil
+            strip.onRightClick = nil
+            strip.onHover = nil
+            for button in strip.buttonViews {
+                button.onClick = nil
+                button.onMouseDown = nil
+                button.onRightClick = nil
+                button.onHover = nil
+            }
+            strip.removeFromSuperview()
+        }
+
+        topStripView = nil
+        bottomStripView = nil
+        rightStripView = nil
     }
 }

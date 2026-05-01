@@ -18,6 +18,8 @@ final class OverlayToolbarState {
     var editorTooltipView: NSView?
     var overlayErrorTimer: Timer?
     var pendingToolbarRebuild = false
+    var pendingToolbarRebuildReason: String?
+    var toolbarRebuildSequence = 0
 }
 
 extension OverlayView {
@@ -47,7 +49,7 @@ extension OverlayView {
             let oldValue = toolbarState.showToolbars
             toolbarState.showToolbars = newValue
             if newValue && !oldValue {
-                scheduleDeferredToolbarRebuild()
+                scheduleDeferredToolbarRebuild(reason: "showToolbars->true")
             } else if !newValue && oldValue {
                 bottomStripView?.isHidden = true
                 rightStripView?.isHidden = true
@@ -118,5 +120,15 @@ extension OverlayView {
     var pendingToolbarRebuild: Bool {
         get { toolbarState.pendingToolbarRebuild }
         set { toolbarState.pendingToolbarRebuild = newValue }
+    }
+
+    var pendingToolbarRebuildReason: String? {
+        get { toolbarState.pendingToolbarRebuildReason }
+        set { toolbarState.pendingToolbarRebuildReason = newValue }
+    }
+
+    var toolbarRebuildSequence: Int {
+        get { toolbarState.toolbarRebuildSequence }
+        set { toolbarState.toolbarRebuildSequence = newValue }
     }
 }
