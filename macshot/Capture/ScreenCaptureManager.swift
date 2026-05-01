@@ -427,15 +427,18 @@ class ScreenCaptureManager {
                     )
                 }
                 let deliveryReadyAt = CFAbsoluteTimeGetCurrent()
+                let deliveryDisplayID = display.displayID
                 CaptureDiagnostics.log(
-                    "[macshot-perf][capture1] READY total=\(String(format: "%.1f", (deliveryReadyAt - taskT0) * 1000))ms display=\(display.displayID)"
+                    "[macshot-perf][capture1] READY total=\(String(format: "%.1f", (deliveryReadyAt - taskT0) * 1000))ms display=\(deliveryDisplayID)"
                 )
-                await MainActor.run {
+                let mainRunLoop = CFRunLoopGetMain()
+                CFRunLoopPerformBlock(mainRunLoop, CFRunLoopMode.commonModes.rawValue) {
                     CaptureDiagnostics.log(
-                        "[macshot-perf][capture1] MAIN ACTOR DELIVERY total=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - taskT0) * 1000))ms wait=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - deliveryReadyAt) * 1000))ms display=\(display.displayID)"
+                        "[macshot-perf][capture1] MAIN RUNLOOP DELIVERY total=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - taskT0) * 1000))ms wait=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - deliveryReadyAt) * 1000))ms display=\(deliveryDisplayID)"
                     )
                     completion(capture)
                 }
+                CFRunLoopWakeUp(mainRunLoop)
             } catch {
                 #if DEBUG
                 NSLog("macshot: single screen capture error: \(error.localizedDescription)")
