@@ -4,6 +4,10 @@ import Sparkle
 @MainActor
 final class AppLaunchCoordinator: NSObject {
 
+    private static let initialCapturePrewarmDelay: TimeInterval = 1.0
+    private static let initialCapturePrewarmRetryDelay: TimeInterval = 1.0
+    private static let initialCapturePrewarmMaxAttempts = 3
+
     struct Dependencies {
         let setMenuBarIconVisible: (Bool) -> Void
         let statusBarSetup: () -> Void
@@ -27,6 +31,7 @@ final class AppLaunchCoordinator: NSObject {
     private let dependencies: Dependencies
     private var updaterController: SPUStandardUpdaterController?
     private var onboardingController: PermissionOnboardingController?
+    private var initialCapturePrewarmWorkItem: DispatchWorkItem?
 
     init(dependencies: Dependencies) {
         self.dependencies = dependencies
@@ -74,6 +79,7 @@ final class AppLaunchCoordinator: NSObject {
 
         registerObservers()
         checkScreenRecordingPermission()
+        scheduleInitialCapturePrewarm()
         return true
     }
 
@@ -89,6 +95,8 @@ final class AppLaunchCoordinator: NSObject {
     }
 
     func applicationWillTerminate() {
+        initialCapturePrewarmWorkItem?.cancel()
+        initialCapturePrewarmWorkItem = nil
         HotkeyManager.shared.unregister()
         removeObservers()
     }
@@ -217,6 +225,29 @@ final class AppLaunchCoordinator: NSObject {
             guard let self, !granted else { return }
             self.showOnboarding(on: self.dependencies.defaultInteractionScreen())
         }
+    }
+
+    private func scheduleInitialCapturePrewarm(attempt: Int = 0) {
+        initialCapturePrewarmWorkItem?.cancel()
+
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            guard !self.dependencies.hasActiveOverlaySession() else {
+                guard attempt + 1 < Self.initialCapturePrewarmMaxAttempts else { return }
+                self.scheduleInitialCapturePrewarm(attempt: attempt + 1)
+                return
+            }
+
+            let targetScreen = self.dependencies.defaultInteractionScreen()
+            CaptureDiagnostics.log(
+                "[macshot-perf][prewarm] launch scheduled attempt=\(attempt + 1) screen=\(targetScreen?.localizedName ?? "nil")"
+            )
+            ScreenCaptureManager.prewarm(screen: targetScreen, mode: .full)
+        }
+
+        initialCapturePrewarmWorkItem = workItem
+        let delay = attempt == 0 ? Self.initialCapturePrewarmDelay : Self.initialCapturePrewarmRetryDelay
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: workItem)
     }
 
     @objc private func handleShowAndOpenPrefs() {
