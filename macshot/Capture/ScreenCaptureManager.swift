@@ -43,16 +43,20 @@ class ScreenCaptureManager {
         try await CacheManager.shared.shareableContent(cacheTTL: cacheTTL).content
     }
 
-    /// Returns shareable content plus `SCWindow` values for exclusion. Uses the cached
-    /// enumeration when every excluded window ID is present; otherwise refreshes once so
-    /// windows created after the cache (e.g. floating thumbnails) are visible to ScreenCaptureKit.
-    private static func shareableContentForCapture(excludingWindowNumbers: [CGWindowID]) async throws -> (SCShareableContent, [SCWindow]) {
+    /// Returns shareable content plus `SCWindow` values for exclusion. Required exclusions
+    /// refresh the cache once when missing so windows created after the cache (e.g. floating
+    /// thumbnails) are still excluded. Best-effort exclusions are resolved opportunistically
+    /// from the current cache and never block capture on a refresh when absent.
+    private static func shareableContentForCapture(
+        excludingWindowNumbers: [CGWindowID],
+        bestEffortExcludingWindowNumbers: [CGWindowID] = []
+    ) async throws -> (SCShareableContent, [SCWindow]) {
         var perf = PerfMonitor(label: "SCContent")
         var memory = MemoryDiagnostics.makeScope(
             "SCContent",
-            metadata: "excludedWindowNumbers=\(excludingWindowNumbers.count)"
+            metadata: "excludedWindowNumbers=\(excludingWindowNumbers.count) bestEffortExcluded=\(bestEffortExcludingWindowNumbers.count)"
         )
-        if excludingWindowNumbers.isEmpty {
+        if excludingWindowNumbers.isEmpty, bestEffortExcludingWindowNumbers.isEmpty {
             let resolved = try await CacheManager.shared.shareableContent(cacheTTL: cacheTTL)
             let content = resolved.content
             let sourceLabel: String
@@ -72,37 +76,52 @@ class ScreenCaptureManager {
             return (content, [])
         }
 
-        let uniqueIDs = Array(Set(excludingWindowNumbers))
+        let uniqueRequiredIDs = Array(Set(excludingWindowNumbers))
+        let uniqueBestEffortIDs = Array(Set(bestEffortExcludingWindowNumbers).subtracting(uniqueRequiredIDs))
 
-        func resolve(_ content: SCShareableContent) -> [SCWindow] {
-            uniqueIDs.compactMap { wid in
+        func resolve(windowIDs: [CGWindowID], in content: SCShareableContent) -> [SCWindow] {
+            windowIDs.compactMap { wid in
                 content.windows.first(where: { CGWindowID($0.windowID) == wid })
             }
         }
 
         var content = try await shareableContent()
-        var resolved = resolve(content)
+        var resolvedRequired = resolve(windowIDs: uniqueRequiredIDs, in: content)
+        var resolvedBestEffort = resolve(windowIDs: uniqueBestEffortIDs, in: content)
 
-        if resolved.count != uniqueIDs.count {
+        if resolvedRequired.count != uniqueRequiredIDs.count {
             // Cache is missing one or more windows to exclude — enumerate again and refresh cache.
-            let missingIDs = uniqueIDs.filter { id in !resolved.contains(where: { CGWindowID($0.windowID) == id }) }
+            let missingRequiredIDs = uniqueRequiredIDs.filter { id in
+                !resolvedRequired.contains(where: { CGWindowID($0.windowID) == id })
+            }
             let fresh = try await SCShareableContent.excludingDesktopWindows(true, onScreenWindowsOnly: true)
             await CacheManager.shared.updateCache(fresh)
             content = fresh
-            resolved = resolve(content)
-            perf.step("cache miss, refreshed resolved=\(resolved.count)/\(uniqueIDs.count)")
+            resolvedRequired = resolve(windowIDs: uniqueRequiredIDs, in: content)
+            resolvedBestEffort = resolve(windowIDs: uniqueBestEffortIDs, in: content)
+            perf.step(
+                "cache miss, refreshed required=\(resolvedRequired.count)/\(uniqueRequiredIDs.count) optional=\(resolvedBestEffort.count)/\(uniqueBestEffortIDs.count)"
+            )
             memory.step(
                 "cache refresh",
-                metadata: "missingIDs=\(missingIDs.count) resolved=\(resolved.count)/\(uniqueIDs.count)"
+                metadata: "missingRequiredIDs=\(missingRequiredIDs.count) resolvedRequired=\(resolvedRequired.count)/\(uniqueRequiredIDs.count) resolvedOptional=\(resolvedBestEffort.count)/\(uniqueBestEffortIDs.count)"
             )
         } else {
-            perf.step("cache HIT excluded=\(uniqueIDs.count)")
-            memory.step("cache hit", metadata: "resolved=\(resolved.count)")
+            perf.step(
+                "cache HIT required=\(uniqueRequiredIDs.count) optional=\(resolvedBestEffort.count)/\(uniqueBestEffortIDs.count)"
+            )
+            memory.step(
+                "cache hit",
+                metadata: "resolvedRequired=\(resolvedRequired.count)/\(uniqueRequiredIDs.count) resolvedOptional=\(resolvedBestEffort.count)/\(uniqueBestEffortIDs.count)"
+            )
         }
 
+        let resolved = resolvedRequired + resolvedBestEffort.filter { optionalWindow in
+            !resolvedRequired.contains(where: { $0.windowID == optionalWindow.windowID })
+        }
         memory.finish(
             "resolved exclusions",
-            metadata: "displays=\(content.displays.count) windows=\(content.windows.count)"
+            metadata: "displays=\(content.displays.count) windows=\(content.windows.count) resolvedRequired=\(resolvedRequired.count) resolvedOptional=\(resolvedBestEffort.count)"
         )
         return (content, resolved)
     }
@@ -320,6 +339,7 @@ class ScreenCaptureManager {
     static func captureScreen(
         _ screen: NSScreen,
         excludingWindowNumbers: [CGWindowID] = [],
+        bestEffortExcludingWindowNumbers: [CGWindowID] = [],
         completion: @escaping (ScreenCapture?) -> Void
     ) {
         Task {
@@ -327,9 +347,12 @@ class ScreenCaptureManager {
                 var perf = PerfMonitor(label: "capture1")
                 var memory = MemoryDiagnostics.makeScope(
                     "capture1[\(screen.localizedName)]",
-                    metadata: "excludedWindows=\(excludingWindowNumbers.count)"
+                    metadata: "excludedWindows=\(excludingWindowNumbers.count) bestEffortExcluded=\(bestEffortExcludingWindowNumbers.count)"
                 )
-                let (content, excludedSCWindows) = try await shareableContentForCapture(excludingWindowNumbers: excludingWindowNumbers)
+                let (content, excludedSCWindows) = try await shareableContentForCapture(
+                    excludingWindowNumbers: excludingWindowNumbers,
+                    bestEffortExcludingWindowNumbers: bestEffortExcludingWindowNumbers
+                )
                 perf.step("shareableContent")
                 memory.step(
                     "shareableContent",

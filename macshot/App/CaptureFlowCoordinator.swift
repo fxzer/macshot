@@ -382,13 +382,21 @@ final class CaptureFlowCoordinator {
             (activeCaptureIntent?.prefersImmediateOverlayPresentation == true)
             ? showImmediateOverlay(on: targetScreen, t0: t0)
             : nil
-        let effectiveExcludeIDs = placeholderController.map { excludeIDs + [$0.windowNumber] } ?? excludeIDs
+        let optionalExcludeIDs = placeholderController.map { [$0.windowNumber] } ?? []
+        let effectiveExcludeCount = excludeIDs.count + optionalExcludeIDs.count
 
         CaptureDiagnostics.log(
-            "[macshot-perf][capture] captureScreen BEGIN screen=\(targetScreen.localizedName) excludes=\(effectiveExcludeIDs.count)"
+            "[macshot-perf][capture] captureScreen BEGIN screen=\(targetScreen.localizedName) excludes=\(effectiveExcludeCount)"
         )
-        memory.step("captureScreen begin", metadata: "effectiveExcluded=\(effectiveExcludeIDs.count)")
-        ScreenCaptureManager.captureScreen(targetScreen, excludingWindowNumbers: effectiveExcludeIDs) { [weak self, weak placeholderController] capture in
+        memory.step(
+            "captureScreen begin",
+            metadata: "requiredExcluded=\(excludeIDs.count) optionalExcluded=\(optionalExcludeIDs.count)"
+        )
+        ScreenCaptureManager.captureScreen(
+            targetScreen,
+            excludingWindowNumbers: excludeIDs,
+            bestEffortExcludingWindowNumbers: optionalExcludeIDs
+        ) { [weak self, weak placeholderController] capture in
             guard let self else { return }
             guard requestID == self.captureRequestID, self.isCapturing else { return }
             CaptureDiagnostics.log(
