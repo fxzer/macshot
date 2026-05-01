@@ -426,7 +426,16 @@ class ScreenCaptureManager {
                         "[macshot-mem][capture1] screen=\(matchedScreen.localizedName) display=\(display.displayID) image=\(capture.asset.displayCGImage.width)x\(capture.asset.displayCGImage.height) \(MemoryDiagnostics.currentSummary())"
                     )
                 }
-                await MainActor.run { completion(capture) }
+                let deliveryReadyAt = CFAbsoluteTimeGetCurrent()
+                CaptureDiagnostics.log(
+                    "[macshot-perf][capture1] READY total=\(String(format: "%.1f", (deliveryReadyAt - taskT0) * 1000))ms display=\(display.displayID)"
+                )
+                await MainActor.run {
+                    CaptureDiagnostics.log(
+                        "[macshot-perf][capture1] MAIN ACTOR DELIVERY total=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - taskT0) * 1000))ms wait=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - deliveryReadyAt) * 1000))ms display=\(display.displayID)"
+                    )
+                    completion(capture)
+                }
             } catch {
                 #if DEBUG
                 NSLog("macshot: single screen capture error: \(error.localizedDescription)")
