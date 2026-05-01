@@ -533,6 +533,17 @@ final class ScreenshotOutputCoordinator: NSObject, PinWindowControllerDelegate {
                 images: [("rawImage", rawImage)],
                 metadata: "entryID=\(entryID) annotations=\(annotations.count)"
             )
+        } else if let historyImage = loadImageFromHistory(entryID: entryID) {
+            DetachedEditorWindowController.open(
+                image: historyImage,
+                historyEntryID: entryID,
+                disableBeautify: true
+            )
+            MemoryDiagnostics.snapshot(
+                "ScreenshotOutput.openEditorFromHistory.loadedComposited",
+                images: [("historyImage", historyImage)],
+                metadata: "entryID=\(entryID ?? "nil")"
+            )
         } else if let fallback = fallbackImage {
             DetachedEditorWindowController.open(
                 image: fallback,
