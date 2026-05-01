@@ -410,6 +410,9 @@ final class CaptureFlowCoordinator {
             if let placeholderController,
                self.overlayControllersStorage.contains(where: { $0 === placeholderController }) {
                 placeholderController.applyCapture(capture)
+                CaptureDiagnostics.log(
+                    "[macshot-perf][overlay] PLACEHOLDER CAPTURE APPLIED total=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - t0) * 1000))ms screen=\(capture.screen.localizedName)"
+                )
                 self.startOverlayMouseScreenTracking()
                 memory.finish(
                     "placeholder applied capture",

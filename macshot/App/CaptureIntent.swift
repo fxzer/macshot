@@ -67,9 +67,11 @@ enum CaptureIntent {
 
     var prefersImmediateOverlayPresentation: Bool {
         switch self {
-        case .area, .fullScreen:
-            // Screenshot overlays must only appear after the base image is captured,
-            // otherwise helper chrome can be baked into the screenshot source.
+        case .area:
+            // Safe now that the live capture path explicitly excludes the placeholder
+            // overlay window and refreshes SCShareableContent when needed.
+            return true
+        case .fullScreen:
             return false
         default:
             return false
