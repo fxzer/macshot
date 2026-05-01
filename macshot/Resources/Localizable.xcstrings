@@ -5432,6 +5432,22 @@
         }
       }
     },
+    "Save to %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save to %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保存到 %@"
+          }
+        }
+      }
+    },
     "Save to file" : {
       "extractionState" : "stale",
       "localizations" : {

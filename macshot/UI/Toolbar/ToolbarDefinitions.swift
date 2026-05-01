@@ -298,8 +298,10 @@ class ToolbarLayout {
         if actionEnabled(1014) {
             var saveBtn = ToolbarButton(
                 action: .save, sfSymbol: "square.and.arrow.down.fill", label: nil,
-                tooltip:
-                    "\(L("Save to")) \(URL(fileURLWithPath: SaveDirectoryAccess.displayPath).lastPathComponent)"
+                tooltip: String(
+                    format: L("Save to %@"),
+                    URL(fileURLWithPath: SaveDirectoryAccess.displayPath).lastPathComponent
+                )
             )
             saveBtn.hasContextMenu = true
             beginQuickActionSection(&saveBtn)
