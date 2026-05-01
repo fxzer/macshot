@@ -97,12 +97,18 @@ final class CaptureFlowCoordinator {
             metadata: "intent=\(intent.debugName) origin=\(triggerOrigin)"
         )
 
-        ScreenCaptureManager.prewarm(screen: currentCaptureTargetScreen(), mode: .lightweight)
-        perf.step("prewarm")
-        memory.step("prewarm")
-        ScreenCaptureManager.setCaptureInProgress(true)
-
         let delay = UserDefaults.standard.integer(forKey: "captureDelaySeconds")
+        let targetScreen = currentCaptureTargetScreen()
+
+        if delay > 0 {
+            ScreenCaptureManager.prewarm(screen: targetScreen, mode: .full)
+            perf.step("prewarm")
+            memory.step("prewarm", metadata: "mode=full delay=\(delay)")
+        } else {
+            CaptureDiagnostics.log("[macshot-perf][capture] prewarm skipped (immediate capture)")
+            memory.step("prewarm skipped", metadata: "delay=0")
+        }
+        ScreenCaptureManager.setCaptureInProgress(true)
 
         let rememberTool = UserDefaults.standard.object(forKey: "rememberLastTool") as? Bool ?? true
         if !rememberTool {
