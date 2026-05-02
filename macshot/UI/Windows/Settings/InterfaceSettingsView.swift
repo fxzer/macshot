@@ -13,6 +13,8 @@ struct InterfaceSettingsView: View {
 
     // Window
     @AppStorage("launchAtLogin") private var launchAtLogin = false
+    @AppStorage(AppVisibilityPreferences.showDockIconKey)
+    private var showDockIcon = AppVisibilityPreferences.defaultShowDockIcon
     @AppStorage("hideMenuBarIcon") private var hideMenuBarIcon = false
 
     // Updates
@@ -112,6 +114,20 @@ struct InterfaceSettingsView: View {
                             #endif
                         }
                     }
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text(L("Show Dock icon"))
+                        Spacer()
+                        Toggle("", isOn: Binding(
+                            get: { showDockIcon },
+                            set: { newValue in
+                                showDockIcon = newValue
+                                (NSApp.delegate as? AppDelegate)?.updateDockIconVisibility()
+                            }
+                        ))
+                        .labelsHidden()
+                    }
+                }
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {
                         Text(L("Show menu bar icon"))

@@ -122,7 +122,7 @@ class SettingsWindowController: NSWindowController, NSWindowDelegate {
     func showWindow() {
         window?.center()
         window?.makeKeyAndOrderFront(nil)
-        NSApp.setActivationPolicy(.regular)
+        (NSApp.delegate as? AppDelegate)?.updateDockIconVisibility()
         NSApp.activate(ignoringOtherApps: true)
         if let hostingView {
             DispatchQueue.main.async { [weak self] in

@@ -58,9 +58,7 @@ class DetachedEditorWindowController: NSObject, NSWindowDelegate {
         controller.screenshotNeverOutput = fromCapture && historyEntryID == nil
         controller.show(image: image, tool: tool, color: color, strokeWidth: strokeWidth, annotations: annotations)
         activeControllers.append(controller)
-        if activeControllers.count == 1 {
-            NSApp.setActivationPolicy(.regular)
-        }
+        (NSApp.delegate as? AppDelegate)?.updateDockIconVisibility()
     }
 
     private func show(image: NSImage, tool: AnnotationTool, color: NSColor, strokeWidth: CGFloat, annotations: [Annotation]) {

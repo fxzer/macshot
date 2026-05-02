@@ -194,6 +194,9 @@ class OCRResultController: NSObject {
 
     func show() {
         window?.makeKeyAndOrderFront(nil)
+        MainActor.assumeIsolated {
+            (NSApp.delegate as? AppDelegate)?.updateDockIconVisibility()
+        }
         NSApp.activate(ignoringOtherApps: true)
         DispatchQueue.main.async { [weak self] in
             guard let self = self, let tv = self.textView else { return }

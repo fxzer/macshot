@@ -209,6 +209,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
         statusBarController.setVisible(visible)
     }
 
+    func updateDockIconVisibility() {
+        let hasVisibleWindows = NSApp.windows.contains {
+            $0.isVisible && $0.styleMask.contains(.titled)
+        }
+        NSApp.setActivationPolicy(
+            AppVisibilityPreferences.shouldShowDockIcon && hasVisibleWindows ? .regular : .accessory
+        )
+    }
+
     func applicationWillTerminate(_ aNotification: Notification) {
         launchCoordinator.applicationWillTerminate()
     }

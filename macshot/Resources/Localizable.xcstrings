@@ -6113,6 +6113,40 @@
         }
       }
     },
+    "Show Dock icon" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show Dock icon"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "显示程序坞图标"
+          }
+        }
+      }
+    },
+    "Display macshot in the Dock while settings or editor windows are open." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Display macshot in the Dock while settings or editor windows are open."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "当设置或编辑器窗口打开时在程序坞中显示 macshot。"
+          }
+        }
+      }
+    },
     "Show Original" : {
       "extractionState" : "stale",
       "localizations" : {

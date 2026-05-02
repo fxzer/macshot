@@ -14,8 +14,8 @@ final class VideoEditorWindowController: NSObject, NSWindowDelegate {
         let controller = VideoEditorWindowController()
         controller.show(url: url)
         activeControllers.append(controller)
-        if activeControllers.count == 1 {
-            NSApp.setActivationPolicy(.regular)
+        MainActor.assumeIsolated {
+            (NSApp.delegate as? AppDelegate)?.updateDockIconVisibility()
         }
     }
 
