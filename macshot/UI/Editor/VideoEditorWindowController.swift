@@ -8,10 +8,12 @@ final class VideoEditorWindowController: NSObject, NSWindowDelegate {
 
     private var window: NSWindow?
     private var editorView: VideoEditorView?
+    private var cleanupSourceOnClose: (() -> Void)?
     private static var activeControllers: [VideoEditorWindowController] = []
 
-    static func open(url: URL) {
+    static func open(url: URL, cleanupSourceOnClose: (() -> Void)? = nil) {
         let controller = VideoEditorWindowController()
+        controller.cleanupSourceOnClose = cleanupSourceOnClose
         controller.show(url: url)
         activeControllers.append(controller)
         MainActor.assumeIsolated {
@@ -86,6 +88,7 @@ final class VideoEditorWindowController: NSObject, NSWindowDelegate {
         win.backgroundColor = ToolbarLayout.bgColor
 
         let view = VideoEditorView(frame: NSRect(x: 0, y: 0, width: winW, height: winH), videoURL: url)
+        view.cleanupSourceOnClose = cleanupSourceOnClose
         win.contentView = view
 
         win.makeKeyAndOrderFront(nil)
@@ -160,6 +163,7 @@ final class VideoEditorView: NSView {
 
     let videoURL: URL
     let isGIF: Bool
+    var cleanupSourceOnClose: (() -> Void)?
     var player: AVPlayer?
     var playerView: AVPlayerView?
     var gifImageView: NSImageView?
@@ -427,8 +431,11 @@ final class VideoEditorView: NSView {
         playerView?.player = nil
         gifPlaybackTimer?.invalidate()
         gifPlaybackTimer = nil
-        // Clean up temp recording file
-        try? FileManager.default.removeItem(at: videoURL)
+        if let cleanupSourceOnClose {
+            cleanupSourceOnClose()
+        } else {
+            TemporaryFileManager.removeTemporaryFile(at: videoURL)
+        }
     }
 
     var currentPlaybackTime: Double {

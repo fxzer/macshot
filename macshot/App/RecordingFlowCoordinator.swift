@@ -33,6 +33,7 @@ final class RecordingFlowCoordinator {
     private var menuBarIconWasHidden = false
     private var uploadToastController: UploadToastController?
     private var recordingQuickActionsController: RecordingToastController?
+    private var recordingSourceRetainCounts: [URL: Int] = [:]
 
     init(dependencies: Dependencies) {
         self.dependencies = dependencies
@@ -367,22 +368,38 @@ final class RecordingFlowCoordinator {
 
     private func performRecordingPostActions(url: URL) {
         let actions = PostCaptureActionPreferences.recordingActions
+        var didRetainAsyncOrUIConsumer = false
 
         if actions.copyToClipboard {
             copyRecordingToClipboard(url: url)
         }
         if actions.saveToFile {
+            retainRecordingSource(url)
+            didRetainAsyncOrUIConsumer = true
             let showInFinder = UserDefaults.standard.bool(forKey: "recordingShowInFinder")
-            saveRecordingToDefaultDirectory(url, showInFinder: showInFinder)
+            saveRecordingToDefaultDirectory(url, showInFinder: showInFinder) { [weak self] in
+                self?.releaseRecordingSource(url)
+            }
         }
         if actions.uploadAndCopyLink {
-            uploadRecording(url: url)
+            retainRecordingSource(url)
+            didRetainAsyncOrUIConsumer = true
+            uploadRecording(url: url) { [weak self] in
+                self?.releaseRecordingSource(url)
+            }
         }
         if actions.openVideoEditor {
-            VideoEditorWindowController.open(url: url)
+            retainRecordingSource(url)
+            didRetainAsyncOrUIConsumer = true
+            openVideoEditor(for: url)
         }
         if actions.showQuickAccessOverlay {
+            retainRecordingSource(url)
+            didRetainAsyncOrUIConsumer = true
             showRecordingQuickActions(url: url)
+        }
+        if !didRetainAsyncOrUIConsumer {
+            TemporaryFileManager.removeTemporaryFile(at: url)
         }
     }
 
@@ -392,24 +409,36 @@ final class RecordingFlowCoordinator {
         let controller = RecordingToastController(url: url)
         controller.onDismiss = { [weak self] in
             self?.recordingQuickActionsController = nil
+            self?.releaseRecordingSource(url)
         }
         controller.onCopy = { [weak self] in
             self?.copyRecordingToClipboard(url: url)
         }
         controller.onSave = { [weak self] in
-            self?.saveRecordingToDefaultDirectory(url)
+            self?.retainRecordingSource(url)
+            self?.saveRecordingToDefaultDirectory(url) { [weak self] in
+                self?.releaseRecordingSource(url)
+            }
         }
         controller.onUpload = { [weak self] in
-            self?.uploadRecording(url: url)
+            self?.retainRecordingSource(url)
+            self?.uploadRecording(url: url) { [weak self] in
+                self?.releaseRecordingSource(url)
+            }
         }
-        controller.onOpen = {
-            VideoEditorWindowController.open(url: url)
+        controller.onOpen = { [weak self] in
+            self?.retainRecordingSource(url)
+            self?.openVideoEditor(for: url)
         }
         controller.show()
         recordingQuickActionsController = controller
     }
 
-    private func saveRecordingToDefaultDirectory(_ sourceURL: URL, showInFinder: Bool = false) {
+    private func saveRecordingToDefaultDirectory(
+        _ sourceURL: URL,
+        showInFinder: Bool = false,
+        completion: (() -> Void)? = nil
+    ) {
         let dirURL = SaveDirectoryAccess.resolveRecordingDirectory()
         let kind: FilenameOutputKind = sourceURL.pathExtension.lowercased() == "gif" ? .gif : .recording
         let destinationURL = FilenameTemplateEngine.uniqueDestinationURL(
@@ -437,11 +466,12 @@ final class RecordingFlowCoordinator {
                         message: error.localizedDescription.isEmpty ? L("Save failed") : error.localizedDescription
                     )
                 }
+                completion?()
             }
         }
     }
 
-    private func uploadRecording(url: URL) {
+    private func uploadRecording(url: URL, completion: (() -> Void)? = nil) {
         uploadToastController?.dismiss()
         let toast = UploadToastController()
         uploadToastController = toast
@@ -453,14 +483,17 @@ final class RecordingFlowCoordinator {
         let provider = UserDefaults.standard.string(forKey: "uploadProvider") ?? "imgbb"
         if provider == "gdrive" && !GoogleDriveUploader.shared.isSignedIn {
             toast.showError(message: L("Sign in to Google Drive in Settings"))
+            completion?()
             return
         }
         if provider == "s3" && !S3Uploader.shared.isConfigured {
             toast.showError(message: L("Configure S3 in Settings"))
+            completion?()
             return
         }
         guard provider == "gdrive" || provider == "s3" else {
             toast.showError(message: L("Video upload requires Google Drive or S3"))
+            completion?()
             return
         }
 
@@ -473,6 +506,7 @@ final class RecordingFlowCoordinator {
             case .failure(let error):
                 toast.showError(message: error.localizedDescription)
             }
+            completion?()
         }
 
         if provider == "s3" {
@@ -497,6 +531,28 @@ final class RecordingFlowCoordinator {
             pasteboard.writeObjects([item])
         } else {
             pasteboard.writeObjects([url as NSURL])
+        }
+    }
+
+    private func openVideoEditor(for url: URL) {
+        VideoEditorWindowController.open(url: url) { [weak self] in
+            self?.releaseRecordingSource(url)
+        }
+    }
+
+    private func retainRecordingSource(_ url: URL) {
+        guard TemporaryFileManager.isManagedTemporaryFile(url) else { return }
+        recordingSourceRetainCounts[url, default: 0] += 1
+    }
+
+    private func releaseRecordingSource(_ url: URL) {
+        guard TemporaryFileManager.isManagedTemporaryFile(url) else { return }
+        let nextCount = (recordingSourceRetainCounts[url] ?? 0) - 1
+        if nextCount <= 0 {
+            recordingSourceRetainCounts.removeValue(forKey: url)
+            TemporaryFileManager.removeTemporaryFile(at: url)
+        } else {
+            recordingSourceRetainCounts[url] = nextCount
         }
     }
 

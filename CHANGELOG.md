@@ -1,5 +1,14 @@
 # Changelog
 
+## [5.1.0] - 2026-05-07
+
+### Fixed
+- **Recording file deleted before operations complete** — added retain-count mechanism to prevent premature deletion when multiple post-recording actions are triggered (save + upload, save + open editor, etc.)
+- **Share sheet fails on detached editor** — now uses managed temporary file with proper lifecycle instead of direct NSTemporaryDirectory
+
+### Changed
+- **Temporary file management centralized** — all temporary file creation/cleanup now goes through TemporaryFileManager with proper prefixes and cleanup scheduling
+
 ## [4.0.4-beta.2] - 2026-04-11
 
 ### Added

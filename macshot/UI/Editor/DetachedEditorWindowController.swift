@@ -600,9 +600,12 @@ extension DetachedEditorWindowController: OverlayViewDelegate {
         guard let raw = overlayView?.captureSelectedRegion() else { return }
         let image = applyPostProcessing(raw)
         guard let imageData = ImageEncoder.encode(image) else { return }
-        let tempURL = URL(fileURLWithPath: NSTemporaryDirectory())
-            .appendingPathComponent("macshot_\(OverlayWindowController.formattedTimestamp()).\(ImageEncoder.fileExtension)")
-        try? imageData.write(to: tempURL)
+        guard let tempURL = TemporaryFileManager.writeShareImageData(
+            imageData,
+            fileExtension: ImageEncoder.fileExtension
+        ) else {
+            return
+        }
 
         let picker = NSSharingServicePicker(items: [tempURL])
         if let anchor = anchorView {

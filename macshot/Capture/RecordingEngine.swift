@@ -464,9 +464,8 @@ final class RecordingEngine: NSObject {
     private func makeOutputURL() -> URL? {
         // Save to temp directory — always writable in sandbox.
         // The video editor handles final export to the user's chosen location.
-        let dir = FileManager.default.temporaryDirectory
         let baseName = FilenameTemplateEngine.makeBaseName(kind: .recording)
-        return FilenameTemplateEngine.uniqueDestinationURL(in: dir, baseName: baseName, fileExtension: "mp4")
+        return TemporaryFileManager.makeRecordingOutputURL(fileExtension: "mp4", baseName: baseName)
     }
 
     // MARK: - Helpers

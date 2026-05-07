@@ -199,12 +199,9 @@ extension OverlayWindowController: OverlayViewDelegate {
         NSLog("[Share] PNG encode: \(String(format: "%.0f", encodeTime * 1000))ms (delta: \(String(format: "%.0f", (encodeTime - beautifyTime) * 1000))ms)")
         #endif
 
-        let tempURL = FilenameTemplateEngine.uniqueDestinationURL(
-            in: URL(fileURLWithPath: NSTemporaryDirectory()),
-            baseName: FilenameTemplateEngine.makeBaseName(kind: .screenshot),
-            fileExtension: "png"
-        )
-        try? pngData.write(to: tempURL)
+        guard let tempURL = TemporaryFileManager.writeShareImageData(pngData, fileExtension: "png") else {
+            return
+        }
         let writeTime = Date().timeIntervalSince(startTime)
         #if DEBUG
         NSLog("[Share] write to temp file: \(String(format: "%.0f", writeTime * 1000))ms (delta: \(String(format: "%.0f", (writeTime - encodeTime) * 1000))ms)")
