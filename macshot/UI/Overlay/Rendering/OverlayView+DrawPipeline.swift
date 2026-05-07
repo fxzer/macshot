@@ -11,9 +11,9 @@ extension OverlayView {
         let backdropMs = (CFAbsoluteTimeGetCurrent() - drawT0) * 1000
         drawWindowSnapHighlight()
 
-        if state == .idle {
+        if !suppressBackdropUntilCapture, state == .idle {
             drawIdleHelperText()
-        } else if state == .selecting {
+        } else if !suppressBackdropUntilCapture, state == .selecting {
             drawSelectingHelperText()
         }
 
@@ -52,6 +52,10 @@ extension OverlayView {
         } else if isScrollCapturing {
             context.cgContext.clear(bounds)
         } else if !isRecording {
+            if suppressBackdropUntilCapture && screenshotImage == nil {
+                context.cgContext.clear(bounds)
+                return
+            }
             if let image = screenshotImage {
                 image.draw(in: bounds, from: .zero, operation: .copy, fraction: 1.0)
             }

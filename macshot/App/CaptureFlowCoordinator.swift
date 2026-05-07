@@ -542,6 +542,7 @@ final class CaptureFlowCoordinator {
         memory.step("activate app")
 
         let controller = OverlayWindowController(screen: screen)
+        controller.overlayView?.suppressBackdropUntilCapture = true
         configureController(controller, screenName: screen.localizedName, t0: t0)
         controller.showOverlay()
         perf.step("controller screen=\(screen.localizedName)")

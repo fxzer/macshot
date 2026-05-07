@@ -145,6 +145,7 @@ class OverlayWindowController {
         CaptureDiagnostics.log(
             "[macshot-perf][OWC.capture] apply displayImage \(String(format: "%.0f", nsImage.size.width))x\(String(format: "%.0f", nsImage.size.height))"
         )
+        overlayView?.suppressBackdropUntilCapture = false
         overlayView?.screenshotImage = nsImage
         overlayView?.setDisplayCGImage(capture.asset.displayCGImage)
         overlayView?.needsDisplay = true

@@ -1,6 +1,7 @@
 import AppKit
 
 final class OverlayCaptureSessionState {
+    var suppressBackdropUntilCapture = false
     var isRecording = false
     var autoEnterRecordingMode = false
     var autoOCRMode = false
@@ -33,6 +34,11 @@ final class OverlayCaptureSessionState {
 }
 
 extension OverlayView {
+    var suppressBackdropUntilCapture: Bool {
+        get { captureSessionState.suppressBackdropUntilCapture }
+        set { captureSessionState.suppressBackdropUntilCapture = newValue }
+    }
+
     var isRecording: Bool {
         get { captureSessionState.isRecording }
         set {
