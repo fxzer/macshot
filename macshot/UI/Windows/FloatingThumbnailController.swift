@@ -3,6 +3,8 @@ import Cocoa
 @MainActor
 class FloatingThumbnailController: NSObject, NSDraggingSource {
 
+    private static let dragTemporaryFileCleanupDelay: TimeInterval = 5 * 60
+
     private func displayID(for screen: NSScreen?) -> CGDirectDisplayID? {
         guard let screen else { return nil }
         return screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID
@@ -136,7 +138,6 @@ class FloatingThumbnailController: NSObject, NSDraggingSource {
     func dismiss() {
         dismissTask?.cancel()
         dismissTask = nil
-        cleanupDragTemporaryFile()
         window?.orderOut(nil)
         window?.close()
         window = nil
@@ -216,9 +217,10 @@ class FloatingThumbnailController: NSObject, NSDraggingSource {
         guard let encodedData = ImageEncoder.encode(exportImage) else { return }
 
         cleanupDragTemporaryFile()
-        let tempURL = URL(fileURLWithPath: NSTemporaryDirectory())
-            .appendingPathComponent("macshot_\(OverlayWindowController.formattedTimestamp()).\(ImageEncoder.fileExtension)")
-        do { try encodedData.write(to: tempURL) } catch { return }
+        guard let tempURL = TemporaryFileManager.writeDragImageData(
+            encodedData,
+            fileExtension: ImageEncoder.fileExtension
+        ) else { return }
         dragTemporaryURL = tempURL
 
         let draggingItem = NSDraggingItem(pasteboardWriter: tempURL as NSURL)
@@ -230,8 +232,22 @@ class FloatingThumbnailController: NSObject, NSDraggingSource {
 
     func draggingSession(_ session: NSDraggingSession, sourceOperationMaskFor context: NSDraggingContext) -> NSDragOperation { .copy }
     func draggingSession(_ session: NSDraggingSession, endedAt screenPoint: NSPoint, operation: NSDragOperation) {
-        cleanupDragTemporaryFile()
+        if operation == .none {
+            cleanupDragTemporaryFile()
+        } else {
+            scheduleDragTemporaryFileCleanup()
+        }
         dismiss()
+    }
+
+    private func scheduleDragTemporaryFileCleanup() {
+        guard let dragTemporaryURL else { return }
+        self.dragTemporaryURL = nil
+
+        let url = dragTemporaryURL
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.dragTemporaryFileCleanupDelay) {
+            try? FileManager.default.removeItem(at: url)
+        }
     }
 
     private func cleanupDragTemporaryFile() {

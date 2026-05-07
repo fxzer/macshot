@@ -382,20 +382,28 @@ final class CaptureFlowCoordinator {
             (activeCaptureIntent?.prefersImmediateOverlayPresentation == true)
             ? showImmediateOverlay(on: targetScreen, t0: t0)
             : nil
-        let optionalExcludeIDs = placeholderController.map { [$0.windowNumber] } ?? []
-        let effectiveExcludeCount = excludeIDs.count + optionalExcludeIDs.count
+        let placeholderExcludeIDs: [CGWindowID]
+        if let placeholderController {
+            let windowNumber = placeholderController.windowNumber
+            placeholderExcludeIDs = windowNumber == CGWindowID.max ? [] : [windowNumber]
+        } else {
+            placeholderExcludeIDs = []
+        }
+        // The immediate placeholder overlay must be a required exclusion. If it is only
+        // best-effort, a stale SCShareableContent cache can miss the just-created overlay
+        // window and ScreenCaptureKit will occasionally capture the dimming mask itself.
+        let effectiveExcludeIDs = Array(Set(excludeIDs + placeholderExcludeIDs))
 
         CaptureDiagnostics.log(
-            "[macshot-perf][capture] captureScreen BEGIN screen=\(targetScreen.localizedName) excludes=\(effectiveExcludeCount)"
+            "[macshot-perf][capture] captureScreen BEGIN screen=\(targetScreen.localizedName) excludes=\(effectiveExcludeIDs.count)"
         )
         memory.step(
             "captureScreen begin",
-            metadata: "requiredExcluded=\(excludeIDs.count) optionalExcluded=\(optionalExcludeIDs.count)"
+            metadata: "requiredExcluded=\(effectiveExcludeIDs.count) placeholderExcluded=\(placeholderExcludeIDs.count)"
         )
         ScreenCaptureManager.captureScreen(
             targetScreen,
-            excludingWindowNumbers: excludeIDs,
-            bestEffortExcludingWindowNumbers: optionalExcludeIDs
+            excludingWindowNumbers: effectiveExcludeIDs
         ) { [weak self, weak placeholderController] capture in
             guard let self else { return }
             guard requestID == self.captureRequestID, self.isCapturing else { return }

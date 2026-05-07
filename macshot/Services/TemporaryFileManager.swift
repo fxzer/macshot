@@ -27,6 +27,21 @@ enum TemporaryFileManager {
         }
     }
 
+    static func writeDragImageData(_ data: Data, fileExtension: String) -> URL? {
+        cleanupStaleMacshotFiles(now: Date())
+
+        let sanitizedExtension = fileExtension.trimmingCharacters(in: .whitespacesAndNewlines)
+        let suffix = sanitizedExtension.isEmpty ? "" : ".\(sanitizedExtension)"
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("\(genericMacshotPrefix)\(UUID().uuidString)\(suffix)")
+        do {
+            try data.write(to: url, options: .atomic)
+            return url
+        } catch {
+            return nil
+        }
+    }
+
     private static func cleanupLegacyClipboardFiles() {
         for url in temporaryFiles() {
             let name = url.lastPathComponent
