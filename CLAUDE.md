@@ -311,40 +311,24 @@ Copy to clipboard, Save to file (PNG/JPEG/HEIC/WebP), Pin (floating always-on-to
 
 ### Workflow: `.github/workflows/build-release.yml`
 
-CI triggers on tag push (`v*.*.*` or `v*.*.*-beta.*`) or manual `workflow_dispatch`. The workflow builds, signs, notarizes, creates a DMG, updates Sparkle appcast, creates a GitHub Release, and (for stable only) updates Homebrew.
+CI now uses a simple zip-based release flow that does **not** require Apple signing, notarization, Sparkle, or Homebrew secrets:
+
+- **Push to `dev`** → automatic rolling pre-release (`dev-latest`) with a zipped `MacShot.app`.
+- **Tag push** (`v*.*.*` or `v*.*.*-beta.*`) or manual `workflow_dispatch` with a tag → tagged GitHub Release with a zipped `MacShot.app`.
+
+Because the builds are unsigned, users may need to right-click the app and choose **Open** on first launch to bypass Gatekeeper.
 
 ### Stable release
 
 1. **Add a CHANGELOG.md entry** for the new version — CI extracts it for GitHub Release notes.
 2. **Tag and push:** `git tag v3.8.0 && git push origin main --tags`
-3. CI handles the rest: DMG, GitHub Release, appcast update (replaces all items with just the new stable), website version bump, Homebrew cask update.
-4. Make sure tool version in the website page is updated too.
+3. CI builds `MacShot.app`, zips it, and publishes it to GitHub Releases.
 
 ### Beta release
 
 1. **Add a CHANGELOG.md entry** (e.g. `## [3.8.0-beta.3] - 2026-04-06`).
 2. **Tag with `-beta.N` suffix:** `git tag v3.8.0-beta.3 && git push origin v3.8.0-beta.3`
-3. CI auto-detects beta from the tag and:
-   - Adds `<sparkle:channel>beta</sparkle:channel>` to the appcast item (invisible to stable users)
-   - Preserves the existing stable item in the appcast
-   - Marks the GitHub Release as **pre-release**
-   - **Skips** Homebrew tap and cask updates
-   - **Skips** website version update
-
-Beta users opt in via Preferences > "Check for beta updates". This sets `allowedChannels(for:)` to `["beta"]` in `SPUUpdaterDelegate`.
-
-### Sparkle versioning
-
-- `sparkle:version` (what Sparkle compares) = `github.run_number` — a monotonically increasing integer per CI build. This avoids all semver/pre-release comparison issues.
-- `sparkle:shortVersionString` (what the user sees) = the human-readable version from the tag (e.g. `3.8.0-beta.3`).
-- `MARKETING_VERSION` = tag version (display). `CURRENT_PROJECT_VERSION` = run number (build number).
-- The stable appcast item from older builds still uses the old version string (e.g. `3.7.0`) for `sparkle:version`. Sparkle's comparator parses `3.7.0` as `3` when compared to a plain integer, so any run number > 3 is seen as newer. This works.
-
-### Appcast safety
-
-- CI validates the generated appcast XML with `python3 ET.parse()` before committing. If invalid, the build fails and the broken XML never reaches users.
-- Appcast is served from `https://raw.githubusercontent.com/fxzer/macshot/main/appcast.xml` (CDN-cached, ~5 min TTL).
-- Stable item extraction uses `python3 xml.etree.ElementTree` with `ET.register_namespace('sparkle', ...)` to preserve the `sparkle:` prefix.
+3. CI marks the GitHub Release as **pre-release** and uploads the zip artifact.
 
 ### Manual trigger (fallback)
 
@@ -352,7 +336,7 @@ If tag push doesn't trigger CI (e.g. after rapid tag create/delete), use:
 ```
 gh workflow run build-release.yml --ref main -f tag=v3.8.0-beta.3
 ```
-This dispatches from main (which has `workflow_dispatch` support) and reads the tag from the input parameter. The tag must already exist on the remote.
+This dispatches from main and reads the tag from the input parameter. The tag must already exist on the remote. If you leave `tag` empty when dispatching manually, the workflow builds the selected ref as that branch's rolling `*-latest` pre-release instead.
 
 ### Notes
 

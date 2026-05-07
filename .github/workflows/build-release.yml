@@ -1,84 +1,91 @@
-name: Build, Sign & Release
+name: Build & Release Zip
 
-# Triggers on tag push or manual dispatch
 on:
   push:
+    branches:
+      - dev
     tags:
       - "v*.*.*"
       - "v*.*.*-beta.*"
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Tag to build (e.g. v3.8.0-beta.2)'
-        required: true
+        description: "Optional tag to build (for example: v5.1.0 or v5.1.0-beta.1)"
+        required: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-release-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   release:
-    runs-on: macos-15        # Xcode 16 + macOS 15 runner
+    runs-on: macos-15
     timeout-minutes: 30
 
     steps:
-      # ── 1. Checkout ────────────────────────────────────────────────────────
       - name: Checkout
         uses: actions/checkout@v5
         with:
           ref: ${{ github.event.inputs.tag || github.ref }}
+          fetch-depth: 0
 
-      # ── 2. Parse version from tag ──────────────────────────────────────────
-      - name: Set version
+      - name: Resolve release metadata
         run: |
-          # Use manual input tag if workflow_dispatch, otherwise use the pushed tag
-          TAG="${{ github.event.inputs.tag || github.ref_name }}"
-          VERSION="${TAG#v}"   # strip leading 'v'
+          set -euo pipefail
+
           BUILD_NUMBER="${{ github.run_number }}"
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
-          echo "BUILD_NUMBER=$BUILD_NUMBER" >> $GITHUB_ENV
-          if [[ "$VERSION" == *"-beta"* ]]; then
-            echo "IS_BETA=true" >> $GITHUB_ENV
+          EVENT_NAME="${{ github.event_name }}"
+          INPUT_TAG="${{ github.event.inputs.tag }}"
+
+          if [ "$EVENT_NAME" = "workflow_dispatch" ] && [ -n "$INPUT_TAG" ]; then
+            RELEASE_KIND="tag"
+            RELEASE_TAG="$INPUT_TAG"
+          elif [ "${{ github.ref_type }}" = "tag" ]; then
+            RELEASE_KIND="tag"
+            RELEASE_TAG="${{ github.ref_name }}"
           else
-            echo "IS_BETA=false" >> $GITHUB_ENV
+            RELEASE_KIND="branch"
+            RELEASE_BRANCH="${{ github.ref_name }}"
+            RELEASE_BRANCH_SLUG="$(printf '%s' "$RELEASE_BRANCH" | tr '/[:space:]' '-' | tr -cd '[:alnum:]._-')"
+            RELEASE_TAG="${RELEASE_BRANCH_SLUG}-latest"
           fi
 
-      # ── 3. Import Developer ID certificate into a temporary keychain ───────
-      - name: Import signing certificate
-        env:
-          CERT_P12_BASE64:  ${{ secrets.DEVELOPER_ID_CERT_P12 }}
-          CERT_PASSWORD:    ${{ secrets.DEVELOPER_ID_CERT_PASSWORD }}
+          if [ "$RELEASE_KIND" = "tag" ]; then
+            VERSION="${RELEASE_TAG#v}"
+            RELEASE_TITLE="v$VERSION"
+            if [[ "$VERSION" == *"-beta"* ]]; then
+              IS_PRERELEASE=true
+            else
+              IS_PRERELEASE=false
+            fi
+          else
+            BASE_VERSION=$(awk '/^## \[/{ line=$0; sub(/^## \[/, "", line); sub(/\].*/, "", line); print line; exit }' CHANGELOG.md)
+            BASE_VERSION="${BASE_VERSION%%-beta*}"
+            SHORT_SHA=$(git rev-parse --short HEAD)
+            VERSION="${BASE_VERSION}-${RELEASE_BRANCH_SLUG}.${BUILD_NUMBER}"
+            RELEASE_TITLE="${RELEASE_TAG} (${BASE_VERSION}, ${SHORT_SHA})"
+            IS_PRERELEASE=true
+          fi
+
+          ARCHIVE_NAME="MacShot-${VERSION}.zip"
+
+          echo "BUILD_NUMBER=$BUILD_NUMBER" >> "$GITHUB_ENV"
+          echo "RELEASE_KIND=$RELEASE_KIND" >> "$GITHUB_ENV"
+          echo "RELEASE_BRANCH=${RELEASE_BRANCH:-}" >> "$GITHUB_ENV"
+          echo "RELEASE_BRANCH_SLUG=${RELEASE_BRANCH_SLUG:-}" >> "$GITHUB_ENV"
+          echo "RELEASE_TAG=$RELEASE_TAG" >> "$GITHUB_ENV"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "RELEASE_TITLE=$RELEASE_TITLE" >> "$GITHUB_ENV"
+          echo "IS_PRERELEASE=$IS_PRERELEASE" >> "$GITHUB_ENV"
+          echo "ARCHIVE_NAME=$ARCHIVE_NAME" >> "$GITHUB_ENV"
+
+      - name: Build app
         run: |
-          echo "$CERT_P12_BASE64" | base64 --decode > /tmp/cert.p12
+          set -euo pipefail
 
-          KEYCHAIN_PATH="$RUNNER_TEMP/build.keychain"
-          KEYCHAIN_PASS="$(openssl rand -hex 16)"
-
-          security create-keychain -p "$KEYCHAIN_PASS" "$KEYCHAIN_PATH"
-          security set-keychain-settings -lut 3600 "$KEYCHAIN_PATH"
-          security unlock-keychain -p "$KEYCHAIN_PASS" "$KEYCHAIN_PATH"
-
-          security import /tmp/cert.p12 \
-            -k "$KEYCHAIN_PATH" \
-            -P "$CERT_PASSWORD" \
-            -T /usr/bin/codesign \
-            -T /usr/bin/productbuild
-
-          security set-key-partition-list \
-            -S apple-tool:,apple:,codesign: \
-            -s -k "$KEYCHAIN_PASS" "$KEYCHAIN_PATH"
-
-          security list-keychain -d user -s "$KEYCHAIN_PATH" login.keychain
-
-          echo "KEYCHAIN_PATH=$KEYCHAIN_PATH"     >> $GITHUB_ENV
-          echo "KEYCHAIN_PASS=$KEYCHAIN_PASS"     >> $GITHUB_ENV
-
-          IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" \
-            | grep "Developer ID Application" \
-            | sed -E 's/.*"(.+)"/\1/' | head -1)
-          echo "SIGNING_IDENTITY=$IDENTITY"       >> $GITHUB_ENV
-
-          rm /tmp/cert.p12
-
-      # ── 4. Resolve SPM packages + Build ───────────────────────────────────
-      - name: Build
-        run: |
           xcodebuild \
             -project macshot.xcodeproj \
             -scheme macshot \
@@ -101,339 +108,67 @@ jobs:
             CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
             build
 
-      # ── 5. Sign the .app with Developer ID ────────────────────────────────
-      - name: Sign app
+      - name: Package zip
         run: |
-          APP="build/Build/Products/Release/MacShot.app"
+          set -euo pipefail
 
-          # Sparkle's XPC services (Installer.xpc, Downloader.xpc) must NOT be sandboxed.
-          # They ship with empty entitlements so they can write to /Applications to replace
-          # the app bundle during updates. We must sign them WITHOUT the app's sandbox
-          # entitlements, and we must not use --deep on the outer app (which would re-sign
-          # them with the parent's entitlements).
-          #
-          # Signing order: innermost → outermost.
+          ditto -c -k --sequesterRsrc --keepParent \
+            "build/Build/Products/Release/MacShot.app" \
+            "$ARCHIVE_NAME"
 
-          # 1. Sign XPC services (no entitlements — intentionally unsandboxed)
-          find "$APP/Contents" -name "*.xpc" -print0 | while IFS= read -r -d '' xpc; do
-            echo "Signing XPC: $xpc"
-            codesign --force --options runtime \
-              --sign "$SIGNING_IDENTITY" \
-              --keychain "$KEYCHAIN_PATH" "$xpc"
-          done
+          ls -lh "$ARCHIVE_NAME"
 
-          # 2. Sign helper apps (Sparkle's Updater.app)
-          find "$APP/Contents" -name "*.app" -print0 | while IFS= read -r -d '' helper; do
-            echo "Signing helper: $helper"
-            codesign --force --options runtime \
-              --sign "$SIGNING_IDENTITY" \
-              --keychain "$KEYCHAIN_PATH" "$helper"
-          done
+      - name: Generate release notes
+        run: |
+          set -euo pipefail
 
-          # 3. Sign standalone executables (Sparkle's Autoupdate)
-          AUTOUPDATE="$APP/Contents/Frameworks/Sparkle.framework/Versions/B/Autoupdate"
-          if [ -f "$AUTOUPDATE" ]; then
-            echo "Signing Autoupdate"
-            codesign --force --options runtime \
-              --sign "$SIGNING_IDENTITY" \
-              --keychain "$KEYCHAIN_PATH" "$AUTOUPDATE"
-          fi
-
-          # 4. Sign dylibs
-          find "$APP/Contents" -name "*.dylib" -print0 | while IFS= read -r -d '' f; do
-            echo "Signing dylib: $f"
-            codesign --force --options runtime \
-              --sign "$SIGNING_IDENTITY" \
-              --keychain "$KEYCHAIN_PATH" "$f"
-          done
-
-          # 5. Sign frameworks (seals the already-signed nested code)
-          find "$APP/Contents" -name "*.framework" -print0 | while IFS= read -r -d '' f; do
-            echo "Signing framework: $f"
-            codesign --force --options runtime \
-              --sign "$SIGNING_IDENTITY" \
-              --keychain "$KEYCHAIN_PATH" "$f"
-          done
-
-          # 6. Sign the main app with its sandbox entitlements (no --deep!)
-          echo "Signing main app"
-          codesign --force --options runtime \
-            --sign "$SIGNING_IDENTITY" \
-            --keychain "$KEYCHAIN_PATH" \
-            --entitlements macshot/Resources/macshot.entitlements \
-            "$APP"
-
-          # 7. Verify everything
-          codesign --verify --deep --strict "$APP"
-          echo "✅ Signing verified"
-
-          # 8. Confirm XPC services are NOT sandboxed
-          for xpc in $(find "$APP/Contents" -name "*.xpc"); do
-            ENT=$(codesign -d --entitlements - "$xpc" 2>&1 || true)
-            if echo "$ENT" | grep -q "app-sandbox"; then
-              echo "❌ ERROR: $xpc has sandbox entitlements — updates will fail!"
+          if [ "$RELEASE_KIND" = "tag" ]; then
+            awk "/^## \[$VERSION\]/{found=1; next} found && /^## \[/{exit} found{print}" \
+              CHANGELOG.md > release_notes.md
+            if [ ! -s release_notes.md ]; then
+              echo "❌ ERROR: missing CHANGELOG.md entry for $VERSION"
               exit 1
             fi
-            echo "✅ $(basename $xpc): no sandbox (correct)"
-          done
+          else
+            {
+              echo "Automated pre-release build from \`${RELEASE_BRANCH}\`."
+              echo
+              echo "- Version: \`${VERSION}\`"
+              echo "- Commit: \`${GITHUB_SHA}\`"
+              echo "- Workflow run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            } > release_notes.md
+          fi
 
-      # ── 6. Package into DMG ────────────────────────────────────────────────
-      - name: Package DMG
-        run: |
-          hdiutil create \
-            -volname "macshot" \
-            -srcfolder "build/Build/Products/Release/MacShot.app" \
-            -ov -format UDZO \
-            MacShot.dmg
+          cat >> release_notes.md <<'EOF'
 
-      # ── 7. Notarize ────────────────────────────────────────────────────────
-      - name: Notarize
-        env:
-          ASC_API_KEY_BASE64: ${{ secrets.ASC_API_KEY }}
-          ASC_API_KEY_ID:     ${{ secrets.ASC_API_KEY_ID }}
-          ASC_API_ISSUER_ID:  ${{ secrets.ASC_API_ISSUER_ID }}
-        run: |
-          mkdir -p ~/.appstoreconnect/private_keys
-          echo "$ASC_API_KEY_BASE64" | base64 --decode \
-            > ~/.appstoreconnect/private_keys/AuthKey_${ASC_API_KEY_ID}.p8
+          ### Install
+          1. Download the zip and unzip it.
+          2. Drag `MacShot.app` into `/Applications`.
+          3. Because this build is not signed or notarized, macOS may show a security warning on first launch.
+          4. If that happens, right-click `MacShot.app` and choose **Open** once to allow it.
+          EOF
 
-          xcrun notarytool submit MacShot.dmg \
-            --key ~/.appstoreconnect/private_keys/AuthKey_${ASC_API_KEY_ID}.p8 \
-            --key-id "$ASC_API_KEY_ID" \
-            --issuer "$ASC_API_ISSUER_ID" \
-            --wait \
-            --timeout 20m
-
-          xcrun stapler staple MacShot.dmg
-
-          echo "✅ Notarization complete"
-
-          rm -f ~/.appstoreconnect/private_keys/AuthKey_${ASC_API_KEY_ID}.p8
-
-      # ── 8. Get SHA256 for Homebrew ─────────────────────────────────────────
-      - name: Compute SHA256
-        run: |
-          SHA256=$(shasum -a 256 MacShot.dmg | awk '{print $1}')
-          echo "SHA256=$SHA256" >> $GITHUB_ENV
-          echo "SHA256: $SHA256"
-
-      # ── 9. Extract changelog entry for this version ───────────────────────
-      - name: Extract release notes
-        run: |
-          awk "/^## \[$VERSION\]/{found=1; next} found && /^## \[/{exit} found{print}" \
-            CHANGELOG.md > release_notes.md
           cat release_notes.md
 
-      # ── 10. Sign DMG for Sparkle and update appcast ───────────────────────
-      - name: Write appcast helper scripts
-        run: |
-          python3 << 'PYEOF'
-          import textwrap, pathlib
-          pathlib.Path("/tmp/extract_stable.py").write_text(textwrap.dedent("""\
-              import xml.etree.ElementTree as ET
-              ET.register_namespace('sparkle', 'http://www.andymatuschak.org/xml-namespaces/sparkle')
-              ns = {'sparkle': 'http://www.andymatuschak.org/xml-namespaces/sparkle'}
-              tree = ET.parse('appcast.xml')
-              stable = []
-              for item in tree.findall('.//item'):
-                  if item.find('sparkle:channel', ns) is None:
-                      stable.append(ET.tostring(item, encoding='unicode'))
-              with open('/tmp/stable_items.xml', 'w') as f:
-                  f.write('\\n'.join(stable))
-          """))
-          pathlib.Path("/tmp/build_item.py").write_text(textwrap.dedent("""\
-              import sys
-              version, build_number, date, channel, html, url, size, sig = sys.argv[1:9]
-              channel_line = f'    <sparkle:channel>{channel}</sparkle:channel>' if channel else ''
-              with open('/tmp/new_item.xml', 'w') as f:
-                  f.write(f'''<item>
-                  <title>v{version}</title>
-                  <pubDate>{date}</pubDate>
-                  <sparkle:version>{build_number}</sparkle:version>
-                  <sparkle:shortVersionString>{version}</sparkle:shortVersionString>
-                  <sparkle:minimumSystemVersion>12.3</sparkle:minimumSystemVersion>
-              {channel_line}
-                  <description><![CDATA[
-                    <style>
-                      body {{ font-family: -apple-system, sans-serif; font-size: 13px; padding: 12px; }}
-                      h3 {{ font-size: 14px; margin: 12px 0 6px 0; }}
-                      h3:first-child {{ margin-top: 0; }}
-                      ul {{ padding-left: 18px; margin: 4px 0; }}
-                      li {{ margin: 4px 0; line-height: 1.5; }}
-                    </style>
-                    {html}
-                  ]]></description>
-                  <enclosure
-                      url="{url}"
-                      length="{size}"
-                      type="application/octet-stream"
-                      sparkle:edSignature="{sig}"
-                  />
-              </item>''')
-          """))
-          pathlib.Path("/tmp/assemble_appcast.py").write_text(textwrap.dedent("""\
-              import sys, os
-              is_beta = sys.argv[1] == 'true'
-              stable = ''
-              if is_beta and os.path.exists('/tmp/stable_items.xml'):
-                  stable = open('/tmp/stable_items.xml').read().strip()
-              new_item = open('/tmp/new_item.xml').read().strip()
-              parts = [p for p in [stable, new_item] if p]
-              items = '\\n'.join(parts)
-              with open('appcast.xml', 'w') as f:
-                  f.write(f'''<?xml version="1.0" encoding="utf-8"?>
-              <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
-                  <channel>
-                      <title>macshot</title>
-                      <link>https://github.com/sw33tLie/macshot</link>
-                      <description>macshot updates</description>
-              {items}
-                  </channel>
-              </rss>
-              ''')
-          """))
-          PYEOF
-
-      - name: Update Sparkle appcast
-        env:
-          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
-        run: |
-          # Download Sparkle tools
-          SPARKLE_VERSION="2.6.4"
-          curl -L -o /tmp/Sparkle.tar.xz \
-            "https://github.com/sparkle-project/Sparkle/releases/download/${SPARKLE_VERSION}/Sparkle-${SPARKLE_VERSION}.tar.xz"
-          mkdir -p /tmp/sparkle
-          tar -xf /tmp/Sparkle.tar.xz -C /tmp/sparkle
-
-          # Sign the DMG with Sparkle's EdDSA key
-          echo "$SPARKLE_PRIVATE_KEY" > /tmp/sparkle_key
-          SIGN_OUTPUT=$(/tmp/sparkle/bin/sign_update MacShot.dmg --ed-key-file /tmp/sparkle_key)
-          rm -f /tmp/sparkle_key
-          echo "Sparkle signature output: $SIGN_OUTPUT"
-
-          # Parse: sparkle:edSignature="..." length="..."
-          ED_SIG=$(echo "$SIGN_OUTPUT" | sed -n 's/.*edSignature="\([^"]*\)".*/\1/p')
-          FILESIZE=$(stat -f%z MacShot.dmg)
-          DOWNLOAD_URL="https://github.com/sw33tLie/macshot/releases/download/v${VERSION}/MacShot.dmg"
-          DATE=$(date -R)
-
-          # Convert release notes markdown to HTML for Sparkle update dialog
-          RELEASE_HTML=""
-          if [ -s release_notes.md ]; then
-            RELEASE_HTML=$(sed -E \
-              -e 's/^### (.+)/<\/ul><h3>\1<\/h3><ul>/' \
-              -e 's/^- \*\*([^*]+)\*\* [-–] (.+)/<li><b>\1<\/b> — \2<\/li>/' \
-              -e 's/^- \*\*([^*]+)\*\*(.*)/<li><b>\1<\/b>\2<\/li>/' \
-              -e 's/^- (.+)/<li>\1<\/li>/' \
-              release_notes.md | tr '\n' ' ')
-            # Clean up: remove leading </ul>, add trailing </ul>
-            RELEASE_HTML=$(echo "$RELEASE_HTML" | sed -E \
-              -e 's|^ *</ul> *||' \
-              -e 's| *$|</ul>|')
-          fi
-
-          # Build the new <item> block
-          CHANNEL=""
-          if [ "$IS_BETA" = "true" ]; then
-            CHANNEL="beta"
-          fi
-
-          python3 /tmp/build_item.py "$VERSION" "$BUILD_NUMBER" "$DATE" "$CHANNEL" "$RELEASE_HTML" "$DOWNLOAD_URL" "$FILESIZE" "$ED_SIG"
-          NEW_ITEM=$(cat /tmp/new_item.xml)
-
-          # Merge into appcast.xml:
-          # - Beta release: keep existing stable item, replace any previous beta item
-          # - Stable release: replace everything (stable is now the latest, drop old beta)
-
-          # Write new item to a temp file for clean assembly
-          echo "$NEW_ITEM" > /tmp/new_item.xml
-
-          if [ "$IS_BETA" = "true" ] && [ -f appcast.xml ]; then
-            python3 /tmp/extract_stable.py 2>/dev/null || echo "" > /tmp/stable_items.xml
-          else
-            echo "" > /tmp/stable_items.xml
-          fi
-
-          python3 /tmp/assemble_appcast.py "$IS_BETA"
-
-          # Validate appcast XML before proceeding — abort if malformed
-          python3 -c "import xml.etree.ElementTree as ET; ET.parse('appcast.xml')" || {
-            echo "❌ ERROR: appcast.xml is not valid XML — aborting to protect user updates"
-            exit 1
-          }
-          echo "✅ Appcast generated and validated"
-          cat appcast.xml
-
-      # ── 11. Create GitHub Release ──────────────────────────────────────────
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release delete "v$VERSION" --yes 2>/dev/null || true
+          set -euo pipefail
+
+          DELETE_ARGS=""
+          if [ "$RELEASE_KIND" = "branch" ]; then
+            DELETE_ARGS="--cleanup-tag"
+          fi
+          gh release delete "$RELEASE_TAG" --yes $DELETE_ARGS 2>/dev/null || true
+
           PRERELEASE_FLAG=""
-          if [ "$IS_BETA" = "true" ]; then
+          if [ "$IS_PRERELEASE" = "true" ]; then
             PRERELEASE_FLAG="--prerelease"
           fi
-          gh release create "v$VERSION" MacShot.dmg \
-            --title "v$VERSION" \
+
+          gh release create "$RELEASE_TAG" "$ARCHIVE_NAME" \
+            --target "$GITHUB_SHA" \
+            --title "$RELEASE_TITLE" \
             --notes-file release_notes.md \
             $PRERELEASE_FLAG
-
-      # ── 12. Commit appcast.xml to main ─────────────────────────────────────
-      - name: Commit appcast + update website version
-        run: |
-          git config user.name  "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          # Save the generated appcast before switching branches
-          cp appcast.xml /tmp/appcast.xml
-          git fetch origin main
-          git checkout -f main
-          cp /tmp/appcast.xml appcast.xml
-          if [ "$IS_BETA" = "false" ]; then
-            sed -i '' "s/v[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*/v${VERSION}/" website/index.html
-            git add website/index.html
-          fi
-          git add appcast.xml
-          git diff --cached --quiet && echo "No changes" || {
-            git commit -m "ci: update appcast.xml for v${VERSION}"
-            git push origin main
-          }
-
-      # ── 13. Update Homebrew formula (personal tap) ─────────────────────────
-      - name: Update Homebrew formula
-        if: env.IS_BETA == 'false'
-        env:
-          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-        run: |
-          git clone https://x-access-token:${GH_TOKEN}@github.com/sw33tLie/homebrew-macshot.git /tmp/tap
-
-          sed -i '' \
-            -e "s/version \".*\"/version \"$VERSION\"/" \
-            -e "s/sha256 \".*\"/sha256 \"$SHA256\"/" \
-            /tmp/tap/Casks/macshot.rb
-
-          cd /tmp/tap
-          git config user.name  "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add Casks/macshot.rb
-          git commit -m "macshot $VERSION"
-          git push
-
-      # ── 14. Bump homebrew-cask (official) ──────────────────────────────────
-      - name: Bump homebrew-cask
-        if: env.IS_BETA == 'false'
-        env:
-          HOMEBREW_GITHUB_API_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-        run: |
-          brew tap homebrew/cask 2>/dev/null || true
-          brew bump-cask-pr macshot \
-            --version "$VERSION" \
-            --sha256 "$SHA256" \
-            --no-browse \
-            || echo "⚠️ homebrew-cask bump failed (cask may not exist yet or is already up to date)"
-
-      # ── 15. Cleanup keychain ────────────────────────────────────────────────
-      - name: Cleanup keychain
-        if: always()
-        run: |
-          security delete-keychain "$KEYCHAIN_PATH" 2>/dev/null || true

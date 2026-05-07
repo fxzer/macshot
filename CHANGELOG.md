@@ -1,5 +1,11 @@
 # Changelog
 
+## [5.1.1-beta.1] - 2026-05-07
+
+### Changed
+- **Release workflow simplified** — GitHub Actions now builds `MacShot.app`, zips it, and publishes it directly to GitHub Releases without requiring Apple signing, notarization, Sparkle, or Homebrew secrets.
+- **`dev` auto-release channel** — every push to `dev` now refreshes a rolling `dev-latest` pre-release for quick internal testing.
+
 ## [5.1.0] - 2026-05-07
 
 ### Fixed
