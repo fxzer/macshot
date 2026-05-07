@@ -245,54 +245,25 @@ final class StatusBarController: NSObject {
         interactionScreen = sender.window?.screen
             ?? NSScreen.screens.first(where: { $0.frame.contains(NSEvent.mouseLocation) })
         ScreenCaptureManager.prewarm(screen: interactionScreen, mode: .full)
-        let fallbackAnchorRect = statusBarMenuAnchorRect(for: sender)
 
         if let modalWindow = NSApp.modalWindow {
             NSApp.stopModal()
             modalWindow.close()
             DispatchQueue.main.async { [weak self] in
-                self?.showStatusBarMenu(from: sender, fallbackAnchorRect: fallbackAnchorRect)
+                self?.showStatusBarMenu(from: sender)
             }
         } else {
-            showStatusBarMenu(from: sender, fallbackAnchorRect: fallbackAnchorRect)
+            showStatusBarMenu(from: sender)
         }
     }
 
-    private func statusBarMenuAnchorRect(for button: NSStatusBarButton) -> NSRect? {
-        guard let window = button.window else { return nil }
-        let buttonRectInWindow = button.convert(button.bounds, to: nil)
-        return window.convertToScreen(buttonRectInWindow)
-    }
-
-    private func statusBarMenuAnchorPoint(for button: NSStatusBarButton) -> NSPoint {
-        if button.isFlipped {
-            return NSPoint(x: button.bounds.minX, y: button.bounds.maxY + 7)
-        }
-        return NSPoint(x: button.bounds.minX, y: button.bounds.minY - 7)
-    }
-
-    private func showStatusBarMenu(from button: NSStatusBarButton, fallbackAnchorRect: NSRect? = nil) {
+    private func showStatusBarMenu(from button: NSStatusBarButton) {
         guard let menu = statusBarMenu else { return }
         pendingMenuAction = nil
-
-        let oldAction = button.action
-        let oldTarget = button.target
-        button.action = nil
-        button.target = nil
-        defer {
-            button.action = oldAction
-            button.target = oldTarget
-        }
-
-        if button.window != nil {
-            menu.popUp(positioning: nil, at: statusBarMenuAnchorPoint(for: button), in: button)
-            runPendingMenuActionIfNeeded()
-            return
-        }
-
-        guard let screenFrame = fallbackAnchorRect ?? statusBarMenuAnchorRect(for: button) else { return }
-        let menuPoint = NSPoint(x: screenFrame.minX, y: screenFrame.minY - 7)
-        menu.popUp(positioning: nil, at: menuPoint, in: nil)
+        let previousMenu = statusItem.menu
+        statusItem.menu = menu
+        button.performClick(nil)
+        statusItem.menu = previousMenu
         runPendingMenuActionIfNeeded()
     }
 
