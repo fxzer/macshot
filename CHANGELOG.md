@@ -1,5 +1,11 @@
 # Changelog
 
+## [5.1.1-beta.2] - 2026-05-11
+
+### Fixed
+- **Aspect ratio input flow** — custom ratio fields in Settings > Shortcuts now accept up to 2 decimal places, support Tab-to-next-field and Enter-to-add keyboard flow, and use the same rounded filled styling as the rest of the form.
+- **Shortcut recording Escape handling** — only bare Escape cancels shortcut recording, so modified Escape combos remain assignable.
+
 ## [5.1.1-beta.1] - 2026-05-07
 
 ### Changed
