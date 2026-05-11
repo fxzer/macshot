@@ -166,7 +166,7 @@ class OverlayWindowController {
         )
     }
 
-    func showOverlay() {
+    func showOverlay(activateAppIfNeeded: Bool = true) {
         var perf = PerfMonitor(label: "showOverlay[\(screen.localizedName)]")
         var memory = MemoryDiagnostics.makeScope(
             "OverlayWindowController.showOverlay",
@@ -183,7 +183,7 @@ class OverlayWindowController {
         perf.step("prepareCaptureImage")
         memory.step("prepareCaptureImage")
 
-        presentWindow(window)
+        presentWindow(window, activateAppIfNeeded: activateAppIfNeeded)
         perf.step("presentWindow")
         perf.finish()
         memory.finish("presented", metadata: "windowVisible=\(window.isVisible)")
@@ -220,7 +220,12 @@ class OverlayWindowController {
         }
     }
 
-    private func presentWindow(_ window: OverlayWindow) {
+    private func presentWindow(_ window: OverlayWindow, activateAppIfNeeded: Bool) {
+        guard activateAppIfNeeded else {
+            window.orderFrontRegardless()
+            return
+        }
+
         if NSApp.isActive {
             promoteWindowToKey(window)
             return

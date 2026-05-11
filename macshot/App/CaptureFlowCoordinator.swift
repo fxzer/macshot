@@ -511,6 +511,7 @@ final class CaptureFlowCoordinator {
                     "[macshot-perf][overlay] PLACEHOLDER CAPTURE APPLIED total=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - t0) * 1000))ms screen=\(capture.screen.localizedName)"
                 )
                 self.logOverlayWindowState("placeholder capture applied")
+                self.makePrimaryOverlayKey()
                 self.startOverlayMouseScreenTracking()
                 memory.finish(
                     "placeholder applied capture",
@@ -537,14 +538,11 @@ final class CaptureFlowCoordinator {
 
         stopOverlayMouseScreenTracking()
         dismissStrayOverlayWindows(reason: "showImmediateOverlay preflight")
-        NSApp.activate(ignoringOtherApps: true)
-        perf.step("NSApp.activate")
-        memory.step("activate app")
 
         let controller = OverlayWindowController(screen: screen)
         controller.overlayView?.suppressBackdropUntilCapture = true
         configureController(controller, screenName: screen.localizedName, t0: t0)
-        controller.showOverlay()
+        controller.showOverlay(activateAppIfNeeded: false)
         perf.step("controller screen=\(screen.localizedName)")
         memory.step("controller ready", metadata: "overlayCountBeforeAppend=\(overlayControllersStorage.count)")
         overlayControllersStorage.append(controller)
@@ -553,9 +551,6 @@ final class CaptureFlowCoordinator {
         logOverlayWindowState("showImmediateOverlay appended")
 
         installOverlayEscMonitor()
-        DispatchQueue.main.async { [weak self] in
-            self?.makePrimaryOverlayKey()
-        }
 
         if captureIntent?.shouldRestoreLastSelection == true {
             restoreLastSelectionIfNeeded(controllers: [controller])

@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.1.3] - 2026-05-11
+
+### Fixed
+- **Number tool sequencing** — numbering now continues independently for decimal, Roman, and alphabetic formats, so switching from `1, 2, 3` to letters starts at `A` instead of carrying over to `D`.
+- **Number tool start value control** — the start value is now directly editable, still supports stepper buttons, and is clamped to the practical range `1–20`.
+- **Area capture focus flicker** — the immediate overlay no longer activates macshot before the screen image is captured, so frontmost app controls keep their active appearance in the screenshot.
+
 ## [5.1.2] - 2026-05-11
 
 ### Fixed
