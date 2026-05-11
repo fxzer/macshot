@@ -99,6 +99,98 @@ struct KeyRecorderField: View {
     }
 }
 
+private enum RatioInputFocusField: Hashable {
+    case width
+    case height
+}
+
+private struct RatioInputTextField: NSViewRepresentable {
+    let placeholder: String
+    @Binding var text: String
+    @Binding var focusedField: RatioInputFocusField?
+    let field: RatioInputFocusField
+    var onTab: (() -> Void)?
+    var onBacktab: (() -> Void)?
+    var onSubmit: (() -> Bool)?
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(parent: self)
+    }
+
+    func makeNSView(context: Context) -> NSTextField {
+        let textField = NSTextField(string: text)
+        textField.placeholderString = placeholder
+        textField.isBezeled = false
+        textField.isBordered = false
+        textField.drawsBackground = false
+        textField.backgroundColor = .clear
+        textField.controlSize = .small
+        textField.delegate = context.coordinator
+        return textField
+    }
+
+    func updateNSView(_ nsView: NSTextField, context: Context) {
+        context.coordinator.parent = self
+
+        if nsView.stringValue != text {
+            nsView.stringValue = text
+        }
+
+        if nsView.placeholderString != placeholder {
+            nsView.placeholderString = placeholder
+        }
+
+        guard focusedField == field,
+              let window = nsView.window else { return }
+
+        let isFirstResponder = window.firstResponder === nsView || window.firstResponder === nsView.currentEditor()
+        guard !isFirstResponder else { return }
+
+        DispatchQueue.main.async {
+            guard focusedField == field else { return }
+            window.makeFirstResponder(nsView)
+        }
+    }
+
+    final class Coordinator: NSObject, NSTextFieldDelegate {
+        var parent: RatioInputTextField
+
+        init(parent: RatioInputTextField) {
+            self.parent = parent
+        }
+
+        func controlTextDidBeginEditing(_ notification: Notification) {
+            parent.focusedField = parent.field
+        }
+
+        func controlTextDidChange(_ notification: Notification) {
+            guard let textField = notification.object as? NSTextField else { return }
+            if parent.text != textField.stringValue {
+                parent.text = textField.stringValue
+            }
+        }
+
+        func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
+            switch commandSelector {
+            case #selector(NSResponder.insertTab(_:)):
+                guard let onTab = parent.onTab else { return false }
+                onTab()
+                return true
+            case #selector(NSResponder.insertBacktab(_:)):
+                guard let onBacktab = parent.onBacktab else { return false }
+                onBacktab()
+                return true
+            case #selector(NSResponder.insertNewline(_:)),
+                 #selector(NSResponder.insertNewlineIgnoringFieldEditor(_:)),
+                 #selector(NSResponder.insertLineBreak(_:)):
+                return parent.onSubmit?() ?? false
+            default:
+                return false
+            }
+        }
+    }
+}
+
 // MARK: - Global Hotkey Recording Model
 
 class HotkeyRecordingModel: ObservableObject {
@@ -429,10 +521,12 @@ struct ShortcutsSettingsView: View {
 
     // Aspect ratio management states
     @State private var aspectRatios: [CustomAspectRatio] = []
-    @State private var newWidth: Int?
-    @State private var newHeight: Int?
+    @State private var newWidthText = ""
+    @State private var newHeightText = ""
+    @State private var focusedRatioField: RatioInputFocusField?
     @State private var errorMessage: String?
     private let ratioInputControlHeight: CGFloat = 24
+    private let ratioInputFieldWidth: CGFloat = 96
 
     var onHotkeyChanged: (() -> Void)?
 
@@ -521,7 +615,7 @@ struct ShortcutsSettingsView: View {
 
                             // 比例名称
                             Text(ratio.displayName)
-                                .frame(width: 50, alignment: .leading)
+                                .frame(width: 96, alignment: .leading)
 
                             // 比例数值
                             Text(String(format: "%.2f", ratio.ratio))
@@ -530,7 +624,7 @@ struct ShortcutsSettingsView: View {
                                 .frame(width: 40, alignment: .leading)
 
                             // 反转提示（非正方形比例）
-                            if ratio.width != ratio.height {
+                            if !ratio.isSquare {
                                 let inverted = ratio.inverted
                                 Text(String(format: L("R → %@"), inverted.displayName))
                                     .font(.system(.caption2))
@@ -569,23 +663,69 @@ struct ShortcutsSettingsView: View {
                     // 添加新比例
                     VStack(alignment: .leading, spacing: 8) {
                         HStack(alignment: .center, spacing: 8) {
-                            TextField(L("Width"), value: $newWidth, format: .number)
-                                .textFieldStyle(.roundedBorder)
-                                .controlSize(.small)
-                                .frame(width: 74)
+                            RatioInputTextField(
+                                placeholder: L("Width"),
+                                text: $newWidthText,
+                                focusedField: $focusedRatioField,
+                                field: .width,
+                                onTab: { focusedRatioField = .height },
+                                onSubmit: submitNewRatioFromKeyboard
+                            )
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                                .frame(width: ratioInputFieldWidth)
                                 .frame(height: ratioInputControlHeight)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .fill(Color(nsColor: .textBackgroundColor))
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .stroke(
+                                            focusedRatioField == .width
+                                                ? Color.accentColor
+                                                : Color(nsColor: .separatorColor).opacity(0.55),
+                                            lineWidth: focusedRatioField == .width ? 1.5 : 1
+                                        )
+                                )
+                                .onChange(of: newWidthText) { _ in
+                                    errorMessage = nil
+                                }
                             Text(":")
                                 .font(.system(size: 13, weight: .semibold))
                                 .foregroundColor(.secondary)
                                 .frame(width: 10, height: ratioInputControlHeight, alignment: .center)
                                 .offset(y: -0.5)
-                            TextField(L("Height"), value: $newHeight, format: .number)
-                                .textFieldStyle(.roundedBorder)
-                                .controlSize(.small)
-                                .frame(width: 74)
+                            RatioInputTextField(
+                                placeholder: L("Height"),
+                                text: $newHeightText,
+                                focusedField: $focusedRatioField,
+                                field: .height,
+                                onBacktab: { focusedRatioField = .width },
+                                onSubmit: submitNewRatioFromKeyboard
+                            )
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                                .frame(width: ratioInputFieldWidth)
                                 .frame(height: ratioInputControlHeight)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .fill(Color(nsColor: .textBackgroundColor))
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .stroke(
+                                            focusedRatioField == .height
+                                                ? Color.accentColor
+                                                : Color(nsColor: .separatorColor).opacity(0.55),
+                                            lineWidth: focusedRatioField == .height ? 1.5 : 1
+                                        )
+                                )
+                                .onChange(of: newHeightText) { _ in
+                                    errorMessage = nil
+                                }
 
-                            Button(action: addNewRatio) {
+                            Button(action: { _ = addNewRatio() }) {
                                 Image(systemName: "plus.circle.fill")
                                     .font(.system(size: 17))
                                     .foregroundStyle(
@@ -670,23 +810,31 @@ struct ShortcutsSettingsView: View {
     }
 
     private var isNewRatioValid: Bool {
-        guard let width = newWidth, let height = newHeight else { return false }
+        guard let width = parsedRatioComponent(from: newWidthText),
+              let height = parsedRatioComponent(from: newHeightText) else { return false }
         return AspectRatioPreferences.validationError(width: width, height: height) == nil
     }
 
-    private func addNewRatio() {
-        guard let width = newWidth, let height = newHeight else { return }
+    @discardableResult
+    private func addNewRatio() -> Bool {
+        guard let width = parsedRatioComponent(from: newWidthText),
+              let height = parsedRatioComponent(from: newHeightText) else {
+            errorMessage = L("Invalid ratio. Width and height must be between 0.01 and 100, with up to 2 decimal places.")
+            return false
+        }
 
         let (success, error) = AspectRatioPreferences.addRatio(width: width, height: height)
         guard success else {
             errorMessage = error ?? L("Failed to add ratio.")
-            return
+            return false
         }
 
         errorMessage = nil
-        newWidth = nil
-        newHeight = nil
+        newWidthText = ""
+        newHeightText = ""
+        focusedRatioField = .width
         loadAspectRatios()
+        return true
     }
 
     private func removeRatio(_ ratio: CustomAspectRatio) {
@@ -698,5 +846,36 @@ struct ShortcutsSettingsView: View {
 
         errorMessage = nil
         loadAspectRatios()
+    }
+
+    private func parsedRatioComponent(from text: String) -> Double? {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+
+        var normalized = trimmed.replacingOccurrences(of: ",", with: ".")
+        let parts = normalized.split(separator: ".", omittingEmptySubsequences: false)
+        guard parts.count <= 2 else { return nil }
+        guard parts.allSatisfy({ $0.allSatisfy(\.isNumber) }) else { return nil }
+
+        if parts.count == 2 {
+            guard parts[1].count <= CustomAspectRatio.maxFractionDigits else { return nil }
+            if normalized.hasSuffix(".") {
+                normalized.removeLast()
+            }
+        }
+
+        guard normalized != ".", !normalized.isEmpty else { return nil }
+        return Double(normalized)
+    }
+
+    private func submitNewRatioFromKeyboard() -> Bool {
+        guard hasAnyRatioInput else { return false }
+        _ = addNewRatio()
+        return true
+    }
+
+    private var hasAnyRatioInput: Bool {
+        !newWidthText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            || !newHeightText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 }
