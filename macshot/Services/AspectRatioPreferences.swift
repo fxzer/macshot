@@ -3,8 +3,8 @@ import Foundation
 // MARK: - Aspect Ratio Model
 struct CustomAspectRatio: Codable, Equatable, Identifiable {
     let id: UUID
-    let width: Int
-    let height: Int
+    let width: Double
+    let height: Double
     let isEnabled: Bool  // Soft delete flag
 
     var ratio: CGFloat {
@@ -13,14 +13,31 @@ struct CustomAspectRatio: Codable, Equatable, Identifiable {
     }
 
     var displayName: String {
-        "\(width):\(height)"
+        "\(Self.formatComponent(width)):\(Self.formatComponent(height))"
     }
 
     var isValid: Bool {
-        width > 0 && height > 0 && width <= 100 && height <= 100
+        Self.isSupportedComponent(width) && Self.isSupportedComponent(height)
     }
 
-    init(id: UUID = UUID(), width: Int, height: Int, isEnabled: Bool = true) {
+    var isSquare: Bool {
+        guard let normalizedPairKey else { return false }
+        return normalizedPairKey == Self.normalizedPairKey(width: 1, height: 1)
+    }
+
+    var normalizedExactKey: String? {
+        Self.normalizedExactKey(width: width, height: height)
+    }
+
+    var normalizedPairKey: String? {
+        Self.normalizedPairKey(width: width, height: height)
+    }
+
+    func isExactlyEquivalent(toWidth width: Double, height: Double) -> Bool {
+        normalizedExactKey == Self.normalizedExactKey(width: width, height: height)
+    }
+
+    init(id: UUID = UUID(), width: Double, height: Double, isEnabled: Bool = true) {
         self.id = id
         self.width = width
         self.height = height
@@ -30,6 +47,9 @@ struct CustomAspectRatio: Codable, Equatable, Identifiable {
 
 // MARK: - Default Aspect Ratios
 extension CustomAspectRatio {
+    static let maxComponentValue: Double = 100
+    static let maxFractionDigits = 2
+
     private static let oneToOneID = UUID(uuidString: "F0B5C59D-4B76-4F85-8F05-96F2C16D8B01")!
     private static let threeToFourID = UUID(uuidString: "A6D83462-5D22-4F4C-8E0D-7436555B63F2")!
     private static let nineToSixteenID = UUID(uuidString: "D3A587A9-9F81-4B10-8F7F-2E9E2B8D0C63")!
@@ -47,8 +67,73 @@ extension CustomAspectRatio {
     }
 
     var exactKey: String {
-        "\(width):\(height)"
+        displayName
     }
+
+    static func formatComponent(_ value: Double) -> String {
+        displayFormatter.string(from: NSNumber(value: value)) ?? String(format: "%.2f", value)
+    }
+
+    static func normalizedPairKey(width: Double, height: Double) -> String? {
+        guard let normalized = normalizedComponents(width: width, height: height) else {
+            return nil
+        }
+        return "\(min(normalized.width, normalized.height)):\(max(normalized.width, normalized.height))"
+    }
+
+    static func normalizedExactKey(width: Double, height: Double) -> String? {
+        guard let normalized = normalizedComponents(width: width, height: height) else {
+            return nil
+        }
+        return "\(normalized.width):\(normalized.height)"
+    }
+
+    private static func normalizedComponents(width: Double, height: Double) -> (width: Int, height: Int)? {
+        guard let scaledWidth = scaledComponent(width),
+              let scaledHeight = scaledComponent(height),
+              scaledWidth > 0,
+              scaledHeight > 0 else {
+            return nil
+        }
+
+        let divisor = greatestCommonDivisor(abs(scaledWidth), abs(scaledHeight))
+        let normalizedWidth = divisor > 0 ? scaledWidth / divisor : scaledWidth
+        let normalizedHeight = divisor > 0 ? scaledHeight / divisor : scaledHeight
+        return (normalizedWidth, normalizedHeight)
+    }
+
+    private static func isSupportedComponent(_ value: Double) -> Bool {
+        guard value > 0, value <= maxComponentValue else { return false }
+        let scaled = value * pow(10, Double(maxFractionDigits))
+        return abs(scaled - scaled.rounded()) < 0.000_001
+    }
+
+    private static func scaledComponent(_ value: Double) -> Int? {
+        guard isSupportedComponent(value) else { return nil }
+        let scale = pow(10, Double(maxFractionDigits))
+        return Int((value * scale).rounded())
+    }
+
+    private static func greatestCommonDivisor(_ lhs: Int, _ rhs: Int) -> Int {
+        var a = lhs
+        var b = rhs
+        while b != 0 {
+            let remainder = a % b
+            a = b
+            b = remainder
+        }
+        return a
+    }
+
+    private static let displayFormatter: NumberFormatter = {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        formatter.minimumFractionDigits = 0
+        formatter.maximumFractionDigits = maxFractionDigits
+        formatter.minimumIntegerDigits = 1
+        formatter.generatesDecimalNumbers = false
+        return formatter
+    }()
 }
 
 // MARK: - Preferences Manager
@@ -84,7 +169,7 @@ enum AspectRatioPreferences {
 
     /// Add a new aspect ratio
     /// - Returns: (success: Bool, errorMessage: String?)
-    static func addRatio(width: Int, height: Int) -> (Bool, String?) {
+    static func addRatio(width: Double, height: Double) -> (Bool, String?) {
         if let error = validationError(width: width, height: height) {
             return (false, error)
         }
@@ -146,30 +231,29 @@ enum AspectRatioPreferences {
         defaults.set(currentMigrationVersion, forKey: migrationVersionKey)
     }
 
-    static func validationError(width: Int, height: Int) -> String? {
+    static func validationError(width: Double, height: Double) -> String? {
         let newRatio = CustomAspectRatio(width: width, height: height)
         guard newRatio.isValid else {
-            return L("Invalid ratio. Width and height must be between 1 and 100.")
+            return L("Invalid ratio. Width and height must be between 0.01 and 100, with up to 2 decimal places.")
         }
 
-        let (normalizedWidth, normalizedHeight) = normalizedDimensions(width: width, height: height)
         let enabledRatios = allStoredRatios.filter(\.isEnabled)
+        let normalizedExactKey = newRatio.normalizedExactKey
 
         if let existingRatio = enabledRatios.first(where: {
-            let normalizedExisting = normalizedDimensions(width: $0.width, height: $0.height)
-            return normalizedExisting.width == normalizedWidth && normalizedExisting.height == normalizedHeight
+            $0.normalizedExactKey == normalizedExactKey
         }) {
             return String(format: L("Ratio %@ already exists."), existingRatio.displayName)
         }
 
         if let existingRatio = enabledRatios.first(where: {
-            let normalizedExisting = normalizedDimensions(width: $0.width, height: $0.height)
-            return normalizedExisting.width == normalizedHeight && normalizedExisting.height == normalizedWidth
+            $0.normalizedExactKey == CustomAspectRatio.normalizedExactKey(width: height, height: width)
         }) {
+            let invertedDisplayName = CustomAspectRatio(width: width, height: height).displayName
             return String(
                 format: L("Ratio %@ already exists. Press R to invert it to %@."),
                 existingRatio.displayName,
-                "\(width):\(height)"
+                invertedDisplayName
             )
         }
 
@@ -229,7 +313,7 @@ enum AspectRatioPreferences {
         var idMapping: [UUID: UUID] = [:]
 
         for ratio in ratios {
-            let pairKey = normalizedPairKey(width: ratio.width, height: ratio.height)
+            guard let pairKey = ratio.normalizedPairKey else { continue }
 
             if let keptID = seenPairKeys[pairKey] {
                 idMapping[ratio.id] = keptID
@@ -267,25 +351,13 @@ enum AspectRatioPreferences {
         defaults.set(remappedMappings, forKey: shortcutsKey)
     }
 
-    private static func normalizedDimensions(width: Int, height: Int) -> (width: Int, height: Int) {
-        guard width != 0, height != 0 else { return (width, height) }
-        let divisor = greatestCommonDivisor(abs(width), abs(height))
-        guard divisor > 0 else { return (width, height) }
-        return (width / divisor, height / divisor)
-    }
-
-    private static func normalizedPairKey(width: Int, height: Int) -> String {
-        let normalized = normalizedDimensions(width: width, height: height)
-        return "\(min(normalized.width, normalized.height)):\(max(normalized.width, normalized.height))"
-    }
-
     private static func canonicalDefaultRatio(for ratio: CustomAspectRatio) -> CustomAspectRatio? {
-        switch normalizedPairKey(width: ratio.width, height: ratio.height) {
-        case normalizedPairKey(width: 1, height: 1):
+        switch ratio.normalizedPairKey {
+        case CustomAspectRatio.normalizedPairKey(width: 1, height: 1):
             return CustomAspectRatio.defaultRatios[0]
-        case normalizedPairKey(width: 3, height: 4):
+        case CustomAspectRatio.normalizedPairKey(width: 3, height: 4):
             return CustomAspectRatio.defaultRatios[1]
-        case normalizedPairKey(width: 9, height: 16):
+        case CustomAspectRatio.normalizedPairKey(width: 9, height: 16):
             return CustomAspectRatio.defaultRatios[2]
         default:
             return nil
@@ -306,16 +378,6 @@ enum AspectRatioPreferences {
         "16:9",
     ]
 
-    private static func greatestCommonDivisor(_ lhs: Int, _ rhs: Int) -> Int {
-        var a = lhs
-        var b = rhs
-        while b != 0 {
-            let remainder = a % b
-            a = b
-            b = remainder
-        }
-        return a
-    }
 }
 
 // MARK: - Notifications

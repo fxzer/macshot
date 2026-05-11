@@ -108,7 +108,7 @@ extension OverlayView {
         case oneToOne
         case threeToFour
         case nineToSixteen
-        case customRatio(width: Int, height: Int)
+        case customRatio(width: Double, height: Double)
 
         var ratio: CGFloat {
             switch self {
@@ -137,7 +137,7 @@ extension OverlayView {
             case .nineToSixteen:
                 return "9:16"
             case .customRatio(let width, let height):
-                return "\(width):\(height)"
+                return "\(CustomAspectRatio.formatComponent(width)):\(CustomAspectRatio.formatComponent(height))"
             }
         }
 
@@ -155,12 +155,12 @@ extension OverlayView {
         }
 
         init(from ratio: CustomAspectRatio) {
-            switch (ratio.width, ratio.height) {
-            case (1, 1):
+            switch true {
+            case ratio.isExactlyEquivalent(toWidth: 1, height: 1):
                 self = .oneToOne
-            case (3, 4):
+            case ratio.isExactlyEquivalent(toWidth: 3, height: 4):
                 self = .threeToFour
-            case (9, 16):
+            case ratio.isExactlyEquivalent(toWidth: 9, height: 16):
                 self = .nineToSixteen
             default:
                 self = .customRatio(width: ratio.width, height: ratio.height)
@@ -169,10 +169,11 @@ extension OverlayView {
 
         func sharesShortcutGroup(with other: AspectRatioLock) -> Bool {
             guard let lhs = dimensions, let rhs = other.dimensions else { return false }
-            return normalizedPair(for: lhs) == normalizedPair(for: rhs)
+            return CustomAspectRatio.normalizedPairKey(width: lhs.width, height: lhs.height)
+                == CustomAspectRatio.normalizedPairKey(width: rhs.width, height: rhs.height)
         }
 
-        private var dimensions: (width: Int, height: Int)? {
+        private var dimensions: (width: Double, height: Double)? {
             switch self {
             case .none:
                 return nil
@@ -185,24 +186,6 @@ extension OverlayView {
             case .customRatio(let width, let height):
                 return (width, height)
             }
-        }
-
-        private func normalizedPair(for dimensions: (width: Int, height: Int)) -> (Int, Int) {
-            let divisor = greatestCommonDivisor(abs(dimensions.width), abs(dimensions.height))
-            let normalizedWidth = divisor > 0 ? dimensions.width / divisor : dimensions.width
-            let normalizedHeight = divisor > 0 ? dimensions.height / divisor : dimensions.height
-            return (min(normalizedWidth, normalizedHeight), max(normalizedWidth, normalizedHeight))
-        }
-
-        private func greatestCommonDivisor(_ lhs: Int, _ rhs: Int) -> Int {
-            var a = lhs
-            var b = rhs
-            while b != 0 {
-                let remainder = a % b
-                a = b
-                b = remainder
-            }
-            return a
         }
     }
 
