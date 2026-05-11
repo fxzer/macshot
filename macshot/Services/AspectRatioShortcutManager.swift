@@ -179,7 +179,7 @@ class AspectRatioShortcutRecordingModel: ObservableObject {
         localMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self = self else { return event }
 
-            if event.keyCode == 53 { // Escape
+            if event.isBareEscapeForShortcutRecording { // bare Escape only — ⌘+Esc is not "cancel"
                 self.stopRecording()
                 return nil
             }

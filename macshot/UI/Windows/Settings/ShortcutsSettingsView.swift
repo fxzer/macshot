@@ -219,8 +219,8 @@ class HotkeyRecordingModel: ObservableObject {
         localMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self = self else { return event }
 
-            // Escape cancels
-            if event.keyCode == 53 {
+            // Escape cancels (bare Esc only — ⌘+Esc etc. can be assigned as global shortcuts)
+            if event.isBareEscapeForShortcutRecording {
                 self.stopRecording()
                 return nil
             }
@@ -376,8 +376,8 @@ class ToolShortcutRecordingModel: ObservableObject {
         localMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self = self else { return event }
 
-            // Escape cancels
-            if event.keyCode == 53 {
+            // Escape cancels (bare Esc only)
+            if event.isBareEscapeForShortcutRecording {
                 self.stopRecording()
                 return nil
             }
@@ -877,5 +877,16 @@ struct ShortcutsSettingsView: View {
     private var hasAnyRatioInput: Bool {
         !newWidthText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             || !newHeightText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+}
+
+// MARK: - Shortcut recording
+
+extension NSEvent {
+    /// Escape without Command/Shift/Option/Control — used to cancel shortcut recording so ⌘+Esc can be recorded as a global hotkey.
+    var isBareEscapeForShortcutRecording: Bool {
+        guard keyCode == 53 else { return false }
+        let mask: NSEvent.ModifierFlags = [.command, .shift, .option, .control]
+        return modifierFlags.intersection(.deviceIndependentFlagsMask).intersection(mask).isEmpty
     }
 }
