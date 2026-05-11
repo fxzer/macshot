@@ -55,15 +55,5 @@
 	<string>macshot can record microphone audio during screen recordings.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>macshot can show a webcam overlay during screen recordings.</string>
-	<key>SUFeedURL</key>
-	<string>https://raw.githubusercontent.com/fxzer/macshot/main/appcast.xml</string>
-	<key>SUPublicEDKey</key>
-	<string>+5RTT9lGyoeOYAYuNfCdPhxugmruYvRDyFXgk6VPY1c=</string>
-	<key>SUScheduledCheckInterval</key>
-	<integer>1800</integer>
-	<key>SUEnableAutomaticChecks</key>
-	<true/>
-	<key>SUEnableInstallerLauncherService</key>
-	<true/>
 </dict>
 </plist>

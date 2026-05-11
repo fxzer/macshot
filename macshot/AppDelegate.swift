@@ -1,5 +1,4 @@
 import Cocoa
-import Sparkle
 
 private enum CaptureTriggerOrigin: String {
     case menuBar = "menu"
@@ -8,7 +7,7 @@ private enum CaptureTriggerOrigin: String {
 }
 
 @MainActor
-class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
+class AppDelegate: NSObject, NSApplicationDelegate {
 
     private let focusCoordinator = FocusCoordinator()
     private var settingsController: SettingsWindowController?
@@ -107,7 +106,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
             openImage: { [weak self] in self?.routeHandler.openImageFromMenu() },
             openFromClipboard: { [weak self] in self?.routeHandler.openImageFromClipboard() },
             openSettings: { [weak self] in self?.openSettings() },
-            checkForUpdates: { [weak self] in self?.checkForUpdates() },
             quit: { [weak self] in self?.quitApp() },
             stopRecording: { [weak self] in self?.stopRecording() },
             pauseRecording: { [weak self] in self?.pauseRecording() },
@@ -172,7 +170,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
 
     func applicationDidFinishLaunching(_ aNotification: Notification) {
         migrateSoundSettings()
-        guard launchCoordinator.applicationDidFinishLaunching(updaterDelegate: self) else { return }
+        guard launchCoordinator.applicationDidFinishLaunching() else { return }
     }
 
     /// Migrate old sound settings to new semantic keys.
@@ -465,18 +463,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, SPUUpdaterDelegate {
 
     // MARK: - Quit
 
-    @objc private func checkForUpdates() {
-        launchCoordinator.checkForUpdates()
-    }
-
     @objc private func quitApp() {
         NSApp.terminate(nil)
-    }
-
-    // MARK: - SPUUpdaterDelegate
-
-    func allowedChannels(for updater: SPUUpdater) -> Set<String> {
-        UserDefaults.standard.bool(forKey: "betaUpdatesEnabled") ? ["beta"] : []
     }
 
     /// Show a confirmation dialog before clearing all history. Reused by history panel trash button.

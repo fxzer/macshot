@@ -17,10 +17,6 @@ struct InterfaceSettingsView: View {
     private var showDockIcon = AppVisibilityPreferences.defaultShowDockIcon
     @AppStorage("hideMenuBarIcon") private var hideMenuBarIcon = false
 
-    // Updates
-    @AppStorage("SUEnableAutomaticChecks") private var autoUpdate = true
-    @AppStorage("betaUpdatesEnabled") private var betaUpdates = false
-
     // Thumbnail
     @AppStorage("showFloatingThumbnail") private var showFloatingThumbnail = true
     @AppStorage("thumbnailAutoDismiss") private var thumbnailAutoDismiss: Int = 5
@@ -101,7 +97,7 @@ struct InterfaceSettingsView: View {
                 Text(L("Interface"))
             }
 
-            // MARK: - Application (Window + Updates)
+            // MARK: - Application
             Section {
                 Toggle(L("Launch at login"), isOn: $launchAtLogin)
                     .onChange(of: launchAtLogin) { newValue in
@@ -149,24 +145,8 @@ struct InterfaceSettingsView: View {
                     }
                 }
 
-                Toggle(L("Check for updates automatically"), isOn: $autoUpdate)
-                settingWithDescription(
-                    title: L("Check for beta updates"),
-                    description: L("Include pre-release versions in update checks.")
-                ) {
-                    Toggle("", isOn: $betaUpdates).labelsHidden()
-                }
             } header: {
-                HStack {
-                    Text(L("Application"))
-                    Spacer()
-                    Button(L("Check Now")) {
-                        NSApp.sendAction(Selector(("checkForUpdates")), to: NSApp.delegate, from: nil)
-                    }
-                    .buttonStyle(.link)
-                    .controlSize(.small)
-                    .foregroundStyle(Color.settingsSystemAccent)
-                }
+                Text(L("Application"))
             }
 
             // MARK: - Thumbnail

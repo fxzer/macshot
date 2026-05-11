@@ -2,12 +2,13 @@ import SwiftUI
 
 struct AboutSettingsView: View {
 
-    private var version: String {
-        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
-    }
-
-    private var build: String {
-        Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
+    private var versionLine: String {
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
+        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
+        if build.isEmpty || build == "?" || build == version {
+            return String(format: L("Version %@"), version)
+        }
+        return String(format: L("Version %@ (%@)"), version, build)
     }
 
     var body: some View {
@@ -26,7 +27,7 @@ struct AboutSettingsView: View {
                 .font(.system(size: 22, weight: .bold))
 
             // Version
-            Text(String(format: L("Version %@ (%@)"), version, build))
+            Text(versionLine)
                 .font(.subheadline)
                 .foregroundColor(.secondary)
 

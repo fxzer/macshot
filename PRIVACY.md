@@ -38,10 +38,6 @@ macshot integrates with the following optional third-party services. Use of thes
 - **Data sent:** The image file you choose to upload.
 - **imgbb's privacy policy:** [https://imgbb.com/privacy](https://imgbb.com/privacy)
 
-### Sparkle (auto-updates)
-- **Purpose:** Check for and install macshot updates.
-- **Data sent:** A request to `https://raw.githubusercontent.com/fxzer/macshot/main/appcast.xml` to check for new versions. No personal data is included in the request.
-
 ## Permissions
 
 macshot requests **Screen Recording** permission from macOS. This permission is required to capture screenshots and record your screen. macOS controls this permission — you can revoke it at any time in System Settings > Privacy & Security > Screen Recording.

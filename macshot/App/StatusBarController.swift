@@ -16,7 +16,6 @@ final class StatusBarController: NSObject {
         let openImage: () -> Void
         let openFromClipboard: () -> Void
         let openSettings: () -> Void
-        let checkForUpdates: () -> Void
         let quit: () -> Void
         let stopRecording: () -> Void
         let pauseRecording: () -> Void
@@ -163,13 +162,6 @@ final class StatusBarController: NSObject {
             keyEquivalent: ","
         )
         menu.addItem(prefsItem)
-
-        let updateItem = makeMenuItem(
-            title: L("Check for Updates..."),
-            image: "arrow.triangle.2.circlepath",
-            action: #selector(checkForUpdatesFromMenu)
-        )
-        menu.addItem(updateItem)
 
         menu.addItem(.separator())
 
@@ -357,10 +349,6 @@ final class StatusBarController: NSObject {
 
     @objc private func openSettingsFromMenu() {
         enqueueMenuAction(actions.openSettings)
-    }
-
-    @objc private func checkForUpdatesFromMenu() {
-        enqueueMenuAction(actions.checkForUpdates)
     }
 
     @objc private func quitFromMenu() {

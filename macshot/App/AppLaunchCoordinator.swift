@@ -1,5 +1,4 @@
 import Cocoa
-import Sparkle
 
 @MainActor
 final class AppLaunchCoordinator: NSObject {
@@ -29,7 +28,6 @@ final class AppLaunchCoordinator: NSObject {
     }
 
     private let dependencies: Dependencies
-    private var updaterController: SPUStandardUpdaterController?
     private var onboardingController: PermissionOnboardingController?
     private var initialCapturePrewarmWorkItem: DispatchWorkItem?
 
@@ -38,7 +36,7 @@ final class AppLaunchCoordinator: NSObject {
         super.init()
     }
 
-    func applicationDidFinishLaunching(updaterDelegate: SPUUpdaterDelegate) -> Bool {
+    func applicationDidFinishLaunching() -> Bool {
         ProcessInfo.processInfo.disableAutomaticTermination("macshot is a menu bar agent")
 
         let bundleID = Bundle.main.bundleIdentifier ?? "com.fxzer.macshot.macshot"
@@ -54,11 +52,6 @@ final class AppLaunchCoordinator: NSObject {
             return false
         }
 
-        updaterController = SPUStandardUpdaterController(
-            startingUpdater: true,
-            updaterDelegate: updaterDelegate,
-            userDriverDelegate: nil
-        )
         TemporaryFileManager.cleanupOnLaunch()
         PostCaptureActionPreferences.migrateIfNeeded()
         AspectRatioPreferences.migrateIfNeeded()
@@ -149,11 +142,6 @@ final class AppLaunchCoordinator: NSObject {
 
     func updateLocalization() {
         onboardingController?.updateLocalization()
-    }
-
-    func checkForUpdates() {
-        NSApp.activate(ignoringOtherApps: true)
-        updaterController?.checkForUpdates(nil)
     }
 
     deinit {
