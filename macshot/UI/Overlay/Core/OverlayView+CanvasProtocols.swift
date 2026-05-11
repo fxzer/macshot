@@ -28,6 +28,10 @@ extension OverlayView: AnnotationCanvas {
         needsDisplay = true
     }
 
+    func nextNumberValue() -> Int {
+        nextNumberValueForNewAnnotation()
+    }
+
     func initialStrokeWidth(for tool: AnnotationTool) -> CGFloat {
         switch tool {
         case .select:

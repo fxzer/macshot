@@ -49,6 +49,7 @@ extension OverlayView {
             }
         }
         annotations = anns
+        numberCounter = anns.filter { $0.tool == .number }.count
         undoStack = anns.map { .added($0) }
         redoStack = []
         cachedCompositedImage = nil

@@ -379,7 +379,7 @@ extension OverlayView {
         circle.lineWidth = 0.8
         circle.stroke()
 
-        let nextNumber = currentNumberFormat.format(numberCounter + numberStartAt)
+        let nextNumber = currentNumberFormat.format(nextNumberValueForNewAnnotation())
         let fontSize = circleRadius * 1.1
         if let cgContext = NSGraphicsContext.current?.cgContext {
             NumberCalloutTextLayout.draw(

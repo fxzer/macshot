@@ -343,7 +343,7 @@ final class NumberToolHandler: AnnotationToolHandler {
     var requiresDisplayRefreshDuringDrag: Bool { false }
 
     func start(at point: NSPoint, canvas: AnnotationCanvas) -> Annotation? {
-        canvas.numberCounter += 1
+        let numberValue = canvas.nextNumberValue()
         let annotation = Annotation(
             tool: .number,
             startPoint: point,
@@ -351,7 +351,7 @@ final class NumberToolHandler: AnnotationToolHandler {
             color: canvas.opacityAppliedColor(for: .number),
             strokeWidth: canvas.currentNumberSize
         )
-        annotation.number = canvas.numberCounter + (canvas.numberStartAt - 1)
+        annotation.number = numberValue
         annotation.numberFormat = canvas.currentNumberFormat
         applyDefaultOutlineIfNeeded(to: annotation, canvas: canvas)
         let bubbleRadius = NumberCalloutGeometry.bubbleRadius(for: annotation.strokeWidth)

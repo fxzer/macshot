@@ -115,6 +115,15 @@ enum NumberFormat: Int, CaseIterable {
     }
 }
 
+enum NumberToolConfiguration {
+    static let minStartValue = 1
+    static let maxStartValue = 20
+
+    static func clampedStartValue(_ value: Int) -> Int {
+        min(max(value, minStartValue), maxStartValue)
+    }
+}
+
 enum CensorMode: Int, CaseIterable {
     case pixelate = 0
     case blur = 1

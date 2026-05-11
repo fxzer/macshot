@@ -26,6 +26,7 @@ protocol AnnotationCanvas: AnyObject {
     var numberCounter: Int { get set }
     var numberStartAt: Int { get }
     var currentNumberFormat: NumberFormat { get }
+    func nextNumberValue() -> Int
 
     // Stamp tool
     var currentStampImage: NSImage? { get set }
@@ -143,6 +144,9 @@ extension AnnotationToolHandler {
         // Save existing cache before append clears it
         let previousCache = canvas.annotationLayerCache
         canvas.annotations.append(annotation)
+        if annotation.tool == .number {
+            canvas.numberCounter += 1
+        }
         canvas.undoStack.append(.added(annotation))
         canvas.redoStack.removeAll()
         canvas.activeAnnotation = nil

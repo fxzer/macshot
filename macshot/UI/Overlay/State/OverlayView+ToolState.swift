@@ -74,7 +74,8 @@ final class OverlayToolState {
     var currentMarkerSize: CGFloat = overlayInitialMarkerSize()
     var genericStrokeWidths: [AnnotationTool: CGFloat] = overlayInitialGenericStrokeWidths()
     var numberCounter = 0
-    var numberStartAt = UserDefaults.standard.object(forKey: "numberStartAt") as? Int ?? 1
+    var numberStartAt = NumberToolConfiguration.clampedStartValue(
+        UserDefaults.standard.object(forKey: "numberStartAt") as? Int ?? 1)
     var currentNumberFormat =
         NumberFormat(rawValue: UserDefaults.standard.integer(forKey: "numberFormat")) ?? .decimal
 }
@@ -197,7 +198,7 @@ extension OverlayView {
 
     var numberStartAt: Int {
         get { toolState.numberStartAt }
-        set { toolState.numberStartAt = newValue }
+        set { toolState.numberStartAt = NumberToolConfiguration.clampedStartValue(newValue) }
     }
 
     var currentNumberFormat: NumberFormat {

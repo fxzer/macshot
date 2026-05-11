@@ -8,6 +8,26 @@
 import Cocoa
 
 extension ToolOptionsRowView {
+    private func applyNumberStartValue(_ rawValue: Int) {
+        guard let ov = overlayView else { return }
+        let clampedValue = NumberToolConfiguration.clampedStartValue(rawValue)
+        ov.numberStartAt = clampedValue
+        UserDefaults.standard.set(clampedValue, forKey: "numberStartAt")
+
+        if let field = viewWithTag(ToolOptionTag.numberStartValueField.rawValue) as? NSTextField,
+           field.integerValue != clampedValue
+        {
+            field.integerValue = clampedValue
+        }
+
+        if let stepper = viewWithTag(ToolOptionTag.numberStartStepper.rawValue) as? NSStepper,
+           stepper.integerValue != clampedValue
+        {
+            stepper.integerValue = clampedValue
+        }
+
+        ov.needsDisplay = true
+    }
 
     // Dead code removed
     @objc func drawColorClicked(_ sender: NSButton) {
@@ -125,23 +145,18 @@ extension ToolOptionsRowView {
         if let fmt = NumberFormat(rawValue: sender.selectedSegment) {
             ov.currentNumberFormat = fmt
             UserDefaults.standard.set(fmt.rawValue, forKey: "numberFormat")
-            if let label = viewWithTag(ToolOptionTag.numberStartValueLabel.rawValue) as? NSTextField {
-                label.stringValue = fmt.format(ov.numberStartAt)
-                label.sizeToFit()
-            }
             ov.needsDisplay = true
         }
     }
 
     @objc func numberStartChanged(_ sender: NSStepper) {
-        guard let ov = overlayView else { return }
-        ov.numberStartAt = sender.integerValue
-        UserDefaults.standard.set(sender.integerValue, forKey: "numberStartAt")
-        if let label = viewWithTag(ToolOptionTag.numberStartValueLabel.rawValue) as? NSTextField {
-            label.stringValue = ov.currentNumberFormat.format(sender.integerValue)
-            label.sizeToFit()
-        }
-        ov.needsDisplay = true
+        applyNumberStartValue(sender.integerValue)
+    }
+
+    @objc func numberStartFieldSubmitted(_ sender: NSTextField) {
+        let value = ToolOptionsRowView.numberStartFormatter.number(from: sender.stringValue)?.intValue
+            ?? sender.integerValue
+        applyNumberStartValue(value)
     }
 
     @objc func boldToggled() {
@@ -392,6 +407,14 @@ extension ToolOptionsRowView {
 
     @objc func textConfirmClicked() {
         overlayView?.commitTextFieldIfNeeded()
+    }
+}
+
+extension ToolOptionsRowView: NSTextFieldDelegate {
+    func controlTextDidEndEditing(_ notification: Notification) {
+        guard let textField = notification.object as? NSTextField,
+              textField.tag == ToolOptionTag.numberStartValueField.rawValue else { return }
+        numberStartFieldSubmitted(textField)
     }
 }
 

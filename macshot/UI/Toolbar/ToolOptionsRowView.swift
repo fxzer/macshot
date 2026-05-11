@@ -25,6 +25,16 @@ class ToolOptionsRowView: NSView {
 
     static var cachedCustomBgImage: NSImage?
     static var lastCustomBgData: Data?
+    static let numberStartFormatter: NumberFormatter = {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .none
+        formatter.allowsFloats = false
+        formatter.minimum = NSNumber(value: NumberToolConfiguration.minStartValue)
+        formatter.maximum = NSNumber(value: NumberToolConfiguration.maxStartValue)
+        formatter.generatesDecimalNumbers = false
+        formatter.usesGroupingSeparator = false
+        return formatter
+    }()
 
     enum ToolOptionTag: Int {
         case drawColorSwatch = 974
@@ -32,12 +42,13 @@ class ToolOptionsRowView: NSView {
         case textOutlineColorSwatch = 976
         case annotationOutlineColorSwatch = 978
         case lineStyleSegment = 979
+        case numberStartStepper = 998
+        case numberStartValueField = 999
         case textCancelButton = 990
         case textConfirmButton = 991
-        
+
         case strokeValueLabel = 997
-        case numberStartValueLabel = 999
-        
+
         // Reassigned to avoid conflicts
         case textFontSizeLabel = 1001
         case beautifyRadiusLabel = 1002

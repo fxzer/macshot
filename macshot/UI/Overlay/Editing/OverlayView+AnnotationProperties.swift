@@ -26,6 +26,17 @@ extension OverlayView {
         cachedCompositedImage = nil
     }
 
+    func nextNumberValueForNewAnnotation() -> Int {
+        if let highestExistingNumber = annotations.lazy
+            .filter({ $0.tool == .number && $0.numberFormat == self.currentNumberFormat })
+            .compactMap(\.number)
+            .max()
+        {
+            return highestExistingNumber + 1
+        }
+        return NumberToolConfiguration.clampedStartValue(numberStartAt)
+    }
+
     /// Debounce helper for scroll-wheel property adjustments.
     /// Runs `commit` once scrolling stops, then rebuilds all annotation caches.
     func scheduleScrollPropertyCommit(_ commit: @escaping () -> Void) {

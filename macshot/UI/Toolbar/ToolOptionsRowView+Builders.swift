@@ -443,19 +443,27 @@ extension ToolOptionsRowView {
         startLabel.textColor = ToolbarLayout.iconColor.withAlphaComponent(0.4)
         stack.addArrangedSubview(startLabel)
 
+        let startField = NSTextField(string: "\(ov.numberStartAt)")
+        startField.formatter = Self.numberStartFormatter
+        startField.alignment = .center
+        startField.font = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium)
+        startField.controlSize = .small
+        startField.tag = ToolOptionTag.numberStartValueField.rawValue
+        startField.delegate = self
+        startField.target = self
+        startField.action = #selector(numberStartFieldSubmitted(_:))
+        startField.translatesAutoresizingMaskIntoConstraints = false
+        startField.widthAnchor.constraint(equalToConstant: 36).isActive = true
+        stack.addArrangedSubview(startField)
+
         let stepper = NSStepper()
-        stepper.minValue = 1
-        stepper.maxValue = 999
+        stepper.minValue = Double(NumberToolConfiguration.minStartValue)
+        stepper.maxValue = Double(NumberToolConfiguration.maxStartValue)
         stepper.integerValue = ov.numberStartAt
+        stepper.tag = ToolOptionTag.numberStartStepper.rawValue
         stepper.target = self
         stepper.action = #selector(numberStartChanged(_:))
         stack.addArrangedSubview(stepper)
-
-        let valLabel = NSTextField(labelWithString: ov.currentNumberFormat.format(ov.numberStartAt))
-        valLabel.font = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium)
-        valLabel.textColor = ToolbarLayout.iconColor.withAlphaComponent(0.85)
-        valLabel.tag = ToolOptionTag.numberStartValueLabel.rawValue
-        stack.addArrangedSubview(valLabel)
     }
 
     func addTextOptions(to stack: NSStackView, ov: OverlayView) {
