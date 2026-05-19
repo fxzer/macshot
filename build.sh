@@ -43,26 +43,23 @@ ensure_local_codesign_identity() {
     mkdir -p "$SIGNING_SUPPORT_DIR"
     chmod 700 "$SIGNING_SUPPORT_DIR"
 
-    if [ ! -f "$SIGNING_PASSWORD_FILE" ]; then
-        /opt/homebrew/bin/openssl rand -base64 24 > "$SIGNING_PASSWORD_FILE"
-        chmod 600 "$SIGNING_PASSWORD_FILE"
-    fi
-
-    SIGNING_KEYCHAIN_PASSWORD="$(cat "$SIGNING_PASSWORD_FILE")"
-    export SIGNING_KEYCHAIN_PASSWORD
+    ensure_signing_password_file
 
     if [ ! -f "$SIGNING_KEYCHAIN" ]; then
         security create-keychain -p "$SIGNING_KEYCHAIN_PASSWORD" "$SIGNING_KEYCHAIN"
     fi
 
-    security set-keychain-settings -lut 21600 "$SIGNING_KEYCHAIN"
-    security unlock-keychain -p "$SIGNING_KEYCHAIN_PASSWORD" "$SIGNING_KEYCHAIN"
-
-    local current_keychains
-    current_keychains="$(security list-keychains -d user | tr -d '"')"
-    if ! printf '%s\n' "$current_keychains" | grep -Fxq "$SIGNING_KEYCHAIN"; then
-        security list-keychains -d user -s "$SIGNING_KEYCHAIN" $current_keychains
+    if ! unlock_local_signing_keychain; then
+        echo "   ⚠️  本地签名钥匙串密码不匹配，正在重建项目专用钥匙串..."
+        security delete-keychain "$SIGNING_KEYCHAIN" >/dev/null 2>&1 || rm -f "$SIGNING_KEYCHAIN"
+        rm -f "$SIGNING_PASSWORD_FILE"
+        ensure_signing_password_file
+        security create-keychain -p "$SIGNING_KEYCHAIN_PASSWORD" "$SIGNING_KEYCHAIN"
+        unlock_local_signing_keychain
     fi
+
+    set_local_signing_keychain_search_list
+    security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$SIGNING_KEYCHAIN_PASSWORD" "$SIGNING_KEYCHAIN" >/dev/null 2>&1 || true
 
     if security find-identity -v -p codesigning "$SIGNING_KEYCHAIN" 2>/dev/null | grep -Fq "$SIGNING_CERT_CN"; then
         return
@@ -121,9 +118,46 @@ EOF
     fi
 }
 
+ensure_signing_password_file() {
+    if [ ! -f "$SIGNING_PASSWORD_FILE" ]; then
+        /opt/homebrew/bin/openssl rand -base64 24 > "$SIGNING_PASSWORD_FILE"
+        chmod 600 "$SIGNING_PASSWORD_FILE"
+    fi
+
+    SIGNING_KEYCHAIN_PASSWORD="$(cat "$SIGNING_PASSWORD_FILE")"
+    export SIGNING_KEYCHAIN_PASSWORD
+}
+
+unlock_local_signing_keychain() {
+    security set-keychain-settings -lut 21600 "$SIGNING_KEYCHAIN"
+    security unlock-keychain -p "$SIGNING_KEYCHAIN_PASSWORD" "$SIGNING_KEYCHAIN" >/dev/null 2>&1
+}
+
+set_local_signing_keychain_search_list() {
+    local keychain
+    local current_keychains=()
+    local next_keychains=("$SIGNING_KEYCHAIN")
+
+    while IFS= read -r keychain; do
+        keychain="${keychain//\"/}"
+        [ -z "$keychain" ] && continue
+        current_keychains+=("$keychain")
+    done < <(security list-keychains -d user 2>/dev/null)
+
+    for keychain in "${current_keychains[@]}"; do
+        [ "$keychain" = "$SIGNING_KEYCHAIN" ] && continue
+        if ! printf '%s\n' "${next_keychains[@]}" | grep -Fxq "$keychain"; then
+            next_keychains+=("$keychain")
+        fi
+    done
+
+    security list-keychains -d user -s "${next_keychains[@]}"
+}
+
 sign_app_bundle() {
     local app_path="$1"
-    security unlock-keychain -p "$SIGNING_KEYCHAIN_PASSWORD" "$SIGNING_KEYCHAIN"
+    unlock_local_signing_keychain
+    security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$SIGNING_KEYCHAIN_PASSWORD" "$SIGNING_KEYCHAIN" >/dev/null 2>&1 || true
 
     /usr/bin/codesign --force --deep --sign "$SIGNING_CERT_CN" \
         --keychain "$SIGNING_KEYCHAIN" \

@@ -1,12 +1,11 @@
 import Foundation
-import Security
 
 enum KeychainStore {
 
-    private static let service = Bundle.main.bundleIdentifier ?? "com.fxzer.macshot.macshot"
-
     // Legacy UserDefaults key prefix for Data fallback (used for non-string data like JSON tokens)
     private static let userDefaultsDataPrefix = "_data_"
+    private static let lock = NSLock()
+    private static let storageFileName = "secrets.json"
 
     static func string(forKey key: String, legacyUserDefaultsKey: String? = nil) -> String? {
         guard let data = data(forKey: key, legacyUserDefaultsKey: legacyUserDefaultsKey),
@@ -33,7 +32,11 @@ enum KeychainStore {
     }
 
     static func data(forKey key: String, legacyUserDefaultsKey: String? = nil) -> Data? {
-        if let existing = readValue(forKey: key) {
+        lock.lock()
+        defer { lock.unlock() }
+
+        var store = loadStore()
+        if let encoded = store[key], let existing = Data(base64Encoded: encoded) {
             return existing
         }
 
@@ -42,7 +45,7 @@ enum KeychainStore {
            let legacy = UserDefaults.standard.string(forKey: legacyUserDefaultsKey),
            !legacy.isEmpty {
             let data = Data(legacy.utf8)
-            if setData(data, forKey: key) {
+            if writeValue(data, forKey: key, in: &store) {
                 UserDefaults.standard.removeObject(forKey: legacyUserDefaultsKey)
             }
             return data
@@ -53,8 +56,7 @@ enum KeychainStore {
         if let fallbackBase64 = UserDefaults.standard.string(forKey: fallbackKey),
            !fallbackBase64.isEmpty,
            let fallbackData = Data(base64Encoded: fallbackBase64) {
-            // Try to migrate back to Keychain
-            if setData(fallbackData, forKey: key) {
+            if writeValue(fallbackData, forKey: key, in: &store) {
                 UserDefaults.standard.removeObject(forKey: fallbackKey)
             }
             return fallbackData
@@ -65,19 +67,23 @@ enum KeychainStore {
 
     @discardableResult
     static func setData(_ data: Data?, forKey key: String) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+
         let didPersist: Bool
+        var store = loadStore()
         if let data {
-            didPersist = writeValue(data, forKey: key)
+            didPersist = writeValue(data, forKey: key, in: &store)
         } else {
-            didPersist = deleteValue(forKey: key)
+            didPersist = deleteValue(forKey: key, in: &store)
         }
 
-        // Fallback to UserDefaults if Keychain write failed
+        // Fallback to UserDefaults if file write failed.
         if !didPersist, let data {
             let fallbackKey = userDefaultsDataPrefix + key
             UserDefaults.standard.set(data.base64EncodedString(), forKey: fallbackKey)
         } else if didPersist {
-            // Clean up UserDefaults fallback if Keychain succeeded
+            // Clean up UserDefaults fallback if file storage succeeded.
             let fallbackKey = userDefaultsDataPrefix + key
             UserDefaults.standard.removeObject(forKey: fallbackKey)
         }
@@ -87,73 +93,55 @@ enum KeychainStore {
 
     @discardableResult
     static func deleteValue(forKey key: String) -> Bool {
-        let query = baseQuery(forKey: key)
-        let status = SecItemDelete(query as CFDictionary)
-        return status == errSecSuccess || status == errSecItemNotFound
+        lock.lock()
+        defer { lock.unlock() }
+
+        var store = loadStore()
+        return deleteValue(forKey: key, in: &store)
     }
 
-    private static func readValue(forKey key: String) -> Data? {
-        var query = baseQuery(forKey: key)
-        query[kSecReturnData as String] = true
-        query[kSecMatchLimit as String] = kSecMatchLimitOne
-
-        var result: CFTypeRef?
-        let status = SecItemCopyMatching(query as CFDictionary, &result)
-        guard status == errSecSuccess else { return nil }
-        return result as? Data
+    private static func writeValue(_ data: Data, forKey key: String, in store: inout [String: String]) -> Bool {
+        store[key] = data.base64EncodedString()
+        return saveStore(store)
     }
 
-    private static func writeValue(_ data: Data, forKey key: String) -> Bool {
-        let query = baseQuery(forKey: key)
+    private static func deleteValue(forKey key: String, in store: inout [String: String]) -> Bool {
+        store.removeValue(forKey: key)
+        return saveStore(store)
+    }
 
-        // 创建访问控制：允许应用在解锁后访问，无需用户交互确认
-        // 注意：使用 kSecAttrAccessControl 时，不能再设置 kSecAttrAccessible
-        let accessControl = SecAccessControlCreateWithFlags(
-            kCFAllocatorDefault,
-            kSecAttrAccessibleAfterFirstUnlock,
-            [],  // 空标志 = 不需要用户在场确认
-            nil
-        )
-
-        let attrs: [String: Any]
-        if let accessControl {
-            attrs = [
-                kSecValueData as String: data,
-                kSecAttrAccessControl as String: accessControl,
-            ]
-        } else {
-            // Fallback 如果无法创建 accessControl
-            attrs = [
-                kSecValueData as String: data,
-                kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock,
-            ]
+    private static func loadStore() -> [String: String] {
+        guard let data = try? Data(contentsOf: storageURL),
+              let store = try? JSONDecoder().decode([String: String].self, from: data) else {
+            return [:]
         }
+        return store
+    }
 
-        let updateStatus = SecItemUpdate(query as CFDictionary, attrs as CFDictionary)
-        if updateStatus == errSecSuccess {
-            return true
-        }
-
-        if updateStatus != errSecItemNotFound {
-            let deleteStatus = SecItemDelete(query as CFDictionary)
-            guard deleteStatus == errSecSuccess || deleteStatus == errSecItemNotFound else {
-                return false
+    private static func saveStore(_ store: [String: String]) -> Bool {
+        do {
+            let dir = storageURL.deletingLastPathComponent()
+            if !FileManager.default.fileExists(atPath: dir.path) {
+                try FileManager.default.createDirectory(
+                    at: dir,
+                    withIntermediateDirectories: true,
+                    attributes: [.posixPermissions: 0o700]
+                )
             }
+            let data = try JSONEncoder().encode(store)
+            try data.write(to: storageURL, options: .atomic)
+            try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: storageURL.path)
+            return true
+        } catch {
+            return false
         }
-
-        var addQuery = query
-        for (k, v) in attrs {
-            addQuery[k] = v
-        }
-        let addStatus = SecItemAdd(addQuery as CFDictionary, nil)
-        return addStatus == errSecSuccess
     }
 
-    private static func baseQuery(forKey key: String) -> [String: Any] {
-        [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: key,
-        ]
+    private static var storageURL: URL {
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let bundleID = Bundle.main.bundleIdentifier ?? "com.fxzer.macshot"
+        return appSupport
+            .appendingPathComponent(bundleID, isDirectory: true)
+            .appendingPathComponent(storageFileName)
     }
 }
