@@ -287,9 +287,7 @@ final class ScreenshotOutputCoordinator: NSObject, PinWindowControllerDelegate {
         panel.canCreateDirectories = true
         panel.prompt = "Save Here"
         panel.message = "Choose a folder to save \(images.count) screenshot\(images.count == 1 ? "" : "s")"
-        panel.level = .floating
-
-        panel.begin { [weak self] response in
+        FilePanelPresenter.begin(panel) { [weak self] response in
             guard response == .OK, let dirURL = panel.url else { return }
 
             DispatchQueue.global(qos: .userInitiated).async {

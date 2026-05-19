@@ -218,8 +218,7 @@ final class HistoryOverlayController: NSObject, QLPreviewPanelDataSource, QLPrev
 
         let panel = NSSavePanel()
         panel.nameFieldStringValue = "Screenshot.\(ImageEncoder.fileExtension)"
-        panel.level = .floating
-        panel.begin { response in
+        FilePanelPresenter.begin(panel, ownerWindow: self.panel) { response in
             guard response == .OK, let url = panel.url else { return }
             try? imageData.write(to: url)
         }

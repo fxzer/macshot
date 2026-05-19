@@ -287,7 +287,7 @@ struct InterfaceSettingsView: View {
         panel.canChooseFiles = false
         panel.allowsMultipleSelection = false
         panel.directoryURL = SaveDirectoryAccess.directoryHint()
-        panel.begin { response in
+        FilePanelPresenter.begin(panel) { response in
             guard response == .OK, let url = panel.url else { return }
             SaveDirectoryAccess.save(url: url)
             savePath = url.path
@@ -300,7 +300,7 @@ struct InterfaceSettingsView: View {
         panel.canChooseFiles = false
         panel.allowsMultipleSelection = false
         panel.directoryURL = SaveDirectoryAccess.recordingDirectoryHint()
-        panel.begin { response in
+        FilePanelPresenter.begin(panel) { response in
             guard response == .OK, let url = panel.url else { return }
             SaveDirectoryAccess.saveRecordingDirectory(url: url)
             recordingSavePath = url.path

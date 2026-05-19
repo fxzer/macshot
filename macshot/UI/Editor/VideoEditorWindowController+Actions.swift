@@ -185,8 +185,7 @@ extension VideoEditorView {
         let ext = kind == .gif ? "gif" : videoURL.pathExtension
         panel.nameFieldStringValue = FilenameTemplateEngine.makeFilename(kind: kind, fileExtension: ext)
         panel.directoryURL = SaveDirectoryAccess.recordingDirectoryHint()
-        panel.level = .statusBar + 3
-        panel.begin { [weak self] response in
+        FilePanelPresenter.begin(panel, ownerWindow: window) { [weak self] response in
             guard let self = self, response == .OK, let url = panel.url else {
                 completion?(false)
                 return

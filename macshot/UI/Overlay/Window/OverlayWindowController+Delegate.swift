@@ -574,11 +574,10 @@ extension OverlayWindowController: OverlayViewDelegate {
             kind: .screenshot,
             fileExtension: ImageEncoder.fileExtension
         )
-        savePanel.level = NSWindow.Level(258)
 
         savePanel.directoryURL = SaveDirectoryAccess.directoryHint()
         let pinOrigin = selectionPinOrigin()
-        savePanel.begin { [weak self] response in
+        FilePanelPresenter.begin(savePanel, ownerWindow: overlayWindow) { [weak self] response in
             guard let self = self else { return }
             if response == .OK, let url = savePanel.url {
                 let result = ImageSaveService.save(image, to: url)

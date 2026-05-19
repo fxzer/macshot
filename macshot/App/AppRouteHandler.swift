@@ -33,8 +33,7 @@ final class AppRouteHandler: NSObject {
         panel.allowedContentTypes = [.png, .jpeg, .tiff, .bmp, .gif, .heic, .webP, .image]
         panel.message = "Choose an image to open in macshot editor"
 
-        NSApp.activate(ignoringOtherApps: true)
-        panel.begin { [weak self] response in
+        FilePanelPresenter.begin(panel) { [weak self] response in
             guard let self = self, response == .OK else { return }
             for url in panel.urls {
                 self.openImageFile(url: url)

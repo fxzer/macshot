@@ -419,7 +419,7 @@ private class PinView: NSView {
 
         savePanel.directoryURL = SaveDirectoryAccess.directoryHint()
 
-        savePanel.begin { response in
+        FilePanelPresenter.begin(savePanel, ownerWindow: window) { response in
             if response == .OK, let url = savePanel.url {
                 try? imageData.write(to: url)
                 SaveDirectoryAccess.save(url: url.deletingLastPathComponent())
