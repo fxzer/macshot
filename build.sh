@@ -4,6 +4,7 @@
 #
 # 速度说明：默认只做增量 build（复用 DerivedData）。若每次全量重编，请加 --clean。
 # xcodebuild 与 Xcode 同一套工具链；干净构建慢是正常现象，改几行 Swift 再增量会快很多。
+# 默认使用无钥匙串签名，不创建证书，也不会弹钥匙串密码。
 
 set -e
 set -o pipefail
@@ -19,6 +20,7 @@ SIGNING_SUPPORT_DIR="$HOME/Library/Application Support/macshot"
 SIGNING_KEYCHAIN="$HOME/Library/Keychains/macshot-dev-signing.keychain-db"
 SIGNING_PASSWORD_FILE="$SIGNING_SUPPORT_DIR/dev-signing-keychain-password"
 SIGNING_CERT_CN="macshot Local Code Signing"
+USE_KEYCHAIN_SIGNING="${MACSHOT_USE_KEYCHAIN_SIGNING:-0}"
 
 detect_bundle_id() {
     local bundle_id
@@ -156,6 +158,18 @@ set_local_signing_keychain_search_list() {
 
 sign_app_bundle() {
     local app_path="$1"
+
+    if [ "$USE_KEYCHAIN_SIGNING" != "1" ]; then
+        /usr/bin/codesign --force --deep --sign - \
+            --entitlements "$ENTITLEMENTS_PATH" \
+            --timestamp=none \
+            "$app_path"
+
+        /usr/bin/codesign --verify --deep --strict "$app_path"
+        echo "   ✅ 已完成本地签名（无需钥匙串密码）"
+        return
+    fi
+
     unlock_local_signing_keychain
     security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$SIGNING_KEYCHAIN_PASSWORD" "$SIGNING_KEYCHAIN" >/dev/null 2>&1 || true
 
@@ -186,6 +200,8 @@ for arg in "$@"; do
         -h|--help)
             echo "用法: $(basename "$0") [--clean] [--reset-permissions]"
             echo "  默认: 增量构建（快）；若缺少 Sparkle.xcframework 会自动清理 SPM 工件并重解析"
+            echo "  默认签名: 无钥匙串签名，不会要求输入钥匙串密码"
+            echo "  MACSHOT_USE_KEYCHAIN_SIGNING=1: 使用项目专用钥匙串签名（一般不用）"
             echo "  --clean: clean build（等价于全量重编，慢，怀疑缓存坏了再用）"
             echo "  --reset-permissions: 重置应用权限（需要重新授权屏幕录制等）"
             exit 0
@@ -278,7 +294,9 @@ echo "   ✅ 构建完成"
 
 # 5. 安装并启动
 echo "📍 步骤 5/5: 安装并启动..."
-ensure_local_codesign_identity
+if [ "$USE_KEYCHAIN_SIGNING" = "1" ]; then
+    ensure_local_codesign_identity
+fi
 sync_app_bundle "$DERIVED_DATA/Build/Products/Debug/MacShot.app" "$APP_WORKTREE_PATH"
 sync_app_bundle "$APP_WORKTREE_PATH" "$APP_INSTALL_PATH"
 sign_app_bundle "$APP_INSTALL_PATH"
