@@ -3846,6 +3846,57 @@
         }
       }
     },
+    "Middle Click" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Middle Click"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "中键点击"
+          }
+        }
+      }
+    },
+    "Mouse Button %@" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mouse Button %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "鼠标按键 %@"
+          }
+        }
+      }
+    },
+    "Right Click" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Right Click"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "右键点击"
+          }
+        }
+      }
+    },
     "None" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -4457,6 +4508,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "按单个键即可分配。这些快捷键在覆盖层或编辑器激活时生效。"
+          }
+        }
+      }
+    },
+    "Press a single key, right-click, or middle-click to assign. These work when the overlay or editor is active." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Press a single key, right-click, or middle-click to assign. These work when the overlay or editor is active."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "可按单个键、右键或中键分配。在截图界面或编辑器激活时生效。"
           }
         }
       }

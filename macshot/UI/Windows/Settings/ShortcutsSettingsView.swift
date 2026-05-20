@@ -399,13 +399,32 @@ class ToolShortcutRecordingModel: ObservableObject {
         }
 
         // Track mouse down position to detect drags vs clicks
-        mouseMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseUp, .leftMouseDown]) { [weak self] event in
+        mouseMonitor = NSEvent.addLocalMonitorForEvents(
+            matching: [.leftMouseUp, .leftMouseDown, .rightMouseUp, .rightMouseDown, .otherMouseUp, .otherMouseDown]
+        ) { [weak self] event in
             guard let self = self else { return event }
 
             if event.type == .leftMouseDown {
                 // Record mouse down position
                 self.mouseDownPosition = event.locationInWindow
                 return event
+            }
+
+            if event.type == .rightMouseDown || event.type == .otherMouseDown {
+                self.mouseDownPosition = event.locationInWindow
+                return nil
+            }
+
+            if event.type == .rightMouseUp || event.type == .otherMouseUp {
+                defer { self.mouseDownPosition = nil }
+                guard let shortcut = ToolShortcutManager.shortcutValue(forMouseButton: event.buttonNumber) else {
+                    return nil
+                }
+                if self.isClickRelease(event) {
+                    self.assignShortcut(action: action, key: shortcut)
+                    return nil
+                }
+                return nil
             }
 
             if event.type == .leftMouseUp {
@@ -488,7 +507,7 @@ class ToolShortcutRecordingModel: ObservableObject {
         if let conflictAction = ToolShortcutManager.conflictingAction(for: key, excluding: action) {
             let shouldReplace = ShortcutConflictAlert.confirmReplacement(
                 title: L("Shortcut Conflict"),
-                shortcut: key.uppercased(),
+                shortcut: ToolShortcutManager.displayString(forKey: key),
                 existingAction: conflictAction.label,
                 newAction: action.label
             )
@@ -496,10 +515,11 @@ class ToolShortcutRecordingModel: ObservableObject {
             ToolShortcutManager.setKey("", for: conflictAction)
         }
 
-        if let conflictRatio = AspectRatioShortcutManager.conflictingRatio(for: key, excluding: nil) {
+        if ToolShortcutManager.isKeyboardShortcut(key),
+           let conflictRatio = AspectRatioShortcutManager.conflictingRatio(for: key, excluding: nil) {
             let shouldReplace = ShortcutConflictAlert.confirmReplacement(
                 title: L("Shortcut Conflict"),
-                shortcut: key.uppercased(),
+                shortcut: ToolShortcutManager.displayString(forKey: key),
                 existingAction: conflictRatio.displayName,
                 newAction: action.label
             )
@@ -509,6 +529,13 @@ class ToolShortcutRecordingModel: ObservableObject {
 
         ToolShortcutManager.setKey(key, for: action)
         refreshAll()
+    }
+
+    private func isClickRelease(_ event: NSEvent) -> Bool {
+        guard let downPos = mouseDownPosition else { return false }
+        let upPos = event.locationInWindow
+        let distance = sqrt(pow(downPos.x - upPos.x, 2) + pow(downPos.y - upPos.y, 2))
+        return distance < 5
     }
 }
 
@@ -590,7 +617,7 @@ struct ShortcutsSettingsView: View {
             } header: {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(L("In-App Shortcuts"))
-                    Text(L("Press a single key to assign. These work when the overlay or editor is active."))
+                    Text(L("Press a single key, right-click, or middle-click to assign. These work when the overlay or editor is active."))
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                 }

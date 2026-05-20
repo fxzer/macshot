@@ -914,6 +914,13 @@ extension OverlayView {
     override func rightMouseDown(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
 
+        if handleWindowSnapPinClick(at: point, event: event) { return }
+
+        if !(state == .selected && pointIsInSelection(point)),
+           handleToolShortcutMouseButton(event) {
+            return
+        }
+
         // Text Fill/Outline color picking handled by ToolOptionsRowView
 
         // Toolbar right-clicks handled by ToolbarButtonView.onRightClick → handleToolbarButtonRightClick

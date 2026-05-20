@@ -20,6 +20,7 @@ enum ToolShortcutManager {
         case stamp
         case measure
         case loupe
+        case pin
         case openInEditor
 
         var label: String {
@@ -37,6 +38,7 @@ enum ToolShortcutManager {
             case .stamp: return L("Stamp")
             case .measure: return L("Measure")
             case .loupe: return L("Loupe")
+            case .pin: return L("Pin")
             case .openInEditor: return L("Open in Editor")
             }
         }
@@ -56,12 +58,16 @@ enum ToolShortcutManager {
             case .stamp: return "g"
             case .measure: return ""
             case .loupe: return ""
+            case .pin: return ToolShortcutManager.rightClickShortcut
             case .openInEditor: return "e"
             }
         }
     }
 
     private static let defaultsKey = "overlayToolShortcuts"
+    private static let mousePrefix = "mouse:"
+    static let rightClickShortcut = "\(mousePrefix)right"
+    static let middleClickShortcut = "\(mousePrefix)middle"
 
     /// Get the key character for an action. Empty string = disabled.
     static func key(for action: Action) -> String {
@@ -75,7 +81,7 @@ enum ToolShortcutManager {
     /// Set the key character for an action. Pass empty string to disable.
     static func setKey(_ key: String, for action: Action) {
         var dict = (UserDefaults.standard.dictionary(forKey: defaultsKey) as? [String: String]) ?? [:]
-        dict[action.rawValue] = key.lowercased()
+        dict[action.rawValue] = normalizedShortcut(key)
         UserDefaults.standard.set(dict, forKey: defaultsKey)
         // Rebuild the lookup cache
         _cachedLookup = nil
@@ -84,11 +90,11 @@ enum ToolShortcutManager {
 
     /// Returns another action already using the same key, excluding the provided action.
     static func conflictingAction(for key: String, excluding excludedAction: Action? = nil) -> Action? {
-        let normalizedKey = key.lowercased()
+        let normalizedKey = normalizedShortcut(key)
         guard !normalizedKey.isEmpty else { return nil }
 
         for action in Action.allCases where action != excludedAction {
-            if self.key(for: action).lowercased() == normalizedKey {
+            if normalizedShortcut(self.key(for: action)) == normalizedKey {
                 return action
             }
         }
@@ -97,9 +103,35 @@ enum ToolShortcutManager {
 
     /// Build a reverse lookup: character → ToolbarButtonAction.
     /// Cached and invalidated when shortcuts change.
-    static func lookupAction(for character: String) -> ToolbarButtonAction? {
+    static func lookupAction(for shortcut: String) -> ToolbarButtonAction? {
         if _cachedLookup == nil { rebuildCache() }
-        return _cachedLookup?[character]
+        return _cachedLookup?[normalizedShortcut(shortcut)]
+    }
+
+    static func lookupAction(forMouseButton buttonNumber: Int) -> ToolbarButtonAction? {
+        guard let shortcut = shortcutValue(forMouseButton: buttonNumber) else { return nil }
+        return lookupAction(for: shortcut)
+    }
+
+    static func shortcutValue(forMouseButton buttonNumber: Int) -> String? {
+        switch buttonNumber {
+        case 1:
+            return rightClickShortcut
+        case 2:
+            return middleClickShortcut
+        case 3...:
+            return "\(mousePrefix)\(buttonNumber)"
+        default:
+            return nil
+        }
+    }
+
+    static func isMouseShortcut(_ key: String) -> Bool {
+        normalizedShortcut(key).hasPrefix(mousePrefix)
+    }
+
+    static func isKeyboardShortcut(_ key: String) -> Bool {
+        !key.isEmpty && !isMouseShortcut(key)
     }
 
     private static var _cachedLookup: [String: ToolbarButtonAction]?
@@ -107,7 +139,7 @@ enum ToolShortcutManager {
     private static func rebuildCache() {
         var lookup: [String: ToolbarButtonAction] = [:]
         for action in Action.allCases {
-            let k = key(for: action)
+            let k = normalizedShortcut(key(for: action))
             guard !k.isEmpty else { continue }
             switch action {
             case .pencil: lookup[k] = .tool(.pencil)
@@ -123,6 +155,7 @@ enum ToolShortcutManager {
             case .stamp: lookup[k] = .tool(.stamp)
             case .measure: lookup[k] = .tool(.measure)
             case .loupe: lookup[k] = .tool(.loupe)
+            case .pin: lookup[k] = .pin
             case .openInEditor: lookup[k] = .detach
             }
         }
@@ -132,7 +165,28 @@ enum ToolShortcutManager {
     /// Display string for a key (for UI).
     static func displayString(for action: Action) -> String {
         let k = key(for: action)
-        return k.isEmpty ? L("None") : k.uppercased()
+        return displayString(forKey: k)
+    }
+
+    static func displayString(forKey key: String) -> String {
+        let normalized = normalizedShortcut(key)
+        guard !normalized.isEmpty else { return L("None") }
+        switch normalized {
+        case rightClickShortcut:
+            return L("Right Click")
+        case middleClickShortcut:
+            return L("Middle Click")
+        default:
+            if normalized.hasPrefix(mousePrefix) {
+                let button = String(normalized.dropFirst(mousePrefix.count)).uppercased()
+                return String.localizedStringWithFormat(L("Mouse Button %@"), button)
+            }
+            return normalized.uppercased()
+        }
+    }
+
+    private static func normalizedShortcut(_ key: String) -> String {
+        key.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }
 }
 
