@@ -2,6 +2,7 @@ import Cocoa
 import Security
 import CryptoKit
 import AuthenticationServices
+import UniformTypeIdentifiers
 
 /// Google Drive uploader using OAuth2 with PKCE.
 final class GoogleDriveUploader: NSObject, ASWebAuthenticationPresentationContextProviding {
@@ -185,14 +186,14 @@ final class GoogleDriveUploader: NSObject, ASWebAuthenticationPresentationContex
         progress: ((Double) -> Void)? = nil,
         completion: @escaping (Result<String, Error>) -> Void
     ) {
-        guard let tiffData = image.tiffRepresentation,
-              let bitmap = NSBitmapImageRep(data: tiffData),
-              let pngData = bitmap.representation(using: .png, properties: [:]) else {
+        guard let data = ImageEncoder.encode(image) else {
             completion(.failure(Self.error("Failed to encode image")))
             return
         }
-        let filename = FilenameTemplateEngine.makeFilename(kind: .screenshot, fileExtension: "png")
-        upload(data: pngData, filename: filename, mimeType: "image/png", progress: progress, completion: completion)
+        let ext = ImageEncoder.fileExtension
+        let mime = ImageEncoder.utType.preferredMIMEType ?? "application/octet-stream"
+        let filename = FilenameTemplateEngine.makeFilename(kind: .screenshot, fileExtension: ext)
+        upload(data: data, filename: filename, mimeType: mime, progress: progress, completion: completion)
     }
 
     /// Upload a video file from URL.

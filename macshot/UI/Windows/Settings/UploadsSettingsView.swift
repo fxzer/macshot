@@ -25,11 +25,20 @@ struct UploadsSettingsView: View {
     // S3 test state
     @State private var s3Testing = false
 
+    // CloudFlare ImgBed
+    @AppStorage("cfimgbedEndpoint") private var cfimgbedEndpoint = ""
+    @State private var cfimgbedAPIToken = ""
+    @AppStorage("cfimgbedUploadChannel") private var cfimgbedUploadChannel = ""
+    @AppStorage("cfimgbedChannelName") private var cfimgbedChannelName = ""
+    @AppStorage("cfimgbedUploadFolder") private var cfimgbedUploadFolder = ""
+    @State private var cfimgbedTesting = false
+
     init() {
         // Load secrets during init to avoid repeated Keychain access
         _imgbbAPIKey = State(initialValue: KeychainStore.string(forKey: "upload.imgbb.apiKey", legacyUserDefaultsKey: "imgbbAPIKey") ?? "")
         _s3AccessKeyID = State(initialValue: KeychainStore.string(forKey: "upload.s3.accessKeyID", legacyUserDefaultsKey: "s3AccessKeyID") ?? "")
         _s3SecretAccessKey = State(initialValue: KeychainStore.string(forKey: "upload.s3.secretAccessKey", legacyUserDefaultsKey: "s3SecretAccessKey") ?? "")
+        _cfimgbedAPIToken = State(initialValue: KeychainStore.string(forKey: "upload.cfimgbed.apiToken") ?? "")
     }
 
     private var imgbbAPIKeyBinding: Binding<String> {
@@ -69,6 +78,21 @@ struct UploadsSettingsView: View {
         !s3SecretAccessKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
+    private var cfimgbedAPITokenBinding: Binding<String> {
+        Binding(
+            get: { cfimgbedAPIToken },
+            set: { value in
+                cfimgbedAPIToken = value
+                KeychainStore.setString(value, forKey: "upload.cfimgbed.apiToken")
+            }
+        )
+    }
+
+    private var isCfimgbedTestAvailable: Bool {
+        !cfimgbedEndpoint.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+        !cfimgbedAPIToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             Form {
@@ -79,6 +103,7 @@ struct UploadsSettingsView: View {
                         Text("ImgBB").tag("imgbb")
                         Text("Google Drive").tag("gdrive")
                         Text(L("S3 Compatible Storage")).tag("s3")
+                        Text("CloudFlare ImgBed").tag("cfimgbed")
                     }
                     UploadHistoryRow()
                 } header: {
@@ -160,6 +185,39 @@ struct UploadsSettingsView: View {
                         }
                     }
                 }
+
+                if uploadProvider == "cfimgbed" {
+                    Section {
+                        TextField(L("Endpoint"), text: $cfimgbedEndpoint, prompt: Text("https://imgbed.example.com"))
+                            .font(.system(.body, design: .monospaced))
+                        TextField(L("API Token"), text: cfimgbedAPITokenBinding, prompt: Text(L("Paste your API token")))
+                            .font(.system(.body, design: .monospaced))
+                        Picker(L("Upload channel"), selection: $cfimgbedUploadChannel) {
+                            Text(L("Server default")).tag("")
+                            Text("Telegram").tag("telegram")
+                            Text("Cloudflare R2").tag("cfr2")
+                            Text("S3").tag("s3")
+                            Text("Discord").tag("discord")
+                            Text("WebDAV").tag("webdav")
+                            Text("HuggingFace").tag("huggingface")
+                            Text(L("External link")).tag("external")
+                        }
+                        TextField(L("Channel name"), text: $cfimgbedChannelName, prompt: Text(L("Optional")))
+                            .font(.system(.body, design: .monospaced))
+                        TextField(L("Upload folder"), text: $cfimgbedUploadFolder, prompt: Text("macshot/"))
+                            .font(.system(.body, design: .monospaced))
+                        CFImgBedConnectionTestRow(testing: $cfimgbedTesting, isAvailable: isCfimgbedTestAvailable) {
+                            cfimgbedTestConnection()
+                        }
+                    } header: {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("CloudFlare ImgBed")
+                            Text(L("uploads.cfimgbed.description"))
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                }
             }
         }
         .formStyle(.grouped)
@@ -177,7 +235,7 @@ struct UploadsSettingsView: View {
     }
 
     private func normalizePickerSelections() {
-        uploadProvider = normalized(uploadProvider, allowed: ["imgbb", "gdrive", "s3"], fallback: "imgbb")
+        uploadProvider = normalized(uploadProvider, allowed: ["imgbb", "gdrive", "s3", "cfimgbed"], fallback: "imgbb")
     }
 
     private func normalized<T: Equatable>(_ value: T, allowed: [T], fallback: T) -> T {
@@ -244,6 +302,75 @@ struct UploadsSettingsView: View {
         }
     }
 
+    private func cfimgbedTestConnection() {
+        guard CloudflareImgBedUploader.shared.isConfigured else {
+            showAlert(title: L("CloudFlare ImgBed Test"),
+                      message: L("Fill in endpoint and API token first."))
+            return
+        }
+
+        cfimgbedTesting = true
+
+        let testImage = makeCfimgbedTestImage()
+        CloudflareImgBedUploader.shared.uploadImage(testImage, progress: nil) { result in
+            cfimgbedTesting = false
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let link):
+                    PasteboardWriter.writeString(link)
+                    showAlert(
+                        title: L("CloudFlare ImgBed Test"),
+                        message: String(
+                            format: L("Upload successful. Link copied to clipboard:\n%@"),
+                            link
+                        )
+                    )
+                case .failure(let error):
+                    showAlert(title: L("CloudFlare ImgBed Test Failed"),
+                              message: error.localizedDescription)
+                }
+            }
+        }
+    }
+
+    private func makeCfimgbedTestImage() -> NSImage {
+        let size = NSSize(width: 480, height: 270)
+        let image = NSImage(size: size)
+        image.lockFocus()
+
+        let bounds = NSRect(origin: .zero, size: size)
+        NSColor(calibratedRed: 0.08, green: 0.12, blue: 0.18, alpha: 1).setFill()
+        bounds.fill()
+
+        NSColor(calibratedRed: 0.15, green: 0.48, blue: 0.92, alpha: 1).setFill()
+        NSBezierPath(roundedRect: NSRect(x: 32, y: 32, width: 416, height: 206), xRadius: 18, yRadius: 18).fill()
+
+        let titleAttributes: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: 34, weight: .semibold),
+            .foregroundColor: NSColor.white
+        ]
+        let bodyAttributes: [NSAttributedString.Key: Any] = [
+            .font: NSFont.monospacedSystemFont(ofSize: 18, weight: .regular),
+            .foregroundColor: NSColor.white.withAlphaComponent(0.86)
+        ]
+
+        NSString(string: "macshot upload test").draw(
+            in: NSRect(x: 64, y: 148, width: 352, height: 44),
+            withAttributes: titleAttributes
+        )
+        NSString(string: ISO8601DateFormatter().string(from: Date())).draw(
+            in: NSRect(x: 64, y: 106, width: 352, height: 28),
+            withAttributes: bodyAttributes
+        )
+        NSString(string: "CloudFlare ImgBed").draw(
+            in: NSRect(x: 64, y: 74, width: 352, height: 28),
+            withAttributes: bodyAttributes
+        )
+
+        image.unlockFocus()
+        return image
+    }
+
     private func showAlert(title: String, message: String) {
         let alert = NSAlert()
         alert.messageText = title
@@ -257,6 +384,25 @@ struct UploadsSettingsView: View {
 // MARK: - S3 Connection Test Row
 
 struct S3ConnectionTestRow: View {
+    @Binding var testing: Bool
+    let isAvailable: Bool
+    let onTest: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Text(L("Connection Test"))
+            Spacer()
+            Button(testing ? L("Testing...") : L("Test")) {
+                onTest()
+            }
+            .disabled(testing || !isAvailable)
+        }
+    }
+}
+
+// MARK: - CloudFlare ImgBed Connection Test Row
+
+struct CFImgBedConnectionTestRow: View {
     @Binding var testing: Bool
     let isAvailable: Bool
     let onTest: () -> Void
@@ -379,6 +525,7 @@ struct UploadHistoryPopoverView: View {
         case "imgbb": return "ImgBB"
         case "gdrive": return "Google Drive"
         case "s3": return L("S3 Compatible Storage")
+        case "cfimgbed": return "CloudFlare ImgBed"
         default: return uploadProvider
         }
     }

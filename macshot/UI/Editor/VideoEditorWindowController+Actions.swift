@@ -393,8 +393,12 @@ extension VideoEditorView {
             showStatus(L("Configure S3 in Settings"), isError: true)
             return
         }
-        if provider != "gdrive" && provider != "s3" {
-            showStatus(L("Video upload requires Google Drive or S3"), isError: true)
+        if provider == "cfimgbed" && !CloudflareImgBedUploader.shared.isConfigured {
+            showStatus(L("Configure CloudFlare ImgBed in Settings"), isError: true)
+            return
+        }
+        if provider != "gdrive" && provider != "s3" && provider != "cfimgbed" {
+            showStatus(L("Video upload requires Google Drive, S3, or CloudFlare ImgBed"), isError: true)
             return
         }
 
@@ -423,6 +427,11 @@ extension VideoEditorView {
             }
             if provider == "s3" {
                 S3Uploader.shared.uploadVideo(url: fileURL, progress: nil, completion: wrappedCompletion)
+            } else if provider == "cfimgbed" {
+                let progressHandler: (Double) -> Void = { [weak self] fraction in
+                    self?.showStatus(String(format: L("Uploading... %d%%"), Int(fraction * 100)))
+                }
+                CloudflareImgBedUploader.shared.uploadVideo(url: fileURL, progress: progressHandler, completion: wrappedCompletion)
             } else {
                 let progressHandler: (Double) -> Void = { [weak self] fraction in
                     self?.showStatus(String(format: L("Uploading... %d%%"), Int(fraction * 100)))

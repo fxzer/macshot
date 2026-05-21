@@ -1555,6 +1555,91 @@
         }
       }
     },
+    "CloudFlare ImgBed Test" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CloudFlare ImgBed Test"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CloudFlare 图床测试"
+          }
+        }
+      }
+    },
+    "CloudFlare ImgBed Test Failed" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CloudFlare ImgBed Test Failed"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CloudFlare 图床测试失败"
+          }
+        }
+      }
+    },
+    "CloudFlare ImgBed error (%d): %@" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CloudFlare ImgBed error (%d): %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CloudFlare 图床错误（%d）: %@"
+          }
+        }
+      }
+    },
+    "CloudFlare ImgBed not configured — check Settings" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CloudFlare ImgBed not configured — check Settings"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CloudFlare 图床还没配置，请检查设置"
+          }
+        }
+      }
+    },
+    "Configure CloudFlare ImgBed in Settings" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Configure CloudFlare ImgBed in Settings"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请先在设置里配置 CloudFlare 图床"
+          }
+        }
+      }
+    },
     "Configure S3 in Settings" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -1636,6 +1721,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "连接测试"
+          }
+        }
+      }
+    },
+    "Self-hosted image hosting on Cloudflare. Create an API token in the admin panel with upload permission. (Images ✓, Videos ✓)" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Self-hosted image hosting on Cloudflare. Create an API token in the admin panel with upload permission. (Images ✓, Videos ✓)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自建 Cloudflare 图床。在后台创建带上传权限的 API Token。（图片 ✓，视频 ✓）"
+          }
+        }
+      }
+    },
+    "uploads.cfimgbed.description" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Self-hosted image hosting on Cloudflare. Create an API token in the admin panel with upload permission. (Images ✓, Videos ✓)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自建 Cloudflare 图床。在后台创建带上传权限的 API Token。（图片 ✓，视频 ✓）"
           }
         }
       }
@@ -2149,6 +2268,23 @@
         }
       }
     },
+    "External link" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "External link"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "外链"
+          }
+        }
+      }
+    },
     "Engine" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -2383,6 +2519,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "请先填写端点、存储桶和凭证"
+          }
+        }
+      }
+    },
+    "Fill in endpoint and API token first." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fill in endpoint and API token first."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请先填写端点和 API Token"
           }
         }
       }
@@ -3021,6 +3174,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "无效比例。宽度和高度必须在 1 到 100 之间。"
+          }
+        }
+      }
+    },
+    "Invalid CloudFlare ImgBed endpoint URL" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invalid CloudFlare ImgBed endpoint URL"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "CloudFlare 图床地址不正确"
           }
         }
       }
@@ -4220,6 +4390,23 @@
         }
       }
     },
+    "Paste your API token" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paste your API token"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "粘贴您的 API Token"
+          }
+        }
+      }
+    },
     "Path copied!" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -5327,6 +5514,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "饱和度"
+          }
+        }
+      }
+    },
+    "Server default" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Server default"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "服务端默认"
           }
         }
       }
@@ -7102,6 +7306,23 @@
         }
       }
     },
+    "Video upload requires Google Drive, S3, or CloudFlare ImgBed" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Video upload requires Google Drive, S3, or CloudFlare ImgBed"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "视频上传需要使用 Google Drive、S3 或 CloudFlare 图床"
+          }
+        }
+      }
+    },
     "Upload History" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -7149,6 +7370,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "上传服务"
+          }
+        }
+      }
+    },
+    "Upload channel" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Upload channel"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上传渠道"
+          }
+        }
+      }
+    },
+    "Upload successful. Link copied to clipboard:\n%@" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Upload successful. Link copied to clipboard:\n%@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上传成功，链接已复制到剪贴板:\n%@"
           }
         }
       }
@@ -7217,6 +7472,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "上传到 SM.MS？"
+          }
+        }
+      }
+    },
+    "Upload to CloudFlare ImgBed?" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Upload to CloudFlare ImgBed?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上传到 CloudFlare 图床？"
           }
         }
       }

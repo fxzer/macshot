@@ -310,7 +310,7 @@ extension VideoEditorView {
         drawIconButton(rect: finderBtnRect, symbol: "folder", accent: false, dimmed: savedURL == nil)
         x -= gap + labelBtnW
         let uploadProvider = UserDefaults.standard.string(forKey: "uploadProvider") ?? "imgbb"
-        let canUpload = (uploadProvider == "gdrive" && GoogleDriveUploader.shared.isSignedIn) || (uploadProvider == "s3" && S3Uploader.shared.isConfigured)
+        let canUpload = (uploadProvider == "gdrive" && GoogleDriveUploader.shared.isSignedIn) || (uploadProvider == "s3" && S3Uploader.shared.isConfigured) || (uploadProvider == "cfimgbed" && CloudflareImgBedUploader.shared.isConfigured)
         uploadBtnRect = NSRect(x: x, y: btnY, width: labelBtnW, height: btnH)
         drawLabelButton(rect: uploadBtnRect, symbol: "icloud.and.arrow.up", label: L("Upload"), dimmed: !canUpload)
         let arrowW: CGFloat = 20

@@ -391,6 +391,11 @@ final class ScreenshotOutputCoordinator: NSObject, PinWindowControllerDelegate {
             return
         }
 
+        if provider == "cfimgbed" && !CloudflareImgBedUploader.shared.isConfigured {
+            toast.showError(message: L("Configure CloudFlare ImgBed in Settings"))
+            return
+        }
+
         if provider == "gdrive" {
             let progressHandler: (Double) -> Void = { fraction in
                 toast.updateProgress(fraction)
@@ -407,6 +412,20 @@ final class ScreenshotOutputCoordinator: NSObject, PinWindowControllerDelegate {
             }
         } else if provider == "s3" {
             S3Uploader.shared.uploadImage(image, progress: nil) { result in
+                switch result {
+                case .success(let link):
+                    PasteboardWriter.writeString(link)
+                    UploadHistoryStore.append(link: link, provider: provider, thumbnail: image)
+                    toast.showSuccess(link: link, deleteURL: "")
+                case .failure(let error):
+                    toast.showError(message: error.localizedDescription)
+                }
+            }
+        } else if provider == "cfimgbed" {
+            let progressHandler: (Double) -> Void = { fraction in
+                toast.updateProgress(fraction)
+            }
+            CloudflareImgBedUploader.shared.uploadImage(image, progress: progressHandler) { result in
                 switch result {
                 case .success(let link):
                     PasteboardWriter.writeString(link)

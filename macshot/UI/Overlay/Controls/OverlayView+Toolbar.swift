@@ -408,6 +408,8 @@ extension OverlayView {
                     title = L("Upload to S3?")
                 case "smms":
                     title = L("Upload to SM.MS?")
+                case "cfimgbed":
+                    title = L("Upload to CloudFlare ImgBed?")
                 default:
                     title = L("Upload to imgbb.com?")
                 }

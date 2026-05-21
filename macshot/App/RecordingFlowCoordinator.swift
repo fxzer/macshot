@@ -491,8 +491,13 @@ final class RecordingFlowCoordinator {
             completion?()
             return
         }
-        guard provider == "gdrive" || provider == "s3" else {
-            toast.showError(message: L("Video upload requires Google Drive or S3"))
+        if provider == "cfimgbed" && !CloudflareImgBedUploader.shared.isConfigured {
+            toast.showError(message: L("Configure CloudFlare ImgBed in Settings"))
+            completion?()
+            return
+        }
+        guard provider == "gdrive" || provider == "s3" || provider == "cfimgbed" else {
+            toast.showError(message: L("Video upload requires Google Drive, S3, or CloudFlare ImgBed"))
             completion?()
             return
         }
@@ -511,6 +516,11 @@ final class RecordingFlowCoordinator {
 
         if provider == "s3" {
             S3Uploader.shared.uploadVideo(url: url, progress: nil, completion: completionHandler)
+        } else if provider == "cfimgbed" {
+            let progressHandler: (Double) -> Void = { fraction in
+                toast.updateProgress(fraction)
+            }
+            CloudflareImgBedUploader.shared.uploadVideo(url: url, progress: progressHandler, completion: completionHandler)
         } else {
             let progressHandler: (Double) -> Void = { fraction in
                 toast.updateProgress(fraction)

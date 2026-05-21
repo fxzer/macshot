@@ -48,14 +48,14 @@ final class S3Uploader {
         progress: ((Double) -> Void)? = nil,
         completion: @escaping (Result<String, Error>) -> Void
     ) {
-        guard let tiffData = image.tiffRepresentation,
-              let bitmap = NSBitmapImageRep(data: tiffData),
-              let pngData = bitmap.representation(using: .png, properties: [:]) else {
+        guard let data = ImageEncoder.encode(image) else {
             completion(.failure(S3Error.encodingFailed))
             return
         }
-        let filename = FilenameTemplateEngine.makeFilename(kind: .screenshot, fileExtension: "png")
-        upload(data: pngData, filename: filename, contentType: "image/png", progress: progress, completion: completion)
+        let ext = ImageEncoder.fileExtension
+        let mime = ImageEncoder.utType.preferredMIMEType ?? "application/octet-stream"
+        let filename = FilenameTemplateEngine.makeFilename(kind: .screenshot, fileExtension: ext)
+        upload(data: data, filename: filename, contentType: mime, progress: progress, completion: completion)
     }
 
     // MARK: - Upload Video
