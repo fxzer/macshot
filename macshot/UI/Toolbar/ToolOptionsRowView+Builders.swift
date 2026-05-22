@@ -534,14 +534,23 @@ extension ToolOptionsRowView {
         (minusBtn.cell as? NSButtonCell)?.setPeriodicDelay(0.3, interval: 0.05)
         stack.addArrangedSubview(minusBtn)
 
-        let sizeLabel = NSTextField(labelWithString: "\(Int(ov.textEditor.fontSize))")
-        sizeLabel.font = NSFont.monospacedDigitSystemFont(ofSize: 10, weight: .medium)
-        sizeLabel.textColor = ToolbarLayout.iconColor.withAlphaComponent(0.7)
-        sizeLabel.alignment = .center
-        sizeLabel.tag = ToolOptionTag.textFontSizeLabel.rawValue
-        sizeLabel.translatesAutoresizingMaskIntoConstraints = false
-        sizeLabel.widthAnchor.constraint(equalToConstant: 26).isActive = true
-        stack.addArrangedSubview(sizeLabel)
+        let sizeField = NSTextField(string: "\(Int(ov.textEditor.fontSize))")
+        sizeField.formatter = Self.textFontSizeFormatter
+        sizeField.font = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium)
+        sizeField.textColor = ToolbarLayout.iconColor.withAlphaComponent(0.8)
+        sizeField.alignment = .center
+        sizeField.controlSize = .small
+        sizeField.focusRingType = .none
+        sizeField.usesSingleLineMode = true
+        sizeField.isEditable = true
+        sizeField.isSelectable = true
+        sizeField.delegate = self
+        sizeField.target = self
+        sizeField.action = #selector(fontSizeFieldSubmitted(_:))
+        sizeField.tag = ToolOptionTag.textFontSizeLabel.rawValue
+        sizeField.translatesAutoresizingMaskIntoConstraints = false
+        sizeField.widthAnchor.constraint(equalToConstant: 38).isActive = true
+        stack.addArrangedSubview(sizeField)
 
         let plusBtn = NSButton(title: "+", target: self, action: #selector(fontSizeIncreased))
         plusBtn.bezelStyle = .recessed

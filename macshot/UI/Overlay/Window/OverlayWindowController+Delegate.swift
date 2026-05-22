@@ -351,6 +351,7 @@ extension OverlayWindowController: OverlayViewDelegate {
 
     func overlayViewDidRequestDetach() {
         guard let view = overlayView else { return }
+        view.commitTextFieldIfNeeded()
         let sel = view.selectionRect
 
         // Use stitched cross-screen image if available, otherwise crop from single screen.
@@ -506,6 +507,8 @@ extension OverlayWindowController: OverlayViewDelegate {
     }
 
     func overlayViewDidRequestFileSave() {
+        overlayView?.commitTextFieldIfNeeded()
+
         // Snapshot post-processing config before saving. Keep the overlay alive
         // until the centered hint has been shown, otherwise the user never sees it.
         let hasEffects = overlayView?.effectsActive ?? false

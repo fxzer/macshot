@@ -4,7 +4,7 @@
 #
 # 速度说明：默认只做增量 build（复用 DerivedData）。若每次全量重编，请加 --clean。
 # xcodebuild 与 Xcode 同一套工具链；干净构建慢是正常现象，改几行 Swift 再增量会快很多。
-# 默认使用无钥匙串签名，不创建证书，也不会弹钥匙串密码。
+# 默认使用固定本机证书签名，避免每次重新打包后 macOS 把应用当成新应用，导致录屏/系统声音权限失效。
 
 set -e
 set -o pipefail
@@ -12,15 +12,23 @@ set -o pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DERIVED_DATA="$ROOT_DIR/DerivedData"
 PROJECT_FILE="$ROOT_DIR/macshot.xcodeproj/project.pbxproj"
-APP_NAME="MacShot-dev.app"
+APP_NAME="MacShot.app"
+OLD_APP_NAME="MacShot-dev.app"
 APP_INSTALL_PATH="/Applications/$APP_NAME"
 APP_WORKTREE_PATH="$ROOT_DIR/$APP_NAME"
+OLD_APP_INSTALL_PATH="/Applications/$OLD_APP_NAME"
+OLD_APP_WORKTREE_PATH="$ROOT_DIR/$OLD_APP_NAME"
 ENTITLEMENTS_PATH="$ROOT_DIR/macshot/Resources/macshot.entitlements"
 SIGNING_SUPPORT_DIR="$HOME/Library/Application Support/macshot"
 SIGNING_KEYCHAIN="$HOME/Library/Keychains/macshot-dev-signing.keychain-db"
 SIGNING_PASSWORD_FILE="$SIGNING_SUPPORT_DIR/dev-signing-keychain-password"
 SIGNING_CERT_CN="macshot Local Code Signing"
-USE_KEYCHAIN_SIGNING="${MACSHOT_USE_KEYCHAIN_SIGNING:-0}"
+OPENSSL_BIN="${OPENSSL_BIN:-/opt/homebrew/bin/openssl}"
+USE_KEYCHAIN_SIGNING="${MACSHOT_USE_KEYCHAIN_SIGNING:-1}"
+
+if [ ! -x "$OPENSSL_BIN" ]; then
+    OPENSSL_BIN="$(command -v openssl || true)"
+fi
 
 detect_bundle_id() {
     local bundle_id
@@ -91,12 +99,17 @@ EOF
     local p12_password
     p12_password="macshot-local-codesign"
 
-    /opt/homebrew/bin/openssl req -new -newkey rsa:2048 -nodes -x509 -days 3650 \
+    if [ -z "$OPENSSL_BIN" ]; then
+        echo "   ❌ 未找到 openssl，无法创建本机签名证书"
+        exit 1
+    fi
+
+    "$OPENSSL_BIN" req -new -newkey rsa:2048 -nodes -x509 -days 3650 \
         -config "$tmpdir/openssl.cnf" \
         -keyout "$tmpdir/key.pem" \
         -out "$tmpdir/cert.pem"
 
-    /opt/homebrew/bin/openssl pkcs12 -export \
+    "$OPENSSL_BIN" pkcs12 -export \
         -inkey "$tmpdir/key.pem" \
         -in "$tmpdir/cert.pem" \
         -out "$tmpdir/cert.p12" \
@@ -122,7 +135,12 @@ EOF
 
 ensure_signing_password_file() {
     if [ ! -f "$SIGNING_PASSWORD_FILE" ]; then
-        /opt/homebrew/bin/openssl rand -base64 24 > "$SIGNING_PASSWORD_FILE"
+        if [ -n "$OPENSSL_BIN" ]; then
+            "$OPENSSL_BIN" rand -base64 24 > "$SIGNING_PASSWORD_FILE"
+        else
+            LC_ALL=C tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 32 > "$SIGNING_PASSWORD_FILE"
+            printf '\n' >> "$SIGNING_PASSWORD_FILE"
+        fi
         chmod 600 "$SIGNING_PASSWORD_FILE"
     fi
 
@@ -197,11 +215,15 @@ for arg in "$@"; do
     case "$arg" in
         --clean) DO_CLEAN=1 ;;
         --reset-permissions) DO_RESET_PERMISSIONS=1 ;;
+        --adhoc-signing) USE_KEYCHAIN_SIGNING=0 ;;
+        --keychain-signing) USE_KEYCHAIN_SIGNING=1 ;;
         -h|--help)
-            echo "用法: $(basename "$0") [--clean] [--reset-permissions]"
+            echo "用法: $(basename "$0") [--clean] [--reset-permissions] [--adhoc-signing|--keychain-signing]"
             echo "  默认: 增量构建（快）；若缺少 Sparkle.xcframework 会自动清理 SPM 工件并重解析"
-            echo "  默认签名: 无钥匙串签名，不会要求输入钥匙串密码"
-            echo "  MACSHOT_USE_KEYCHAIN_SIGNING=1: 使用项目专用钥匙串签名（一般不用）"
+            echo "  默认签名: 使用固定本机证书，尽量保留录屏/系统声音权限"
+            echo "  --adhoc-signing: 使用临时签名（快，但可能导致权限重新授权）"
+            echo "  --keychain-signing: 使用固定本机证书签名（默认）"
+            echo "  MACSHOT_USE_KEYCHAIN_SIGNING=0: 改用临时签名"
             echo "  --clean: clean build（等价于全量重编，慢，怀疑缓存坏了再用）"
             echo "  --reset-permissions: 重置应用权限（需要重新授权屏幕录制等）"
             exit 0
@@ -214,17 +236,13 @@ BUNDLE_ID="$(detect_bundle_id)"
 # 并行编译任务数（默认用 CPU 核数；与 Xcode 里 “并行编译” 一致思路）
 JOBS="$(sysctl -n hw.ncpu 2>/dev/null || echo 4)"
 
-# sudo 密码（必须从环境变量 SUDO_PASSWORD 读取）
-if [ -z "$SUDO_PASSWORD" ]; then
-    echo "❌ 错误：请设置 SUDO_PASSWORD 环境变量"
-    echo "   在 fish 中配置：编辑 ~/.config/fish/conf.d/_secrets.fish"
-    echo "   添加：set -gx SUDO_PASSWORD \"你的密码\""
-    echo "   然后运行: source ~/.config/fish/conf.d/_secrets.fish"
-    exit 1
-fi
-
 echo "🚀 macshot 一键构建脚本"
 echo "========================================"
+if [ "$USE_KEYCHAIN_SIGNING" = "1" ]; then
+    echo "🔐 签名方式：固定本机证书（权限更稳定）"
+else
+    echo "🔐 签名方式：临时签名（可能需要重新授权录屏/系统声音）"
+fi
 
 # 1. 停止旧版本
 echo "📍 步骤 1/5: 停止旧版本..."
@@ -238,8 +256,10 @@ sleep 0.3
 echo "   ✅ 已停止"
 
 # 2. 清理工作副本残留
-echo "📍 步骤 2/5: 清理工作副本残留..."
+echo "📍 步骤 2/5: 清理旧应用残留..."
 rm -rf "$APP_WORKTREE_PATH"
+rm -rf "$OLD_APP_WORKTREE_PATH" 2>/dev/null || true
+rm -rf "$OLD_APP_INSTALL_PATH" 2>/dev/null || true
 rm -rf ~/Desktop/macshot-backup-* 2>/dev/null || true
 echo "   ✅ 已清理"
 
@@ -260,7 +280,7 @@ fi
 # 仅 resolve 往往不会重下；需删掉损坏的 sparkle 产物并去掉 workspace-state，再 resolve。
 SPARKLE_XCFW="$DERIVED_DATA/SourcePackages/artifacts/sparkle/Sparkle/Sparkle.xcframework"
 if [ -d "$DERIVED_DATA/SourcePackages" ] && [ ! -d "$SPARKLE_XCFW" ]; then
-    echo "📍 步骤 3b/5: Swift Package（Sparkle）产物缺失或损坏，正在清理并重解析..."
+    echo "📍 步骤 4a/5: Swift Package（Sparkle）产物缺失或损坏，正在清理并重解析..."
     rm -rf "$DERIVED_DATA/SourcePackages/artifacts/sparkle"
     rm -rf "$DERIVED_DATA/SourcePackages/artifacts/extract/sparkle"
     rm -f "$DERIVED_DATA/SourcePackages/workspace-state.json"

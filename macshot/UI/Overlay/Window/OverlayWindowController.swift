@@ -438,6 +438,7 @@ class OverlayWindowController {
     }
 
     func captureRegion() -> NSImage? {
+        overlayView?.commitTextFieldIfNeeded()
         return overlayDelegate?.overlayCrossScreenImage(self)
             ?? overlayView?.captureSelectedRegion()
     }

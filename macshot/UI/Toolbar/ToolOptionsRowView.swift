@@ -35,6 +35,16 @@ class ToolOptionsRowView: NSView {
         formatter.usesGroupingSeparator = false
         return formatter
     }()
+    static let textFontSizeMin: CGFloat = 8
+    static let textFontSizeMax: CGFloat = 200
+    static let textFontSizeFormatter: NumberFormatter = {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .none
+        formatter.allowsFloats = false
+        formatter.generatesDecimalNumbers = false
+        formatter.usesGroupingSeparator = false
+        return formatter
+    }()
 
     enum ToolOptionTag: Int {
         case drawColorSwatch = 974
@@ -152,8 +162,10 @@ class ToolOptionsRowView: NSView {
 
     /// Lightweight update: sync font size label in the text tool options row.
     func updateFontSizeDisplay(value: CGFloat) {
-        if let label = viewWithTag(ToolOptionTag.textFontSizeLabel.rawValue) as? NSTextField {
-            label.stringValue = "\(Int(value))"
+        if let field = viewWithTag(ToolOptionTag.textFontSizeLabel.rawValue) as? NSTextField,
+           field.currentEditor() == nil
+        {
+            field.stringValue = "\(Int(value))"
         }
     }
 

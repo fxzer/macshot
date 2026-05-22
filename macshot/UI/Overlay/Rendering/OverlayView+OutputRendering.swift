@@ -51,7 +51,8 @@ extension OverlayView {
     }
 
     func captureSelectedRegion() -> NSImage? {
-        renderSelectedRegion(includeAnnotations: true)
+        commitTextFieldIfNeeded()
+        return renderSelectedRegion(includeAnnotations: true)
     }
 
     /// Capture the selected region WITHOUT annotations — just the raw screenshot.

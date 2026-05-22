@@ -21,22 +21,24 @@ bash build.sh
 
 ```bash
 # 1. 停止旧版本
+killall MacShot 2>/dev/null
 killall MacShot-dev 2>/dev/null
-killall macshot-dev 2>/dev/null
 
 # 2. 清理旧版本
+rm -rf /Applications/MacShot.app
 rm -rf /Applications/MacShot-dev.app
+rm -rf /Users/fxj/n/macshot/MacShot.app
 rm -rf /Users/fxj/n/macshot/MacShot-dev.app
 
 # 3. 构建
 xcodebuild -scheme macshot -configuration Debug build
 
 # 4. 安装
-cp -R "/Users/fxj/Library/Developer/Xcode/DerivedData/macshot-daqnumwucnkubxhcwqiflmrfkyxk/Build/Products/Debug/MacShot.app" "/Users/fxj/n/macshot/MacShot-dev.app"
-cp -R /Users/fxj/n/macshot/MacShot-dev.app /Applications/
+cp -R "/Users/fxj/Library/Developer/Xcode/DerivedData/macshot-daqnumwucnkubxhcwqiflmrfkyxk/Build/Products/Debug/MacShot.app" "/Users/fxj/n/macshot/MacShot.app"
+cp -R /Users/fxj/n/macshot/MacShot.app /Applications/
 
 # 5. 启动
-open /Applications/MacShot-dev.app
+open /Applications/MacShot.app
 ```
 
 ## 🎯 测试功能
@@ -94,9 +96,9 @@ open /Applications/MacShot-dev.app
 
 ### 权限问题
 
-- 开发阶段使用 **adhoc 签名**
-- 每次重新编译会丢失权限（这是正常的）
-- 正式发布时使用开发者证书签名就不会有这个问题
+- 开发阶段默认使用固定本机证书签名
+- 不要随手加 `--reset-permissions`，否则会重新要求授权
+- 临时签名只用于排查特殊问题，命令是 `bash build.sh --adhoc-signing`
 
 ## 🗑️ 卸载
 
@@ -107,8 +109,9 @@ bash uninstall.sh
 或手动卸载：
 
 ```bash
+killall MacShot
 killall MacShot-dev
-killall macshot-dev
+rm -rf /Applications/MacShot.app
 rm -rf /Applications/MacShot-dev.app
 ```
 

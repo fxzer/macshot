@@ -308,26 +308,44 @@ extension ToolOptionsRowView {
         }
     }
 
-    @objc func fontSizeDecreased() {
+    private func setTextFontSize(_ size: CGFloat, updateField: Bool = true) {
         guard let ov = overlayView else { return }
-        ov.textEditor.fontSize = max(8, ov.textEditor.fontSize - 1)
-        UserDefaults.standard.set(Double(ov.textEditor.fontSize), forKey: "textFontSize")
+        let clamped = max(Self.textFontSizeMin, min(Self.textFontSizeMax, size.rounded()))
+        ov.textEditor.fontSize = clamped
+        UserDefaults.standard.set(Double(clamped), forKey: "textFontSize")
         ov.textEditor.applyFontSizeChange()
         ov.textEditor.resizeToFit()
         ov.applyTextFormattingToSelectedAnnotations()
-        if let label = viewWithTag(ToolOptionTag.textFontSizeLabel.rawValue) as? NSTextField { label.stringValue = "\(Int(ov.textEditor.fontSize))" }
+        if updateField,
+           let field = viewWithTag(ToolOptionTag.textFontSizeLabel.rawValue) as? NSTextField
+        {
+            field.stringValue = "\(Int(clamped))"
+        }
         ov.needsDisplay = true
+    }
+
+    private func commitTextFontSizeField(_ field: NSTextField) {
+        guard let ov = overlayView else { return }
+        let text = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let value = Int(text) else {
+            field.stringValue = "\(Int(ov.textEditor.fontSize))"
+            return
+        }
+        setTextFontSize(CGFloat(value), updateField: true)
+    }
+
+    @objc func fontSizeDecreased() {
+        guard let ov = overlayView else { return }
+        setTextFontSize(ov.textEditor.fontSize - 1)
     }
 
     @objc func fontSizeIncreased() {
         guard let ov = overlayView else { return }
-        ov.textEditor.fontSize = min(200, ov.textEditor.fontSize + 1)
-        UserDefaults.standard.set(Double(ov.textEditor.fontSize), forKey: "textFontSize")
-        ov.textEditor.applyFontSizeChange()
-        ov.textEditor.resizeToFit()
-        ov.applyTextFormattingToSelectedAnnotations()
-        if let label = viewWithTag(ToolOptionTag.textFontSizeLabel.rawValue) as? NSTextField { label.stringValue = "\(Int(ov.textEditor.fontSize))" }
-        ov.needsDisplay = true
+        setTextFontSize(ov.textEditor.fontSize + 1)
+    }
+
+    @objc func fontSizeFieldSubmitted(_ sender: NSTextField) {
+        commitTextFontSizeField(sender)
     }
 
     @objc func textBgToggled(_ sender: NSButton) {
@@ -411,10 +429,29 @@ extension ToolOptionsRowView {
 }
 
 extension ToolOptionsRowView: NSTextFieldDelegate {
-    func controlTextDidEndEditing(_ notification: Notification) {
+    func controlTextDidChange(_ notification: Notification) {
         guard let textField = notification.object as? NSTextField,
-              textField.tag == ToolOptionTag.numberStartValueField.rawValue else { return }
-        numberStartFieldSubmitted(textField)
+              textField.tag == ToolOptionTag.textFontSizeLabel.rawValue
+        else { return }
+
+        let text = textField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let value = Int(text),
+              CGFloat(value) >= Self.textFontSizeMin,
+              CGFloat(value) <= Self.textFontSizeMax
+        else { return }
+        setTextFontSize(CGFloat(value), updateField: false)
+    }
+
+    func controlTextDidEndEditing(_ notification: Notification) {
+        guard let textField = notification.object as? NSTextField else { return }
+        switch textField.tag {
+        case ToolOptionTag.numberStartValueField.rawValue:
+            numberStartFieldSubmitted(textField)
+        case ToolOptionTag.textFontSizeLabel.rawValue:
+            commitTextFontSizeField(textField)
+        default:
+            return
+        }
     }
 }
 

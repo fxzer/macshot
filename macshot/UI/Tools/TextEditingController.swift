@@ -261,7 +261,10 @@ class TextEditingController {
 
     // MARK: - Text style state
 
-    var fontSize: CGFloat = UserDefaults.standard.object(forKey: "textFontSize") as? CGFloat ?? 20
+    var fontSize: CGFloat = {
+        let savedSize = UserDefaults.standard.double(forKey: "textFontSize")
+        return savedSize > 0 ? CGFloat(savedSize) : 20
+    }()
     var bold: Bool = false
     var italic: Bool = false
     var underline: Bool = false
