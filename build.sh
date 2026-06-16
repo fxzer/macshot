@@ -14,6 +14,7 @@ APP_INSTALL_PATH="/Applications/$APP_NAME"
 APP_WORKTREE_PATH="$ROOT_DIR/$APP_NAME"
 ENTITLEMENTS_PATH="$ROOT_DIR/macshot/Resources/macshot.entitlements"
 SIGNING_CERT_CN="macshot Local Code Signing"
+SIGNING_CERT_FILE="$HOME/Library/Application Support/macshot/signing-cert-sha.txt"
 OPENSSL_BIN="${OPENSSL_BIN:-/opt/homebrew/bin/openssl}"
 
 if [ ! -x "$OPENSSL_BIN" ]; then
@@ -29,13 +30,29 @@ detect_bundle_id() {
     printf '%s\n' "$bundle_id"
 }
 
+get_signing_sha() {
+    if [ -f "$SIGNING_CERT_FILE" ]; then
+        cat "$SIGNING_CERT_FILE"
+        return 0
+    fi
+    # 从所有身份中找匹配的 SHA
+    local sha
+    sha="$(security find-identity 2>/dev/null | grep "$SIGNING_CERT_CN" | head -1 | awk '{print $2}')"
+    if [ -n "$sha" ] && [ ${#sha} -eq 40 ]; then
+        mkdir -p "$(dirname "$SIGNING_CERT_FILE")"
+        printf '%s\n' "$sha" > "$SIGNING_CERT_FILE"
+        printf '%s\n' "$sha"
+        return 0
+    fi
+    return 1
+}
+
 ensure_signing_cert() {
-    # 检查登录钥匙串里是否已有证书
-    if security find-identity -v -p codesigning 2>/dev/null | grep -Fq "$SIGNING_CERT_CN"; then
+    if get_signing_sha >/dev/null 2>&1; then
         return 0
     fi
 
-    echo "📍 首次运行：创建本机自签名证书（放登录钥匙串，只需一次）..."
+    echo "📍 首次运行：创建本机自签名证书..."
     local tmpdir
     tmpdir="$(mktemp -d)"
     trap 'rm -rf "$tmpdir"' RETURN
@@ -59,7 +76,7 @@ EOF
     local p12_password="macshot-local-codesign"
 
     if [ -z "$OPENSSL_BIN" ]; then
-        echo "   ❌ 未找到 openssl，无法创建签名证书"
+        echo "   ❌ 未找到 openssl"
         exit 1
     fi
 
@@ -74,7 +91,6 @@ EOF
         -out "$tmpdir/cert.p12" \
         -passout pass:"$p12_password"
 
-    # 导入登录钥匙串（-A=免后续授权，-T=允许 codesign 访问）
     security import "$tmpdir/cert.p12" \
         -k "$HOME/Library/Keychains/login.keychain-db" \
         -P "$p12_password" \
@@ -83,8 +99,8 @@ EOF
         -T /usr/bin/codesign \
         -T /usr/bin/security
 
-    if security find-identity -v -p codesigning 2>/dev/null | grep -Fq "$SIGNING_CERT_CN"; then
-        echo "   ✅ 自签名证书已创建到登录钥匙串"
+    if get_signing_sha >/dev/null 2>&1; then
+        echo "   ✅ 自签名证书已创建"
     else
         echo "   ❌ 证书创建失败"
         exit 1
@@ -93,7 +109,9 @@ EOF
 
 sign_app() {
     local app_path="$1"
-    /usr/bin/codesign --force --deep --sign "$SIGNING_CERT_CN" \
+    local sha
+    sha="$(get_signing_sha)"
+    /usr/bin/codesign --force --deep --sign "$sha" \
         --entitlements "$ENTITLEMENTS_PATH" \
         --timestamp=none \
         "$app_path"
@@ -126,10 +144,9 @@ JOBS="$(sysctl -n hw.ncpu 2>/dev/null || echo 4)"
 echo "🚀 macshot 一键构建"
 echo "========================================"
 
-# 0. 确保签名证书存在
 ensure_signing_cert
 
-# 1. 停止旧版本
+# 1. 停止
 echo "📍 步骤 1/4: 停止旧版本..."
 killall MacShot 2>/dev/null || true
 sleep 0.3
