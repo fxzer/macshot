@@ -27,7 +27,7 @@ protocol OverlayWindowControllerDelegate: AnyObject {
     )
     func overlayDidRequestPin(_ controller: OverlayWindowController, image: NSImage, at globalOrigin: NSPoint)
     func overlayDidStartOCR(_ controller: OverlayWindowController)
-    func overlayDidFinishOCR(_ controller: OverlayWindowController, text: String)
+    func overlayDidFinishOCR(_ controller: OverlayWindowController?, text: String)
     func overlayDidRequestUpload(_ controller: OverlayWindowController, image: NSImage)
     func overlayDidRequestStartRecording(
         _ controller: OverlayWindowController, rect: NSRect, screen: NSScreen)

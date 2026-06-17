@@ -27,6 +27,7 @@ class DetachedEditorWindowController: NSObject, NSWindowDelegate {
     private var backgroundRemovalToken: BackgroundRemovalProcessor.CancellationToken?
     private var addCaptureHandler: AddCaptureOverlayHandler?
     private var ocrController: OCRResultController?
+    private var shareDelegate: SharePickerDelegate?
     private static var activeControllers: [DetachedEditorWindowController] = []
 
     /// History entry ID — when set, "Done" button appears and commits edits back to history.
@@ -294,6 +295,8 @@ class DetachedEditorWindowController: NSObject, NSWindowDelegate {
     func windowWillClose(_ notification: Notification) {
         backgroundRemovalToken?.cancel()
         backgroundRemovalToken = nil
+        ocrController?.close()
+        ocrController = nil
         overlayView?.reset()
         overlayView?.overlayDelegate = nil
         window?.contentView = nil
@@ -608,6 +611,51 @@ extension DetachedEditorWindowController: OverlayViewDelegate {
         }
 
         let picker = NSSharingServicePicker(items: [tempURL])
+        // Deselect the current tool by switching to .select, and rebuild the toolbar
+        // to reflect the change. Also suppress cursor updates while the system panel
+        // is showing. This prevents the active tool cursor from being re-asserted over
+        // the AirDrop popup via the .activeAlways tracking area.
+        let savedTool = overlayView?.currentTool
+        overlayView?.currentTool = .select
+        overlayView?.requestToolbarRebuild(reason: "sharePicker")
+        overlayView?.cursorUpdateSuppressed = true
+        overlayView?.isSharingActive = true
+        NSCursor.arrow.set()
+        let delegate = SharePickerDelegate(
+            onPick: { [weak self] service in
+                // Keep the delegate alive until the chosen sharing service completes or fails.
+            },
+            onDismiss: { [weak self] in
+                guard let self = self else { return }
+                self.overlayView?.isSharingActive = false
+                if let tool = savedTool { self.overlayView?.currentTool = tool }
+                self.overlayView?.requestToolbarRebuild(reason: "shareDone")
+                self.overlayView?.cursorUpdateSuppressed = false
+                self.overlayView?.updateCursorForCurrentTool()
+                self.shareDelegate = nil
+            },
+            onServiceWillShare: nil,
+            onServiceDidShare: { [weak self] in
+                guard let self = self else { return }
+                self.overlayView?.isSharingActive = false
+                if let tool = savedTool { self.overlayView?.currentTool = tool }
+                self.overlayView?.requestToolbarRebuild(reason: "shareDone")
+                self.overlayView?.cursorUpdateSuppressed = false
+                self.overlayView?.updateCursorForCurrentTool()
+                self.shareDelegate = nil
+            },
+            onServiceDidFail: { [weak self] _ in
+                guard let self = self else { return }
+                self.overlayView?.isSharingActive = false
+                if let tool = savedTool { self.overlayView?.currentTool = tool }
+                self.overlayView?.requestToolbarRebuild(reason: "shareDone")
+                self.overlayView?.cursorUpdateSuppressed = false
+                self.overlayView?.updateCursorForCurrentTool()
+                self.shareDelegate = nil
+            }
+        )
+        shareDelegate = delegate
+        picker.delegate = delegate
         if let anchor = anchorView {
             picker.show(relativeTo: anchor.bounds, of: anchor, preferredEdge: .minX)
         } else if let view = overlayView {
@@ -758,7 +806,7 @@ private class AddCaptureOverlayHandler: NSObject, OverlayWindowControllerDelegat
         onCapture?(image)
     }
     func overlayDidStartOCR(_ controller: OverlayWindowController) {}
-    func overlayDidFinishOCR(_ controller: OverlayWindowController, text: String) {}
+    func overlayDidFinishOCR(_ controller: OverlayWindowController?, text: String) {}
     func overlayDidRequestUpload(_ controller: OverlayWindowController, image: NSImage) {}
     func overlayDidRequestStartRecording(_ controller: OverlayWindowController, rect: NSRect, screen: NSScreen) {}
     func overlayDidRequestStopRecording(_ controller: OverlayWindowController) {}

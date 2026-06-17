@@ -61,6 +61,10 @@ final class OverlayPreviewState {
     var drawingCursorPoint: NSPoint = .zero
     var smartMarkerLineHeight: CGFloat?
     var cursorVisualMode: OverlayView.CursorVisualMode = .system
+    /// When true, updateCursorForPoint is a no-op. Used while a system panel
+    /// (e.g. NSSharingServicePicker / AirDrop) is showing so the active tool
+    /// cursor isn't re-asserted over it via the .activeAlways tracking area.
+    var cursorUpdateSuppressed = false
     var autoMeasurePreview: Annotation?
     var autoMeasureVertical = true
     var autoMeasureKeyHeld = false
@@ -308,6 +312,11 @@ extension OverlayView {
     var cursorVisualMode: OverlayView.CursorVisualMode {
         get { previewState.cursorVisualMode }
         set { previewState.cursorVisualMode = newValue }
+    }
+
+    var cursorUpdateSuppressed: Bool {
+        get { previewState.cursorUpdateSuppressed }
+        set { previewState.cursorUpdateSuppressed = newValue }
     }
 
     var autoMeasurePreview: Annotation? {

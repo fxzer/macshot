@@ -20,6 +20,8 @@ class OverlayView: NSView {
     /// When true, hides overlay-only toolbar buttons (record, delay, cancel, move, scroll capture).
     /// Override point for subclasses. EditorView returns true.
     var isEditorMode: Bool { false }
+    /// True when a sharing service is actively running (e.g. AirDrop popover is open)
+    var isSharingActive = false
     /// When true, NSScrollView handles zoom/pan/centering. Coordinate transforms become identity.
     var isInsideScrollView: Bool { false }
     /// When in scroll view mode, toolbar strips are added to this view (window content) instead of self.

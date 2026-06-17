@@ -125,10 +125,10 @@ extension OverlayWindowController: OverlayViewDelegate {
             return
         }
 
+        let delegate = self.overlayDelegate
         overlayDelegate?.overlayDidStartOCR(self)
 
-        DispatchQueue.global(qos: .userInitiated).async { [weak self, cgImage] in
-            guard let self = self else { return }
+        DispatchQueue.global(qos: .userInitiated).async { [cgImage, weak delegate] in
             let request = VisionOCR.makeTextRecognitionRequest { request, error in
                 var lines: [String] = []
                 if let observations = request.results as? [VNRecognizedTextObservation] {
@@ -140,7 +140,7 @@ extension OverlayWindowController: OverlayViewDelegate {
                 }
                 let text = lines.joined(separator: "\n")
                 DispatchQueue.main.async {
-                    self.overlayDelegate?.overlayDidFinishOCR(self, text: text)
+                    delegate?.overlayDidFinishOCR(nil, text: text)
                 }
             }
             let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
@@ -220,16 +220,29 @@ extension OverlayWindowController: OverlayViewDelegate {
             screenRect = NSRect(x: mid.midX - 20, y: mid.midY - 20, width: 40, height: 40)
         }
 
-        // Temporarily lower the overlay so the system share picker popover appears on top.
-        // NSSharingServicePicker creates its own window at a standard level that we can't control.
+        // Make the overlay click-through so the system share picker (and the AirDrop
+        // device UI it spawns) receives mouse events and the cursor isn't hijacked.
+        //
+        // Two problems are fixed by this single change:
+        //  1. Click-through: the overlay is transparent but still eats clicks. Lowering its
+        //     level to .floating alone is not enough because NSSharingService/AirDrop panels
+        //     live at standard levels and the overlay would stay on top of them.
+        //  2. Cursor: OverlayView's tracking area uses `.activeAlways`, so it keeps getting
+        //     mouseMoved even when not key and re-asserts the active tool cursor (e.g. the
+        //     pencil crosshair) over the system picker. With ignoresMouseEvents the overlay
+        //     no longer receives mouseMoved, so the system arrow cursor shows through.
         let savedLevel = overlayWindow?.level ?? NSWindow.Level(257)
+        let savedIgnoresMouseEvents = overlayWindow?.ignoresMouseEvents ?? false
         overlayWindow?.level = .floating
+        overlayWindow?.ignoresMouseEvents = true
+        NSCursor.arrow.set()
 
         let picker = NSSharingServicePicker(items: [tempURL])
         let delegate = SharePickerDelegate(
-            onPick: { [weak self] in
+            onPick: { [weak self] _ in
                 guard let self = self else { return }
                 self.overlayWindow?.level = savedLevel
+                self.overlayWindow?.ignoresMouseEvents = savedIgnoresMouseEvents
                 self.shareDelegate = nil
                 let img = image
                 let pinOrigin = self.selectionPinOrigin()
@@ -244,9 +257,13 @@ extension OverlayWindowController: OverlayViewDelegate {
                 )
             },
             onDismiss: { [weak self] in
-                self?.overlayWindow?.level = savedLevel
-                self?.shareDelegate = nil
-                self?.shareDismissTime = Date()
+                guard let self = self else { return }
+                self.overlayWindow?.level = savedLevel
+                self.overlayWindow?.ignoresMouseEvents = savedIgnoresMouseEvents
+                // Re-assert the tool cursor now that the overlay is interactive again.
+                self.overlayView?.updateCursorForCurrentTool()
+                self.shareDelegate = nil
+                self.shareDismissTime = Date()
             }
         )
         shareDelegate = delegate

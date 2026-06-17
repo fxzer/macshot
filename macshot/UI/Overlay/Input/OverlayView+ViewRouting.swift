@@ -85,6 +85,10 @@ extension OverlayView {
     }
 
     override func mouseMoved(with event: NSEvent) {
+        if isSharingActive {
+            NSCursor.arrow.set()
+            return
+        }
         let point = convert(event.locationInWindow, from: nil)
         clearKeyboardColorSamplerPoint()
 
@@ -134,6 +138,9 @@ extension OverlayView {
     }
 
     override func hitTest(_ point: NSPoint) -> NSView? {
+        if isSharingActive {
+            return nil
+        }
         if !isEditorMode {
             let localPoint = convert(point, from: superview)
             if let strip = bottomStripView, !strip.isHidden, strip.frame.contains(localPoint) {

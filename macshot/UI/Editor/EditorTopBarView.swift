@@ -266,6 +266,13 @@ class EditorTopBarView: NSView {
     @objc private func flipVClicked() { overlayView?.flipImageVertically() }
     @objc private func addCaptureClicked() { overlayView?.overlayDelegate?.overlayViewDidRequestAddCapture() }
 
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        if overlayView?.isSharingActive == true {
+            return nil
+        }
+        return super.hitTest(point)
+    }
+
     override func resetCursorRects() {
         addCursorRect(bounds, cursor: .arrow)
     }

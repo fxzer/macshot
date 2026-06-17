@@ -78,6 +78,10 @@ class EditorView: OverlayView {
     }
 
     override func mouseMoved(with event: NSEvent) {
+        if isSharingActive {
+            NSCursor.arrow.set()
+            return
+        }
         let point = convert(event.locationInWindow, from: nil)
         if pointIsInSelection(point) {
             super.mouseMoved(with: event)

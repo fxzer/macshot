@@ -148,6 +148,9 @@ extension OverlayView {
     }
 
     override func keyDown(with event: NSEvent) {
+        if isSharingActive {
+            return
+        }
         // In recording mode, only allow Escape (to exit recording mode)
         if isRecording {
             if event.keyCode == 53 { // Escape

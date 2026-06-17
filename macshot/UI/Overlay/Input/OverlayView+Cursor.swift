@@ -105,6 +105,9 @@ extension OverlayView {
     /// Imperative cursor management. Called from mouseMoved and a 30fps timer.
     /// Simplified: arrow for chrome, resize cursors for handles, tool cursor for canvas.
     func updateCursorForPoint(_ point: NSPoint) {
+        // Skip entirely while a system panel (share picker / AirDrop) is showing,
+        // so the tool cursor isn't re-asserted over it. See cursorUpdateSuppressed.
+        if cursorUpdateSuppressed { return }
         cursorVisualMode = .system
         let canvasPoint = viewToCanvas(point)
 
