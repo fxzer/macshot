@@ -269,7 +269,11 @@ extension OverlayView {
             // Inside selection area but not on any annotation — show drag cursor (Snipaste-style)
             // This allows dragging the entire selection without clicking the move button
             if currentTool == .select && pointIsInSelection(point) {
-                NSCursor.closedHand.set()
+                if isMoveSelectionTemporary {
+                    NSCursor.openHand.set()
+                } else {
+                    NSCursor.closedHand.set()
+                }
                 return
             }
         }

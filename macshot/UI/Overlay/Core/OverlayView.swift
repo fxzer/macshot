@@ -134,6 +134,11 @@ class OverlayView: NSView {
     /// Whether the user is actively drawing/dragging a new annotation.
     var isActivelyDrawing: Bool { currentAnnotation != nil }
 
+    /// True when V (move selection) toggled the user into temporary select mode.
+    /// The tool should restore after the first selection drag completes.
+    var isMoveSelectionTemporary = false
+    var moveSelectionRestoreTool: AnnotationTool = .select
+
     // MARK: - Tool handlers
     lazy var toolHandlers: [AnnotationTool: AnnotationToolHandler] = {
         let handlers: [AnnotationToolHandler] = [

@@ -305,6 +305,7 @@ extension OverlayView {
         switch action {
         case .tool(let tool):
             shouldRebuildToolbar = true
+            isMoveSelectionTemporary = false
             commitTextFieldIfNeeded()
             if currentTool == tool {
                 currentTool = .select
@@ -336,6 +337,7 @@ extension OverlayView {
             needsDisplay = true
         case .loupe:
             shouldRebuildToolbar = true
+            isMoveSelectionTemporary = false
             currentTool = .loupe
             needsDisplay = true
         case .color:
@@ -348,7 +350,8 @@ extension OverlayView {
         case .sizeDisplay:
             break
         case .moveSelection:
-            guard let win = window else { break }
+            guard !isEditorMode else { break }
+            commitTextFieldIfNeeded()
             clearStampPreview()
             clearLoupePreview()
             clearDrawingCursorPreview()
@@ -358,33 +361,11 @@ extension OverlayView {
                 snappedWindowImage = nil
                 shouldRebuildToolbar = true
             }
-            hoveredTooltip = L("Drag to reposition")
-            needsDisplay = true
-            displayIfNeeded()
-            let startPoint = convert(win.mouseLocationOutsideOfEventStream, from: nil)
-            let offset = NSPoint(
-                x: startPoint.x - selectionRect.origin.x, y: startPoint.y - selectionRect.origin.y)
-            let hasWebcam = webcamSetupPreview != nil
-            while true {
-                guard let event = win.nextEvent(matching: [.leftMouseDragged, .leftMouseUp]) else {
-                    break
-                }
-                let point = convert(event.locationInWindow, from: nil)
-                selectionRect.origin = NSPoint(x: point.x - offset.x, y: point.y - offset.y)
-                if hasWebcam { repositionWebcamSetupPreview() }
-                needsDisplay = true
-                displayIfNeeded()
-                if event.type == .leftMouseUp { break }
-            }
-            hoveredTooltip = (hoveredTooltipButtonView as? ToolbarButtonView)?.tooltipText
-            if let moveBtn = rightStripView?.buttonViews.first(where: {
-                if case .moveSelection = $0.action { return true }
-                return false
-            }) {
-                moveBtn.isPressed = false
-                moveBtn.needsDisplay = true
-            }
-            scheduleBarcodeDetection()
+            isMoveSelectionTemporary = true
+            moveSelectionRestoreTool = currentTool
+            currentTool = .select
+            shouldRebuildToolbar = true
+            hoveredTooltip = L("Drag to reposition the selection")
             needsDisplay = true
         case .undo:
             shouldRebuildToolbar = true

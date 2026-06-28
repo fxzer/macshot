@@ -885,10 +885,15 @@ extension OverlayView {
                 needsDisplay = true
             } else if isDraggingSelection {
                 isDraggingSelection = false
-                scheduleBarcodeDetection()
                 if !autoOCRMode && !autoQuickSaveMode && !autoScrollCaptureMode && !autoConfirmMode {
                     showToolbars = true
                 }
+                if isMoveSelectionTemporary {
+                    isMoveSelectionTemporary = false
+                    currentTool = moveSelectionRestoreTool
+                    requestToolbarRebuild(reason: "moveSelectionRestore")
+                }
+                scheduleBarcodeDetection()
                 needsDisplay = true
             } else if isResizingSelection {
                 isResizingSelection = false

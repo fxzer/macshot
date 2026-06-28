@@ -22,6 +22,7 @@ enum ToolShortcutManager {
         case loupe
         case pin
         case openInEditor
+        case moveSelection
 
         var label: String {
             switch self {
@@ -40,6 +41,7 @@ enum ToolShortcutManager {
             case .loupe: return L("Loupe")
             case .pin: return L("Pin")
             case .openInEditor: return L("Open in Editor")
+            case .moveSelection: return L("Move Selection")
             }
         }
 
@@ -60,6 +62,7 @@ enum ToolShortcutManager {
             case .loupe: return ""
             case .pin: return ToolShortcutManager.rightClickShortcut
             case .openInEditor: return "e"
+            case .moveSelection: return "v"
             }
         }
     }
@@ -157,6 +160,7 @@ enum ToolShortcutManager {
             case .loupe: lookup[k] = .tool(.loupe)
             case .pin: lookup[k] = .pin
             case .openInEditor: lookup[k] = .detach
+            case .moveSelection: lookup[k] = .moveSelection
             }
         }
         _cachedLookup = lookup
