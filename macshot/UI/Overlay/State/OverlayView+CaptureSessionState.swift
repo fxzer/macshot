@@ -94,6 +94,15 @@ extension OverlayView {
         set { captureSessionState.autoConfirmMode = newValue }
     }
 
+    @discardableResult
+    func triggerPendingAutoOCRIfReady() -> Bool {
+        guard autoOCRMode, state == .selected else { return false }
+        guard screenshotImage != nil else { return false }
+        autoOCRMode = false
+        overlayDelegate?.overlayViewDidRequestOCR()
+        return true
+    }
+
     var sessionRecordingFPS: Int? {
         get { captureSessionState.sessionRecordingFPS }
         set { captureSessionState.sessionRecordingFPS = newValue }

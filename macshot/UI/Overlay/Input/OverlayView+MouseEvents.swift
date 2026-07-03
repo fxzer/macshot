@@ -827,8 +827,7 @@ extension OverlayView {
             }
             // Auto-trigger OCR if triggered from "Capture OCR"
             if autoOCRMode {
-                autoOCRMode = false
-                overlayDelegate?.overlayViewDidRequestOCR()
+                triggerPendingAutoOCRIfReady()
             }
             // Auto-trigger quick save if triggered from "Quick Capture"
             if autoQuickSaveMode {

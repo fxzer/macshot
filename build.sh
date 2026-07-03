@@ -177,30 +177,54 @@ else
 fi
 
 SECONDS=0
-XCODEBUILD_CMD=(
-    xcodebuild
-    -project "$ROOT_DIR/macshot.xcodeproj"
-    -scheme macshot
-    -configuration Debug
-    -derivedDataPath "$DERIVED_DATA"
-    -jobs "$JOBS"
-    -skipPackageUpdates
-    -showBuildTimingSummary
-    CODE_SIGNING_ALLOWED=NO
-    CODE_SIGNING_REQUIRED=NO
-    "${BUILD_ACTIONS[@]}"
-)
+BUILD_LOG="$DERIVED_DATA/build.log"
+mkdir -p "$DERIVED_DATA"
 
-if command -v xcbeautify &>/dev/null; then
-    "${XCODEBUILD_CMD[@]}" 2>&1 | xcbeautify --quiet
-else
-    "${XCODEBUILD_CMD[@]}" 2>&1 | tail -20
+configure_xcodebuild_cmd() {
+    XCODEBUILD_CMD=(
+        xcodebuild
+        -project "$ROOT_DIR/macshot.xcodeproj"
+        -scheme macshot
+        -configuration Debug
+        -derivedDataPath "$DERIVED_DATA"
+        -jobs "$JOBS"
+        -skipPackageUpdates
+        -showBuildTimingSummary
+        CODE_SIGNING_ALLOWED=NO
+        CODE_SIGNING_REQUIRED=NO
+        "${BUILD_ACTIONS[@]}"
+    )
+}
+
+run_xcodebuild() {
+    local log_file="$1"
+    set +e
+    if command -v xcbeautify &>/dev/null; then
+        "${XCODEBUILD_CMD[@]}" 2>&1 | tee "$log_file" | xcbeautify --quiet
+        local status="${PIPESTATUS[0]}"
+    else
+        "${XCODEBUILD_CMD[@]}" 2>&1 | tee "$log_file" | tail -20
+        local status="${PIPESTATUS[0]}"
+    fi
+    set -e
+    return "$status"
+}
+
+configure_xcodebuild_cmd
+run_xcodebuild "$BUILD_LOG"
+BUILD_STATUS="$?"
+if [ "$BUILD_STATUS" -ne 0 ] && [ "$DO_CLEAN" -eq 0 ] && /usr/bin/grep -q '\*\*\* DESERIALIZATION FAILURE \*\*\*' "$BUILD_LOG"; then
+    echo "   ⚠️ Swift 增量缓存损坏，自动全量重编..."
+    BUILD_ACTIONS=(clean build)
+    configure_xcodebuild_cmd
+    : > "$BUILD_LOG"
+    run_xcodebuild "$BUILD_LOG"
+    BUILD_STATUS="$?"
 fi
-
-BUILD_STATUS="${PIPESTATUS[0]}"
 echo "   ⏱ 编译耗时: ${SECONDS} 秒"
 if [ "$BUILD_STATUS" -ne 0 ]; then
     echo "   ❌ 构建失败"
+    echo "   📄 详细日志: $BUILD_LOG"
     exit 1
 fi
 echo "   ✅ 构建完成"

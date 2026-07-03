@@ -164,6 +164,9 @@ class OverlayWindowController {
         CaptureDiagnostics.log(
             "[macshot-mem][OWC.capture] applied screen=\(capture.screen.localizedName) image=\(capture.asset.displayCGImage.width)x\(capture.asset.displayCGImage.height) cacheEstimate=\(MemoryDiagnostics.format(bytes: UInt64(overlayView?.estimatedCacheMemory ?? 0))) \(MemoryDiagnostics.currentSummary())"
         )
+        DispatchQueue.main.async { [weak self] in
+            self?.overlayView?.triggerPendingAutoOCRIfReady()
+        }
     }
 
     func showOverlay(activateAppIfNeeded: Bool = true) {

@@ -67,7 +67,7 @@ enum CaptureIntent {
 
     var prefersImmediateOverlayPresentation: Bool {
         switch self {
-        case .area:
+        case .area, .ocr:
             // Safe now that the live capture path explicitly excludes the placeholder
             // overlay window and refreshes SCShareableContent when needed.
             return true
