@@ -81,9 +81,18 @@ final class GIFEncoder {
         frameCount += 1
     }
 
-    func finish() {
-        guard let dest = destination, frameCount > 0 else { return }
-        CGImageDestinationFinalize(dest)
+    /// Finalize the GIF. Returns false (and cleans up) when no frames were written,
+    /// so callers can avoid moving an empty/invalid file to the user's destination.
+    @discardableResult
+    func finish() -> Bool {
+        guard let dest = destination, frameCount > 0 else {
+            // Nothing was written — drop the half-initialized destination so the
+            // (possibly created) file is treated as invalid by the caller.
+            destination = nil
+            return false
+        }
+        let ok = CGImageDestinationFinalize(dest)
         destination = nil
+        return ok
     }
 }

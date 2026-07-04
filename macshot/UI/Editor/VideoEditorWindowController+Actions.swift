@@ -291,7 +291,13 @@ extension VideoEditorView {
                         encoder.addFrame(pixelBuffer)
                     }
                 }
-                encoder.finish()
+                let finalized = encoder.finish()
+                guard finalized else {
+                    // No frames were written (e.g. empty source) — clean up tmp and fail.
+                    try? FileManager.default.removeItem(at: tmpURL)
+                    throw NSError(domain: "GIFEncoder", code: 1,
+                                  userInfo: [NSLocalizedDescriptionKey: L("GIF conversion failed")])
+                }
 
                 // Move to destination
                 try? FileManager.default.removeItem(at: destURL)
