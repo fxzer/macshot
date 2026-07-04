@@ -534,8 +534,10 @@ class Annotation {
             }
             anchorPoints = anchors
         }
-        // Clear baked image so it re-renders at the new position
-        if tool == .loupe || tool == .pixelate {
+        // Clear baked image so it re-renders at the new position.
+        // .blur shares the same bakedBlurNSImage cache as .pixelate (see Annotation+DrawingCensor),
+        // so legacy .blur annotations must also invalidate on move.
+        if tool == .loupe || tool == .pixelate || tool == .blur {
             bakedBlurNSImage = nil
         }
         // Shift the cached glow rect instead of invalidating — the glow shape

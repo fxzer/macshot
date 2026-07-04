@@ -877,7 +877,12 @@ extension OverlayView {
                 NSCursor.openHand.set()
                 for ann in selectedAnnotations {
                     if ann.tool == .loupe { ann.bakeLoupe() }
-                    if ann.tool == .pixelate { ann.bakedBlurNSImage = nil; ann.bakePixelate() }
+                    // .blur shares the bakedBlurNSImage/bakePixelate pipeline with .pixelate
+                    // (see Annotation+DrawingCensor); both must rebake after a drag.
+                    if ann.tool == .pixelate || ann.tool == .blur {
+                        ann.bakedBlurNSImage = nil
+                        ann.bakePixelate()
+                    }
                 }
                 // Auto-expand canvas if annotation was dragged outside bounds (editor mode)
                 expandCanvasToFitAnnotations()
