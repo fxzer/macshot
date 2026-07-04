@@ -116,7 +116,10 @@ extension Annotation {
         border.lineWidth = 1.5
         let pattern: [CGFloat] = [4, 4]
         border.setLineDash(pattern, count: 2, phase: 0)
-        NSColor.white.withAlphaComponent(censorMode == .blur ? 0.7 : 0.5).setStroke()
+        // Use the system accent color (same as snap guides / selection feedback) so the
+        // dashed border stays visible on light backgrounds — the previous white stroke
+        // was invisible when the captured screenshot itself was white.
+        NSColor.controlAccentColor.withAlphaComponent(0.8).setStroke()
         border.stroke()
     }
 
