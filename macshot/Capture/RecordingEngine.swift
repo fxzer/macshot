@@ -15,6 +15,11 @@ final class RecordingEngine: NSObject {
     enum State { case idle, recording, paused, stopping }
     private(set) var state: State = .idle
 
+    // Set when the SCStream stopped with an error mid-recording. finalizeMP4() reads
+    // (and clears) this to decide between fail() (error path) and succeed() (normal
+    // stop). Guarded by MainActor isolation like the rest of the engine.
+    private var pendingStreamError: Error?
+
     // MARK: - Config (read from UserDefaults at start)
 
     private var fps: Int = 30
@@ -143,6 +148,20 @@ final class RecordingEngine: NSObject {
         Task { [weak self] in await self?.finalizeCapture() }
     }
 
+    /// Called when the SCStream reported an error via `stream(_:didStopWithError:)`.
+    /// Shares the stop guard with `stopRecording()`: if the user already initiated a
+    /// normal stop (state == .stopping), the error is swallowed. Otherwise we mark a
+    /// pending error so `finalizeMP4()` routes to `fail()` instead of `succeed()`,
+    /// producing a user-visible failure instead of a "successful" truncated file.
+    private func handleStreamError(_ error: Error) {
+        guard state == .recording || state == .paused else { return }
+        pendingStreamError = error
+        state = .stopping
+        progressTimer?.invalidate()
+        progressTimer = nil
+        Task { [weak self] in await self?.finalizeCapture() }
+    }
+
     // MARK: - Setup
 
     private func beginCapture(rect: NSRect) async {
@@ -206,8 +225,8 @@ final class RecordingEngine: NSObject {
                     self?.handleAudioSample(sampleBuffer)
                 }
             }
-            output.onStopped = { [weak self] in
-                self?.stopRecording()
+            output.onError = { [weak self] error in
+                self?.handleStreamError(error)
             }
             self.streamOutput = output
 
@@ -448,15 +467,21 @@ final class RecordingEngine: NSObject {
     }
 
     private func finalizeMP4() async {
+        let pendingError = pendingStreamError
+        pendingStreamError = nil
         guard let writer = assetWriter, let input = videoInput else {
-            await MainActor.run { self.succeed() }
+            await MainActor.run {
+                if let error = pendingError { self.fail(error) } else { self.succeed() }
+            }
             return
         }
         input.markAsFinished()
         audioInput?.markAsFinished()
         micAudioInput?.markAsFinished()
         await writer.finishWriting()
-        await MainActor.run { self.succeed() }
+        await MainActor.run {
+            if let error = pendingError { self.fail(error) } else { self.succeed() }
+        }
     }
 
     // MARK: - Output URL
@@ -477,6 +502,12 @@ final class RecordingEngine: NSObject {
 
     @MainActor private func fail(_ error: Error) {
         state = .idle
+        // Discard any truncated/partial output file — a half-written MP4 is not
+        // reliably playable and we don't want the user to think it succeeded.
+        if let url = outputURL {
+            try? FileManager.default.removeItem(at: url)
+            outputURL = nil
+        }
         onCompletion?(nil, error)
     }
 
@@ -496,7 +527,7 @@ final class RecordingEngine: NSObject {
 private class RecordingStreamOutput: NSObject, SCStreamOutput, SCStreamDelegate {
     var onFrame: ((CVPixelBuffer, CMTime) -> Void)?
     var onAudioSample: ((CMSampleBuffer) -> Void)?
-    var onStopped: (() -> Void)?
+    var onError: ((Error) -> Void)?
 
     func stream(_ stream: SCStream, didOutputSampleBuffer sampleBuffer: CMSampleBuffer, of type: SCStreamOutputType) {
         switch type {
@@ -512,8 +543,11 @@ private class RecordingStreamOutput: NSObject, SCStreamOutput, SCStreamDelegate 
     }
 
     func stream(_ stream: SCStream, didStopWithError error: Error) {
+        // The stream stopped unexpectedly (display sleep, permission revoked, encoder
+        // failure, ...). Forward the error so the engine routes to fail() instead of
+        // succeed()ing with a truncated file.
         DispatchQueue.main.async { [weak self] in
-            self?.onStopped?()
+            self?.onError?(error)
         }
     }
 }

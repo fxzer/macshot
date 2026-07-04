@@ -247,9 +247,12 @@ final class RecordingFlowCoordinator {
                     deliverRecording(url)
                 }
             } else if let error {
+                // Stream error or capture failure — surface to the user instead of
+                // silently producing nothing. DEBUG log retained for diagnostics.
                 #if DEBUG
                 print("Recording failed: \(error.localizedDescription)")
                 #endif
+                self.showRecordingFailureToast(error)
             }
         }
         recordingEngine = engine
@@ -577,5 +580,16 @@ final class RecordingFlowCoordinator {
             }
         }
         return toast
+    }
+
+    /// Show a non-blocking toast when recording failed (e.g. SCStream stopped with an
+    /// error mid-capture). Previously the error branch only logged in DEBUG and the
+    /// user got zero feedback — appearing as if the recording simply vanished.
+    private func showRecordingFailureToast(_ error: Error) {
+        let toast = makeStatusToast()
+        let message = error.localizedDescription.isEmpty
+            ? L("Recording failed")
+            : error.localizedDescription
+        toast.showError(message: message)
     }
 }
