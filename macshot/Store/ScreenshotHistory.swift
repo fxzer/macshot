@@ -96,9 +96,14 @@ class ScreenshotHistory {
     ///   - image: The composited image (annotations baked in) used for display, clipboard, and sharing.
     ///   - rawImage: The raw screenshot without annotations (optional — for editable history).
     ///   - annotations: Live annotation objects (optional — serialized to JSON for editable history).
-    func add(image: NSImage, rawImage: NSImage? = nil, annotations: [Annotation]? = nil) {
+    /// Adds a new entry. Returns the new entry's id, or nil if the entry was not
+    /// created (e.g. `maxEntries == 0`) — callers that need to reference the new
+    /// entry (such as the detached editor linking a freshly-saved capture) should
+    /// use the return value instead of assuming `entries.first`.
+    @discardableResult
+    func add(image: NSImage, rawImage: NSImage? = nil, annotations: [Annotation]? = nil) -> String? {
         let max = maxEntries
-        guard max > 0 else { return }
+        guard max > 0 else { return nil }
         var memory = MemoryDiagnostics.makeScope(
             "ScreenshotHistory.add",
             images: [("image", image), ("rawImage", rawImage)],
@@ -158,7 +163,7 @@ class ScreenshotHistory {
         // Capture CGImages on main thread (Sendable-safe) before moving to background
         guard let mainCGImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil),
               let thumbCGImage = thumb.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
-            return
+            return id
         }
         let rawCGImage = rawImage?.cgImage(forProposedRect: nil, context: nil, hints: nil)
         let capturedAnnotationData = annotationData
@@ -192,6 +197,7 @@ class ScreenshotHistory {
             }
         }
         memory.finish("scheduled async persistence", metadata: "pendingWrites=\(pendingWrites.count)")
+        return id
     }
 
     /// Update an existing history entry in-place (for "Done" in editor).

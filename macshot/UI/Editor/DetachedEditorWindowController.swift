@@ -28,6 +28,10 @@ class DetachedEditorWindowController: NSObject, NSWindowDelegate {
     private var addCaptureHandler: AddCaptureOverlayHandler?
     private var ocrController: OCRResultController?
     private var shareDelegate: SharePickerDelegate?
+    // Notification observer tokens — removed in windowWillClose to avoid accumulating
+    // registered observers across repeated editor open/close cycles.
+    private var scrollViewObservers: [NSObjectProtocol] = []
+    private var windowResizeObserver: NSObjectProtocol?
     private static var activeControllers: [DetachedEditorWindowController] = []
 
     /// History entry ID — when set, "Done" button appears and commits edits back to history.
@@ -196,8 +200,10 @@ class DetachedEditorWindowController: NSObject, NSWindowDelegate {
         let updateZoom = { @Sendable [weak topBar, weak scrollView] (_: Notification) in
             if let mag = scrollView?.magnification { topBar?.updateZoom(mag) }
         }
-        NotificationCenter.default.addObserver(forName: NSScrollView.didEndLiveMagnifyNotification, object: scrollView, queue: .main, using: updateZoom)
-        NotificationCenter.default.addObserver(forName: NSScrollView.didLiveScrollNotification, object: scrollView, queue: .main, using: updateZoom)
+        scrollViewObservers = [
+            NotificationCenter.default.addObserver(forName: NSScrollView.didEndLiveMagnifyNotification, object: scrollView, queue: .main, using: updateZoom),
+            NotificationCenter.default.addObserver(forName: NSScrollView.didLiveScrollNotification, object: scrollView, queue: .main, using: updateZoom)
+        ]
 
         // Set chrome parent BEFORE applySelection so toolbars are added to container, not documentView
         view.chromeParentView = container
@@ -220,7 +226,7 @@ class DetachedEditorWindowController: NSObject, NSWindowDelegate {
             docView.scroll(NSPoint(x: 0, y: docView.frame.maxY))
         }
 
-        NotificationCenter.default.addObserver(forName: NSWindow.didResizeNotification, object: win, queue: .main) { @Sendable [weak self, weak view] _ in
+        windowResizeObserver = NotificationCenter.default.addObserver(forName: NSWindow.didResizeNotification, object: win, queue: .main) { @Sendable [weak self, weak view] _ in
             Task { @MainActor in
                 if let view = view {
                     self?.enforceAspectFitVisibility(logicalSize: view.logicalSize)
@@ -297,6 +303,17 @@ class DetachedEditorWindowController: NSObject, NSWindowDelegate {
         backgroundRemovalToken = nil
         ocrController?.close()
         ocrController = nil
+        // Remove notification observers registered in show() — they capture weak refs
+        // so there's no retain cycle, but leaving them registered across repeated
+        // open/close cycles accumulates stale observers for the app's lifetime.
+        for token in scrollViewObservers {
+            NotificationCenter.default.removeObserver(token)
+        }
+        scrollViewObservers.removeAll()
+        if let token = windowResizeObserver {
+            NotificationCenter.default.removeObserver(token)
+            windowResizeObserver = nil
+        }
         overlayView?.reset()
         overlayView?.overlayDelegate = nil
         window?.contentView = nil
@@ -372,12 +389,13 @@ class DetachedEditorWindowController: NSObject, NSWindowDelegate {
         }
 
         // NSScrollView uses contentInsets to leave room for the bottom and right toolbars.
-        // Precise safe margins: 8px top, 8px bottom (in addition to contentInsets).
+        // Precise safe margins: 8px top, 8px bottom, 8px each side (in addition to contentInsets).
         // Note: top bar is already outside scrollView.frame, so we only need 8px breathing room.
         let safeMarginTop: CGFloat = 8.0
         let safeMarginBottom: CGFloat = 8.0
+        let safeMarginSide: CGFloat = 8.0
 
-        let visibleWidth = scrollView.frame.width - scrollView.contentInsets.left - scrollView.contentInsets.right - safeMarginTop
+        let visibleWidth = scrollView.frame.width - scrollView.contentInsets.left - scrollView.contentInsets.right - safeMarginSide * 2
         let visibleHeight = scrollView.frame.height - scrollView.contentInsets.top - scrollView.contentInsets.bottom - safeMarginTop - safeMarginBottom
 
         guard visibleWidth > 0, visibleHeight > 0, logicalSize.width > 0, logicalSize.height > 0 else {
@@ -573,11 +591,14 @@ extension DetachedEditorWindowController: OverlayViewDelegate {
         guard historyEntryID == nil, let view = overlayView else { return }
         let annotations = view.annotations.filter { $0.isMovable }
         let rawImage: NSImage? = annotations.isEmpty ? nil : view.captureSelectedRegionRaw()
-        ScreenshotHistory.shared.add(
+        // Use the returned id directly instead of assuming `add` prepends to
+        // `entries.first` — that assumption breaks if insertion order ever changes
+        // or another code path inserts concurrently.
+        let newID = ScreenshotHistory.shared.add(
             image: compositedImage,
             rawImage: rawImage,
             annotations: annotations.isEmpty ? nil : annotations)
-        historyEntryID = ScreenshotHistory.shared.entries.first?.id
+        historyEntryID = newID
         if historyEntryID != nil {
             topBar?.showDoneButton()
             topBar?.onDone = { [weak self] in self?.commitToHistory() }
