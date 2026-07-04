@@ -113,10 +113,20 @@ final class StampToolHandler: AnnotationToolHandler {
         )
         annotation.stampImage = img
 
-        // Stamp is instant — commit immediately
+        // Stamp is click-to-place (no drag/finish phase). We commit inline rather
+        // than returning the annotation, deliberately bypassing the protocol's
+        // `commitAnnotation` default because that path calls
+        // `autoSelectNewAnnotation`, which would switch to the select tool and
+        // break the click-multiple-emoji-in-a-row workflow.
+        //
+        // We still mirror the rest of commitAnnotation's contract so the cache stays
+        // incremental and undo/redo behaves like other tools:
         canvas.annotations.append(annotation)
         canvas.undoStack.append(.added(annotation))
         canvas.redoStack.removeAll()
+        if let previousCache = canvas.annotationLayerCache {
+            canvas.appendToAnnotationCache(annotation, previousCache: previousCache)
+        }
         canvas.setNeedsDisplay()
         return nil  // nil = don't set as activeAnnotation
     }
