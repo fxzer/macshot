@@ -119,8 +119,9 @@ extension VideoEditorView {
             }
         }
 
-        let presetName = needsScale ? AVAssetExportPresetHighestQuality : AVAssetExportPresetHighestQuality
-        guard let session = AVAssetExportSession(asset: composition, presetName: presetName) else { return nil }
+        // Scaling is applied via videoComposition below, so the export preset only
+        // governs quality — use HighestQuality regardless of needsScale.
+        guard let session = AVAssetExportSession(asset: composition, presetName: AVAssetExportPresetHighestQuality) else { return nil }
         session.outputURL = outputURL
         session.outputFileType = .mp4
 

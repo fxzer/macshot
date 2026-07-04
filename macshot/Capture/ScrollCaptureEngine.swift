@@ -351,18 +351,22 @@ final class ScrollCaptureEngine {
 
         activateTargetApp()
 
+        // autoScrollSpeed is one of 1=Slow, 2=Medium, 3=Fast (default), 4=Very fast.
+        // linesPerTick stays at 1 for Slow/Medium/Fast (burstCount already scales the
+        // rate); only Very fast doubles linesPerTick. All legal cases are listed
+        // explicitly so the default branch only handles unexpected values.
         let linesPerTick: Int32
         switch autoScrollSpeed {
-        case 1: linesPerTick = 1
-        case 2: linesPerTick = 1
-        case 4: linesPerTick = 2
-        default: linesPerTick = 1
+        case 1, 2, 3: linesPerTick = 1
+        case 4:       linesPerTick = 2
+        default:      linesPerTick = 1
         }
 
         let burstCount: Int
         switch autoScrollSpeed {
         case 1: burstCount = 1
         case 2: burstCount = 2
+        case 3: burstCount = 3
         case 4: burstCount = 4
         default: burstCount = 3
         }
