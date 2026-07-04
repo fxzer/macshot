@@ -601,7 +601,11 @@ extension OverlayView {
                     annotation.startPoint = NSPoint(x: newMinX, y: newMinY)
                     annotation.endPoint = NSPoint(x: newMaxX, y: newMaxY)
                 }
-                if annotation.tool == .pixelate { annotation.bakedBlurNSImage = nil }
+                // .blur shares the bakedBlurNSImage cache with .pixelate; both must
+                // invalidate during resize so drawCensor doesn't stretch stale pixels.
+                if annotation.tool == .pixelate || annotation.tool == .blur {
+                    annotation.bakedBlurNSImage = nil
+                }
                 cachedCompositedImage = nil
                 needsDisplay = true
             } else if isLassoSelecting {
@@ -741,7 +745,11 @@ extension OverlayView {
                     ann.reRenderTextImage()
                 }
                 if ann.tool == .loupe { ann.bakeLoupe() }
-                if ann.tool == .pixelate { ann.bakedBlurNSImage = nil; ann.bakePixelate() }
+                // .blur shares the bakedBlurNSImage/bakePixelate pipeline with .pixelate.
+                if ann.tool == .pixelate || ann.tool == .blur {
+                    ann.bakedBlurNSImage = nil
+                    ann.bakePixelate()
+                }
             }
             invalidateAnnotationCaches()
             NSCursor.openHand.set()
