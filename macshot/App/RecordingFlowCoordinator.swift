@@ -2,7 +2,7 @@ import Cocoa
 import AVFoundation
 
 @MainActor
-final class RecordingFlowCoordinator {
+final class RecordingFlowCoordinator: StatusToastHost {
 
     struct Dependencies {
         let dismissOverlays: (Bool) -> Void
@@ -31,7 +31,9 @@ final class RecordingFlowCoordinator {
     private var webcamOverlay: WebcamOverlay?
     private var selectionBorderOverlay: SelectionBorderOverlay?
     private var menuBarIconWasHidden = false
-    private var uploadToastController: UploadToastController?
+    // `internal` to satisfy `StatusToastHost.uploadToastController`; access stays
+    // within the coordinator layer.
+    var uploadToastController: UploadToastController?
     private var recordingQuickActionsController: RecordingToastController?
     private var recordingSourceRetainCounts: [URL: Int] = [:]
 
@@ -475,41 +477,28 @@ final class RecordingFlowCoordinator {
     }
 
     private func uploadRecording(url: URL, completion: (() -> Void)? = nil) {
-        uploadToastController?.dismiss()
-        let toast = UploadToastController()
-        uploadToastController = toast
-        toast.onDismiss = { [weak self] in
-            self?.uploadToastController = nil
-        }
+        let toast = makeStatusToast()
         toast.show(status: L("Uploading..."))
 
-        let provider = UserDefaults.standard.string(forKey: "uploadProvider") ?? "imgbb"
-        if provider == "gdrive" && !GoogleDriveUploader.shared.isSignedIn {
-            toast.showError(message: L("Sign in to Google Drive in Settings"))
+        let provider = UploadProvider.current
+
+        if let readinessError = provider.readinessErrorText {
+            toast.showError(message: readinessError)
             completion?()
             return
         }
-        if provider == "s3" && !S3Uploader.shared.isConfigured {
-            toast.showError(message: L("Configure S3 in Settings"))
-            completion?()
-            return
-        }
-        if provider == "cfimgbed" && !CloudflareImgBedUploader.shared.isConfigured {
-            toast.showError(message: L("Configure CloudFlare ImgBed in Settings"))
-            completion?()
-            return
-        }
-        guard provider == "gdrive" || provider == "s3" || provider == "cfimgbed" else {
+        guard provider.supportsVideo else {
             toast.showError(message: L("Video upload requires Google Drive, S3, or CloudFlare ImgBed"))
             completion?()
             return
         }
 
+        let providerKey = provider.rawValue
         let completionHandler: (Result<String, Error>) -> Void = { result in
             switch result {
             case .success(let link):
                 PasteboardWriter.writeString(link)
-                UploadHistoryStore.append(link: link, provider: provider)
+                UploadHistoryStore.append(link: link, provider: providerKey)
                 toast.showSuccess(link: link, deleteURL: "")
             case .failure(let error):
                 toast.showError(message: error.localizedDescription)
@@ -517,18 +506,22 @@ final class RecordingFlowCoordinator {
             completion?()
         }
 
-        if provider == "s3" {
+        switch provider {
+        case .s3:
             S3Uploader.shared.uploadVideo(url: url, progress: nil, completion: completionHandler)
-        } else if provider == "cfimgbed" {
+        case .cfimgbed:
             let progressHandler: (Double) -> Void = { fraction in
                 toast.updateProgress(fraction)
             }
             CloudflareImgBedUploader.shared.uploadVideo(url: url, progress: progressHandler, completion: completionHandler)
-        } else {
+        case .gdrive:
             let progressHandler: (Double) -> Void = { fraction in
                 toast.updateProgress(fraction)
             }
             GoogleDriveUploader.shared.uploadVideo(url: url, progress: progressHandler, completion: completionHandler)
+        case .imgbb:
+            // Unreachable: supportsVideo is false for imgbb, guarded above.
+            completion?()
         }
     }
 
@@ -567,19 +560,6 @@ final class RecordingFlowCoordinator {
         } else {
             recordingSourceRetainCounts[url] = nextCount
         }
-    }
-
-    private func makeStatusToast() -> UploadToastController {
-        uploadToastController?.dismiss()
-        let toast = UploadToastController()
-        uploadToastController = toast
-        toast.onDismiss = { [weak self, weak toast] in
-            guard let self else { return }
-            if self.uploadToastController === toast {
-                self.uploadToastController = nil
-            }
-        }
-        return toast
     }
 
     /// Show a non-blocking toast when recording failed (e.g. SCStream stopped with an

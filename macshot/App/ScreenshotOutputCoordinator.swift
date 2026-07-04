@@ -1,7 +1,7 @@
 import Cocoa
 
 @MainActor
-final class ScreenshotOutputCoordinator: NSObject, PinWindowControllerDelegate {
+final class ScreenshotOutputCoordinator: NSObject, PinWindowControllerDelegate, StatusToastHost {
 
     struct Dependencies {
         let resolveTargetScreen: () -> NSScreen?
@@ -11,7 +11,9 @@ final class ScreenshotOutputCoordinator: NSObject, PinWindowControllerDelegate {
 
     private var pinControllers: [PinWindowController] = []
     private var thumbnailControllers: [FloatingThumbnailController] = []
-    private var uploadToastController: UploadToastController?
+    // `internal` to satisfy `StatusToastHost.uploadToastController`; access stays
+    // within the coordinator layer.
+    var uploadToastController: UploadToastController?
 
     init(dependencies: Dependencies) {
         self.dependencies = dependencies
@@ -357,46 +359,21 @@ final class ScreenshotOutputCoordinator: NSObject, PinWindowControllerDelegate {
         saveImageToPreferredDirectory(image, showInFinder: showInFinder)
     }
 
-    private func makeStatusToast() -> UploadToastController {
-        uploadToastController?.dismiss()
-        let toast = UploadToastController()
-        uploadToastController = toast
-        toast.onDismiss = { [weak self, weak toast] in
-            guard let self else { return }
-            if self.uploadToastController === toast {
-                self.uploadToastController = nil
-            }
-        }
-        return toast
-    }
-
     private func showUploadProgress(image: NSImage) {
-        uploadToastController?.dismiss()
-        let toast = UploadToastController()
-        uploadToastController = toast
-        toast.onDismiss = { [weak self] in
-            self?.uploadToastController = nil
-        }
+        let toast = makeStatusToast()
         toast.show(status: L("Uploading..."))
 
-        let provider = UserDefaults.standard.string(forKey: "uploadProvider") ?? "imgbb"
+        let provider = UploadProvider.current
 
-        if provider == "gdrive" && !GoogleDriveUploader.shared.isSignedIn {
-            toast.showError(message: L("Sign in to Google Drive in Settings"))
+        if let readinessError = provider.readinessErrorText {
+            toast.showError(message: readinessError)
             return
         }
 
-        if provider == "s3" && !S3Uploader.shared.isConfigured {
-            toast.showError(message: L("Configure S3 in Settings"))
-            return
-        }
+        let providerKey = provider.rawValue
 
-        if provider == "cfimgbed" && !CloudflareImgBedUploader.shared.isConfigured {
-            toast.showError(message: L("Configure CloudFlare ImgBed in Settings"))
-            return
-        }
-
-        if provider == "gdrive" {
+        switch provider {
+        case .gdrive:
             let progressHandler: (Double) -> Void = { fraction in
                 toast.updateProgress(fraction)
             }
@@ -404,24 +381,24 @@ final class ScreenshotOutputCoordinator: NSObject, PinWindowControllerDelegate {
                 switch result {
                 case .success(let link):
                     PasteboardWriter.writeString(link)
-                    UploadHistoryStore.append(link: link, provider: provider, thumbnail: image)
+                    UploadHistoryStore.append(link: link, provider: providerKey, thumbnail: image)
                     toast.showSuccess(link: link, deleteURL: "")
                 case .failure(let error):
                     toast.showError(message: error.localizedDescription)
                 }
             }
-        } else if provider == "s3" {
+        case .s3:
             S3Uploader.shared.uploadImage(image, progress: nil) { result in
                 switch result {
                 case .success(let link):
                     PasteboardWriter.writeString(link)
-                    UploadHistoryStore.append(link: link, provider: provider, thumbnail: image)
+                    UploadHistoryStore.append(link: link, provider: providerKey, thumbnail: image)
                     toast.showSuccess(link: link, deleteURL: "")
                 case .failure(let error):
                     toast.showError(message: error.localizedDescription)
                 }
             }
-        } else if provider == "cfimgbed" {
+        case .cfimgbed:
             let progressHandler: (Double) -> Void = { fraction in
                 toast.updateProgress(fraction)
             }
@@ -429,13 +406,13 @@ final class ScreenshotOutputCoordinator: NSObject, PinWindowControllerDelegate {
                 switch result {
                 case .success(let link):
                     PasteboardWriter.writeString(link)
-                    UploadHistoryStore.append(link: link, provider: provider, thumbnail: image)
+                    UploadHistoryStore.append(link: link, provider: providerKey, thumbnail: image)
                     toast.showSuccess(link: link, deleteURL: "")
                 case .failure(let error):
                     toast.showError(message: error.localizedDescription)
                 }
             }
-        } else {
+        case .imgbb:
             ImageUploader.upload(image: image) { result in
                 switch result {
                 case .success(let uploadResult):
@@ -443,7 +420,7 @@ final class ScreenshotOutputCoordinator: NSObject, PinWindowControllerDelegate {
                     UploadHistoryStore.append(
                         link: uploadResult.link,
                         deleteURL: uploadResult.deleteURL,
-                        provider: provider,
+                        provider: providerKey,
                         thumbnail: image
                     )
                     toast.showSuccess(link: uploadResult.link, deleteURL: uploadResult.deleteURL)
