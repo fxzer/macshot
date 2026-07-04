@@ -191,6 +191,19 @@ extension OverlayView {
         set { toolState.currentMarkerSize = newValue }
     }
 
+    /// Current censor mode (pixelate/blur/solid) for the censor tool. Read live so
+    /// changes in the tool-options bar take effect on the next stroke without
+    /// requiring a toolbar rebuild.
+    var currentCensorMode: CensorMode {
+        CensorMode(rawValue: UserDefaults.standard.integer(forKey: DefaultsKey.censorMode)) ?? .pixelate
+    }
+
+    /// When true, the censor tool redacts text inside the drawn rect (via AutoRedactor)
+    /// instead of filling the whole region. Read live for the same reason as above.
+    var censorTextOnly: Bool {
+        UserDefaults.standard.bool(forKey: DefaultsKey.censorTextOnly)
+    }
+
     var numberCounter: Int {
         get { toolState.numberCounter }
         set { toolState.numberCounter = newValue }

@@ -28,4 +28,8 @@ enum DefaultsKey {
     // Selection memory
     static let lastSelectionRect = "lastSelectionRect"
     static let lastSelectionScreenFrame = "lastSelectionScreenFrame"
+
+    // Censor tool (pixelate/blur/solid)
+    static let censorMode = "censorMode"
+    static let censorTextOnly = "censorTextOnly"
 }

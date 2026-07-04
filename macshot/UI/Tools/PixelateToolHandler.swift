@@ -1,14 +1,14 @@
 import Cocoa
 
 /// Handles the unified censor tool (pixelate, blur, solid).
-/// Mode is read from UserDefaults "censorMode". Shift-constrains to square.
+/// Mode is read via `canvas.currentCensorMode`. Shift-constrains to square.
 /// Captures composited image source for pixelate/blur baking.
 final class PixelateToolHandler: AnnotationToolHandler {
 
     let tool: AnnotationTool = .pixelate
 
     func start(at point: NSPoint, canvas: AnnotationCanvas) -> Annotation? {
-        let mode = CensorMode(rawValue: UserDefaults.standard.integer(forKey: "censorMode")) ?? .pixelate
+        let mode = canvas.currentCensorMode
         let annotation = Annotation(
             tool: .pixelate,
             startPoint: point,
@@ -50,7 +50,7 @@ final class PixelateToolHandler: AnnotationToolHandler {
             return
         }
 
-        if UserDefaults.standard.bool(forKey: "censorTextOnly") {
+        if canvas.censorTextOnly {
             let drawnRect = annotation.boundingRect
             let sourceImg = annotation.sourceImage
             let sourceImgBounds = annotation.sourceImageBounds

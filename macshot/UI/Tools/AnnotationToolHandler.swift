@@ -21,6 +21,10 @@ protocol AnnotationCanvas: AnyObject {
     var currentPressure: CGFloat { get }
     var smartMarkerEnabled: Bool { get }
 
+    // Censor tool (pixelate/blur/solid) — read from UserDefaults by OverlayView.
+    var currentCensorMode: CensorMode { get }
+    var censorTextOnly: Bool { get }
+
     // Number tool
     var currentNumberSize: CGFloat { get }
     var numberCounter: Int { get set }
