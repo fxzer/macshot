@@ -357,6 +357,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func performFloatingPanelOverlayAction(_ action: () -> Void) {
         let appToRefocus = focusCoordinator.peekPreviousApp()
+        // Drain the captured app immediately. Without this, previousApp stays set and
+        // a later returnFocusIfNeeded (e.g. when an editor/OCR/settings window closes
+        // after the floating panel is shown) would re-activate the stale app at an
+        // unrelated time. Mirrors the dismiss+clear pattern in RecordingFlowCoordinator.
+        focusCoordinator.clearPreviousApp()
         dismissOverlays(refocusPreviousApp: false)
         action()
         if let app = appToRefocus,
