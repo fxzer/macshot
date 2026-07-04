@@ -65,7 +65,7 @@ extension OverlayView {
     }
 
     private func checkCameraPermission() {
-        guard UserDefaults.standard.bool(forKey: "recordWebcam") else { return }
+        guard UserDefaults.standard.bool(forKey: DefaultsKey.recordWebcam) else { return }
         let status = AVCaptureDevice.authorizationStatus(for: .video)
         if status == .authorized {
             showWebcamSetupPreview()
@@ -78,13 +78,13 @@ extension OverlayView {
                     if granted {
                         self?.showWebcamSetupPreview()
                     } else {
-                        UserDefaults.standard.set(false, forKey: "recordWebcam")
+                        UserDefaults.standard.set(false, forKey: DefaultsKey.recordWebcam)
                         self?.rebuildToolbarLayout()
                     }
                 }
             }
         } else {
-            UserDefaults.standard.set(false, forKey: "recordWebcam")
+            UserDefaults.standard.set(false, forKey: DefaultsKey.recordWebcam)
             rebuildToolbarLayout()
         }
     }
@@ -92,16 +92,16 @@ extension OverlayView {
     // MARK: - Webcam Toggle & Device Menu
 
     func toggleWebcamOverlay() {
-        let current = UserDefaults.standard.bool(forKey: "recordWebcam")
+        let current = UserDefaults.standard.bool(forKey: DefaultsKey.recordWebcam)
         if current {
-            UserDefaults.standard.set(false, forKey: "recordWebcam")
+            UserDefaults.standard.set(false, forKey: DefaultsKey.recordWebcam)
             dismissWebcamSetupPreview()
             rebuildToolbarLayout()
             return
         }
         switch AVCaptureDevice.authorizationStatus(for: .video) {
         case .authorized:
-            UserDefaults.standard.set(true, forKey: "recordWebcam")
+            UserDefaults.standard.set(true, forKey: DefaultsKey.recordWebcam)
             rebuildToolbarLayout()
             showWebcamSetupPreview()
         case .notDetermined:
@@ -111,7 +111,7 @@ extension OverlayView {
                 DispatchQueue.main.async {
                     if let saved = savedLevel { self?.window?.level = saved }
                     if granted {
-                        UserDefaults.standard.set(true, forKey: "recordWebcam")
+                        UserDefaults.standard.set(true, forKey: DefaultsKey.recordWebcam)
                         self?.showWebcamSetupPreview()
                     }
                     self?.rebuildToolbarLayout()
@@ -129,9 +129,9 @@ extension OverlayView {
         guard let screen = window?.screen ?? NSScreen.main else { return }
 
         let overlay = WebcamOverlay(screen: screen)
-        let position = WebcamPosition(rawValue: UserDefaults.standard.string(forKey: "webcamPosition") ?? "bottomRight") ?? .bottomRight
-        let size = WebcamSize(rawValue: UserDefaults.standard.string(forKey: "webcamSize") ?? "medium") ?? .medium
-        let shape = WebcamShape(rawValue: UserDefaults.standard.string(forKey: "webcamShape") ?? "circle") ?? .circle
+        let position = WebcamPosition(rawValue: UserDefaults.standard.string(forKey: DefaultsKey.webcamPosition) ?? "bottomRight") ?? .bottomRight
+        let size = WebcamSize(rawValue: UserDefaults.standard.string(forKey: DefaultsKey.webcamSize) ?? "medium") ?? .medium
+        let shape = WebcamShape(rawValue: UserDefaults.standard.string(forKey: DefaultsKey.webcamShape) ?? "circle") ?? .circle
 
         let screenOrigin = screen.frame.origin
         let screenRect = NSRect(
@@ -141,7 +141,7 @@ extension OverlayView {
             height: selectionRect.height)
 
         overlay.configure(position: position, size: size, shape: shape, recordingRect: screenRect)
-        overlay.startPreview(deviceUID: UserDefaults.standard.string(forKey: "selectedCameraDeviceUID"))
+        overlay.startPreview(deviceUID: UserDefaults.standard.string(forKey: DefaultsKey.selectedCameraDeviceUID))
         overlay.setDraggable(true)
         overlay.orderFront(nil)
         webcamSetupPreview = overlay
@@ -162,7 +162,7 @@ extension OverlayView {
     func updateWebcamSetupPreview() {
         guard webcamSetupPreview != nil else { return }
         dismissWebcamSetupPreview()
-        if UserDefaults.standard.bool(forKey: "recordWebcam") {
+        if UserDefaults.standard.bool(forKey: DefaultsKey.recordWebcam) {
             showWebcamSetupPreview()
         }
     }
@@ -170,9 +170,9 @@ extension OverlayView {
     func repositionWebcamSetupPreview() {
         guard let overlay = webcamSetupPreview,
               let screen = window?.screen ?? NSScreen.main else { return }
-        let position = WebcamPosition(rawValue: UserDefaults.standard.string(forKey: "webcamPosition") ?? "bottomRight") ?? .bottomRight
-        let size = WebcamSize(rawValue: UserDefaults.standard.string(forKey: "webcamSize") ?? "medium") ?? .medium
-        let shape = WebcamShape(rawValue: UserDefaults.standard.string(forKey: "webcamShape") ?? "circle") ?? .circle
+        let position = WebcamPosition(rawValue: UserDefaults.standard.string(forKey: DefaultsKey.webcamPosition) ?? "bottomRight") ?? .bottomRight
+        let size = WebcamSize(rawValue: UserDefaults.standard.string(forKey: DefaultsKey.webcamSize) ?? "medium") ?? .medium
+        let shape = WebcamShape(rawValue: UserDefaults.standard.string(forKey: DefaultsKey.webcamShape) ?? "circle") ?? .circle
         let screenOrigin = screen.frame.origin
         let screenRect = NSRect(
             x: selectionRect.origin.x + screenOrigin.x,
@@ -199,8 +199,8 @@ extension OverlayView {
 
     func showWebcamDeviceMenu(anchorView: NSView) {
         let menu = NSMenu()
-        let savedUID = UserDefaults.standard.string(forKey: "selectedCameraDeviceUID")
-        let webcamOn = UserDefaults.standard.bool(forKey: "recordWebcam")
+        let savedUID = UserDefaults.standard.string(forKey: DefaultsKey.selectedCameraDeviceUID)
+        let webcamOn = UserDefaults.standard.bool(forKey: DefaultsKey.recordWebcam)
 
         let noneItem = NSMenuItem(title: L("None"), action: #selector(webcamMenuNone), keyEquivalent: "")
         noneItem.target = self
@@ -222,15 +222,15 @@ extension OverlayView {
     }
 
     @objc private func webcamMenuNone() {
-        UserDefaults.standard.set(false, forKey: "recordWebcam")
+        UserDefaults.standard.set(false, forKey: DefaultsKey.recordWebcam)
         dismissWebcamSetupPreview()
         rebuildToolbarLayout()
     }
 
     @objc private func webcamMenuSelectDevice(_ sender: NSMenuItem) {
         guard let uid = sender.representedObject as? String else { return }
-        UserDefaults.standard.set(uid, forKey: "selectedCameraDeviceUID")
-        UserDefaults.standard.set(true, forKey: "recordWebcam")
+        UserDefaults.standard.set(uid, forKey: DefaultsKey.selectedCameraDeviceUID)
+        UserDefaults.standard.set(true, forKey: DefaultsKey.recordWebcam)
         rebuildToolbarLayout()
         updateWebcamSetupPreview()
     }

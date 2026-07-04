@@ -370,7 +370,7 @@ class ToolbarLayout {
             micBtn.hasContextMenu = true
             buttons.append(micBtn)
 
-            let webcamOn = UserDefaults.standard.bool(forKey: "recordWebcam")
+            let webcamOn = UserDefaults.standard.bool(forKey: DefaultsKey.recordWebcam)
             let webcamSymbol: String = {
                 if #available(macOS 14.0, *) {
                     return webcamOn ? "web.camera.fill" : "web.camera"

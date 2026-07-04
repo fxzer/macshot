@@ -38,35 +38,35 @@ extension OverlayView {
             }
         )
 
-        if UserDefaults.standard.bool(forKey: "recordWebcam") {
+        if UserDefaults.standard.bool(forKey: DefaultsKey.recordWebcam) {
             form.addSeparator()
 
             let positions = ["bottomLeft", "bottomRight", "topLeft", "topRight"]
-            let positionIndex = positions.firstIndex(of: UserDefaults.standard.string(forKey: "webcamPosition") ?? "bottomRight") ?? 1
+            let positionIndex = positions.firstIndex(of: UserDefaults.standard.string(forKey: DefaultsKey.webcamPosition) ?? "bottomRight") ?? 1
             form.addRow(
                 L("Cam pos:"),
                 control: makeOverlaySegmented(["↙", "↘", "↖", "↗"], selected: positionIndex) { [weak self] index in
-                    UserDefaults.standard.set(positions[index], forKey: "webcamPosition")
+                    UserDefaults.standard.set(positions[index], forKey: DefaultsKey.webcamPosition)
                     self?.updateWebcamSetupPreview()
                 }
             )
 
             let sizes = ["small", "medium", "large"]
-            let sizeIndex = sizes.firstIndex(of: UserDefaults.standard.string(forKey: "webcamSize") ?? "medium") ?? 1
+            let sizeIndex = sizes.firstIndex(of: UserDefaults.standard.string(forKey: DefaultsKey.webcamSize) ?? "medium") ?? 1
             form.addRow(
                 L("Cam size:"),
                 control: makeOverlaySegmented(["S", "M", "L"], selected: sizeIndex) { [weak self] index in
-                    UserDefaults.standard.set(sizes[index], forKey: "webcamSize")
+                    UserDefaults.standard.set(sizes[index], forKey: DefaultsKey.webcamSize)
                     self?.updateWebcamSetupPreview()
                 }
             )
 
             let shapes = ["circle", "roundedRect"]
-            let shapeIndex = (UserDefaults.standard.string(forKey: "webcamShape") ?? "circle") == "roundedRect" ? 1 : 0
+            let shapeIndex = (UserDefaults.standard.string(forKey: DefaultsKey.webcamShape) ?? "circle") == "roundedRect" ? 1 : 0
             form.addRow(
                 L("Cam shape:"),
                 control: makeOverlaySegmented(["●", "▢"], selected: shapeIndex) { [weak self] index in
-                    UserDefaults.standard.set(shapes[index], forKey: "webcamShape")
+                    UserDefaults.standard.set(shapes[index], forKey: DefaultsKey.webcamShape)
                     self?.updateWebcamSetupPreview()
                 }
             )

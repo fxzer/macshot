@@ -168,7 +168,7 @@ extension OverlayView {
     }
 
     var effectiveRecordingDelay: Int {
-        sessionRecordingDelay ?? UserDefaults.standard.integer(forKey: "captureDelaySeconds")
+        sessionRecordingDelay ?? UserDefaults.standard.integer(forKey: DefaultsKey.captureDelaySeconds)
     }
 
     var effectiveRecordingControlsMode: RecordingControlsMode {

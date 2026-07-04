@@ -98,7 +98,7 @@ final class CaptureFlowCoordinator {
             metadata: "intent=\(intent.debugName) origin=\(triggerOrigin)"
         )
 
-        let delay = UserDefaults.standard.integer(forKey: "captureDelaySeconds")
+        let delay = UserDefaults.standard.integer(forKey: DefaultsKey.captureDelaySeconds)
         let targetScreen = currentCaptureTargetScreen()
 
         if delay > 0 {
@@ -658,8 +658,8 @@ final class CaptureFlowCoordinator {
 
     private func restoreLastSelectionIfNeeded(controllers: [OverlayWindowController]) {
         guard UserDefaults.standard.bool(forKey: "rememberLastSelection") else { return }
-        guard let rectStr = UserDefaults.standard.string(forKey: "lastSelectionRect"),
-              let screenStr = UserDefaults.standard.string(forKey: "lastSelectionScreenFrame") else { return }
+        guard let rectStr = UserDefaults.standard.string(forKey: DefaultsKey.lastSelectionRect),
+              let screenStr = UserDefaults.standard.string(forKey: DefaultsKey.lastSelectionScreenFrame) else { return }
         let savedRect = NSRectFromString(rectStr)
         let savedScreenFrame = NSRectFromString(screenStr)
         guard savedRect.width > 1, savedRect.height > 1 else { return }

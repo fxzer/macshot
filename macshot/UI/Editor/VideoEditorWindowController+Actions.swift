@@ -390,7 +390,7 @@ extension VideoEditorView {
     }
 
     func uploadVideo() {
-        let provider = UserDefaults.standard.string(forKey: "uploadProvider") ?? "imgbb"
+        let provider = UserDefaults.standard.string(forKey: DefaultsKey.uploadProvider) ?? "imgbb"
 
         if provider == "gdrive" && !GoogleDriveUploader.shared.isSignedIn {
             showStatus(L("Sign in to Google Drive in Settings"), isError: true)

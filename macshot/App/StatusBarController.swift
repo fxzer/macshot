@@ -95,7 +95,7 @@ final class StatusBarController: NSObject {
         delayItem.image = NSImage(systemSymbolName: "timer", accessibilityDescription: nil)
         let delaySubmenu = NSMenu()
         delaySubmenu.autoenablesItems = false
-        let currentDelay = UserDefaults.standard.integer(forKey: "captureDelaySeconds")
+        let currentDelay = UserDefaults.standard.integer(forKey: DefaultsKey.captureDelaySeconds)
         for seconds in [0, 3, 5, 10, 30] {
             let title = seconds == 0 ? L("None") : String(format: L("%d seconds"), seconds)
             let item = NSMenuItem(title: title, action: #selector(setDelaySeconds(_:)), keyEquivalent: "")

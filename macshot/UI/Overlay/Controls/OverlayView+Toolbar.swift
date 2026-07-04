@@ -380,7 +380,7 @@ extension OverlayView {
         case .upload:
             let confirmEnabled = UserDefaults.standard.bool(forKey: "uploadConfirmEnabled")
             if confirmEnabled {
-                let provider = UserDefaults.standard.string(forKey: "uploadProvider") ?? "imgbb"
+                let provider = UserDefaults.standard.string(forKey: DefaultsKey.uploadProvider) ?? "imgbb"
                 let title: String
                 switch provider {
                 case "gdrive":

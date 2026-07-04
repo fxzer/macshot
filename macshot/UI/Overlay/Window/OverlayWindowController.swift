@@ -435,9 +435,9 @@ class OverlayWindowController {
             let view = overlayView, view.state == .selected,
             view.selectionRect.width > 1, view.selectionRect.height > 1
         else { return }
-        UserDefaults.standard.set(NSStringFromRect(view.selectionRect), forKey: "lastSelectionRect")
+        UserDefaults.standard.set(NSStringFromRect(view.selectionRect), forKey: DefaultsKey.lastSelectionRect)
         UserDefaults.standard.set(
-            NSStringFromRect(screen.frame), forKey: "lastSelectionScreenFrame")
+            NSStringFromRect(screen.frame), forKey: DefaultsKey.lastSelectionScreenFrame)
     }
 
     func captureRegion() -> NSImage? {

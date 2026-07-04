@@ -65,7 +65,7 @@ final class RecordingFlowCoordinator: StatusToastHost {
         dependencies.dismissOverlays(true)
         dependencies.clearPreviousApp()
 
-        let delay = delayOverride ?? UserDefaults.standard.integer(forKey: "captureDelaySeconds")
+        let delay = delayOverride ?? UserDefaults.standard.integer(forKey: DefaultsKey.captureDelaySeconds)
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
             if delay > 0 {
@@ -296,7 +296,7 @@ final class RecordingFlowCoordinator: StatusToastHost {
             keystrokeOverlay = overlay
         }
 
-        if UserDefaults.standard.bool(forKey: "recordWebcam")
+        if UserDefaults.standard.bool(forKey: DefaultsKey.recordWebcam)
             && AVCaptureDevice.authorizationStatus(for: .video) == .authorized {
             if let existingWebcam {
                 existingWebcam.setDraggable(false)
@@ -304,11 +304,11 @@ final class RecordingFlowCoordinator: StatusToastHost {
                 webcamOverlay = existingWebcam
             } else {
                 let overlay = WebcamOverlay(screen: screen)
-                let position = WebcamPosition(rawValue: UserDefaults.standard.string(forKey: "webcamPosition") ?? "bottomRight") ?? .bottomRight
-                let size = WebcamSize(rawValue: UserDefaults.standard.string(forKey: "webcamSize") ?? "medium") ?? .medium
-                let shape = WebcamShape(rawValue: UserDefaults.standard.string(forKey: "webcamShape") ?? "circle") ?? .circle
+                let position = WebcamPosition(rawValue: UserDefaults.standard.string(forKey: DefaultsKey.webcamPosition) ?? "bottomRight") ?? .bottomRight
+                let size = WebcamSize(rawValue: UserDefaults.standard.string(forKey: DefaultsKey.webcamSize) ?? "medium") ?? .medium
+                let shape = WebcamShape(rawValue: UserDefaults.standard.string(forKey: DefaultsKey.webcamShape) ?? "circle") ?? .circle
                 overlay.configure(position: position, size: size, shape: shape, recordingRect: rect)
-                overlay.startPreview(deviceUID: UserDefaults.standard.string(forKey: "selectedCameraDeviceUID"))
+                overlay.startPreview(deviceUID: UserDefaults.standard.string(forKey: DefaultsKey.selectedCameraDeviceUID))
                 overlay.setDraggable(false)
                 overlay.orderFrontRegardless()
                 webcamOverlay = overlay

@@ -16,7 +16,7 @@ enum UploadProvider: String {
     /// Current provider from UserDefaults, falling back to `.imgbb` (matching the
     /// historical default) when unset or unrecognized.
     static var current: UploadProvider {
-        let raw = UserDefaults.standard.string(forKey: "uploadProvider") ?? "imgbb"
+        let raw = UserDefaults.standard.string(forKey: DefaultsKey.uploadProvider) ?? "imgbb"
         return UploadProvider(rawValue: raw) ?? .imgbb
     }
 

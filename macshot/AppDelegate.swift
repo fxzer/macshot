@@ -29,7 +29,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             recordScreenFromHotkey: { [weak self] in
                 self?.beginCapture(
                     intent: .fullScreenRecording(
-                        autoStartAfterDelay: UserDefaults.standard.integer(forKey: "captureDelaySeconds") > 0
+                        autoStartAfterDelay: UserDefaults.standard.integer(forKey: DefaultsKey.captureDelaySeconds) > 0
                     ),
                     triggerOrigin: .hotkey
                 )
@@ -68,7 +68,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             recordFullScreen: { [weak self] in
                 self?.beginCapture(
                     intent: .fullScreenRecording(
-                        autoStartAfterDelay: UserDefaults.standard.integer(forKey: "captureDelaySeconds") > 0
+                        autoStartAfterDelay: UserDefaults.standard.integer(forKey: DefaultsKey.captureDelaySeconds) > 0
                     ),
                     triggerOrigin: .external
                 )
@@ -91,13 +91,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             quickCapture: { [weak self] in self?.beginCapture(intent: .quickCapture, triggerOrigin: .menuBar) },
             scrollCapture: { [weak self] in self?.beginCapture(intent: .scrollCapture, triggerOrigin: .menuBar) },
             setDelaySeconds: { seconds in
-                UserDefaults.standard.set(seconds, forKey: "captureDelaySeconds")
+                UserDefaults.standard.set(seconds, forKey: DefaultsKey.captureDelaySeconds)
             },
             recordArea: { [weak self] in self?.beginCapture(intent: .areaRecording, triggerOrigin: .menuBar) },
             recordScreen: { [weak self] in
                 self?.beginCapture(
                     intent: .fullScreenRecording(
-                        autoStartAfterDelay: UserDefaults.standard.integer(forKey: "captureDelaySeconds") > 0
+                        autoStartAfterDelay: UserDefaults.standard.integer(forKey: DefaultsKey.captureDelaySeconds) > 0
                     ),
                     triggerOrigin: .menuBar
                 )
