@@ -356,7 +356,12 @@ extension OverlayView {
             clearDrawingCursorPreview()
             if isEditorMode {
                 // Editor: simply switch to select tool (no selection rectangle to reposition)
+                shouldRebuildToolbar = true
                 currentTool = .select
+                // Refresh cursor to reflect the new tool immediately
+                if let windowPoint = window?.mouseLocationOutsideOfEventStream {
+                    updateCursorForPoint(convert(windowPoint, from: nil))
+                }
             } else {
                 // Overlay: temporarily switch to select for selection repositioning
                 if selectionIsWindowSnap {
@@ -370,6 +375,9 @@ extension OverlayView {
                 currentTool = .select
                 shouldRebuildToolbar = true
                 hoveredTooltip = L("Drag to reposition the selection")
+                if let windowPoint = window?.mouseLocationOutsideOfEventStream {
+                    updateCursorForPoint(convert(windowPoint, from: nil))
+                }
             }
             needsDisplay = true
         case .undo:
