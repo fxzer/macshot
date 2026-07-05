@@ -5,8 +5,11 @@ class BeautifyRenderer {
 
     /// Shared CIContext — reused across all blur and rendering operations.
     /// CIContext allocation is expensive (GPU/Metal resource setup); avoid creating per-call.
+    /// This is the canonical context used by ImageEffects, Annotation+DrawingCensor,
+    /// and OverlayView+AnnotationOutlineGlow to avoid redundant GPU resource allocation.
     static let sharedCIContext: CIContext = {
         CIContext(options: [
+            .useSoftwareRenderer: false,
             .workingColorSpace: CGColorSpaceCreateDeviceRGB(),
             .outputColorSpace: CGColorSpaceCreateDeviceRGB(),
         ])

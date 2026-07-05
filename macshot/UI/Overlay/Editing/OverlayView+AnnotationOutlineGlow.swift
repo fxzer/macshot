@@ -2,15 +2,10 @@ import AppKit
 import CoreImage
 
 extension OverlayView {
-    /// Shared CIContext for general image processing — reused across all operations.
+    /// Shared CIContext — uses the canonical context from BeautifyRenderer to avoid
+    /// redundant GPU resource allocation (~10MB per context).
     /// Using GPU acceleration with working color space for better performance.
-    static let sharedCIContext: CIContext = {
-        let options: [CIContextOption: Any] = [
-            .useSoftwareRenderer: false,
-            .workingColorSpace: CGColorSpace(name: CGColorSpace.sRGB)!
-        ]
-        return CIContext(options: options)
-    }()
+    static var sharedCIContext: CIContext { BeautifyRenderer.sharedCIContext }
 
     /// Shared CIContext for outline glow rendering — reused across frames.
     static let outlineGlowCIContext = CIContext()

@@ -52,7 +52,9 @@ struct ImageEffectsConfig {
 
 enum ImageEffects {
 
-    private static let ciContext = CIContext(options: [.useSoftwareRenderer: false])
+    /// Shared CIContext — uses the canonical context from BeautifyRenderer to avoid
+    /// redundant GPU resource allocation (~10MB per context).
+    private static var ciContext: CIContext { BeautifyRenderer.sharedCIContext }
 
     /// Apply image effects to an NSImage. Returns the original if config is identity.
     static func apply(to image: NSImage, config: ImageEffectsConfig) -> NSImage {

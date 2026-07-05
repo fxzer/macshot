@@ -295,7 +295,10 @@ extension Annotation {
         return NSImage(cgImage: resultCG, size: rect.size)
     }
 
-    static let ciContext = CIContext()
+    /// Shared CIContext — uses the canonical context from BeautifyRenderer to avoid
+    /// redundant GPU resource allocation. The previous standalone CIContext() defaulted
+    /// to CPU software rendering, which is significantly slower for blur operations.
+    static var ciContext: CIContext { BeautifyRenderer.sharedCIContext }
 
     fileprivate func applyGaussianBlur(to cgImage: CGImage) -> CGImage? {
         let w = cgImage.width
