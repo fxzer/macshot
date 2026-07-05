@@ -350,22 +350,27 @@ extension OverlayView {
         case .sizeDisplay:
             break
         case .moveSelection:
-            guard !isEditorMode else { break }
             commitTextFieldIfNeeded()
             clearStampPreview()
             clearLoupePreview()
             clearDrawingCursorPreview()
-            if selectionIsWindowSnap {
-                selectionIsWindowSnap = false
-                snappedWindowID = nil
-                snappedWindowImage = nil
+            if isEditorMode {
+                // Editor: simply switch to select tool (no selection rectangle to reposition)
+                currentTool = .select
+            } else {
+                // Overlay: temporarily switch to select for selection repositioning
+                if selectionIsWindowSnap {
+                    selectionIsWindowSnap = false
+                    snappedWindowID = nil
+                    snappedWindowImage = nil
+                    shouldRebuildToolbar = true
+                }
+                isMoveSelectionTemporary = true
+                moveSelectionRestoreTool = currentTool
+                currentTool = .select
                 shouldRebuildToolbar = true
+                hoveredTooltip = L("Drag to reposition the selection")
             }
-            isMoveSelectionTemporary = true
-            moveSelectionRestoreTool = currentTool
-            currentTool = .select
-            shouldRebuildToolbar = true
-            hoveredTooltip = L("Drag to reposition the selection")
             needsDisplay = true
         case .undo:
             shouldRebuildToolbar = true
