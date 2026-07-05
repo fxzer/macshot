@@ -20,6 +20,9 @@ extension OverlayView {
         case .select:
             currentPencilStrokeWidth = value
             UserDefaults.standard.set(Double(value), forKey: "pencilStrokeWidth")
+        case .pencil:
+            currentPencilStrokeWidth = value
+            UserDefaults.standard.set(Double(value), forKey: "pencilStrokeWidth")
         case .line:
             currentLineStrokeWidth = value
             UserDefaults.standard.set(Double(value), forKey: "lineStrokeWidth")

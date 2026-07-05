@@ -58,8 +58,12 @@ let overlayPerToolStrokeWidthKeys: [AnnotationTool: String] = [
 
 private func overlayInitialGenericStrokeWidths() -> [AnnotationTool: CGFloat] {
     let legacyDefault = overlayStoredCGFloat("currentStrokeWidth", defaultValue: 3.0)
+    let toolDefaults: [AnnotationTool: CGFloat] = [
+        .rectangle: 8.0,
+        .ellipse: 8.0,
+    ]
     return Dictionary(uniqueKeysWithValues: overlayPerToolStrokeWidthKeys.map { tool, key in
-        (tool, overlayStoredCGFloat(key, defaultValue: legacyDefault))
+        (tool, overlayStoredCGFloat(key, defaultValue: toolDefaults[tool] ?? legacyDefault))
     })
 }
 
@@ -67,9 +71,9 @@ final class OverlayToolState {
     var currentTool: AnnotationTool = overlayInitialTool()
     var currentColor: NSColor = overlayStoredColor()
     var currentStrokeWidth: CGFloat = overlayStoredCGFloat("currentStrokeWidth", defaultValue: 3.0)
-    var currentPencilStrokeWidth: CGFloat = overlayStoredCGFloat("pencilStrokeWidth", defaultValue: 3.0)
-    var currentLineStrokeWidth: CGFloat = overlayStoredCGFloat("lineStrokeWidth", defaultValue: 3.0)
-    var currentArrowStrokeWidth: CGFloat = overlayStoredCGFloat("arrowStrokeWidth", defaultValue: 3.0)
+    var currentPencilStrokeWidth: CGFloat = overlayStoredCGFloat("pencilStrokeWidth", defaultValue: 8.0)
+    var currentLineStrokeWidth: CGFloat = overlayStoredCGFloat("lineStrokeWidth", defaultValue: 8.0)
+    var currentArrowStrokeWidth: CGFloat = overlayStoredCGFloat("arrowStrokeWidth", defaultValue: 8.0)
     var currentNumberSize: CGFloat = overlayStoredCGFloat("numberStrokeWidth", defaultValue: 3.0)
     var currentMarkerSize: CGFloat = overlayInitialMarkerSize()
     var genericStrokeWidths: [AnnotationTool: CGFloat] = overlayInitialGenericStrokeWidths()
