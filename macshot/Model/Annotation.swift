@@ -416,9 +416,23 @@ class Annotation {
         }
         switch tool {
         case .pencil, .marker:
-            guard let points = points else { return false }
+            guard let points = points, !points.isEmpty else { return false }
             let strokeRadius = strokeWidth / 2
             let effectiveThreshold = max(threshold, strokeRadius)
+            // Bounding box early exit: compute extent of all points and check containment
+            // before doing per-point hypot (sqrt) checks. Most hit tests are "miss" hits
+            // (clicking empty space), so this avoids iterating all points with hypot.
+            var minX = points[0].x, minY = points[0].y
+            var maxX = points[0].x, maxY = points[0].y
+            for p in points {
+                minX = min(minX, p.x); minY = min(minY, p.y)
+                maxX = max(maxX, p.x); maxY = max(maxY, p.y)
+            }
+            guard NSRect(x: minX, y: minY,
+                         width: maxX - minX,
+                         height: maxY - minY)
+                .insetBy(dx: -effectiveThreshold, dy: -effectiveThreshold)
+                .contains(point) else { return false }
             for p in points {
                 if hypot(p.x - point.x, p.y - point.y) < effectiveThreshold { return true }
             }
