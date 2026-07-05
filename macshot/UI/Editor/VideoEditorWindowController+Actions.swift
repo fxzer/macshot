@@ -287,9 +287,15 @@ extension VideoEditorView {
                 reader.startReading()
 
                 while reader.status == .reading {
-                    if let sampleBuffer = trackOutput.copyNextSampleBuffer(),
-                       let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) {
-                        encoder.addFrame(pixelBuffer)
+                    // Wrap each iteration in autoreleasepool — addFrame allocates
+                    // a fresh CGContext + CGImage per frame, and on a Task.detached
+                    // (cooperative) thread those autoreleased objects otherwise
+                    // accumulate until the loop ends, spiking memory for long GIFs.
+                    autoreleasepool {
+                        if let sampleBuffer = trackOutput.copyNextSampleBuffer(),
+                           let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) {
+                            encoder.addFrame(pixelBuffer)
+                        }
                     }
                 }
                 let finalized = encoder.finish()

@@ -25,6 +25,22 @@ enum UploadHistoryStore {
             "link": link,
             "deleteURL": deleteURL,
         ])
+
+        // Cap retained entries. The entire array is loaded into memory at launch
+        // (UserDefaults plist), so unbounded growth slows startup over months of use.
+        let maxUploadHistory = 200
+        if history.count > maxUploadHistory {
+            // Drop oldest (history is appended at the tail).
+            // Best-effort thumbnail cleanup for the dropped entries.
+            let dropped = history.prefix(history.count - maxUploadHistory)
+            for entry in dropped {
+                if let oldID = entry["id"] {
+                    removeThumbnail(id: oldID)
+                }
+            }
+            history.removeFirst(history.count - maxUploadHistory)
+        }
+
         UserDefaults.standard.set(history, forKey: unifiedKey)
 
         // 通知共享实例更新
@@ -71,9 +87,10 @@ enum UploadHistoryStore {
         let thumbnail = resizeImage(image: image, maxSize: NSSize(width: 100, height: 100))
         let thumbnailURL = thumbnailDir.appendingPathComponent("\(id).jpg")
 
-        guard let tiff = thumbnail.tiffRepresentation,
-              let bitmap = NSBitmapImageRep(data: tiff),
-              let jpeg = bitmap.representation(using: .jpeg, properties: [.compressionFactor: 0.8]) else {
+        // JPEG-encode the thumbnail via cgImage(forProposedRect:) — avoids the
+        // NSImage→TIFF→NSBitmapImageRep round-trip.
+        guard let cgThumb = thumbnail.cgImage(forProposedRect: nil, context: nil, hints: nil),
+              let jpeg = ImageEncoder.encodeJPEG(cgThumb, quality: 0.8) else {
             return
         }
 
@@ -113,6 +130,12 @@ enum UploadHistoryStore {
         }
 
         return thumbnailURL
+    }
+
+    /// 删除指定 ID 的缩略图（如有）。用于裁剪历史时清理磁盘。
+    private static func removeThumbnail(id: String) {
+        guard let url = getThumbnailURL(id: id) else { return }
+        try? FileManager.default.removeItem(at: url)
     }
 
     /// 共享实例，用于 SwiftUI 视图订阅更新

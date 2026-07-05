@@ -442,6 +442,7 @@ extension OverlayView {
         case .beautifyStyle:
             beautifyStyleIndex = (beautifyStyleIndex + 1) % beautifyStyles.count
             UserDefaults.standard.set(beautifyStyleIndex, forKey: "beautifyStyleIndex")
+            BeautifyRenderer.clearMeshCache()
             needsDisplay = true
         case .delayCapture:
             break

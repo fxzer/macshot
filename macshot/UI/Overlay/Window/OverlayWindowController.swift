@@ -181,6 +181,15 @@ class OverlayWindowController {
         // until the full frame is rendered and makes the hotkey→drag path feel sluggish.
         overlayView?.needsDisplay = true
 
+        // Lazy-preload toolbar icons on first overlay appearance (no-op on
+        // subsequent calls). Moved out of the launch path so app startup doesn't
+        // pay the ~80 SF Symbol rasterization cost. Async on main so it doesn't
+        // delay this first frame — runs on the next runloop while the overlay
+        // is already interactive.
+        DispatchQueue.main.async {
+            ToolbarButtonView.preloadCommonIcons()
+        }
+
         // Prepare color sampling image BEFORE showing the window to avoid blocking first frame
         prepareCaptureImageInBackground()
         perf.step("prepareCaptureImage")

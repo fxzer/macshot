@@ -54,7 +54,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             dismissOverlays: { [weak self] in self?.dismissOverlays() },
             pinHistoryImage: { [weak self] image in self?.showPin(image: image) },
             handleLanguageChange: { [weak self] in self?.handleLanguageChange() },
-            defaultInteractionScreen: { [weak self] in self?.defaultInteractionScreen() }
+            defaultInteractionScreen: { [weak self] in self?.defaultInteractionScreen() },
+            primeAudio: { SoundManager.shared.primeAudio() }
         )
     )
     private lazy var historyMenuController = HistoryMenuController()

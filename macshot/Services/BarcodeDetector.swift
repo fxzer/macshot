@@ -23,9 +23,7 @@ class BarcodeDetector {
                 return true
             }
 
-            guard let tiffData = regionImage.tiffRepresentation,
-                  let bitmap = NSBitmapImageRep(data: tiffData),
-                  let cgImage = bitmap.cgImage else { return }
+            guard let cgImage = regionImage.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return }
 
             let request = VNDetectBarcodesRequest()
             let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])

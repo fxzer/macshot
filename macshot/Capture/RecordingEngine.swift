@@ -10,15 +10,10 @@ typealias RecordingCompletionCallback = (_ url: URL?, _ error: Error?) -> Void
 @MainActor
 final class RecordingEngine: NSObject {
 
-    // MARK: - State
+    // MARK: - State (main-actor-isolated UI/lifecycle state)
 
     enum State { case idle, recording, paused, stopping }
     private(set) var state: State = .idle
-
-    // Set when the SCStream stopped with an error mid-recording. finalizeMP4() reads
-    // (and clears) this to decide between fail() (error path) and succeed() (normal
-    // stop). Guarded by MainActor isolation like the rest of the engine.
-    private var pendingStreamError: Error?
 
     // MARK: - Config (read from UserDefaults at start)
 
@@ -31,24 +26,15 @@ final class RecordingEngine: NSObject {
     private var stream: SCStream?
     private var streamOutput: RecordingStreamOutput?
 
-    // MARK: - MP4 writer
+    // Writer actor — owns AVAssetWriter + encoder graph off the main thread.
+    // SCKit delivers frames on recordingQueue; routing them straight into the
+    // actor (instead of DispatchQueue.main.async) keeps the per-frame encode
+    // cost (~0.5-2ms at 30-60fps) off the main thread entirely.
+    private var writer: RecordingWriter?
 
-    private var assetWriter: AVAssetWriter?
-    private var videoInput: AVAssetWriterInput?
-    private var audioInput: AVAssetWriterInput?       // system audio
-    private var micAudioInput: AVAssetWriterInput?    // microphone audio
-    private var adaptor: AVAssetWriterInputPixelBufferAdaptor?
-    /// Serial queue for all recording I/O (video + audio).
+    /// Serial queue for SCStream sample delivery + mic output.
     private let recordingQueue = DispatchQueue(label: "macshot.recording")
     private var outputURL: URL?
-    private var startTime: CMTime = .invalid
-    private var sessionStarted: Bool = false
-    private var frameCount: Int64 = 0
-
-    /// Actor-protected buffers for audio samples that arrive before the first video frame.
-    /// This prevents data races since audio callbacks can execute concurrently.
-    private let pendingAudioBuffer = PendingSampleBuffer()
-    private let pendingMicBuffer = PendingSampleBuffer()
 
     // MARK: - Mic capture
 
@@ -64,11 +50,7 @@ final class RecordingEngine: NSObject {
     private var progressTimer: Timer?
     private var elapsedSeconds: Int = 0
     private var pauseStartTime: Date?
-    private var totalPausedDuration: TimeInterval = 0
     var onPauseChanged: ((Bool) -> Void)?
-
-    // MARK: - Cursor highlight
-
 
     // MARK: - Public API
 
@@ -120,14 +102,16 @@ final class RecordingEngine: NSObject {
         pauseStartTime = Date()
         progressTimer?.invalidate()
         progressTimer = nil
+        Task { [writer] in await writer?.beginPause() }
         onPauseChanged?(true)
     }
 
     func resumeRecording() {
         guard state == .paused else { return }
         if let start = pauseStartTime {
-            totalPausedDuration += Date().timeIntervalSince(start)
+            let duration = Date().timeIntervalSince(start)
             pauseStartTime = nil
+            Task { [writer] in await writer?.endPause(duration: duration) }
         }
         state = .recording
         progressTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
@@ -151,15 +135,18 @@ final class RecordingEngine: NSObject {
     /// Called when the SCStream reported an error via `stream(_:didStopWithError:)`.
     /// Shares the stop guard with `stopRecording()`: if the user already initiated a
     /// normal stop (state == .stopping), the error is swallowed. Otherwise we mark a
-    /// pending error so `finalizeMP4()` routes to `fail()` instead of `succeed()`,
-    /// producing a user-visible failure instead of a "successful" truncated file.
+    /// pending error so the writer's `finalize()` routes to `fail()` instead of
+    /// `succeed()`, producing a user-visible failure instead of a "successful" truncated file.
     private func handleStreamError(_ error: Error) {
         guard state == .recording || state == .paused else { return }
-        pendingStreamError = error
         state = .stopping
         progressTimer?.invalidate()
         progressTimer = nil
-        Task { [weak self] in await self?.finalizeCapture() }
+        Task { [weak self, error] in
+            guard let self else { return }
+            await self.writer?.reportStreamError(error)
+            await self.finalizeCapture()
+        }
     }
 
     // MARK: - Setup
@@ -172,7 +159,7 @@ final class RecordingEngine: NSObject {
             guard let display = content.displays.first(where: { d in
                 screenID != nil && d.displayID == screenID!
             }) ?? content.displays.first else {
-                await MainActor.run { self.fail(RecordingError.noDisplay) }
+                self.fail(RecordingError.noDisplay)
                 return
             }
 
@@ -206,24 +193,45 @@ final class RecordingEngine: NSObject {
             // Prepare output file
             outputURL = makeOutputURL()
             guard let outURL = outputURL else {
-                await MainActor.run { self.fail(RecordingError.noOutput) }
+                self.fail(RecordingError.noOutput)
                 return
             }
 
-            try setupAssetWriter(url: outURL, width: pixelW, height: pixelH)
+            // Build the writer graph on a background queue — AVAssetWriter setup
+            // + input configuration is real work (~5-20ms) that doesn't need to
+            // block the main thread.
+            let recordMic = UserDefaults.standard.bool(forKey: "recordMicAudio")
+            let recordSystemAudio: Bool
+            if #available(macOS 13.0, *) {
+                recordSystemAudio = UserDefaults.standard.bool(forKey: "recordSystemAudio")
+            } else {
+                recordSystemAudio = false
+            }
+            let newWriter: RecordingWriter
+            do {
+                newWriter = try await RecordingWriter(
+                    url: outURL,
+                    width: pixelW,
+                    height: pixelH,
+                    fps: fps,
+                    recordMic: recordMic,
+                    recordSystemAudio: recordSystemAudio
+                )
+            } catch {
+                self.fail(error)
+                return
+            }
+            self.writer = newWriter
 
             let output = RecordingStreamOutput()
-            // ScreenCaptureKit delivers samples on recordingQueue, but RecordingEngine
-            // owns main-actor state and writer inputs. Always hop back before mutating it.
-            output.onFrame = { [weak self] pixelBuffer, presentationTime in
-                DispatchQueue.main.async {
-                    self?.handleFrame(pixelBuffer: pixelBuffer, presentationTime: presentationTime)
-                }
+            // Frames arrive on recordingQueue. Hand them to the writer actor
+            // directly — NO main-thread hop. The actor serializes appends; the
+            // main thread stays free for UI / status bar / overlay work.
+            output.onFrame = { [weak newWriter] pixelBuffer, presentationTime in
+                Task { await newWriter?.appendFrame(pixelBuffer: pixelBuffer, presentationTime: presentationTime) }
             }
-            output.onAudioSample = { [weak self] sampleBuffer in
-                DispatchQueue.main.async {
-                    self?.handleAudioSample(sampleBuffer)
-                }
+            output.onAudioSample = { [weak newWriter] sampleBuffer in
+                Task { await newWriter?.appendSystemAudio(sampleBuffer) }
             }
             output.onError = { [weak self] error in
                 self?.handleStreamError(error)
@@ -233,8 +241,7 @@ final class RecordingEngine: NSObject {
             let stream = SCStream(filter: filter, configuration: config, delegate: output)
             try stream.addStreamOutput(output, type: .screen, sampleHandlerQueue: recordingQueue)
             if #available(macOS 13.0, *) {
-                let recordAudio = UserDefaults.standard.bool(forKey: "recordSystemAudio")
-                if recordAudio {
+                if recordSystemAudio {
                     try stream.addStreamOutput(output, type: .audio, sampleHandlerQueue: recordingQueue)
                 }
             }
@@ -242,24 +249,21 @@ final class RecordingEngine: NSObject {
             self.stream = stream
 
             // Start mic capture if enabled and authorized (permission resolved before capture started)
-            if UserDefaults.standard.bool(forKey: "recordMicAudio") &&
+            if recordMic &&
                AVCaptureDevice.authorizationStatus(for: .audio) == .authorized {
-                await MainActor.run { self.startMicCapture() }
+                self.startMicCapture()
             }
 
-            await MainActor.run {
-                self.elapsedSeconds = 0
-                self.progressTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
-                    Task { @MainActor [weak self] in
-                        guard let self = self else { return }
-                        self.elapsedSeconds += 1
-                        self.onProgress?(self.elapsedSeconds)
-                    }
+            self.elapsedSeconds = 0
+            self.progressTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+                Task { @MainActor [weak self] in
+                    guard let self = self else { return }
+                    self.elapsedSeconds += 1
+                    self.onProgress?(self.elapsedSeconds)
                 }
             }
-
         } catch {
-            await MainActor.run { self.fail(error) }
+            self.fail(error)
         }
     }
 
@@ -269,46 +273,16 @@ final class RecordingEngine: NSObject {
             self.stream = nil
         }
         streamOutput = nil
-        await MainActor.run { self.stopMicCapture() }
+        self.stopMicCapture()
 
-        await finalizeMP4()
-    }
-
-    // MARK: - Frame handling
-
-    /// Adjust a presentation timestamp by subtracting accumulated pause duration
-    /// so the output file has no gaps from pauses.
-    private func adjustedTime(_ time: CMTime) -> CMTime {
-        guard totalPausedDuration > 0 else { return time }
-        return CMTimeSubtract(time, CMTimeMakeWithSeconds(totalPausedDuration, preferredTimescale: time.timescale))
-    }
-
-    private func handleFrame(pixelBuffer: CVPixelBuffer, presentationTime: CMTime) {
-        guard state == .recording else { return }
-        writeMP4Frame(buffer: pixelBuffer, presentationTime: adjustedTime(presentationTime))
-    }
-
-    private func handleAudioSample(_ sampleBuffer: CMSampleBuffer) {
-        guard state == .recording, let audioInput = audioInput else { return }
-        if !sessionStarted {
-            Task { await pendingAudioBuffer.append(sampleBuffer) }
-            return
-        }
-        guard audioInput.isReadyForMoreMediaData else { return }
-        if let adjusted = sampleBuffer.adjustingTime(by: totalPausedDuration) {
-            audioInput.append(adjusted)
-        }
-    }
-
-    private func handleMicSample(_ sampleBuffer: CMSampleBuffer) {
-        guard state == .recording, let micInput = micAudioInput else { return }
-        if !sessionStarted {
-            Task { await pendingMicBuffer.append(sampleBuffer) }
-            return
-        }
-        guard micInput.isReadyForMoreMediaData else { return }
-        if let adjusted = sampleBuffer.adjustingTime(by: totalPausedDuration) {
-            micInput.append(adjusted)
+        guard let writer else { return }
+        self.writer = nil
+        let result = await writer.finalize()
+        switch result {
+        case .success(let url):
+            self.succeed(url: url)
+        case .failure(let error):
+            self.fail(error)
         }
     }
 
@@ -325,26 +299,38 @@ final class RecordingEngine: NSObject {
             micDevice = device
         }
 
+        // Configure + start the session on a background queue — `commitConfiguration`
+        // and especially `startRunning()` are documented as slow and should not run
+        // on the main thread. The mic callback queue is recordingQueue, so samples
+        // flow straight into the writer actor without touching main.
         let session = AVCaptureSession()
-        session.beginConfiguration()
-
-        guard let deviceInput = try? AVCaptureDeviceInput(device: micDevice) else { return }
-        guard session.canAddInput(deviceInput) else { return }
-        session.addInput(deviceInput)
-
         let dataOutput = AVCaptureAudioDataOutput()
         let delegate = MicCaptureDelegate()
-        delegate.onSample = { [weak self] sampleBuffer in
-            DispatchQueue.main.async {
-                self?.handleMicSample(sampleBuffer)
-            }
+        let weakWriter = writer
+        delegate.onSample = { sampleBuffer in
+            Task { await weakWriter?.appendMicAudio(sampleBuffer) }
         }
-        dataOutput.setSampleBufferDelegate(delegate, queue: recordingQueue)
-        guard session.canAddOutput(dataOutput) else { return }
-        session.addOutput(dataOutput)
+        let queue = recordingQueue
+        DispatchQueue.global(qos: .userInitiated).async {
+            session.beginConfiguration()
 
-        session.commitConfiguration()
-        session.startRunning()
+            guard let deviceInput = try? AVCaptureDeviceInput(device: micDevice),
+                  session.canAddInput(deviceInput) else {
+                session.commitConfiguration()
+                return
+            }
+            session.addInput(deviceInput)
+
+            dataOutput.setSampleBufferDelegate(delegate, queue: queue)
+            guard session.canAddOutput(dataOutput) else {
+                session.commitConfiguration()
+                return
+            }
+            session.addOutput(dataOutput)
+
+            session.commitConfiguration()
+            session.startRunning()
+        }
 
         self.micCaptureSession = session
         self.micDataOutput = dataOutput
@@ -358,9 +344,81 @@ final class RecordingEngine: NSObject {
         micDelegate = nil
     }
 
-    // MARK: - MP4
+    // MARK: - Output URL
 
-    private func setupAssetWriter(url: URL, width: Int, height: Int) throws {
+    private func makeOutputURL() -> URL? {
+        // Save to temp directory — always writable in sandbox.
+        // The video editor handles final export to the user's chosen location.
+        let baseName = FilenameTemplateEngine.makeBaseName(kind: .recording)
+        return TemporaryFileManager.makeRecordingOutputURL(fileExtension: "mp4", baseName: baseName)
+    }
+
+    // MARK: - Lifecycle completion (main-actor)
+
+    private func succeed(url: URL) {
+        state = .idle
+        outputURL = nil
+        onCompletion?(url, nil)
+    }
+
+    private func fail(_ error: Error) {
+        state = .idle
+        // Discard any truncated/partial output file — a half-written MP4 is not
+        // reliably playable and we don't want the user to think it succeeded.
+        if let url = outputURL {
+            try? FileManager.default.removeItem(at: url)
+        }
+        outputURL = nil
+        onCompletion?(nil, error)
+    }
+
+    enum RecordingError: LocalizedError {
+        case noDisplay, noOutput
+        var errorDescription: String? {
+            switch self {
+            case .noDisplay: return "Could not find the screen to record."
+            case .noOutput: return "Could not create output file."
+            }
+        }
+    }
+}
+
+// MARK: - RecordingWriter (off-main actor)
+
+/// Owns the AVAssetWriter graph and serializes frame/audio appends.
+/// Isolated from the main thread: SCKit/mic callbacks hand samples here via
+/// `Task { await writer.append... }`, so per-frame encode work (~0.5-2ms at
+/// 30-60fps) never blocks UI. `AVAssetWriterInput.append` and
+/// `AVAssetWriterInputPixelBufferAdaptor.append` are thread-safe with respect
+/// to a single owning writer per Apple's AVFoundation docs.
+private actor RecordingWriter {
+    enum FinalizeResult {
+        case success(URL)
+        case failure(Error)
+    }
+
+    private let outputURL: URL
+    private let assetWriter: AVAssetWriter
+    private let videoInput: AVAssetWriterInput
+    private let adaptor: AVAssetWriterInputPixelBufferAdaptor
+    private let audioInput: AVAssetWriterInput?       // system audio
+    private let micAudioInput: AVAssetWriterInput?    // microphone audio
+    private let pendingAudioBuffer = PendingSampleBuffer()
+    private let pendingMicBuffer = PendingSampleBuffer()
+
+    private var startTime: CMTime = .invalid
+    private var sessionStarted: Bool = false
+    private var frameCount: Int64 = 0
+    private var pendingStreamError: Error?
+
+    /// Pause bookkeeping lives on the actor so audio/video timestamp adjustment
+    /// stays consistent with the append path (no cross-actor read of
+    /// `totalPausedDuration` while a sample is being appended).
+    private var totalPausedDuration: TimeInterval = 0
+    private var pauseStartTime: Date?
+
+    init(url: URL, width: Int, height: Int, fps: Int, recordMic: Bool, recordSystemAudio: Bool) async throws {
+        self.outputURL = url
         let writer = try AVAssetWriter(outputURL: url, fileType: .mp4)
 
         let settings: [String: Any] = [
@@ -390,26 +448,33 @@ final class RecordingEngine: NSObject {
 
         writer.add(input)
 
-        // Audio encoding settings — AAC stereo with explicit channel layout
-        // for maximum player compatibility.
-        let audioLayout = AudioChannelLayout(
-            mChannelLayoutTag: kAudioChannelLayoutTag_Stereo,
-            mChannelBitmap: [], mNumberChannelDescriptions: 0,
-            mChannelDescriptions: AudioChannelDescription())
-        let audioSettings: [String: Any] = [
-            AVFormatIDKey: kAudioFormatMPEG4AAC,
-            AVSampleRateKey: 48000,
-            AVNumberOfChannelsKey: 2,
-            AVEncoderBitRateKey: 256000,
-            AVChannelLayoutKey: Data(bytes: [audioLayout], count: MemoryLayout<AudioChannelLayout>.size),
-        ]
+        var micInput: AVAssetWriterInput? = nil
+        var audioInput: AVAssetWriterInput? = nil
+
+        if recordSystemAudio {
+            let audioLayout = AudioChannelLayout(
+                mChannelLayoutTag: kAudioChannelLayoutTag_Stereo,
+                mChannelBitmap: [], mNumberChannelDescriptions: 0,
+                mChannelDescriptions: AudioChannelDescription())
+            let audioSettings: [String: Any] = [
+                AVFormatIDKey: kAudioFormatMPEG4AAC,
+                AVSampleRateKey: 48000,
+                AVNumberOfChannelsKey: 2,
+                AVEncoderBitRateKey: 256000,
+                AVChannelLayoutKey: Data(bytes: [audioLayout], count: MemoryLayout<AudioChannelLayout>.size),
+            ]
+            let audioIn = AVAssetWriterInput(mediaType: .audio, outputSettings: audioSettings)
+            audioIn.expectsMediaDataInRealTime = true
+            writer.add(audioIn)
+            audioInput = audioIn
+        }
 
         // Add mic FIRST so it becomes the primary audio track in the file.
         // Most players only decode the first audio track.
         // Mic is encoded as mono — many USB/interface mics expose a stereo device
         // where only one channel carries audio, causing one-ear playback in stereo.
         // Mono encoding downmixes both channels, fixing this for all mic types.
-        if UserDefaults.standard.bool(forKey: "recordMicAudio") {
+        if recordMic {
             let micLayout = AudioChannelLayout(
                 mChannelLayoutTag: kAudioChannelLayoutTag_Mono,
                 mChannelBitmap: [], mNumberChannelDescriptions: 0,
@@ -424,14 +489,7 @@ final class RecordingEngine: NSObject {
             let micIn = AVAssetWriterInput(mediaType: .audio, outputSettings: micSettings)
             micIn.expectsMediaDataInRealTime = true
             writer.add(micIn)
-            self.micAudioInput = micIn
-        }
-
-        if UserDefaults.standard.bool(forKey: "recordSystemAudio") {
-            let audioIn = AVAssetWriterInput(mediaType: .audio, outputSettings: audioSettings)
-            audioIn.expectsMediaDataInRealTime = true
-            writer.add(audioIn)
-            self.audioInput = audioIn
+            micInput = micIn
         }
 
         writer.startWriting()
@@ -441,84 +499,108 @@ final class RecordingEngine: NSObject {
         self.assetWriter = writer
         self.videoInput = input
         self.adaptor = adaptor
-        self.startTime = .invalid
-        self.sessionStarted = false
-        self.frameCount = 0
+        self.audioInput = audioInput
+        self.micAudioInput = micInput
     }
 
-    private func writeMP4Frame(buffer: CVPixelBuffer, presentationTime: CMTime) {
-        guard let writer = assetWriter, let input = videoInput, let adaptor = adaptor else { return }
-        guard input.isReadyForMoreMediaData else { return }
+    // MARK: - Appends (called from SCKit/mic callback queues via Task)
+
+    func appendFrame(pixelBuffer: CVPixelBuffer, presentationTime: CMTime) async {
+        guard videoInput.isReadyForMoreMediaData else { return }
+        let adjusted = adjustedTime(presentationTime)
 
         if !sessionStarted {
-            startTime = presentationTime
-            writer.startSession(atSourceTime: presentationTime)
+            startTime = adjusted
+            assetWriter.startSession(atSourceTime: adjusted)
             sessionStarted = true
-            // Flush audio samples that arrived before the first video frame
-            Task { [weak self] in
-                guard let self = self else { return }
-                await self.pendingAudioBuffer.flush(to: self.audioInput, pauseDuration: self.totalPausedDuration)
-                await self.pendingMicBuffer.flush(to: self.micAudioInput, pauseDuration: self.totalPausedDuration)
+            // Drain audio samples that arrived before the first video frame.
+            // Done inline (not via Task) so all append calls stay on this actor.
+            let pendingSystem = await pendingAudioBuffer.drain()
+            let pendingMic = await pendingMicBuffer.drain()
+            for sample in pendingSystem {
+                if let input = audioInput, input.isReadyForMoreMediaData,
+                   let adj = sample.adjustingTime(by: totalPausedDuration) {
+                    input.append(adj)
+                }
+            }
+            for sample in pendingMic {
+                if let input = micAudioInput, input.isReadyForMoreMediaData,
+                   let adj = sample.adjustingTime(by: totalPausedDuration) {
+                    input.append(adj)
+                }
             }
         }
 
-        adaptor.append(buffer, withPresentationTime: presentationTime)
+        adaptor.append(pixelBuffer, withPresentationTime: adjusted)
         frameCount += 1
     }
 
-    private func finalizeMP4() async {
-        let pendingError = pendingStreamError
-        pendingStreamError = nil
-        guard let writer = assetWriter, let input = videoInput else {
-            await MainActor.run {
-                if let error = pendingError { self.fail(error) } else { self.succeed() }
-            }
+    func appendSystemAudio(_ sampleBuffer: CMSampleBuffer) {
+        guard let audioInput else { return }
+        if !sessionStarted {
+            Task { [pendingAudioBuffer] in await pendingAudioBuffer.append(sampleBuffer) }
             return
         }
-        input.markAsFinished()
-        audioInput?.markAsFinished()
-        micAudioInput?.markAsFinished()
-        await writer.finishWriting()
-        await MainActor.run {
-            if let error = pendingError { self.fail(error) } else { self.succeed() }
+        guard audioInput.isReadyForMoreMediaData else { return }
+        if let adjusted = sampleBuffer.adjustingTime(by: totalPausedDuration) {
+            audioInput.append(adjusted)
         }
     }
 
-    // MARK: - Output URL
+    func appendMicAudio(_ sampleBuffer: CMSampleBuffer) {
+        guard let micAudioInput else { return }
+        if !sessionStarted {
+            Task { [pendingMicBuffer] in await pendingMicBuffer.append(sampleBuffer) }
+            return
+        }
+        guard micAudioInput.isReadyForMoreMediaData else { return }
+        if let adjusted = sampleBuffer.adjustingTime(by: totalPausedDuration) {
+            micAudioInput.append(adjusted)
+        }
+    }
 
-    private func makeOutputURL() -> URL? {
-        // Save to temp directory — always writable in sandbox.
-        // The video editor handles final export to the user's chosen location.
-        let baseName = FilenameTemplateEngine.makeBaseName(kind: .recording)
-        return TemporaryFileManager.makeRecordingOutputURL(fileExtension: "mp4", baseName: baseName)
+    // MARK: - Pause / resume
+
+    func beginPause() {
+        pauseStartTime = Date()
+    }
+
+    func endPause(duration: TimeInterval) {
+        totalPausedDuration += duration
+        pauseStartTime = nil
+    }
+
+    // MARK: - Error / finalize
+
+    func reportStreamError(_ error: Error) {
+        if pendingStreamError == nil {
+            pendingStreamError = error
+        }
+    }
+
+    func finalize() async -> FinalizeResult {
+        let pendingError = pendingStreamError
+        pendingStreamError = nil
+
+        videoInput.markAsFinished()
+        audioInput?.markAsFinished()
+        micAudioInput?.markAsFinished()
+        await assetWriter.finishWriting()
+        await pendingAudioBuffer.removeAll()
+        await pendingMicBuffer.removeAll()
+
+        if let pendingError {
+            try? FileManager.default.removeItem(at: outputURL)
+            return .failure(pendingError)
+        }
+        return .success(outputURL)
     }
 
     // MARK: - Helpers
 
-    @MainActor private func succeed() {
-        state = .idle
-        onCompletion?(outputURL, nil)
-    }
-
-    @MainActor private func fail(_ error: Error) {
-        state = .idle
-        // Discard any truncated/partial output file — a half-written MP4 is not
-        // reliably playable and we don't want the user to think it succeeded.
-        if let url = outputURL {
-            try? FileManager.default.removeItem(at: url)
-            outputURL = nil
-        }
-        onCompletion?(nil, error)
-    }
-
-    enum RecordingError: LocalizedError {
-        case noDisplay, noOutput
-        var errorDescription: String? {
-            switch self {
-            case .noDisplay: return "Could not find the screen to record."
-            case .noOutput: return "Could not create output file."
-            }
-        }
+    private func adjustedTime(_ time: CMTime) -> CMTime {
+        guard totalPausedDuration > 0 else { return time }
+        return CMTimeSubtract(time, CMTimeMakeWithSeconds(totalPausedDuration, preferredTimescale: time.timescale))
     }
 }
 
@@ -544,8 +626,8 @@ private class RecordingStreamOutput: NSObject, SCStreamOutput, SCStreamDelegate 
 
     func stream(_ stream: SCStream, didStopWithError error: Error) {
         // The stream stopped unexpectedly (display sleep, permission revoked, encoder
-        // failure, ...). Forward the error so the engine routes to fail() instead of
-        // succeed()ing with a truncated file.
+        // failure, ...). Forward the error to the main-actor engine so it can
+        // route to finalize() → fail() instead of producing a truncated file.
         DispatchQueue.main.async { [weak self] in
             self?.onError?(error)
         }
@@ -593,22 +675,14 @@ private actor PendingSampleBuffer {
         samples.append(sample)
     }
 
-    /// Flush all pending samples by applying them to the given audio input.
-    /// Returns true if any samples were flushed.
-    func flush(to audioInput: AVAssetWriterInput?, pauseDuration: TimeInterval) -> Bool {
-        guard let input = audioInput, input.isReadyForMoreMediaData else {
-            return false
-        }
-
-        var flushed = false
-        for sample in samples {
-            if let adjusted = sample.adjustingTime(by: pauseDuration) {
-                input.append(adjusted)
-                flushed = true
-            }
-        }
+    /// Drain all pending samples and return them. The caller (RecordingWriter)
+    /// is responsible for adjusting timestamps and appending to the input —
+    /// this keeps all AVAssetWriterInput.append calls on the RecordingWriter
+    /// actor's executor.
+    func drain() -> [CMSampleBuffer] {
+        let drained = samples
         samples.removeAll()
-        return flushed
+        return drained
     }
 
     func removeAll() {

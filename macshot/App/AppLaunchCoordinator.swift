@@ -25,6 +25,7 @@ final class AppLaunchCoordinator: NSObject {
         let pinHistoryImage: (NSImage) -> Void
         let handleLanguageChange: () -> Void
         let defaultInteractionScreen: () -> NSScreen?
+        let primeAudio: () -> Void
     }
 
     private let dependencies: Dependencies
@@ -63,12 +64,12 @@ final class AppLaunchCoordinator: NSObject {
         }
         registerHotkey()
 
-        DispatchQueue.main.async {
-            ToolbarButtonView.preloadCommonIcons()
+        // Prime the audio system to avoid delay on first use — deferred so it
+        // doesn't block launch (NSSound init + CoreAudio graph spin-up can take
+        // 30-80ms). 1.5s leaves plenty of time before the first capture trigger.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+            self?.dependencies.primeAudio()
         }
-
-        // Prime the audio system to avoid delay on first use
-        SoundManager.shared.primeAudio()
 
         registerObservers()
         checkScreenRecordingPermission()

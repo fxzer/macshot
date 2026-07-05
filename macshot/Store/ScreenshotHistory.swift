@@ -34,6 +34,11 @@ class ScreenshotHistory {
 
     static let shared = ScreenshotHistory()
 
+    /// Non-isolated accessor for the history directory. Safe because `historyDir`
+    /// is set once at init and never mutated.
+    nonisolated var historyDir: URL { _historyDir }
+    private let _historyDir: URL
+
     private(set) var entries: [HistoryEntry] = []
     private final class PendingWrite: @unchecked Sendable {
         let group = DispatchGroup()
@@ -64,24 +69,28 @@ class ScreenshotHistory {
         qos: .utility
     )
 
-    private let historyDir: URL
     private let indexFile: URL
 
-    var maxEntries: Int {
-        if let stored = UserDefaults.standard.object(forKey: "historySize") as? Int {
-            return stored == 999 ? Int.max : stored
-        }
-        return 10  // default
+var maxEntries: Int {
+    if let stored = UserDefaults.standard.object(forKey: "historySize") as? Int {
+        // 999 is the "unlimited" sentinel. Cap at 500 to keep disk usage, in-memory
+        // thumbnails, and launch-time `loadIndex` (which stats every entry on the
+        // main thread) bounded. 500 full screenshots + previews is already far
+        // beyond typical use; users who really want more can re-enable true
+        // unlimited once we make loadIndex async.
+        return stored == 999 ? 500 : stored
     }
+    return 10  // default
+}
 
     private init() {
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        historyDir = appSupport.appendingPathComponent("com.fxzer.macshot/history")
-        indexFile = historyDir.appendingPathComponent("index.json")
+        _historyDir = appSupport.appendingPathComponent("com.fxzer.macshot/history")
+        indexFile = _historyDir.appendingPathComponent("index.json")
 
         // Create directory with 0700 permissions (owner only)
-        if !FileManager.default.fileExists(atPath: historyDir.path) {
-            try? FileManager.default.createDirectory(at: historyDir, withIntermediateDirectories: true, attributes: [
+        if !FileManager.default.fileExists(atPath: _historyDir.path) {
+            try? FileManager.default.createDirectory(at: _historyDir, withIntermediateDirectories: true, attributes: [
                 .posixPermissions: 0o700
             ])
         }
@@ -370,14 +379,12 @@ class ScreenshotHistory {
         guard let full = loadImage(for: entry) else { return nil }
         let preview = makeScaledImage(full, maxDimension: 240)
 
-        // Cache preview to disk for next time (fire and forget)
-        DispatchQueue.global(qos: .utility).async {
-            Task { @MainActor in
-                guard let cgPreview = preview.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return }
-                DispatchQueue.global(qos: .utility).async {
-                    Self.writeCGImagePNG(cgPreview, to: previewURL)
-                }
-            }
+        // Cache preview to disk for next time (fire and forget — single background hop)
+        let entryID = entry.id
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            guard self != nil else { return }
+            guard let cgPreview = preview.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return }
+            Self.writeCGImagePNG(cgPreview, to: previewURL)
         }
 
         return preview
@@ -476,10 +483,43 @@ class ScreenshotHistory {
 
     /// Write a CGImage to disk as PNG using CGImageDestination.
     /// Sendable-safe version for background thread use.
-    private static func writeCGImagePNG(_ cgImage: CGImage, to url: URL) {
+    nonisolated private static func writeCGImagePNG(_ cgImage: CGImage, to url: URL) {
         guard let dest = CGImageDestinationCreateWithURL(url as CFURL, UTType.png.identifier as CFString, 1, nil) else { return }
         CGImageDestinationAddImage(dest, cgImage, nil)
         CGImageDestinationFinalize(dest)
+    }
+
+    // MARK: - Background preview loading (non-isolated)
+
+    /// Non-isolated preview loader for background use. Bypasses @MainActor
+    /// isolation so callers can run this from Task.detached. All disk I/O and
+    /// image decoding happens off the main thread.
+    nonisolated static func loadPreviewInBackground(
+        historyDir: URL,
+        entryID: String,
+        fileExtension: String
+    ) -> NSImage? {
+        let previewURL = historyDir.appendingPathComponent("\(entryID)_preview.png")
+        if let preview = NSImage(contentsOf: previewURL) { return preview }
+
+        let fileURL = historyDir.appendingPathComponent("\(entryID).\(fileExtension)")
+        guard let data = try? Data(contentsOf: fileURL),
+              let full = NSImage(data: data) else { return nil }
+
+        let size = full.size
+        guard size.width > 0, size.height > 0 else { return full }
+        let maxDim: CGFloat = 240
+        let scale = min(maxDim / size.width, maxDim / size.height, 1.0)
+        let targetSize = NSSize(width: round(size.width * scale), height: round(size.height * scale))
+        let preview = NSImage(size: targetSize, flipped: false) { _ in
+            full.draw(in: NSRect(origin: .zero, size: targetSize), from: .zero, operation: .copy, fraction: 1.0)
+            return true
+        }
+
+        if let cgPreview = preview.cgImage(forProposedRect: nil, context: nil, hints: nil) {
+            writeCGImagePNG(cgPreview, to: previewURL)
+        }
+        return preview
     }
 
     private static func removePersistedFiles(

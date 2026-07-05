@@ -29,9 +29,10 @@ enum ImageUploader {
             return
         }
 
-        guard let tiffData = image.tiffRepresentation,
-              let bitmap = NSBitmapImageRep(data: tiffData),
-              let pngData = bitmap.representation(using: .png, properties: [:]) else {
+        // PNG-encode via the shared ImageEncoder path (CGImageDestination) —
+        // avoids the expensive NSImage→TIFF→NSBitmapImageRep→CGImage round-trip.
+        // imgbb accepts PNG/JPEG; we always send PNG to preserve transparency.
+        guard let pngData = ImageEncoder.encodePNG(image) else {
             finish(.failure(NSError(domain: "ImageUploader", code: 1, userInfo: [NSLocalizedDescriptionKey: "Failed to encode image"])))
             return
         }

@@ -4,11 +4,13 @@ import Vision
 enum VisionOCR {
 
     static func makeTextRecognitionRequest(
+        level: VNRequestTextRecognitionLevel = .accurate,
         completionHandler: @escaping (VNRequest, Error?) -> Void
     ) -> VNRecognizeTextRequest {
         let request = VNRecognizeTextRequest(completionHandler: completionHandler)
-        request.recognitionLevel = .accurate
-        request.usesLanguageCorrection = true
+        request.recognitionLevel = level
+        // Language correction is meaningless at `.fast` and adds cost — disable it.
+        request.usesLanguageCorrection = (level == .accurate)
         if #available(macOS 13.0, *) {
             request.automaticallyDetectsLanguage = true
         }

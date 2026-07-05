@@ -14,6 +14,7 @@ final class HistoryOverlayController: NSObject, QLPreviewPanelDataSource, QLPrev
     private var panel: NSPanel?
     private var contentView: HistoryPanelView?
     private var backdropWindow: NSWindow?
+    var previewLoadTask: Task<Void, Never>?
     var onDismiss: (() -> Void)?
 
     // Quick Look state
@@ -116,6 +117,8 @@ final class HistoryOverlayController: NSObject, QLPreviewPanelDataSource, QLPrev
     }
 
     func dismiss() {
+        previewLoadTask?.cancel()
+        previewLoadTask = nil
         NotificationCenter.default.removeObserver(self,
             name: NSApplication.didResignActiveNotification, object: nil)
 
@@ -418,16 +421,35 @@ private final class HistoryPanelView: NSView, NSDraggingSource {
         applyFilter()
 
         let entriesToLoad = entries
-        Task { @MainActor [weak self] in
+        let historyDir = ScreenshotHistory.shared.historyDir
+        // Load previews entirely off the main thread. NSImage(contentsOf:) does
+        // disk I/O + decode; makeScaledImage draws into a bitmap — all expensive.
+        // Results are delivered to the main actor in small batches to keep the UI
+        // responsive while progressively filling the panel.
+        controller?.previewLoadTask?.cancel()
+        let task = Task.detached(priority: .userInitiated) { [weak self] in
             var loaded: [String: NSImage] = [:]
-            for entry in entriesToLoad {
-                if let preview = ScreenshotHistory.shared.loadPreview(for: entry) {
+            for (i, entry) in entriesToLoad.enumerated() {
+                if Task.isCancelled { return }
+                if let preview = ScreenshotHistory.loadPreviewInBackground(
+                    historyDir: historyDir,
+                    entryID: entry.id,
+                    fileExtension: entry.fileExtension
+                ) {
                     loaded[entry.id] = preview
                 }
+                // Deliver in batches of 8 so the main thread can repaint
+                if i % 8 == 7 || i == entriesToLoad.count - 1 {
+                    await MainActor.run { [weak self] in
+                        guard let self, !Task.isCancelled else { return }
+                        for (k, v) in loaded { self.previews[k] = v }
+                        self.needsDisplay = true
+                    }
+                    loaded.removeAll(keepingCapacity: true)
+                }
             }
-            self?.previews = loaded
-            self?.needsDisplay = true
         }
+        controller?.previewLoadTask = task
     }
 
     private func applyFilter() {

@@ -227,7 +227,7 @@ final class MarkerToolHandler: AnnotationToolHandler {
 
         ocrInFlight = true
         ocrSelectionRectInFlight = selectionRect
-        let request = VisionOCR.makeTextRecognitionRequest { [weak self, weak canvas] request, _ in
+        let request = VisionOCR.makeTextRecognitionRequest(level: .fast) { [weak self, weak canvas] request, _ in
             guard let self = self, let canvas = canvas else { return }
             let observations = request.results as? [VNRecognizedTextObservation] ?? []
             DispatchQueue.main.async {
@@ -336,7 +336,7 @@ final class MarkerToolHandler: AnnotationToolHandler {
             return
         }
 
-        let request = VisionOCR.makeTextRecognitionRequest { [weak self] request, _ in
+        let request = VisionOCR.makeTextRecognitionRequest(level: .fast) { [weak self] request, _ in
             let observations = request.results as? [VNRecognizedTextObservation] ?? []
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }

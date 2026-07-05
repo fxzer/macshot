@@ -106,10 +106,8 @@ enum BeautifyBackgroundStore {
     }
 
     private static func pngData(for image: NSImage) -> Data? {
-        guard let tiff = image.tiffRepresentation,
-              let bitmap = NSBitmapImageRep(data: tiff) else {
-            return nil
-        }
-        return bitmap.representation(using: .png, properties: [:])
+        // Use the shared ImageEncoder path — avoids the NSImage→TIFF→
+        // NSBitmapImageRep round-trip and keeps a single encode codepath.
+        ImageEncoder.encodePNG(image)
     }
 }

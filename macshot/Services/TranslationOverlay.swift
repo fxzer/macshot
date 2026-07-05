@@ -26,9 +26,7 @@ enum TranslateOverlay {
             return true
         }
 
-        guard let tiffData = regionImage.tiffRepresentation,
-              let bitmap = NSBitmapImageRep(data: tiffData),
-              let cgImage = bitmap.cgImage else {
+        guard let cgImage = regionImage.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
             onError("Failed to process image")
             return
         }

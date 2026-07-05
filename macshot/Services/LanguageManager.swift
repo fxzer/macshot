@@ -20,6 +20,15 @@ final class LanguageManager {
 
     private var bundle: Bundle = .main
 
+    /// Process-wide cache of resolved localized strings keyed by source key.
+    /// `Bundle.localizedString` does real work (hashing + table lookup + fallback)
+    /// on every call; menu rebuilds and per-frame hint text call `L(...)` many
+    /// times. The cache turns hot lookups into a dictionary hit. Invalidated
+    /// on language change. Reads happen on the main thread; the lock is a
+    /// safety net for any off-main caller.
+    private var stringCache = [String: String]()
+    private let cacheLock = NSLock()
+
     private init() {
         reload()
     }
@@ -63,7 +72,23 @@ final class LanguageManager {
     }
 
     func localizedString(_ key: String) -> String {
-        bundle.localizedString(forKey: key, value: nil, table: nil)
+        cacheLock.lock()
+        if let cached = stringCache[key] {
+            cacheLock.unlock()
+            return cached
+        }
+        cacheLock.unlock()
+
+        let value = bundle.localizedString(forKey: key, value: nil, table: nil)
+
+        cacheLock.lock()
+        // Bundle returns the key itself when no translation exists; caching that
+        // is fine (same value would come back every time).
+        if stringCache[key] == nil {
+            stringCache[key] = value
+        }
+        cacheLock.unlock()
+        return value
     }
 
     private func reload() {
@@ -74,6 +99,10 @@ final class LanguageManager {
         } else {
             bundle = .main
         }
+        // Language changed — every cached string is now stale.
+        cacheLock.lock()
+        stringCache.removeAll()
+        cacheLock.unlock()
     }
 }
 

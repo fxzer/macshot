@@ -143,12 +143,32 @@ class BeautifyRenderer {
         context.drawLinearGradient(gradient, start: start, end: end, options: [.drawsBeforeStartLocation, .drawsAfterEndLocation])
     }
 
+    /// Cached mesh gradient renders keyed by "\(colorsHash)_\(width)x\(height)".
+    /// Only accessed from @MainActor (renderMeshGradient requires main thread).
+    private static var meshCache: [String: CGImage] = [:]
+
+    /// Clear the mesh gradient cache (call when user changes beautify style or custom background).
+    static func clearMeshCache() {
+        meshCache.removeAll()
+    }
+
     /// Render a SwiftUI MeshGradient offscreen into a CGImage (macOS 15+).
     /// Must be called from the main thread (uses SwiftUI ImageRenderer).
+    /// Results are cached — repeated calls with the same mesh + size return immediately.
     @available(macOS 15.0, *)
     static func renderMeshGradient(_ mesh: MeshGradientDef, width: Int, height: Int) -> CGImage? {
         let w = max(width, 1)
         let h = max(height, 1)
+
+        // Build cache key from mesh identity (colors hash) + render dimensions
+        var hasher = Hasher()
+        for c in mesh.colors { hasher.combine(c) }
+        let colorsHash = hasher.finalize()
+        let cacheKey = "\(colorsHash)_\(w)x\(h)"
+
+        if let cached = meshCache[cacheKey] {
+            return cached
+        }
 
         let swiftUIColors = mesh.colors.map { Color(nsColor: $0) }
         let view = MeshGradient(
@@ -159,11 +179,16 @@ class BeautifyRenderer {
         )
         .frame(width: CGFloat(w), height: CGFloat(h))
 
-        return MainActor.assumeIsolated {
+        let result: CGImage? = MainActor.assumeIsolated {
             let renderer = ImageRenderer(content: view)
             renderer.scale = 1.0
             return renderer.cgImage
         }
+
+        if let result = result {
+            meshCache[cacheKey] = result
+        }
+        return result
     }
 
     /// Render a mesh gradient swatch for the picker (cached-friendly small size)

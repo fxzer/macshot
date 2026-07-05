@@ -60,11 +60,62 @@ enum ImageEncoder {
 
     // MARK: - Shared bitmap creation
 
+    /// Per-capture bitmap cache. Keyed by image identity + downscaleRetina flag.
+    /// Lets the save path and the clipboard path share one `makeBitmap` result
+    /// (avoiding a duplicate Lanczos downscale when confirming a capture that
+    /// both saves and copies). NSCache is thread-safe by contract — safe to
+    /// hit from `encode()` (caller thread) and `copyToClipboard` (background queue).
+    private static let bitmapCache: NSCache<BitmapCacheKey, NSBitmapImageRep> = {
+        let cache = NSCache<BitmapCacheKey, NSBitmapImageRep>()
+        cache.countLimit = 4  // bound to a handful of recent captures
+        return cache
+    }()
+
+    /// Key holding a strong reference to the source NSImage (keeps the image
+    /// alive so its ObjectIdentifier remains stable) plus the downscale flag.
+    /// isEqual/hashValue cover both so two lookups for the same image+flag hit.
+    private final class BitmapCacheKey: NSObject {
+        let image: NSImage
+        let downscale: Bool
+        init(image: NSImage, downscale: Bool) {
+            self.image = image
+            self.downscale = downscale
+            super.init()
+        }
+        override func isEqual(_ object: Any?) -> Bool {
+            guard let other = object as? BitmapCacheKey else { return false }
+            return other.image === image && other.downscale == downscale
+        }
+        override var hash: Int {
+            var hasher = Hasher()
+            hasher.combine(ObjectIdentifier(image))
+            hasher.combine(downscale)
+            return hasher.finalize()
+        }
+    }
+
     /// Create a bitmap representation from an NSImage, optionally downscaling from Retina.
     /// This is the single conversion point — all encode paths go through here.
     /// Uses cgImage(forProposedRect:) instead of tiffRepresentation to preserve
     /// exact pixel data regardless of the current display's backing scale factor.
+    /// Result is cached per (image, downscaleRetina) so the save path and the
+    /// clipboard path share the Lanczos downscale instead of running it twice.
     private static func makeBitmap(_ image: NSImage) -> NSBitmapImageRep? {
+        let downscale = downscaleRetina
+        let cacheKey = BitmapCacheKey(image: image, downscale: downscale)
+        if let cached = bitmapCache.object(forKey: cacheKey) {
+            return cached
+        }
+
+        let bitmap = makeBitmapUncached(image, downscale: downscale)
+
+        if let bitmap {
+            bitmapCache.setObject(bitmap, forKey: cacheKey)
+        }
+        return bitmap
+    }
+
+    private static func makeBitmapUncached(_ image: NSImage, downscale: Bool) -> NSBitmapImageRep? {
         guard let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
             // Fallback for images without a CGImage backing (e.g. PDF/EPS vectors)
             guard let tiffData = image.tiffRepresentation,
@@ -73,7 +124,7 @@ enum ImageEncoder {
         }
         let bitmap = NSBitmapImageRep(cgImage: cgImage)
 
-        if downscaleRetina {
+        if downscale {
             let logicalW = Int(image.size.width)
             let logicalH = Int(image.size.height)
             let pixelW = bitmap.pixelsWide
@@ -128,6 +179,22 @@ enum ImageEncoder {
             return encodeWithCGImageDestination(cgImage: cgImage, type: "public.png", lossyQuality: nil)
         }
         return bitmap.representation(using: .png, properties: [:])
+    }
+
+    /// Encode an NSImage directly to PNG Data, bypassing the configured format.
+    /// Used by uploaders that must send PNG regardless of the user's default format.
+    /// Avoids the NSImage→TIFF→NSBitmapImageRep round-trip by going through
+    /// `cgImage(forProposedRect:)` + CGImageDestination.
+    static func encodePNG(_ image: NSImage) -> Data? {
+        guard let bitmap = makeBitmap(image) else { return nil }
+        return encodePNG(bitmap: bitmap)
+    }
+
+    /// Encode a CGImage directly to JPEG Data at the given quality.
+    /// Used by uploaders/thumbnailers that have a CGImage already and want
+    /// JPEG output without the NSImage→TIFF→NSBitmapImageRep round-trip.
+    static func encodeJPEG(_ cgImage: CGImage, quality: CGFloat) -> Data? {
+        return encodeWithCGImageDestination(cgImage: cgImage, type: "public.jpeg", lossyQuality: quality)
     }
 
     /// Encode JPEG, optionally embedding sRGB profile via CGImageDestination.

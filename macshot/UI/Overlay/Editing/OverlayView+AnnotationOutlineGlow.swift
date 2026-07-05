@@ -7,9 +7,6 @@ extension OverlayView {
     /// Using GPU acceleration with working color space for better performance.
     static var sharedCIContext: CIContext { BeautifyRenderer.sharedCIContext }
 
-    /// Shared CIContext for outline glow rendering — reused across frames.
-    static let outlineGlowCIContext = CIContext()
-
     /// Draw a generic outline glow around any annotation by rendering it offscreen,
     /// dilating the alpha mask, then compositing the outline back. Cached on the annotation.
     func drawAnnotationOutlineGlow(_ annotation: Annotation) {
@@ -126,7 +123,7 @@ extension OverlayView {
         subtractFilter.setValue(ciOrig, forKey: kCIInputBackgroundImageKey)
         guard let outline = subtractFilter.outputImage else { return }
 
-        guard let outlineCG = Self.outlineGlowCIContext.createCGImage(outline, from: ciOrig.extent) else { return }
+        guard let outlineCG = Self.sharedCIContext.createCGImage(outline, from: ciOrig.extent) else { return }
 
         let outlineImage = NSImage(cgImage: outlineCG, size: unrotatedBBox.size)
         annotation.outlineGlowImage = outlineImage

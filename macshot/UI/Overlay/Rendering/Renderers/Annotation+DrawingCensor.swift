@@ -42,9 +42,7 @@ extension Annotation {
         }
 
         guard let _ = sourceImage, let regionImage = cropRegionFromSource() else { return }
-        guard let tiffData = regionImage.tiffRepresentation,
-              let bitmap = NSBitmapImageRep(data: tiffData),
-              let cgImage = bitmap.cgImage else { return }
+        guard let cgImage = regionImage.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return }
 
         if mode == .blur {
             guard let blurredCG = applyGaussianBlur(to: cgImage) else { return }
@@ -127,9 +125,7 @@ extension Annotation {
         let rect = boundingRect
         guard rect.width > 4, rect.height > 4,
               let regionImage = cropRegionFromSource(),
-              let tiffData = regionImage.tiffRepresentation,
-              let bitmap = NSBitmapImageRep(data: tiffData),
-              let cgImage = bitmap.cgImage
+              let cgImage = regionImage.cgImage(forProposedRect: nil, context: nil, hints: nil)
         else { return nil }
 
         let request = VNRecognizeTextRequest()
@@ -197,8 +193,8 @@ extension Annotation {
                      from: .zero, operation: .copy, fraction: 1.0)
             return true
         }
-        guard let tiffData = regionImage.tiffRepresentation,
-              let bitmap = NSBitmapImageRep(data: tiffData) else { return nil }
+        guard let cgImage = regionImage.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return nil }
+        let bitmap = NSBitmapImageRep(cgImage: cgImage)
 
         let bmpW = bitmap.pixelsWide, bmpH = bitmap.pixelsHigh
         guard bmpW > 4, bmpH > 4 else { return nil }

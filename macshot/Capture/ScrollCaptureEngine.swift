@@ -87,19 +87,35 @@ final class ScrollCaptureEngine {
     private var consecutiveZeroShifts: Int = 0
     private let maxZeroShiftsBeforeStop: Int = 6
 
-    // Scroll monitors (for manual scroll)
-    private var scrollMonitorGlobal: Any?
-    private var scrollMonitorLocal:  Any?
+    // Scroll monitors (for manual scroll).
+    // `nonisolated(unsafe)`: written only on MainActor; deinit (last reference
+    // release) is the only off-main access, and ARC guarantees no concurrent
+    // writer at that point. Lets deinit tear down leaked monitors/tasks.
+    private nonisolated(unsafe) var scrollMonitorGlobal: Any?
+    private nonisolated(unsafe) var scrollMonitorLocal:  Any?
 
-    // Auto-scroll
+    /// Defensive cleanup if the engine is released without an explicit
+    /// stopSession()/cancelSession() (e.g. overlay dismissed mid-capture).
+    /// Without this, global NSEvent monitors leak (system resource) and the
+    /// autoScrollTask keeps posting CGEvents to whatever is under the cursor.
+    deinit {
+        autoScrollTask?.cancel()
+        settlementTimer?.invalidate()
+        pendingCaptureTask?.cancel()
+        if let m = scrollMonitorGlobal { NSEvent.removeMonitor(m) }
+        if let m = scrollMonitorLocal { NSEvent.removeMonitor(m) }
+    }
+
+    // Auto-scroll.
+    // `nonisolated(unsafe)` for the Task/Timer so deinit can cancel them.
     private(set) var autoScrollActive: Bool = false
-    private var autoScrollTask: Task<Void, Never>?
+    private nonisolated(unsafe) var autoScrollTask: Task<Void, Never>?
 
     // Manual scroll throttle
     private let manualCaptureInterval: TimeInterval = 0.15
     private var lastCaptureTime: TimeInterval = 0
-    private var pendingCaptureTask: Task<Void, Never>?
-    private var settlementTimer: Timer?
+    private nonisolated(unsafe) var pendingCaptureTask: Task<Void, Never>?
+    private nonisolated(unsafe) var settlementTimer: Timer?
     private let settlementInterval: TimeInterval = 0.25
 
     // Guard: only one capture at a time

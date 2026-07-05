@@ -239,6 +239,7 @@ extension OverlayView {
     func applyBeautifyStyleSelection(_ index: Int) {
         beautifyStyleIndex = index
         UserDefaults.standard.set(index, forKey: "beautifyStyleIndex")
+        BeautifyRenderer.clearMeshCache()
         if index >= 0 {
             customBeautifyBackground = nil
         } else {
@@ -258,6 +259,7 @@ extension OverlayView {
         prepareBeautifyBackgroundCache()
         beautifyStyleIndex = -1
         UserDefaults.standard.set(-1, forKey: "beautifyStyleIndex")
+        BeautifyRenderer.clearMeshCache()
         // Structural change: update frame/bounds
         if isEditorMode {
             updateEditorFrameForBeautify()

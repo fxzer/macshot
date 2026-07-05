@@ -148,6 +148,33 @@ extension OverlayView {
         }
     }
 
+    /// Dirty-rect invalidation for canvas-space rects during drags. Avoids the
+    /// full-screen `needsDisplay = true` redraw (screenshot blit + mask + every
+    /// annotation) on every mouseDrag event — only the changed canvas regions
+    /// are marked dirty.
+    ///
+    /// `pad` is in canvas units; the result is expanded by `pad` on each side
+    /// and scaled by `zoomLevel` to view space. Pass the OLD and NEW rects of
+    /// whatever changed (selection rect, annotation boundingRect, etc.).
+    ///
+    /// Editor mode: NSScrollView's layer-backed magnification pipeline can leave
+    /// stale pixels with small dirty rects, so we fall back to a full redraw
+    /// there (the cached composited image workaround requires it).
+    func invalidateCanvasRects(_ rects: [NSRect], pad: CGFloat = 8) {
+        if isEditorMode {
+            needsDisplay = true
+            return
+        }
+        let scale = zoomLevel
+        for rect in rects {
+            guard !rect.isEmpty else { continue }
+            let expanded = rect.insetBy(dx: -pad, dy: -pad)
+            let viewOrigin = canvasToView(NSPoint(x: expanded.minX, y: expanded.minY))
+            let viewSize = NSSize(width: expanded.width * scale, height: expanded.height * scale)
+            setNeedsDisplay(NSRect(origin: viewOrigin, size: viewSize))
+        }
+    }
+
     func updateSmartMarkerPreviewMetrics(at canvasPoint: NSPoint) {
         guard currentTool == .marker && smartMarkerEnabled else {
             smartMarkerLineHeight = nil
