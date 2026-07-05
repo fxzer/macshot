@@ -1,4 +1,5 @@
 import Cocoa
+import UniformTypeIdentifiers
 
 // MARK: - Codable conformance for Annotation
 
@@ -248,9 +249,20 @@ extension Annotation {
     }
 
     private static func encodeImage(_ image: NSImage) -> Data? {
-        guard let tiff = image.tiffRepresentation,
-              let bitmap = NSBitmapImageRep(data: tiff) else { return nil }
-        return bitmap.representation(using: .png, properties: [:])
+        // Use CGImageDestination directly to avoid tiffRepresentation overhead
+        guard let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
+            // Fallback for images without CGImage backing (e.g. drawing handler NSImages)
+            guard let tiff = image.tiffRepresentation,
+                  let bitmap = NSBitmapImageRep(data: tiff) else { return nil }
+            return bitmap.representation(using: .png, properties: [:])
+        }
+        let data = NSMutableData()
+        guard let dest = CGImageDestinationCreateWithData(data, UTType.png.identifier as CFString, 1, nil) else {
+            return nil
+        }
+        CGImageDestinationAddImage(dest, cgImage, nil)
+        guard CGImageDestinationFinalize(dest) else { return nil }
+        return data as Data
     }
 }
 

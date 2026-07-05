@@ -58,9 +58,7 @@ enum ImageEffects {
     static func apply(to image: NSImage, config: ImageEffectsConfig) -> NSImage {
         guard !config.isIdentity else { return image }
 
-        guard let tiffData = image.tiffRepresentation,
-              let bitmap = NSBitmapImageRep(data: tiffData),
-              let cgImage = bitmap.cgImage else { return image }
+        guard let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return image }
 
         var ciImage = CIImage(cgImage: cgImage)
 

@@ -189,10 +189,18 @@ extension OverlayWindowController: OverlayViewDelegate {
 
         // Use PNG for sharing (fast encoding, WebP picture preset is too slow: 8+ seconds)
         // PNG encoding takes ~50-100ms vs WebP's 8+ seconds with picture preset
-        guard let tiffData = image.tiffRepresentation,
-              let bitmap = NSBitmapImageRep(data: tiffData),
-              let pngData = bitmap.representation(using: .png, properties: [:]) else {
-            return
+        let pngData: Data
+        if let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil),
+           let encoded = Self.encodeToPNGData(cgImage: cgImage) {
+            pngData = encoded
+        } else {
+            // Fallback for images without CGImage backing
+            guard let tiffData = image.tiffRepresentation,
+                  let bitmap = NSBitmapImageRep(data: tiffData),
+                  let data = bitmap.representation(using: .png, properties: [:]) else {
+                return
+            }
+            pngData = data
         }
         let encodeTime = Date().timeIntervalSince(startTime)
         #if DEBUG

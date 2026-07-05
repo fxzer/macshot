@@ -508,4 +508,15 @@ class OverlayWindowController {
     static func formattedTimestamp() -> String {
         return FilenameTemplateEngine.makeBaseName(kind: .screenshot)
     }
+
+    /// Encode a CGImage to PNG data using CGImageDestination — avoids tiffRepresentation overhead.
+    static func encodeToPNGData(cgImage: CGImage) -> Data? {
+        let data = NSMutableData()
+        guard let dest = CGImageDestinationCreateWithData(data, UTType.png.identifier as CFString, 1, nil) else {
+            return nil
+        }
+        CGImageDestinationAddImage(dest, cgImage, nil)
+        guard CGImageDestinationFinalize(dest) else { return nil }
+        return data as Data
+    }
 }
