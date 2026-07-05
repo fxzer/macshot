@@ -8,7 +8,7 @@ import Vision
 ///
 /// - **`CGWindowListCreateImage`** for on-demand frame capture — each grab is a
 ///   complete, compositor-finished snapshot. No stream management, no stale frames.
-/// - **TIFF byte-by-byte comparison** — two consecutive identical TIFF representations
+/// - **Raw pixel byte comparison** — two consecutive identical pixel buffers
 ///   = content has truly stopped rendering. Zero tolerance, no false positives.
 /// - **Timer-driven `captureAndCompare`** on a dedicated serial queue — consistent
 ///   timing, no main-thread contention.
@@ -69,7 +69,7 @@ final class ScrollCaptureEngine {
     // Frame state
     private var shotA: CGImage?          // previous frame
     private var shotB: CGImage?          // current frame
-    private var lastComparedTIFF: Data?  // TIFF of last settled frame for byte comparison
+    private var lastSettledPixelData: Data?  // raw pixel data of last settled frame for byte comparison
     private var mergedImage: CGImage?    // accumulated stitched result
     private var headerHeight: Int = 0    // frozen header height in pixels
     private var headerDetectionDone: Bool = false
@@ -153,7 +153,7 @@ final class ScrollCaptureEngine {
         isActive = true
         shotA = nil
         shotB = nil
-        lastComparedTIFF = nil
+        lastSettledPixelData = nil
         mergedImage = firstFrame
         headerHeight = 0
         headerDetectionDone = false
@@ -299,10 +299,10 @@ final class ScrollCaptureEngine {
         return image
     }
 
-    /// Captures a settled frame: grabs frames until two consecutive TIFF representations
+    /// Captures a settled frame: grabs frames until two consecutive raw pixel buffers
     /// match byte-for-byte. Used for initial capture and manual scroll mode.
     private func captureSettledFrame() async -> CGImage? {
-        var previousTIFF: Data? = nil
+        var previousPixelData: Data? = nil
         var previousCG: CGImage? = nil
         var waitNs: UInt64 = 10_000_000  // 10ms
 
@@ -312,24 +312,19 @@ final class ScrollCaptureEngine {
                 continue
             }
 
-            let tiffData: Data? = await withCheckedContinuation { cont in
-                captureQueue.async {
-                    let bitmapRep = NSBitmapImageRep(cgImage: cg)
-                    cont.resume(returning: bitmapRep.tiffRepresentation)
-                }
-            }
-            guard let currentTIFF = tiffData else {
+            let pixelData = await extractPixelData(from: cg)
+            guard let currentData = pixelData else {
                 try? await Task.sleep(nanoseconds: waitNs)
                 waitNs = min(waitNs * 3 / 2, 80_000_000)
                 continue
             }
 
-            if let prevTIFF = previousTIFF, currentTIFF == prevTIFF {
-                lastComparedTIFF = currentTIFF
+            if let prevData = previousPixelData, currentData == prevData {
+                lastSettledPixelData = currentData
                 return cg
             }
 
-            previousTIFF = currentTIFF
+            previousPixelData = currentData
             previousCG = cg
             try? await Task.sleep(nanoseconds: waitNs)
             waitNs = min(waitNs * 3 / 2, 80_000_000)
@@ -385,7 +380,7 @@ final class ScrollCaptureEngine {
             // Post scroll event(s)
             for _ in 0..<burstCount {
                 if let event = CGEvent(scrollWheelEvent2Source: nil, units: .line, wheelCount: 1,
-                                       wheel1: -linesPerTick, wheel2: 0, wheel3: 0) {
+                                       wheel1: linesPerTick, wheel2: 0, wheel3: 0) {
                     event.post(tap: .cghidEventTap)
                 }
             }
@@ -417,15 +412,15 @@ final class ScrollCaptureEngine {
     }
 
     /// The core capture-and-compare cycle.
-    /// Waits for pixel-perfect settlement via TIFF comparison, then computes the scroll
-    /// offset via Vision and merges new content into the accumulated image.
+    /// Waits for pixel-perfect settlement via raw pixel byte comparison, then computes
+    /// the scroll offset via Vision and merges new content into the accumulated image.
     /// Returns true if a match was found, false if no shift detected.
     private func captureAndCompare() async -> Bool {
         // Initial delay for scroll animation to begin
         try? await Task.sleep(nanoseconds: 50_000_000)  // 50ms
 
-        // Wait for settlement: poll frames until two consecutive TIFFs match
-        var previousTIFF: Data? = nil
+        // Wait for settlement: poll frames until two consecutive pixel buffers match
+        var previousPixelData: Data? = nil
         var settledCG: CGImage? = nil
         var waitNs: UInt64 = 12_000_000
 
@@ -437,25 +432,20 @@ final class ScrollCaptureEngine {
                 continue
             }
 
-            let tiffData: Data? = await withCheckedContinuation { cont in
-                captureQueue.async {
-                    let bitmapRep = NSBitmapImageRep(cgImage: cg)
-                    cont.resume(returning: bitmapRep.tiffRepresentation)
-                }
-            }
-            guard let currentTIFF = tiffData else {
+            let pixelData = await extractPixelData(from: cg)
+            guard let currentData = pixelData else {
                 try? await Task.sleep(nanoseconds: waitNs)
                 waitNs = min(waitNs * 3 / 2, 80_000_000)
                 continue
             }
 
-            if let prevTIFF = previousTIFF, currentTIFF == prevTIFF {
+            if let prevData = previousPixelData, currentData == prevData {
                 settledCG = cg
-                lastComparedTIFF = currentTIFF
+                lastSettledPixelData = currentData
                 break
             }
 
-            previousTIFF = currentTIFF
+            previousPixelData = currentData
             try? await Task.sleep(nanoseconds: waitNs)
             waitNs = min(waitNs * 3 / 2, 80_000_000)
         }
@@ -470,11 +460,11 @@ final class ScrollCaptureEngine {
 
         // Scrollbar detection (once)
         if !rightMarginDetected {
-            detectRightMargin(current: currentFrame, previous: previousFrame)
+            await detectRightMargin(current: currentFrame, previous: previousFrame)
         }
 
         // Compute offset via Vision
-        guard let offset = visionShift(current: currentFrame, previous: previousFrame) else {
+        guard let offset = await visionShift(current: currentFrame, previous: previousFrame) else {
             shotA = currentFrame
             consecutiveZeroShifts += 1
             if hasScrolledOnce && consecutiveZeroShifts >= maxZeroShiftsBeforeStop {
@@ -501,17 +491,11 @@ final class ScrollCaptureEngine {
 
         // Header detection (first few frames)
         if frozenDetectionEnabled && !headerDetectionDone {
-            detectHeader(current: currentFrame, previous: previousFrame, shiftPx: offsetPx)
+            await detectHeader(current: currentFrame, previous: previousFrame, shiftPx: offsetPx)
         }
 
-        // Use Vision's offset directly — pixel refinement can worsen it on
-        // low-contrast / dark-themed content. Bias by -1px so strips overlap by
-        // 1 extra row: the newer frame overwrites that row, hiding any sub-pixel
-        // rendering differences at the seam boundary.
-        let safeOffset = max(1, offsetPx - 1)
-
         // Incremental stitch: merge new content into mergedImage
-        mergeNewContent(currentFrame: currentFrame, offsetPx: safeOffset)
+        await mergeNewContent(currentFrame: currentFrame, offsetPx: offsetPx)
 
         shotA = currentFrame
         stripCount += 1
@@ -524,8 +508,21 @@ final class ScrollCaptureEngine {
     }
 
     /// Merges the newly-scrolled content from `currentFrame` into `mergedImage`.
-    /// Only the new rows (below the overlap region) are appended.
-    private func mergeNewContent(currentFrame: CGImage, offsetPx: Int) {
+    /// The new content (bottom `offsetPx` rows of the frame) is placed at y=0
+    /// (image bottom / page bottom), and the existing accumulated image is
+    /// shifted above it at y=offsetPx (image top / page top). This produces a
+    /// continuous page from top to bottom.
+    ///
+    /// The strip is cropped `overlap` rows taller than `offsetPx` (extending 1 row
+    /// up into the overlap region with `existing`) and drawn *after* `existing`,
+    /// so the newer frame overwrites that 1 row. This hides any sub-pixel seam
+    /// caused by Vision's fractional offset being rounded to an integer.
+    ///
+    /// CGContext uses bottom-left origin: y=0 → displayed at image bottom,
+    /// higher y → displayed higher (image top). New content is page-bottom
+    /// content that just scrolled into view, so it goes at y=0. Older
+    /// accumulated content is page-top content shifted above.
+    private func mergeNewContent(currentFrame: CGImage, offsetPx: Int) async {
         guard let existing = mergedImage else {
             mergedImage = currentFrame
             return
@@ -533,33 +530,44 @@ final class ScrollCaptureEngine {
 
         let w = currentFrame.width
         let existingH = existing.height
-        let newRows = offsetPx  // pixels of new content
+        let newRows = offsetPx
         guard newRows > 0, newRows <= currentFrame.height else { return }
 
+        // 1px overlap bias: extend the strip upward by one row so it covers the
+        // bottom row of `existing`, hiding any rounding error in the Vision offset.
+        let overlap = 1
+        let stripHeight = min(newRows + overlap, currentFrame.height)
         let totalH = existingH + newRows
 
-        let cs = CGColorSpaceCreateDeviceRGB()
-        let bitmapInfo = CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
-        guard let ctx = CGContext(data: nil, width: w, height: totalH,
-                                  bitsPerComponent: 8, bytesPerRow: w * 4,
-                                  space: cs, bitmapInfo: bitmapInfo) else { return }
+        let merged: CGImage? = await withCheckedContinuation { cont in
+            captureQueue.async {
+                let cs = CGColorSpaceCreateDeviceRGB()
+                let bitmapInfo = CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
+                guard let ctx = CGContext(data: nil, width: w, height: totalH,
+                                          bitsPerComponent: 8, bytesPerRow: w * 4,
+                                          space: cs, bitmapInfo: bitmapInfo) else {
+                    cont.resume(returning: nil)
+                    return
+                }
 
-        // Draw existing image at the top (CGContext: bottom-left origin, so top = highest y)
-        ctx.draw(existing, in: CGRect(x: 0, y: newRows, width: w, height: existingH))
+                let stripY = currentFrame.height - stripHeight
+                guard stripY >= 0,
+                      let strip = currentFrame.cropping(to: CGRect(
+                          x: 0, y: stripY, width: w, height: stripHeight)) else {
+                    cont.resume(returning: nil)
+                    return
+                }
 
-        if headerDetectionDone && headerHeight > 0 {
-            // Sticky header detected: only append the bottom newRows pixels.
-            let stripY = currentFrame.height - newRows
-            if let strip = currentFrame.cropping(to: CGRect(
-                x: 0, y: stripY, width: w, height: newRows)) {
-                ctx.draw(strip, in: CGRect(x: 0, y: 0, width: w, height: newRows))
+                // Draw existing first (at y=newRows), then the strip on top (y=0,
+                // height=stripHeight) so the strip's top `overlap` rows overwrite
+                // existing's bottom rows and hide the seam.
+                ctx.draw(existing, in: CGRect(x: 0, y: newRows, width: w, height: existingH))
+                ctx.draw(strip, in: CGRect(x: 0, y: 0, width: w, height: stripHeight))
+                cont.resume(returning: ctx.makeImage())
             }
-        } else {
-            // No header: draw full current frame with natural overlap.
-            ctx.draw(currentFrame, in: CGRect(x: 0, y: 0, width: w, height: currentFrame.height))
         }
 
-        guard let merged = ctx.makeImage() else { return }
+        guard let merged = merged else { return }
         mergedImage = merged
         stitchedImage = merged
         stitchedPixelSize = CGSize(width: CGFloat(w), height: CGFloat(totalH))
@@ -612,12 +620,15 @@ final class ScrollCaptureEngine {
         guard now - lastCaptureTime >= manualCaptureInterval else { return }
         lastCaptureTime = now
 
-        grabAndProcess()
+        Task { [weak self] in
+            guard let self = self else { return }
+            await self.grabAndProcess()
+        }
     }
 
     /// Immediate frame grab + process during active scrolling. No TIFF settlement —
     /// just captures whatever is on screen right now and tries to stitch it.
-    private func grabAndProcess() {
+    private func grabAndProcess() async {
         guard isActive, !isCapturing else { return }
         isCapturing = true
         defer { isCapturing = false }
@@ -629,10 +640,10 @@ final class ScrollCaptureEngine {
         }
 
         if !rightMarginDetected {
-            detectRightMargin(current: currentFrame, previous: previousFrame)
+            await detectRightMargin(current: currentFrame, previous: previousFrame)
         }
 
-        guard let offset = visionShift(current: currentFrame, previous: previousFrame) else {
+        guard let offset = await visionShift(current: currentFrame, previous: previousFrame) else {
             shotA = currentFrame
             return
         }
@@ -650,11 +661,10 @@ final class ScrollCaptureEngine {
         consecutiveZeroShifts = 0
 
         if frozenDetectionEnabled && !headerDetectionDone {
-            detectHeader(current: currentFrame, previous: previousFrame, shiftPx: offsetPx)
+            await detectHeader(current: currentFrame, previous: previousFrame, shiftPx: offsetPx)
         }
 
-        let safeOffset = max(1, offsetPx - 1)
-        mergeNewContent(currentFrame: currentFrame, offsetPx: safeOffset)
+        await mergeNewContent(currentFrame: currentFrame, offsetPx: offsetPx)
 
         shotA = currentFrame
         stripCount += 1
@@ -676,8 +686,10 @@ final class ScrollCaptureEngine {
     // MARK: - Vision shift detection
 
     /// Vision framework translational image registration.
-    /// Crops out frozen header and/or scrollbar for more accurate results.
-    private func visionShift(current: CGImage, previous: CGImage) -> CGFloat? {
+    /// Runs on `captureQueue` (background serial queue) so the main thread stays
+    /// responsive. VNImageRequestHandler is thread-safe and the CGImage data is
+    /// already backed by immutable pixel data, so this is safe to dispatch.
+    private func visionShift(current: CGImage, previous: CGImage) async -> CGFloat? {
         var curImg = current
         var prevImg = previous
         let maxCropY = current.height / 5
@@ -693,60 +705,94 @@ final class ScrollCaptureEngine {
             prevImg = pc
         }
 
-        let request = VNTranslationalImageRegistrationRequest(targetedCGImage: prevImg)
-        let handler = VNImageRequestHandler(cgImage: curImg, options: [:])
-        guard (try? handler.perform([request])) != nil,
-              let obs = request.results?.first as? VNImageTranslationAlignmentObservation else { return nil }
-        return obs.alignmentTransform.ty
+        return await withCheckedContinuation { [curImg, prevImg] cont in
+            captureQueue.async {
+                let request = VNTranslationalImageRegistrationRequest(targetedCGImage: prevImg)
+                let handler = VNImageRequestHandler(cgImage: curImg, options: [:])
+                guard (try? handler.perform([request])) != nil,
+                      let obs = request.results?.first as? VNImageTranslationAlignmentObservation else {
+                    cont.resume(returning: nil)
+                    return
+                }
+                cont.resume(returning: obs.alignmentTransform.ty)
+            }
+        }
     }
 
-    /// Extract raw BGRA pixel data from a CGImage.
-    private func pixelData(for image: CGImage) -> UnsafePointer<UInt8>? {
-        guard let dataProvider = image.dataProvider,
-              let data = dataProvider.data else { return nil }
-        return CFDataGetBytePtr(data)
+    /// Extract raw BGRA pixel data from a CGImage as an unsafe pointer.
+    /// `nonisolated` because it only reads from the immutable CGImage argument —
+    /// safe to call from `captureQueue` without crossing actor isolation.
+    private nonisolated func pixelData(for image: CGImage) -> UnsafePointer<UInt8>? {
+        guard let provider = image.dataProvider,
+              let cfData = provider.data else { return nil }
+        return CFDataGetBytePtr(cfData)
+    }
+
+    /// Extract raw pixel data as `Data` for byte-level comparison.
+    /// Runs the extraction on `captureQueue` to avoid blocking the main thread.
+    private func extractPixelData(from image: CGImage) async -> Data? {
+        await withCheckedContinuation { cont in
+            captureQueue.async {
+                guard let provider = image.dataProvider,
+                      let cfData = provider.data else {
+                    cont.resume(returning: nil)
+                    return
+                }
+                cont.resume(returning: cfData as Data)
+            }
+        }
     }
 
     // MARK: - Scrollbar detection
 
-    private func detectRightMargin(current: CGImage, previous: CGImage) {
+    private func detectRightMargin(current: CGImage, previous: CGImage) async {
         rightMarginDetected = true
 
         guard current.width == previous.width, current.height == previous.height else { return }
-        guard let curData = pixelData(for: current),
-              let prevData = pixelData(for: previous) else { return }
 
-        let w = current.width
-        let h = current.height
-        let bytesPerRow = w * 4
+        let scrollbarWidth: Int = await withCheckedContinuation { cont in
+            captureQueue.async {
+                guard let curData = self.pixelData(for: current),
+                      let prevData = self.pixelData(for: previous) else {
+                    cont.resume(returning: 0)
+                    return
+                }
 
-        let rowStart = h * 2 / 10
-        let rowEnd = h * 8 / 10
-        let rowStep = max(1, (rowEnd - rowStart) / 40)
+                let w = current.width
+                let h = current.height
+                let bytesPerRow = w * 4
 
-        var scrollbarWidth = 0
-        let maxScanCols = min(50, w / 8)
+                let rowStart = h * 2 / 10
+                let rowEnd = h * 8 / 10
+                let rowStep = max(1, (rowEnd - rowStart) / 40)
 
-        for colOffset in 0..<maxScanCols {
-            let col = w - 1 - colOffset
-            var sad: UInt64 = 0
-            var samples: Int = 0
+                var scrollbarWidth = 0
+                let maxScanCols = min(50, w / 8)
 
-            for row in stride(from: rowStart, to: rowEnd, by: rowStep) {
-                let idx = row * bytesPerRow + col * 4
-                guard idx + 2 < h * bytesPerRow else { continue }
-                sad += UInt64(abs(Int(curData[idx]) - Int(prevData[idx]))
-                            + abs(Int(curData[idx + 1]) - Int(prevData[idx + 1]))
-                            + abs(Int(curData[idx + 2]) - Int(prevData[idx + 2])))
-                samples += 1
-            }
-            guard samples > 0 else { continue }
-            let avgSAD = sad / UInt64(samples)
+                for colOffset in 0..<maxScanCols {
+                    let col = w - 1 - colOffset
+                    var sad: UInt64 = 0
+                    var samples: Int = 0
 
-            if avgSAD > 8 {
-                scrollbarWidth = colOffset + 1
-            } else if scrollbarWidth > 0 {
-                break
+                    for row in stride(from: rowStart, to: rowEnd, by: rowStep) {
+                        let idx = row * bytesPerRow + col * 4
+                        guard idx + 2 < h * bytesPerRow else { continue }
+                        sad += UInt64(abs(Int(curData[idx]) - Int(prevData[idx]))
+                                    + abs(Int(curData[idx + 1]) - Int(prevData[idx + 1]))
+                                    + abs(Int(curData[idx + 2]) - Int(prevData[idx + 2])))
+                        samples += 1
+                    }
+                    guard samples > 0 else { continue }
+                    let avgSAD = sad / UInt64(samples)
+
+                    if avgSAD > 8 {
+                        scrollbarWidth = colOffset + 1
+                    } else if scrollbarWidth > 0 {
+                        break
+                    }
+                }
+
+                cont.resume(returning: scrollbarWidth)
             }
         }
 
@@ -757,42 +803,60 @@ final class ScrollCaptureEngine {
 
     // MARK: - Header (frozen region) detection
 
-    private func detectHeader(current: CGImage, previous: CGImage, shiftPx: Int) {
+    private func detectHeader(current: CGImage, previous: CGImage, shiftPx: Int) async {
         guard current.width == previous.width, current.height == previous.height else { return }
         guard shiftPx > 5 else { return }
 
-        let w = current.width
-        let h = current.height
+        // Snapshot rightMarginPx on the main actor before dispatching — it's a
+        // main-actor property and must not be read from captureQueue (data race).
+        let marginPx = rightMarginPx
+        let result: (frozenRows: Int, w: Int, h: Int) = await withCheckedContinuation { cont in
+            captureQueue.async {
+                let w = current.width
+                let h = current.height
 
-        guard let curData = pixelData(for: current),
-              let prevData = pixelData(for: previous) else { return }
+                guard let curData = self.pixelData(for: current),
+                      let prevData = self.pixelData(for: previous) else {
+                    cont.resume(returning: (0, w, h))
+                    return
+                }
 
-        let bytesPerRow = w * 4
-        let compareBytes = max(4, (w - rightMarginPx)) * 4
-        let colStep = 4
+                let bytesPerRow = w * 4
+                let compareBytes = max(4, (w - marginPx)) * 4
+                let colStep = 4
 
-        var frozenRows = 0
-        for row in 0..<h {
-            var rowSAD: UInt64 = 0
-            var samples: Int = 0
-            let offset = row * bytesPerRow
-            for col in stride(from: 0, to: compareBytes, by: colStep * 4) {
-                let cR = Int(curData[offset + col])
-                let cG = Int(curData[offset + col + 1])
-                let cB = Int(curData[offset + col + 2])
-                let pR = Int(prevData[offset + col])
-                let pG = Int(prevData[offset + col + 1])
-                let pB = Int(prevData[offset + col + 2])
-                rowSAD += UInt64(abs(cR - pR) + abs(cG - pG) + abs(cB - pB))
-                samples += 1
+                var frozenRows = 0
+                for row in 0..<h {
+                    var rowSAD: UInt64 = 0
+                    var samples: Int = 0
+                    let offset = row * bytesPerRow
+                    for col in stride(from: 0, to: compareBytes, by: colStep * 4) {
+                        let cR = Int(curData[offset + col])
+                        let cG = Int(curData[offset + col + 1])
+                        let cB = Int(curData[offset + col + 2])
+                        let pR = Int(prevData[offset + col])
+                        let pG = Int(prevData[offset + col + 1])
+                        let pB = Int(prevData[offset + col + 2])
+                        rowSAD += UInt64(abs(cR - pR) + abs(cG - pG) + abs(cB - pB))
+                        samples += 1
+                    }
+                    let avg = samples > 0 ? rowSAD / UInt64(samples) : 999
+                    if avg > 8 {
+                        frozenRows = row
+                        break
+                    }
+                    if row == h - 1 {
+                        cont.resume(returning: (0, w, h))
+                        return
+                    }
+                }
+
+                cont.resume(returning: (frozenRows, w, h))
             }
-            let avg = samples > 0 ? rowSAD / UInt64(samples) : 999
-            if avg > 8 {
-                frozenRows = row
-                break
-            }
-            if row == h - 1 { return }
         }
+
+        let frozenRows = result.frozenRows
+        let h = result.h
 
         if frozenRows >= 10 && frozenRows < (h * 6 / 10) {
             headerDetectionSamples += 1

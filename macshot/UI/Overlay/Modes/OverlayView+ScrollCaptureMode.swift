@@ -7,6 +7,11 @@ extension OverlayView {
         scrollCapturePixelSize = .zero
         scrollCaptureAutoScrolling = false
 
+        showToolbars = false
+        bottomStripView?.isHidden = true
+        rightStripView?.isHidden = true
+        toolOptionsRowView?.isHidden = true
+
         activateAppUnderSelection()
         window?.ignoresMouseEvents = true
 
@@ -69,6 +74,13 @@ extension OverlayView {
         scrollCaptureStripCount = 0
         scrollCapturePixelSize = .zero
         scrollCaptureAutoScrolling = false
+
+        showToolbars = true
+        bottomStripView?.isHidden = false
+        rightStripView?.isHidden = false
+        toolOptionsRowView?.isHidden = false
+        // `showToolbars = true` already schedules a coalesced toolbar rebuild via
+        // scheduleDeferredToolbarRebuild — no explicit rebuild call needed here.
 
         if let monitor = scrollCaptureKeyMonitor {
             NSEvent.removeMonitor(monitor)

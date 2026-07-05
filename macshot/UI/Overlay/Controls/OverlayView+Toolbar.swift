@@ -894,5 +894,17 @@ extension OverlayView {
                 row.frame.origin = NSPoint(x: rowX, y: rowY)
             }
         }
+
+        if isEditorMode, let parent = chromeParentView {
+            var subs = parent.subviews
+            let toolbars = subs.filter {
+                $0 is ToolbarStripView || $0 is ToolOptionsRowView || $0 is EditorTopBarView
+            }
+            subs.removeAll {
+                $0 is ToolbarStripView || $0 is ToolOptionsRowView || $0 is EditorTopBarView
+            }
+            subs.append(contentsOf: toolbars)
+            parent.subviews = subs
+        }
     }
 }

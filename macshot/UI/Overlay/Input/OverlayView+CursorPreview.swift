@@ -135,6 +135,17 @@ extension OverlayView {
         let newView = canvasToView(newCanvas)
         setNeedsDisplay(
             NSRect(x: newView.x - r, y: newView.y - r, width: r * 2, height: r * 2))
+
+        // Editor mode ghost-trail workaround: the cached composited image used by
+        // EditorView.drawEditorBackground can leave stale cursor-preview pixels on
+        // screen when composited through NSScrollView's layer-backed magnification
+        // pipeline with small dirty rects. Invalidating the cache forces a full live
+        // redraw (screenshot + annotations + cursor preview) on the next frame,
+        // which reliably clears the old preview position.
+        // Only nil when there's actually a previous cursor to erase (oldCanvas != .zero).
+        if isEditorMode, oldCanvas != .zero {
+            cachedCompositedImage = nil
+        }
     }
 
     func updateSmartMarkerPreviewMetrics(at canvasPoint: NSPoint) {

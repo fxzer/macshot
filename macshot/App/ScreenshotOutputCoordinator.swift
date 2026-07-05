@@ -207,6 +207,7 @@ final class ScreenshotOutputCoordinator: NSObject, PinWindowControllerDelegate, 
             } else {
                 DetachedEditorWindowController.open(
                     image: image,
+                    tool: .select,
                     historyEntryID: historyEntryID,
                     disableBeautify: true
                 )

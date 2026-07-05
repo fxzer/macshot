@@ -117,15 +117,28 @@ extension OverlayView {
             return
         }
 
-        // In editor mode, check if mouse is over the top bar
-        // The top bar is a sibling of the scroll view in chromeParentView, not a subview of EditorView
-        if isEditorMode, let topBar = findTopBar() {
+        // In editor mode, check if mouse is over chrome (top bar, bottom/right strips, options row)
+        // These are siblings of the scroll view in chromeParentView, not subviews of EditorView
+        if isEditorMode, chromeParentView != nil {
             let mouseInWindow = convert(point, to: nil)
-            // Convert top bar frame to window coordinates
-            let topBarFrameInWindow = topBar.convert(topBar.bounds, to: nil)
-            if topBarFrameInWindow.contains(mouseInWindow) {
-                NSCursor.arrow.set()
-                return
+            if let topBar = findTopBar() {
+                let topBarFrameInWindow = topBar.convert(topBar.bounds, to: nil)
+                if topBarFrameInWindow.contains(mouseInWindow) {
+                    NSCursor.arrow.set()
+                    return
+                }
+            }
+            if let strip = bottomStripView, !strip.isHidden {
+                let f = strip.convert(strip.bounds, to: nil)
+                if f.contains(mouseInWindow) { NSCursor.arrow.set(); return }
+            }
+            if let strip = rightStripView, !strip.isHidden {
+                let f = strip.convert(strip.bounds, to: nil)
+                if f.contains(mouseInWindow) { NSCursor.arrow.set(); return }
+            }
+            if let row = toolOptionsRowView, !row.isHidden {
+                let f = row.convert(row.bounds, to: nil)
+                if f.contains(mouseInWindow) { NSCursor.arrow.set(); return }
             }
         }
 

@@ -141,23 +141,40 @@ extension OverlayView {
         if isSharingActive {
             return nil
         }
-        if !isEditorMode {
+        if isEditorMode, let parent = chromeParentView {
+            let localInParent = parent.convert(point, from: superview)
+            if let topBar = findTopBar(), topBar.frame.contains(localInParent) {
+                return nil
+            }
+            if let strip = bottomStripView, !strip.isHidden,
+               strip.frame.contains(localInParent) {
+                return nil
+            }
+            if let strip = rightStripView, !strip.isHidden,
+               strip.frame.contains(localInParent) {
+                return nil
+            }
+            if let row = toolOptionsRowView, !row.isHidden,
+               row.frame.contains(localInParent) {
+                return nil
+            }
+        } else {
             let localPoint = convert(point, from: superview)
             if let strip = bottomStripView, !strip.isHidden, strip.frame.contains(localPoint) {
-                return strip.hitTest(convert(point, to: strip.superview))
+                return strip.hitTest(localPoint)
             }
             if let strip = rightStripView, !strip.isHidden, strip.frame.contains(localPoint) {
-                return strip.hitTest(convert(point, to: strip.superview))
+                return strip.hitTest(localPoint)
             }
             if let row = toolOptionsRowView, !row.isHidden, row.frame.contains(localPoint) {
-                return row.hitTest(convert(point, to: row.superview))
+                return row.hitTest(localPoint)
             }
         }
         return super.hitTest(point)
     }
 
     func isPointOnChrome(_ point: NSPoint) -> Bool {
-        if showToolbars && !isEditorMode {
+        if showToolbars {
             if let strip = bottomStripView, !strip.isHidden, strip.frame.contains(point) {
                 return true
             }

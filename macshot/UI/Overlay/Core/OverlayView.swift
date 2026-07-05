@@ -25,7 +25,21 @@ class OverlayView: NSView {
     /// When true, NSScrollView handles zoom/pan/centering. Coordinate transforms become identity.
     var isInsideScrollView: Bool { false }
     /// When in scroll view mode, toolbar strips are added to this view (window content) instead of self.
-    weak var chromeParentView: NSView?
+    weak var chromeParentView: NSView? {
+        didSet {
+            guard let parent = chromeParentView, chromeParentView !== oldValue else { return }
+            for strip in [bottomStripView, rightStripView, topStripView].compactMap({ $0 }) {
+                if strip.superview !== parent {
+                    strip.removeFromSuperview()
+                    parent.addSubview(strip)
+                }
+            }
+            if let row = toolOptionsRowView, row.superview !== parent {
+                row.removeFromSuperview()
+                parent.addSubview(row)
+            }
+        }
+    }
 
     var screenshotImage: NSImage? {
         didSet {
