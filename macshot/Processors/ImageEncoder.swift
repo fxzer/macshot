@@ -197,6 +197,22 @@ enum ImageEncoder {
         return encodeWithCGImageDestination(cgImage: cgImage, type: "public.jpeg", lossyQuality: quality)
     }
 
+    /// Encode a CGImage directly to PNG Data via CGImageDestination.
+    /// Canonical entry point for callers that already have a CGImage and want PNG
+    /// output without the NSImage→TIFF→NSBitmapImageRep round-trip. Replaces the
+    /// previously duplicated `CGImageDestinationCreateWithData` blocks in
+    /// `AnnotationCodable.encodeImage` and `OverlayWindowController.encodeToPNGData`.
+    /// Note: does not apply sRGB profile embedding — call sites want raw pixel
+    /// fidelity (annotations/history are internal storage paths).
+    static func encodePNG(cgImage: CGImage) -> Data? {
+        let data = NSMutableData()
+        guard let dest = CGImageDestinationCreateWithData(
+            data as CFMutableData, UTType.png.identifier as CFString, 1, nil
+        ) else { return nil }
+        CGImageDestinationAddImage(dest, cgImage, nil)
+        return CGImageDestinationFinalize(dest) ? data as Data : nil
+    }
+
     /// Encode JPEG, optionally embedding sRGB profile via CGImageDestination.
     private static func encodeJPEG(bitmap: NSBitmapImageRep, quality: CGFloat) -> Data? {
         if embedColorProfile, let cgImage = bitmap.cgImage {

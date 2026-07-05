@@ -191,7 +191,7 @@ extension OverlayWindowController: OverlayViewDelegate {
         // PNG encoding takes ~50-100ms vs WebP's 8+ seconds with picture preset
         let pngData: Data
         if let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil),
-           let encoded = Self.encodeToPNGData(cgImage: cgImage) {
+           let encoded = ImageEncoder.encodePNG(cgImage: cgImage) {
             pngData = encoded
         } else {
             // Fallback for images without CGImage backing

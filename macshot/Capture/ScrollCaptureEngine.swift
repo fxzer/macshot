@@ -69,7 +69,6 @@ final class ScrollCaptureEngine {
     // Frame state
     private var shotA: CGImage?          // previous frame
     private var shotB: CGImage?          // current frame
-    private var lastSettledPixelData: Data?  // raw pixel data of last settled frame for byte comparison
     private var mergedImage: CGImage?    // accumulated stitched result
     private var headerHeight: Int = 0    // frozen header height in pixels
     private var headerDetectionDone: Bool = false
@@ -169,7 +168,6 @@ final class ScrollCaptureEngine {
         isActive = true
         shotA = nil
         shotB = nil
-        lastSettledPixelData = nil
         mergedImage = firstFrame
         headerHeight = 0
         headerDetectionDone = false
@@ -336,7 +334,6 @@ final class ScrollCaptureEngine {
             }
 
             if let prevData = previousPixelData, currentData == prevData {
-                lastSettledPixelData = currentData
                 return cg
             }
 
@@ -457,7 +454,6 @@ final class ScrollCaptureEngine {
 
             if let prevData = previousPixelData, currentData == prevData {
                 settledCG = cg
-                lastSettledPixelData = currentData
                 break
             }
 
@@ -538,6 +534,13 @@ final class ScrollCaptureEngine {
     /// higher y → displayed higher (image top). New content is page-bottom
     /// content that just scrolled into view, so it goes at y=0. Older
     /// accumulated content is page-top content shifted above.
+    ///
+    /// Note: `headerHeight` is intentionally NOT consulted here. Sticky-header
+    /// handling is confined to `visionShift` (which crops the frozen top rows out
+    /// of the registration inputs) and to `frozenTopHeight` reporting. The strip
+    /// is always the bottom `offsetPx` rows of the frame, which is correct with
+    /// or without a frozen header: a frozen header sits at the top of the frame
+    /// and never reaches the bottom strip, so it's naturally excluded.
     private func mergeNewContent(currentFrame: CGImage, offsetPx: Int) async {
         guard let existing = mergedImage else {
             mergedImage = currentFrame
@@ -736,9 +739,11 @@ final class ScrollCaptureEngine {
     }
 
     /// Extract raw BGRA pixel data from a CGImage as an unsafe pointer.
-    /// `nonisolated` because it only reads from the immutable CGImage argument —
-    /// safe to call from `captureQueue` without crossing actor isolation.
-    private nonisolated func pixelData(for image: CGImage) -> UnsafePointer<UInt8>? {
+    /// Pure function — only reads from the immutable CGImage argument, so it's
+    /// declared `static` to (a) avoid capturing `self` in `captureQueue.async`
+    /// closures (which would otherwise cross actor isolation under Swift 6 strict
+    /// concurrency) and (b) make the lack of instance-state access self-evident.
+    private static func pixelData(for image: CGImage) -> UnsafePointer<UInt8>? {
         guard let provider = image.dataProvider,
               let cfData = provider.data else { return nil }
         return CFDataGetBytePtr(cfData)
@@ -768,8 +773,8 @@ final class ScrollCaptureEngine {
 
         let scrollbarWidth: Int = await withCheckedContinuation { cont in
             captureQueue.async {
-                guard let curData = self.pixelData(for: current),
-                      let prevData = self.pixelData(for: previous) else {
+                guard let curData = Self.pixelData(for: current),
+                      let prevData = Self.pixelData(for: previous) else {
                     cont.resume(returning: 0)
                     return
                 }
@@ -831,8 +836,8 @@ final class ScrollCaptureEngine {
                 let w = current.width
                 let h = current.height
 
-                guard let curData = self.pixelData(for: current),
-                      let prevData = self.pixelData(for: previous) else {
+                guard let curData = Self.pixelData(for: current),
+                      let prevData = Self.pixelData(for: previous) else {
                     cont.resume(returning: (0, w, h))
                     return
                 }

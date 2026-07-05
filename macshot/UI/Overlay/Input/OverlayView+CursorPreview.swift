@@ -136,15 +136,16 @@ extension OverlayView {
         setNeedsDisplay(
             NSRect(x: newView.x - r, y: newView.y - r, width: r * 2, height: r * 2))
 
-        // Editor mode ghost-trail workaround: the cached composited image used by
-        // EditorView.drawEditorBackground can leave stale cursor-preview pixels on
-        // screen when composited through NSScrollView's layer-backed magnification
-        // pipeline with small dirty rects. Invalidating the cache forces a full live
-        // redraw (screenshot + annotations + cursor preview) on the next frame,
-        // which reliably clears the old preview position.
-        // Only nil when there's actually a previous cursor to erase (oldCanvas != .zero).
+        // Editor mode ghost-trail workaround: NSScrollView's layer-backed
+        // magnification pipeline can leave stale cursor-preview pixels on screen
+        // when only a small dirty rect around the old position is repainted.
+        // Forcing a full-view redraw (needsDisplay = true) clears the old preview
+        // reliably, while KEEPING cachedCompositedImage intact so the next frame
+        // still takes the fast cached background path in drawEditorBackground.
+        // (Previously this niled the cache, which re-ran the full screenshot +
+        // annotation composite on every mouseMoved — a major perf regression.)
         if isEditorMode, oldCanvas != .zero {
-            cachedCompositedImage = nil
+            needsDisplay = true
         }
     }
 
