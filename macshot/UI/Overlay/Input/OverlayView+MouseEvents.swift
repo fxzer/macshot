@@ -385,9 +385,9 @@ extension OverlayView {
         case .selected:
             // Selection dragging (Snipaste-style: drag selection area)
             if isDraggingSelection {
-                let oldRect = selectionRect
                 selectionRect.origin = NSPoint(x: point.x - selectionDragOffset.x, y: point.y - selectionDragOffset.y)
-                invalidateCanvasRects([oldRect, selectionRect], pad: 16)
+                cachedCompositedImage = nil
+                needsDisplay = true
                 return
             }
 
@@ -649,14 +649,14 @@ extension OverlayView {
                 let maxStroke = selectedAnnotations.map { $0.strokeWidth }.max() ?? 4
                 invalidateCanvasRects(oldRects + newRects, pad: maxStroke + 12)
             } else if isDraggingSelection {
-                let oldRect = selectionRect
                 selectionRect.origin = NSPoint(x: point.x - dragOffset.x, y: point.y - dragOffset.y)
-                invalidateCanvasRects([oldRect, selectionRect], pad: 16)
+                cachedCompositedImage = nil
+                needsDisplay = true
             } else if isResizingSelection {
-                let oldRect = selectionRect
                 resizeSelection(to: point)
                 overlayDelegate?.overlayViewSelectionDidChange(selectionRect)
-                invalidateCanvasRects([oldRect, selectionRect], pad: 16)
+                cachedCompositedImage = nil
+                needsDisplay = true
             } else if currentAnnotation != nil {
                 if spaceRepositioning {
                     // Space held: reposition the whole shape

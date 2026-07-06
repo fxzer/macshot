@@ -114,7 +114,6 @@ extension OverlayView {
 
         let x = selectionStart.x < point.x ? selectionStart.x : selectionStart.x - w
         let y = selectionStart.y < point.y ? selectionStart.y : selectionStart.y - h
-        let oldRect = selectionRect
         selectionRect = NSRect(x: x, y: y, width: w, height: h)
         if selectionSizeSnapActive {
             updateSelectionSizeSnapGuidesForSelectionDrag(
@@ -124,9 +123,8 @@ extension OverlayView {
             )
         }
         overlayDelegate?.overlayViewSelectionDidChange(selectionRect)
-        // Dirty-rect redraw: only the changed selection area + size label region,
-        // not the full screen. Selection lives in canvas space here.
-        invalidateCanvasRects([oldRect, selectionRect], pad: 16)
+        cachedCompositedImage = nil
+        needsDisplay = true
 
         updateMagnifierIfNeeded()
     }
