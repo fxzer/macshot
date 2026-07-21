@@ -62,7 +62,10 @@ enum CaptureIntent {
     }
 
     var shouldRestoreLastSelection: Bool {
-        !appliesFullScreenSelection
+        // OCR 模式下每次都需要手动框选，不恢复上次选区，
+        // 否则截图到来时会因为 state==.selected && autoOCRMode==true 而自动触发。
+        if case .ocr = self { return false }
+        return !appliesFullScreenSelection
     }
 
     var prefersImmediateOverlayPresentation: Bool {
