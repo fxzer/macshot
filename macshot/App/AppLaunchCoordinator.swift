@@ -26,15 +26,27 @@ final class AppLaunchCoordinator: NSObject {
         let handleLanguageChange: () -> Void
         let defaultInteractionScreen: () -> NSScreen?
         let primeAudio: () -> Void
+        let handleOpenURLs: ([URL]) -> Void
     }
 
     private let dependencies: Dependencies
     private var onboardingController: PermissionOnboardingController?
     private var initialCapturePrewarmWorkItem: DispatchWorkItem?
+    private var pendingOpenURLs: [URL] = []
+    private var isFinishLaunchingComplete = false
 
     init(dependencies: Dependencies) {
         self.dependencies = dependencies
         super.init()
+    }
+
+    func handleOpen(urls: [URL]) {
+        guard !urls.isEmpty else { return }
+        if isFinishLaunchingComplete {
+            dependencies.handleOpenURLs(urls)
+        } else {
+            pendingOpenURLs.append(contentsOf: urls)
+        }
     }
 
     func applicationDidFinishLaunching() -> Bool {
@@ -43,13 +55,27 @@ final class AppLaunchCoordinator: NSObject {
         let bundleID = Bundle.main.bundleIdentifier ?? "com.fxzer.macshot.macshot"
         let runningApps = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID)
         if runningApps.count > 1 {
-            DistributedNotificationCenter.default().postNotificationName(
-                .init("com.fxzer.macshot.showAndOpenPrefs"),
-                object: nil,
-                userInfo: nil,
-                deliverImmediately: true
-            )
-            NSApp.terminate(nil)
+            // Defer secondary process check slightly so any application(_:open:) AppleEvents are fully delivered.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
+                guard let self = self else { return }
+                if !self.pendingOpenURLs.isEmpty {
+                    let urlStrings = self.pendingOpenURLs.map { $0.absoluteString }
+                    DistributedNotificationCenter.default().postNotificationName(
+                        .init("com.fxzer.macshot.openURLs"),
+                        object: nil,
+                        userInfo: ["urls": urlStrings],
+                        deliverImmediately: true
+                    )
+                } else {
+                    DistributedNotificationCenter.default().postNotificationName(
+                        .init("com.fxzer.macshot.showAndOpenPrefs"),
+                        object: nil,
+                        userInfo: nil,
+                        deliverImmediately: true
+                    )
+                }
+                NSApp.terminate(nil)
+            }
             return false
         }
 
@@ -74,6 +100,14 @@ final class AppLaunchCoordinator: NSObject {
         registerObservers()
         checkScreenRecordingPermission()
         scheduleInitialCapturePrewarm()
+
+        isFinishLaunchingComplete = true
+        if !pendingOpenURLs.isEmpty {
+            let urlsToOpen = pendingOpenURLs
+            pendingOpenURLs.removeAll()
+            dependencies.handleOpenURLs(urlsToOpen)
+        }
+
         return true
     }
 
@@ -181,6 +215,13 @@ final class AppLaunchCoordinator: NSObject {
             object: nil
         )
 
+        DistributedNotificationCenter.default().addObserver(
+            self,
+            selector: #selector(handleOpenURLsNotification(_:)),
+            name: .init("com.fxzer.macshot.openURLs"),
+            object: nil
+        )
+
         NSWorkspace.shared.notificationCenter.addObserver(
             self,
             selector: #selector(handleSpaceDidChange),
@@ -245,6 +286,13 @@ final class AppLaunchCoordinator: NSObject {
             dependencies.setMenuBarIconVisible(true)
         }
         dependencies.openSettings()
+    }
+
+    @objc private func handleOpenURLsNotification(_ notification: Notification) {
+        guard let urlStrings = notification.userInfo?["urls"] as? [String] else { return }
+        let urls = urlStrings.compactMap { URL(string: $0) }
+        guard !urls.isEmpty else { return }
+        dependencies.handleOpenURLs(urls)
     }
 
     @objc private func handleSpaceDidChange() {

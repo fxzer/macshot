@@ -231,11 +231,21 @@ echo "   ✅ 构建完成"
 
 # 4. 安装并启动
 echo "📍 步骤 4/4: 安装并启动..."
-sync_app "$DERIVED_DATA/Build/Products/Debug/MacShot.app" "$APP_WORKTREE_PATH"
-sync_app "$APP_WORKTREE_PATH" "$APP_INSTALL_PATH"
+sync_app "$DERIVED_DATA/Build/Products/Debug/MacShot.app" "$APP_INSTALL_PATH"
+rm -rf "$APP_WORKTREE_PATH"
 sign_app "$APP_INSTALL_PATH"
+
+# 注销临时编译目录下的 LaunchServices 注册入口，确保系统“打开方式”仅保留 /Applications/MacShot.app
+LSREGISTER="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
+if [ -x "$LSREGISTER" ]; then
+    "$LSREGISTER" -u "$DERIVED_DATA/Build/Products/Debug/MacShot.app" 2>/dev/null || true
+    "$LSREGISTER" -u "$DERIVED_DATA/Build/Products/Release/MacShot.app" 2>/dev/null || true
+    "$LSREGISTER" -u "$APP_WORKTREE_PATH" 2>/dev/null || true
+    "$LSREGISTER" -f "$APP_INSTALL_PATH" 2>/dev/null || true
+fi
+
 open "$APP_INSTALL_PATH"
-echo "   ✅ 已安装并启动"
+echo "   ✅ 已安装并启动（已清理多余的打开方式注册入口）"
 
 echo ""
 echo "✅ 全部完成！$(date +%H:%M)"

@@ -55,7 +55,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             pinHistoryImage: { [weak self] image in self?.showPin(image: image) },
             handleLanguageChange: { [weak self] in self?.handleLanguageChange() },
             defaultInteractionScreen: { [weak self] in self?.defaultInteractionScreen() },
-            primeAudio: { SoundManager.shared.primeAudio() }
+            primeAudio: { SoundManager.shared.primeAudio() },
+            handleOpenURLs: { [weak self] urls in self?.routeHandler.handleOpen(urls: urls) }
         )
     )
     private lazy var historyMenuController = HistoryMenuController()
@@ -452,7 +453,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Handle files opened via Finder "Open With", drag-to-dock, or command line.
     func application(_ application: NSApplication, open urls: [URL]) {
-        routeHandler.handleOpen(urls: urls)
+        launchCoordinator.handleOpen(urls: urls)
     }
 
     // MARK: - Settings
