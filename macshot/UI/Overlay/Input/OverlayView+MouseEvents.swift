@@ -394,7 +394,6 @@ extension OverlayView {
             // Convert to canvas space for annotation interactions (accounts for zoom)
             let canvasPoint = viewToCanvas(point)
             if isRotatingAnnotation, let annotation = selectedAnnotation {
-                let oldRect = annotation.boundingRect
                 let center = NSPoint(
                     x: annotation.boundingRect.midX, y: annotation.boundingRect.midY)
                 let currentAngle = atan2(canvasPoint.x - center.x, canvasPoint.y - center.y)
@@ -405,7 +404,9 @@ extension OverlayView {
                     newRotation = (newRotation / step).rounded() * step
                 }
                 annotation.rotation = newRotation
-                invalidateCanvasRects([oldRect, annotation.boundingRect], pad: annotation.strokeWidth + 12)
+                // Full redraw: selection chrome (delete button, rotation handle) extends
+                // beyond boundingRect by ~30pt; dirty-rect pad leaves stale ghosts. See 8fd8902.
+                needsDisplay = true
                 return
             }
             if isResizingAnnotation, let annotation = selectedAnnotation {
@@ -416,7 +417,6 @@ extension OverlayView {
 
                 // Text annotations: resize the text box and re-render textImage
                 if annotation.tool == .text {
-                    let oldRect = annotation.boundingRect
                     let origRect = NSRect(origin: origStart,
                         size: NSSize(width: origEnd.x - origStart.x, height: origEnd.y - origStart.y))
                     var newRect = origRect
@@ -478,12 +478,12 @@ extension OverlayView {
                     }
                     annotation.textImage = nil
                     cachedCompositedImage = nil
-                    invalidateCanvasRects([oldRect, annotation.boundingRect], pad: annotation.strokeWidth + 12)
+                    // Full redraw: selection chrome extends beyond boundingRect; dirty-rect pad leaves ghosts.
+                    needsDisplay = true
                     return
                 }
 
                 let shiftHeld = event.modifierFlags.contains(.shift)
-                let oldResizeRect = annotation.boundingRect
 
                 // Arrow/line/measure: .bottomLeft = startPoint, .topRight = endPoint, others = anchor points
                 if annotation.tool == .arrow || annotation.tool == .line
@@ -611,7 +611,8 @@ extension OverlayView {
                     annotation.bakedBlurNSImage = nil
                 }
                 cachedCompositedImage = nil
-                invalidateCanvasRects([oldResizeRect, annotation.boundingRect], pad: annotation.strokeWidth + 12)
+                // Full redraw: selection chrome extends beyond boundingRect; dirty-rect pad leaves ghosts.
+                needsDisplay = true
             } else if isLassoSelecting {
                 // Update lasso marquee rectangle
                 let x = min(lassoStart.x, canvasPoint.x)
@@ -623,8 +624,6 @@ extension OverlayView {
             } else if isDraggingAnnotation, !selectedAnnotations.isEmpty {
                 let rawDx = canvasPoint.x - annotationDragStart.x
                 let rawDy = canvasPoint.y - annotationDragStart.y
-                // Capture old bounding rects before move
-                let oldRects = selectedAnnotations.map { $0.boundingRect }
                 // For single selection, apply snap; for multi, just move raw
                 let finalDx: CGFloat
                 let finalDy: CGFloat
@@ -645,9 +644,8 @@ extension OverlayView {
                 }
                 didMoveAnnotation = true
                 cachedCompositedImage = nil
-                let newRects = selectedAnnotations.map { $0.boundingRect }
-                let maxStroke = selectedAnnotations.map { $0.strokeWidth }.max() ?? 4
-                invalidateCanvasRects(oldRects + newRects, pad: maxStroke + 12)
+                // Full redraw: selection chrome extends beyond boundingRect; dirty-rect pad leaves ghosts.
+                needsDisplay = true
             } else if isDraggingSelection {
                 selectionRect.origin = NSPoint(x: point.x - dragOffset.x, y: point.y - dragOffset.y)
                 cachedCompositedImage = nil
