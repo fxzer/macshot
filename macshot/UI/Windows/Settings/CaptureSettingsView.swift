@@ -20,6 +20,12 @@ struct CaptureSettingsView: View {
     @AppStorage("colorSamplerFormat") private var colorSamplerFormat = 0
     @AppStorage("colorSamplerGamut") private var colorSamplerGamut = 2  // Default to sRGB
 
+    // Scroll Capture
+    @AppStorage("scrollAutoScrollEnabled") private var scrollAutoScroll = false
+    @AppStorage("scrollAutoScrollSpeed") private var scrollSpeed: Int = 3
+    @AppStorage("scrollMaxHeight") private var scrollMaxHeight: Int = 30000
+    @AppStorage("scrollFrozenDetection") private var scrollFrozenDetection = true
+
     var body: some View {
         Form {
             // MARK: - Capture Settings
@@ -108,6 +114,46 @@ struct CaptureSettingsView: View {
             } header: {
                 Text(L("Color Sampler"))
             }
+
+            // MARK: - Scroll Capture
+            Section {
+                // Auto-scroll with description (shown when enabled)
+                VStack(alignment: .leading, spacing: 4) {
+                    Toggle(L("Auto-scroll"), isOn: $scrollAutoScroll)
+                    if scrollAutoScroll {
+                        Text(L("Sends synthetic scroll events to automatically scroll the page"))
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+                }
+
+                if scrollAutoScroll {
+                    Picker(L("Scroll speed"), selection: $scrollSpeed) {
+                        Text(L("Slow")).tag(1)
+                        Text(L("Medium")).tag(2)
+                        Text(L("Fast")).tag(3)
+                        Text(L("Very fast")).tag(4)
+                    }
+                }
+
+                Picker(L("Max height"), selection: $scrollMaxHeight) {
+                    Text(L("Unlimited")).tag(0)
+                    Text("10,000 px").tag(10000)
+                    Text("30,000 px").tag(30000)
+                    Text("50,000 px").tag(50000)
+                    Text("100,000 px").tag(100000)
+                }
+
+                // Smart exclude fixed headers with description (always shown)
+                VStack(alignment: .leading, spacing: 4) {
+                    Toggle(L("Smart exclude fixed headers"), isOn: $scrollFrozenDetection)
+                    Text(L("Automatically detect and exclude sticky/fixed elements at the top of the page to avoid duplication when stitching"))
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+            } header: {
+                Text(L("Scroll Capture"))
+            }
         }
         .formStyle(.grouped)
         .onAppear(perform: normalizePickerSelections)
@@ -117,6 +163,12 @@ struct CaptureSettingsView: View {
         PostCaptureActionPreferences.migrateIfNeeded()
         imageFormat = normalized(imageFormat, allowed: ["png", "jpeg", "heic", "webp"], fallback: "png")
         historySize = normalized(historySize, allowed: [999, 10, 25, 50, 100], fallback: 10)
+        scrollSpeed = normalized(scrollSpeed, allowed: [1, 2, 3, 4], fallback: 3)
+        scrollMaxHeight = normalized(
+            scrollMaxHeight,
+            allowed: [0, 10000, 30000, 50000, 100000],
+            fallback: 30000
+        )
     }
 
     private func normalized<T: Equatable>(_ value: T, allowed: [T], fallback: T) -> T {

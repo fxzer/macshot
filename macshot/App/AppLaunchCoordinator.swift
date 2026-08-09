@@ -12,8 +12,6 @@ final class AppLaunchCoordinator: NSObject {
         let statusBarSetup: () -> Void
         let captureAreaFromHotkey: () -> Void
         let captureFullScreenFromHotkey: () -> Void
-        let recordAreaFromHotkey: () -> Void
-        let recordScreenFromHotkey: () -> Void
         let showHistoryOverlay: () -> Void
         let captureOCRFromHotkey: () -> Void
         let quickCaptureFromHotkey: () -> Void
@@ -136,12 +134,6 @@ final class AppLaunchCoordinator: NSObject {
             },
             captureFullScreen: { [weak self] in
                 DispatchQueue.main.async { self?.dependencies.captureFullScreenFromHotkey() }
-            },
-            recordArea: { [weak self] in
-                DispatchQueue.main.async { self?.dependencies.recordAreaFromHotkey() }
-            },
-            recordScreen: { [weak self] in
-                DispatchQueue.main.async { self?.dependencies.recordScreenFromHotkey() }
             },
             historyOverlay: { [weak self] in
                 DispatchQueue.main.async { self?.dependencies.showHistoryOverlay() }

@@ -13,10 +13,6 @@ extension OverlayView {
 
     @discardableResult
     func handleEscapeKey() -> Bool {
-        if isRecording {
-            handleToolbarAction(.stopRecord)
-            return true
-        }
         if isScrollCapturing {
             overlayDelegate?.overlayViewDidRequestStopScrollCapture()
             return true
@@ -149,13 +145,6 @@ extension OverlayView {
 
     override func keyDown(with event: NSEvent) {
         if isSharingActive {
-            return
-        }
-        // In recording mode, only allow Escape (to exit recording mode)
-        if isRecording {
-            if event.keyCode == 53 { // Escape
-                _ = handleEscapeKey()
-            }
             return
         }
 

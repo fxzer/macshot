@@ -622,9 +622,6 @@ final class CaptureFlowCoordinator {
                 "[macshot-mem][overlay] FIRST FRAME DRAWN screen=\(screenName) \(MemoryDiagnostics.currentSummary())"
             )
         }
-        if activeCaptureIntent?.startsInRecordingMode == true {
-            controller.setAutoRecordMode()
-        }
         if activeCaptureIntent?.startsInOCRMode == true {
             controller.setAutoOCRMode()
         }
@@ -645,14 +642,6 @@ final class CaptureFlowCoordinator {
         let isMouseScreen = (captureScreen == mouseScreen) || (mouseScreen == nil && captureScreen == NSScreen.main)
         if captureIntent?.appliesFullScreenSelection == true && isMouseScreen {
             controller.applyFullScreenSelection()
-        }
-        if captureIntent?.startsInRecordingMode == true
-            && captureIntent?.appliesFullScreenSelection == true
-            && isMouseScreen {
-            controller.enterRecordingMode()
-            if captureIntent?.autoStartsFullScreenRecording == true {
-                controller.autoStartRecording()
-            }
         }
     }
 

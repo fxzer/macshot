@@ -7,12 +7,9 @@ enum AppExternalAction {
     case captureFullScreen
     case quickCapture
     case captureOCR
-    case recordArea
-    case recordFullScreen
     case scrollCapture
     case history
     case settings
-    case stopRecording
     case openImage(URL)
 
     enum ParseError: LocalizedError {
@@ -47,18 +44,12 @@ enum AppExternalAction {
             return .success(.quickCapture)
         case "ocr", "capture-ocr":
             return .success(.captureOCR)
-        case "record", "record-area":
-            return .success(.recordArea)
-        case "record-fullscreen", "record-screen":
-            return .success(.recordFullScreen)
         case "scroll-capture":
             return .success(.scrollCapture)
         case "history", "history-panel":
             return .success(.history)
         case "settings", "preferences":
             return .success(.settings)
-        case "stop-recording":
-            return .success(.stopRecording)
         case "open":
             return resolveOpenImage(from: url)
         default:

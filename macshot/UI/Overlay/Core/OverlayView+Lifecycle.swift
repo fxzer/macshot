@@ -184,7 +184,6 @@ extension OverlayView {
         toolOptionsRowView?.clearEditingAnnotation()
         resetZoomUIState()
         invalidateEditorZoomTimers()
-        resetPermissionState()
         resetHintState()
         stopBackgroundRemovalSpinner()
         clearDrawingCursorPreview()
@@ -201,7 +200,6 @@ extension OverlayView {
         overlayErrorMessage = nil
         barcodeDetector.cancel()
         hoveredWindowRect = nil
-        isRecording = false
         hideColorSamplerMagnifier()
         if let trackingArea = mouseMovedTrackingArea {
             removeTrackingArea(trackingArea)

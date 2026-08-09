@@ -87,7 +87,6 @@ extension OverlayView {
 
     func shouldShowDrawingCursorPreview(at viewPoint: NSPoint) -> Bool {
         guard state == .selected,
-            !isRecording,
             supportsDrawingCursorPreview(for: currentTool),
             pointIsInSelection(viewPoint),
             !isPointOnChrome(viewPoint)
@@ -99,7 +98,6 @@ extension OverlayView {
         guard currentTool == .stamp,
             currentStampImage != nil,
             state == .selected,
-            !isRecording,
             pointIsInSelection(viewPoint),
             !isPointOnChrome(viewPoint)
         else { return false }
@@ -109,7 +107,6 @@ extension OverlayView {
     func shouldShowLoupePreview(at viewPoint: NSPoint) -> Bool {
         guard currentTool == .loupe,
             state == .selected,
-            !isRecording,
             pointIsInSelection(viewPoint),
             !isPointOnChrome(viewPoint)
         else { return false }

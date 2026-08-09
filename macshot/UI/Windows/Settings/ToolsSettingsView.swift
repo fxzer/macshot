@@ -65,7 +65,6 @@ struct ToolsSettingsView: View {
         (1003, L("OCR")),
         (1008, L("Translate")),
         (1010, L("Scroll Capture")),
-        (1009, L("Record")),
     ]
 
     init() {

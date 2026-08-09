@@ -48,9 +48,7 @@ class ToolbarButtonView: NSView {
             "xmark", "arrow.up.and.down.and.arrow.left.and.right", "arrow.up.forward.app",
             "doc.on.doc", "square.and.arrow.down.fill", "square.and.arrow.up",
             "icloud.and.arrow.up", "pin.fill", "doc.text.viewfinder", "translate",
-            "scroll", "video.fill", "record.circle", "cursorarrow.click.2", "keyboard",
-            "speaker.wave.2", "speaker.slash", "mic.fill", "mic.slash", "web.camera", "camera",
-            "gearshape",
+            "scroll",
         ]
 
         let allSymbols = Array(Set(bottomSymbols + rightSymbols))

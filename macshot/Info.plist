@@ -51,9 +51,5 @@
 	<string>public.app-category.utilities</string>
 	<key>Privacy - Screen Capture Usage Description</key>
 	<string>macshot needs screen recording permission to capture screenshots.</string>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>macshot can record microphone audio during screen recordings.</string>
-	<key>NSCameraUsageDescription</key>
-	<string>macshot can show a webcam overlay during screen recordings.</string>
 </dict>
 </plist>

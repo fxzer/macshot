@@ -144,8 +144,7 @@ extension OverlayView {
     }
 
     func canDragSelection() -> Bool {
-        return !isRecording
-            && !isScrollCapturing
+        return !isScrollCapturing
             && !isDraggingAnnotation
             && !selectionRect.isEmpty
             && currentTool != .crop

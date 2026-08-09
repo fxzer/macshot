@@ -287,30 +287,6 @@ extension OverlayWindowController: OverlayViewDelegate {
         }
     }
 
-    func overlayViewDidRequestEnterRecordingMode() {
-        enterRecordingMode()
-    }
-
-    func overlayViewDidRequestStartRecording(rect: NSRect) {
-        // Convert overlay-local rect to screen coordinates
-        let screenRect = NSRect(
-            x: screen.frame.minX + rect.minX,
-            y: screen.frame.minY + rect.minY,
-            width: rect.width,
-            height: rect.height
-        )
-        overlayDelegate?.overlayDidRequestStartRecording(self, rect: screenRect, screen: screen)
-    }
-
-    /// Detach the webcam setup preview so it can be reused during recording.
-    func detachWebcamPreview() -> WebcamOverlay? {
-        overlayView?.detachWebcamSetupPreview()
-    }
-
-    func overlayViewDidRequestStopRecording() {
-        overlayDelegate?.overlayDidRequestStopRecording(self)
-    }
-
     func overlayViewDidRequestScrollCapture(rect: NSRect) {
         let screenRect = NSRect(
             x: screen.frame.minX + rect.minX,
@@ -331,10 +307,6 @@ extension OverlayWindowController: OverlayViewDelegate {
 
     func overlayViewDidRequestAccessibilityPermission() {
         overlayDelegate?.overlayDidRequestAccessibilityPermission(self)
-    }
-
-    func overlayViewDidRequestInputMonitoringPermission() {
-        overlayDelegate?.overlayDidRequestInputMonitoringPermission(self)
     }
 
     func overlayViewDidBeginSelection() {

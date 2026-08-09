@@ -1,5 +1,14 @@
 # Changelog
 
+## [5.2.0] - 2026-08-09
+
+### Removed
+- **Screen video recording** — removed the entire screen recording feature (MP4/GIF capture, recording engine, recording HUD, video editor, audio merge, mouse-click highlight, keystroke overlay, webcam overlay, GIF encoder, recording settings). The recording quality did not match native or dedicated open-source tools, so the feature has been dropped to simplify the codebase. Scroll capture is unaffected and fully retained.
+  - Deleted 17 recording-only source files (~4,660 lines) and pruned recording branches across ~40 shared files.
+  - Removed the standalone Video Editor window and GIF export.
+  - Removed microphone/camera permission requests and the `com.apple.security.device.audio-input` / `device.camera` entitlements.
+  - Migrated the Scroll Capture settings section from the removed Recording tab into the Capture tab.
+
 ## [5.1.3] - 2026-05-11
 
 ### Fixed

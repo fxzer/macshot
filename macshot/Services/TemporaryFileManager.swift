@@ -44,16 +44,6 @@ enum TemporaryFileManager {
         return url
     }
 
-    static func makeRecordingOutputURL(fileExtension: String, baseName: String) -> URL {
-        cleanupStaleMacshotFiles(now: Date())
-        let sanitizedExtension = sanitizeFileExtension(fileExtension)
-        let sanitizedBaseName = sanitizeBaseName(baseName)
-        let filename = sanitizedBaseName.isEmpty
-            ? "\(recordingFilePrefix)\(UUID().uuidString)\(sanitizedExtension)"
-            : "\(recordingFilePrefix)\(sanitizedBaseName)\(sanitizedExtension)"
-        return uniqueTemporaryURL(for: filename)
-    }
-
     static func removeTemporaryFile(at url: URL) {
         guard isManagedTemporaryFile(url) else { return }
         try? FileManager.default.removeItem(at: url)

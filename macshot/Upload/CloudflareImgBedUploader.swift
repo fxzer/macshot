@@ -57,37 +57,6 @@ final class CloudflareImgBedUploader {
         upload(data: data, filename: filename, contentType: mime, progress: progress, completion: completion)
     }
 
-    // MARK: - Upload Video
-
-    func uploadVideo(
-        url: URL,
-        progress: ((Double) -> Void)? = nil,
-        completion: @escaping (Result<String, Error>) -> Void
-    ) {
-        let ext = url.pathExtension.lowercased()
-        let contentType: String
-        switch ext {
-        case "gif": contentType = "image/gif"
-        case "mp4": contentType = "video/mp4"
-        case "mov": contentType = "video/quicktime"
-        case "webm": contentType = "video/webm"
-        default: contentType = "application/octet-stream"
-        }
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            guard let data = try? Data(contentsOf: url) else {
-                DispatchQueue.main.async { completion(.failure(CFImgBedError.fileReadFailed)) }
-                return
-            }
-            self?.upload(
-                data: data,
-                filename: url.lastPathComponent,
-                contentType: contentType,
-                progress: progress,
-                completion: completion
-            )
-        }
-    }
-
     // MARK: - Core Upload
 
     func upload(

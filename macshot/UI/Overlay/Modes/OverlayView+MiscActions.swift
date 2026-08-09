@@ -14,7 +14,6 @@ extension OverlayView {
     func handleToolShortcutMouseButton(_ event: NSEvent) -> Bool {
         guard state == .selected,
               textEditView == nil,
-              !isRecording,
               !isScrollCapturing,
               currentAnnotation == nil,
               !isDraggingAnnotation,

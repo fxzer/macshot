@@ -12,8 +12,6 @@ extension OverlayView {
     // MARK: - Annotation Creation
 
     func startAnnotation(at point: NSPoint) {
-        guard !isRecording else { return }
-
         let isPencilTool = currentTool == .pencil
 
         if selectedAnnotations.count > 1 && multiSelectDeleteButtonRect.contains(point) {

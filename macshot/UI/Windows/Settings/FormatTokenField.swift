@@ -6,10 +6,7 @@ import UniformTypeIdentifiers
 /// 外部紧凑入口：左侧标题，右侧路径摘要和设置按钮。
 struct SaveLocationSettingsRow: View {
     let screenshotPath: String
-    let recordingPath: String
     let onBrowseScreenshot: () -> Void
-    let onBrowseRecording: () -> Void
-    let onClearRecording: () -> Void
 
     @State private var showPopover = false
 
@@ -27,10 +24,7 @@ struct SaveLocationSettingsRow: View {
             .popover(isPresented: $showPopover, arrowEdge: .bottom) {
                 SaveLocationPopoverView(
                     screenshotPath: screenshotPath,
-                    recordingPath: recordingPath,
-                    onBrowseScreenshot: onBrowseScreenshot,
-                    onBrowseRecording: onBrowseRecording,
-                    onClearRecording: onClearRecording
+                    onBrowseScreenshot: onBrowseScreenshot
                 )
                 .frame(width: 460)
                 .padding(16)
@@ -40,17 +34,10 @@ struct SaveLocationSettingsRow: View {
 
     private var compactSummaryText: String {
         let screenshotName = displayName(for: screenshotPath)
-        let recordingName = recordingPath == L("Same as screenshots")
-            ? recordingPath
-            : displayName(for: recordingPath)
-        return "\(L("Screenshot")): \(screenshotName)  |  \(L("Recording")): \(recordingName)"
+        return "\(L("Screenshot")): \(screenshotName)"
     }
 
     private func displayName(for path: String) -> String {
-        if path == L("Same as screenshots") {
-            return path
-        }
-
         let expanded = (path as NSString).expandingTildeInPath
         let lastComponent = URL(fileURLWithPath: expanded).lastPathComponent
         return lastComponent.isEmpty ? path : lastComponent
@@ -174,17 +161,13 @@ struct FormatTokenField: View {
     }
 
     private var previewKinds: [FilenameOutputKind] {
-        [.screenshot, .recording]
+        [.screenshot]
     }
 
     private func fileExtension(for kind: FilenameOutputKind) -> String {
         switch kind {
         case .screenshot:
             return screenshotExtension
-        case .recording:
-            return "mp4"
-        case .gif:
-            return "gif"
         }
     }
 
@@ -331,10 +314,7 @@ struct FormatTokenField: View {
 
 private struct SaveLocationPopoverView: View {
     let screenshotPath: String
-    let recordingPath: String
     let onBrowseScreenshot: () -> Void
-    let onBrowseRecording: () -> Void
-    let onClearRecording: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -348,30 +328,6 @@ private struct SaveLocationPopoverView: View {
                     actionTitle: L("Browse…"),
                     action: onBrowseScreenshot
                 )
-
-                Divider()
-
-                VStack(alignment: .leading, spacing: 8) {
-                    locationRow(
-                        title: L("Recording"),
-                        path: recordingPath,
-                        actionTitle: L("Browse…"),
-                        action: onBrowseRecording
-                    )
-
-                    HStack {
-                        Text(L("GIF uses the recording folder."))
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-
-                        Spacer()
-
-                        Button(L("Clear")) {
-                            onClearRecording()
-                        }
-                        .disabled(recordingPath == L("Same as screenshots"))
-                    }
-                }
             }
         }
     }

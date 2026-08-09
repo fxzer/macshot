@@ -2,16 +2,10 @@ import AppKit
 
 final class OverlayCaptureSessionState {
     var suppressBackdropUntilCapture = false
-    var isRecording = false
-    var autoEnterRecordingMode = false
     var autoOCRMode = false
     var autoQuickSaveMode = false
     var autoScrollCaptureMode = false
     var autoConfirmMode = false
-    var sessionRecordingFPS: Int?
-    var sessionRecordingOnStop: String?
-    var sessionRecordingDelay: Int?
-    var sessionRecordingControlsMode: String?
     var isScrollCapturing = false
     var scrollCaptureStripCount = 0
     var scrollCapturePixelSize: CGSize = .zero
@@ -37,41 +31,6 @@ extension OverlayView {
     var suppressBackdropUntilCapture: Bool {
         get { captureSessionState.suppressBackdropUntilCapture }
         set { captureSessionState.suppressBackdropUntilCapture = newValue }
-    }
-
-    var isRecording: Bool {
-        get { captureSessionState.isRecording }
-        set {
-            let oldValue = captureSessionState.isRecording
-            captureSessionState.isRecording = newValue
-            guard newValue != oldValue else { return }
-            if newValue {
-                commitTextFieldIfNeeded()
-                stampPreviewPoint = nil
-                loupeCursorPoint = .zero
-                drawingCursorPoint = .zero
-                autoMeasurePreview = nil
-                hoveredAnnotation = nil
-                selectedAnnotation = nil
-                needsDisplay = true
-                if UserDefaults.standard.bool(forKey: "recordKeystroke")
-                    && !KeystrokeOverlay.hasInputMonitoringPermission
-                {
-                    UserDefaults.standard.set(false, forKey: "recordKeystroke")
-                    rebuildToolbarLayout()
-                    overlayDelegate?.overlayViewDidRequestInputMonitoringPermission()
-                }
-                preCheckRecordingPermissions()
-            } else {
-                stopMicLevelMonitor()
-                dismissWebcamSetupPreview()
-            }
-        }
-    }
-
-    var autoEnterRecordingMode: Bool {
-        get { captureSessionState.autoEnterRecordingMode }
-        set { captureSessionState.autoEnterRecordingMode = newValue }
     }
 
     var autoOCRMode: Bool {
@@ -101,26 +60,6 @@ extension OverlayView {
         autoOCRMode = false
         overlayDelegate?.overlayViewDidRequestOCR()
         return true
-    }
-
-    var sessionRecordingFPS: Int? {
-        get { captureSessionState.sessionRecordingFPS }
-        set { captureSessionState.sessionRecordingFPS = newValue }
-    }
-
-    var sessionRecordingOnStop: String? {
-        get { captureSessionState.sessionRecordingOnStop }
-        set { captureSessionState.sessionRecordingOnStop = newValue }
-    }
-
-    var sessionRecordingDelay: Int? {
-        get { captureSessionState.sessionRecordingDelay }
-        set { captureSessionState.sessionRecordingDelay = newValue }
-    }
-
-    var sessionRecordingControlsMode: String? {
-        get { captureSessionState.sessionRecordingControlsMode }
-        set { captureSessionState.sessionRecordingControlsMode = newValue }
     }
 
     var isScrollCapturing: Bool {

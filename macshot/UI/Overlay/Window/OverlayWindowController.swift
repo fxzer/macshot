@@ -28,15 +28,11 @@ protocol OverlayWindowControllerDelegate: AnyObject {
     func overlayDidStartOCR(_ controller: OverlayWindowController)
     func overlayDidFinishOCR(_ controller: OverlayWindowController?, text: String)
     func overlayDidRequestUpload(_ controller: OverlayWindowController, image: NSImage)
-    func overlayDidRequestStartRecording(
-        _ controller: OverlayWindowController, rect: NSRect, screen: NSScreen)
-    func overlayDidRequestStopRecording(_ controller: OverlayWindowController)
     func overlayDidRequestScrollCapture(
         _ controller: OverlayWindowController, rect: NSRect, screen: NSScreen)
     func overlayDidRequestStopScrollCapture(_ controller: OverlayWindowController)
     func overlayDidRequestToggleAutoScroll(_ controller: OverlayWindowController)
     func overlayDidRequestAccessibilityPermission(_ controller: OverlayWindowController)
-    func overlayDidRequestInputMonitoringPermission(_ controller: OverlayWindowController)
     func overlayDidBeginSelection(_ controller: OverlayWindowController)
     func overlayDidChangeSelection(_ controller: OverlayWindowController, globalRect: NSRect)
     func overlayDidRemoteResizeSelection(_ controller: OverlayWindowController, globalRect: NSRect)
@@ -76,12 +72,6 @@ class OverlayWindowController {
     var screenshotImage: NSImage? { overlayView?.screenshotImage }
     var selectionRect: NSRect { overlayView?.selectionRect ?? .zero }
     var remoteSelectionRect: NSRect { overlayView?.remoteSelectionRect ?? .zero }
-
-    // Session recording overrides (from toolbar popover, nil = use UserDefaults default)
-    var sessionRecordingFPS: Int? { overlayView?.sessionRecordingFPS }
-    var sessionRecordingOnStop: String? { overlayView?.sessionRecordingOnStop }
-    var sessionRecordingDelay: Int? { overlayView?.sessionRecordingDelay }
-    var sessionRecordingControlsMode: String? { overlayView?.sessionRecordingControlsMode }
 
     deinit {
         let message = "[macshot-life][OWC] deinit screen=\(screen.localizedName) hasWindow=\(overlayWindow != nil) hasOverlayView=\(overlayView != nil) hasAsset=\(captureAsset != nil) mem=\(MemoryDiagnostics.currentSummary())"
@@ -324,11 +314,6 @@ class OverlayWindowController {
         overlayView?.applyFullScreenSelection()
     }
 
-    /// Set flag so overlay enters recording mode after user makes a selection.
-    func setAutoRecordMode() {
-        overlayView?.autoEnterRecordingMode = true
-    }
-
     /// Set flag so overlay triggers OCR immediately after user makes a selection.
     func setAutoOCRMode() {
         overlayView?.autoOCRMode = true
@@ -347,19 +332,6 @@ class OverlayWindowController {
     /// Set flag so overlay auto-confirms immediately after selection (no toolbars, no save).
     func setAutoConfirmMode() {
         overlayView?.autoConfirmMode = true
-    }
-
-    /// Enter recording mode — shows recording toolbar buttons in the normal toolbar.
-    func enterRecordingMode() {
-        overlayView?.isRecording = true
-        overlayView?.rebuildToolbarLayout()
-        overlayView?.needsDisplay = true
-    }
-
-    /// Auto-start recording immediately (used when timer + fullscreen record).
-    func autoStartRecording() {
-        overlayView?.overlayDelegate?.overlayViewDidRequestStartRecording(
-            rect: overlayView?.selectionRect ?? .zero)
     }
 
     func setScrollCaptureState(isActive: Bool, stripCount: Int = 0, pixelSize: CGSize = .zero,

@@ -18,13 +18,6 @@ enum DefaultsKey {
     // Upload
     static let uploadProvider = "uploadProvider"
 
-    // Webcam (recording)
-    static let recordWebcam = "recordWebcam"
-    static let webcamPosition = "webcamPosition"
-    static let webcamSize = "webcamSize"
-    static let webcamShape = "webcamShape"
-    static let selectedCameraDeviceUID = "selectedCameraDeviceUID"
-
     // Selection memory
     static let lastSelectionRect = "lastSelectionRect"
     static let lastSelectionScreenFrame = "lastSelectionScreenFrame"

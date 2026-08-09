@@ -9,24 +9,6 @@ enum OverlayPopoverPalette {
     static let labelFont = NSFont.systemFont(ofSize: 11, weight: .medium)
 }
 
-let recordingFPSOptions = [15, 24, 30, 60, 120]
-
-func normalizedRecordingFPS(_ fps: Int?, fallback: Int = 30) -> Int {
-    guard let fps, recordingFPSOptions.contains(fps) else { return fallback }
-    return fps
-}
-
-func recordingFPSTitle(_ fps: Int) -> String {
-    switch fps {
-    case 15: return L("15 fps")
-    case 24: return L("24 fps")
-    case 30: return L("30 fps")
-    case 60: return L("60 fps")
-    case 120: return L("120 fps")
-    default: return "\(fps) fps"
-    }
-}
-
 typealias OverlayRedactionAction = (
     _ screenshot: NSImage,
     _ selectionRect: NSRect,
@@ -160,19 +142,6 @@ extension OverlayView {
             color: currentColor,
             sourceImage: currentTool == .pixelate ? screenshotImage : nil
         )
-    }
-
-    var effectiveRecordingFPS: Int {
-        if let sessionRecordingFPS { return sessionRecordingFPS }
-        return normalizedRecordingFPS(UserDefaults.standard.integer(forKey: "recordingFPS"))
-    }
-
-    var effectiveRecordingDelay: Int {
-        sessionRecordingDelay ?? UserDefaults.standard.integer(forKey: DefaultsKey.captureDelaySeconds)
-    }
-
-    var effectiveRecordingControlsMode: RecordingControlsMode {
-        RecordingControlsMode.resolved(raw: sessionRecordingControlsMode) ?? .current
     }
 
     func presentOverlayPopover(

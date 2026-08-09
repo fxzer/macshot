@@ -51,7 +51,7 @@ extension OverlayView {
             drawEditorBackground(context: context)
         } else if isScrollCapturing {
             context.cgContext.clear(bounds)
-        } else if !isRecording {
+        } else {
             if suppressBackdropUntilCapture && screenshotImage == nil {
                 context.cgContext.clear(bounds)
                 return
@@ -98,7 +98,7 @@ extension OverlayView {
             context.saveGraphicsState()
             NSBezierPath(rect: selectionRect).setClip()
             applyZoomTransform(to: context)
-            if !isScrollCapturing, !isRecording, let image = screenshotImage {
+            if !isScrollCapturing, let image = screenshotImage {
                 image.draw(in: bounds, from: .zero, operation: .copy, fraction: 1.0)
             }
             context.restoreGraphicsState()
@@ -185,12 +185,10 @@ extension OverlayView {
             drawLoupePreview(at: loupeCursorPoint)
         }
 
-        if !isRecording {
-            for selected in selectedAnnotations {
-                drawAnnotationControls(for: selected, fullControls: selectedAnnotations.count == 1)
-            }
-            drawMultiSelectDeleteButton()
+        for selected in selectedAnnotations {
+            drawAnnotationControls(for: selected, fullControls: selectedAnnotations.count == 1)
         }
+        drawMultiSelectDeleteButton()
 
         if shouldDrawActiveDrawingCursorPreview {
             drawDrawingCursorPreview(at: drawingCursorPoint)
@@ -218,9 +216,8 @@ extension OverlayView {
         }
 
         let showBeautifyPreview = beautifyEnabled && state == .selected && !isScrollCapturing
-            && !isRecording
         let showEffectsPreview = effectsActive && state == .selected && !isScrollCapturing
-            && !isRecording && !beautifyEnabled
+            && !beautifyEnabled
 
         if showBeautifyPreview {
             withCanvasGraphicsState(in: context) {
@@ -234,7 +231,7 @@ extension OverlayView {
                 }
             }
 
-            if !isRecording && !selectedAnnotations.isEmpty {
+            if !selectedAnnotations.isEmpty {
                 withCanvasGraphicsState(in: context) {
                     for selected in selectedAnnotations {
                         drawAnnotationControls(

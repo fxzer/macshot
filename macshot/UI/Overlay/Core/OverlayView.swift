@@ -333,8 +333,6 @@ class OverlayView: NSView {
 
         resetHintState()
 
-        resetPermissionState()
-
         invalidateEditorZoomTimers()
 
         // Remove aspect ratio observers
@@ -392,8 +390,8 @@ class OverlayView: NSView {
     /// Override to control selection border drawing. Base returns true when not in editor mode.
     func shouldDrawSelectionBorder() -> Bool { !isEditorMode }
 
-    /// Override to control size label drawing. Base returns true when not recording/scrolling/editing.
-    func shouldDrawSizeLabel() -> Bool { !isRecording && !isScrollCapturing && !isEditorMode }
+    /// Override to control size label drawing. Base returns true when not scrolling/editing.
+    func shouldDrawSizeLabel() -> Bool { !isScrollCapturing && !isEditorMode }
 
     /// Override to adjust a view-space point for editor canvas offset. Base returns point unchanged.
     func adjustPointForEditor(_ p: NSPoint) -> NSPoint { p }
@@ -407,8 +405,8 @@ class OverlayView: NSView {
     /// Override to control whether selection resize handles are active. Base returns true when not in editor mode or scroll capturing.
     func shouldAllowSelectionResize() -> Bool { !isEditorMode && !isScrollCapturing }
 
-    /// Override to control whether a new selection can be started. Base returns true when not recording and not in editor mode.
-    func shouldAllowNewSelection() -> Bool { !isRecording && !isEditorMode }
+    /// Override to control whether a new selection can be started. Base returns true when not in editor mode.
+    func shouldAllowNewSelection() -> Bool { !isEditorMode }
 
     /// Override to allow panning at 1x zoom. Base returns false.
     func canPanAtOneX() -> Bool { false }

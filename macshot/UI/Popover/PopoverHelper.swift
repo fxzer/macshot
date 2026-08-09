@@ -12,7 +12,6 @@ enum PopoverHelper {
     enum PopoverType {
         case beautify
         case effects
-        case recordingSettings
         case uploadConfirm
         case redactType
         case translate

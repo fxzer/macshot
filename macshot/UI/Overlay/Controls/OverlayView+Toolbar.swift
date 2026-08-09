@@ -187,89 +187,9 @@ extension OverlayView {
         case .translate:
             showTranslatePopover(
                 anchorRect: anchorView.convert(anchorView.bounds, to: self), anchorView: anchorView)
-        case .micAudio:
-            showMicDeviceMenu(anchorView: anchorView)
-        case .showKeystrokes:
-            showKeystrokeModeMenu(anchorView: anchorView)
-        case .webcam:
-            showWebcamDeviceMenu(anchorView: anchorView)
         default:
             break
         }
-    }
-
-    private func showKeystrokeModeMenu(anchorView: NSView) {
-        let menu = NSMenu()
-        let allKeys = UserDefaults.standard.bool(forKey: "keystrokeShowAll")
-
-        let shortcutsItem = NSMenuItem(
-            title: L("Shortcuts Only"), action: #selector(keystrokeModeShortcuts),
-            keyEquivalent: "")
-        shortcutsItem.target = self
-        if !allKeys { shortcutsItem.state = .on }
-        menu.addItem(shortcutsItem)
-
-        let allItem = NSMenuItem(
-            title: L("All Keystrokes"), action: #selector(keystrokeModeAll), keyEquivalent: "")
-        allItem.target = self
-        if allKeys { allItem.state = .on }
-        menu.addItem(allItem)
-
-        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: anchorView.bounds.height), in: anchorView)
-    }
-
-    @objc private func keystrokeModeShortcuts() {
-        UserDefaults.standard.set(false, forKey: "keystrokeShowAll")
-    }
-
-    @objc private func keystrokeModeAll() {
-        UserDefaults.standard.set(true, forKey: "keystrokeShowAll")
-    }
-
-    private func showMicDeviceMenu(anchorView: NSView) {
-        let menu = NSMenu()
-        let savedUID = UserDefaults.standard.string(forKey: "selectedMicDeviceUID")
-        let micOn = UserDefaults.standard.bool(forKey: "recordMicAudio")
-
-        let noneItem = NSMenuItem(title: L("None"), action: #selector(micMenuNone), keyEquivalent: "")
-        noneItem.target = self
-        if !micOn { noneItem.state = .on }
-        menu.addItem(noneItem)
-        menu.addItem(NSMenuItem.separator())
-
-        let devices = AVCaptureDevice.DiscoverySession(
-            deviceTypes: [.builtInMicrophone, .externalUnknown],
-            mediaType: .audio, position: .unspecified).devices
-            .filter { !$0.uniqueID.contains("CADefaultDeviceAggregate") }
-        for device in devices {
-            let item = NSMenuItem(
-                title: device.localizedName, action: #selector(micMenuSelectDevice(_:)),
-                keyEquivalent: "")
-            item.target = self
-            item.representedObject = device.uniqueID
-            if micOn
-                && (savedUID == device.uniqueID
-                    || (savedUID == nil && device == AVCaptureDevice.default(for: .audio)))
-            {
-                item.state = .on
-            }
-            menu.addItem(item)
-        }
-        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: anchorView.bounds.height), in: anchorView)
-    }
-
-    @objc private func micMenuNone() {
-        UserDefaults.standard.set(false, forKey: "recordMicAudio")
-        stopMicLevelMonitor()
-        requestToolbarRebuild(reason: "micMenu")
-    }
-
-    @objc private func micMenuSelectDevice(_ sender: NSMenuItem) {
-        guard let uid = sender.representedObject as? String else { return }
-        UserDefaults.standard.set(uid, forKey: "selectedMicDeviceUID")
-        UserDefaults.standard.set(true, forKey: "recordMicAudio")
-        requestToolbarRebuild(reason: "micMenu")
-        startMicLevelMonitor()
     }
 
     /// Update the color swatch on the main toolbar's color button without a full rebuild.
@@ -470,33 +390,6 @@ extension OverlayView {
                 performTranslate(targetLang: TranslationService.targetLanguage)
             }
             needsDisplay = true
-        case .record:
-            overlayDelegate?.overlayViewDidRequestEnterRecordingMode()
-        case .startRecord:
-            overlayDelegate?.overlayViewDidRequestStartRecording(rect: selectionRect)
-        case .stopRecord:
-            isRecording = false
-            overlayDelegate?.overlayViewDidCancel()
-        case .mouseHighlight:
-            let current = UserDefaults.standard.bool(forKey: "recordMouseHighlight")
-            let next = !current
-            UserDefaults.standard.set(next, forKey: "recordMouseHighlight")
-            updateToolbarButton(.mouseHighlight, isOn: next)
-        case .showKeystrokes:
-            toggleKeystrokeOverlay()
-        case .systemAudio:
-            let current = UserDefaults.standard.bool(forKey: "recordSystemAudio")
-            let next = !current
-            UserDefaults.standard.set(next, forKey: "recordSystemAudio")
-            updateToolbarButton(
-                .systemAudio,
-                isOn: next,
-                sfSymbol: next ? "speaker.wave.2.fill" : "speaker.slash"
-            )
-        case .micAudio:
-            toggleMicAudio()
-        case .webcam:
-            toggleWebcamOverlay()
         case .cancel:
             overlayDelegate?.overlayViewDidCancel()
         case .detach:
@@ -505,12 +398,6 @@ extension OverlayView {
             overlayDelegate?.overlayViewDidRequestScrollCapture(rect: selectionRect)
         case .addCapture:
             overlayDelegate?.overlayViewDidRequestAddCapture()
-        case .recordSettings:
-            let gearBtn = rightStripView?.buttonViews.first {
-                if case .recordSettings = $0.action { return true }
-                return false
-            }
-            showRecordingSettingsPopover(anchorView: gearBtn)
         }
     }
 
@@ -534,7 +421,7 @@ extension OverlayView {
         bottomButtons = ToolbarLayout.bottomButtons(
             selectedTool: currentTool, selectedColor: currentColor,
             beautifyEnabled: beautifyEnabled, beautifyStyleIndex: beautifyStyleIndex,
-            hasAnnotations: movableAnnotations, isRecording: isRecording,
+            hasAnnotations: movableAnnotations,
             effectsActive: effectsActive,
             isEditorMode: isEditorMode
         )
@@ -543,7 +430,6 @@ extension OverlayView {
             beautifyEnabled: beautifyEnabled, beautifyStyleIndex: beautifyStyleIndex,
             hasAnnotations: movableAnnotations, effectsActive: effectsActive,
             translateEnabled: translateEnabled,
-            isRecording: isRecording,
             isEditorMode: isEditorMode)
         CaptureDiagnostics.log(
             "[macshot-perf][toolbar] rebuild STEP id=\(rebuildID) buttonModels elapsed=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - buttonModelT0) * 1000))ms bottomCount=\(bottomButtons.count) rightCount=\(rightButtons.count)"
@@ -766,7 +652,7 @@ extension OverlayView {
                 width: fromRect.width + (toRect.width - fromRect.width) * eased,
                 height: fromRect.height + (toRect.height - fromRect.height) * eased
             )
-        } else if beautifyEnabled && !isScrollCapturing && !isRecording {
+        } else if beautifyEnabled && !isScrollCapturing {
             anchorRect = expandedAnchor
         } else {
             anchorRect = selectionRect

@@ -44,9 +44,4 @@ enum UploadProvider: String {
             return nil
         }
     }
-
-    /// Whether this provider can upload video. imgbb is image-only.
-    var supportsVideo: Bool {
-        self != .imgbb
-    }
 }

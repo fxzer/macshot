@@ -12,15 +12,6 @@ enum SystemPermissionPrompter {
         )
     }
 
-    static func requestInputMonitoringPermission(message: String) {
-        KeystrokeOverlay.requestInputMonitoringPermission()
-        showAlert(
-            title: L("Input Monitoring Required"),
-            message: message,
-            settingsURLString: "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent"
-        )
-    }
-
     private static func showAlert(title: String, message: String, settingsURLString: String) {
         let alert = NSAlert()
         alert.messageText = title

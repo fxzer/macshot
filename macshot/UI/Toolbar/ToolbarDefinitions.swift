@@ -29,18 +29,9 @@ enum ToolbarButtonAction: Equatable {
     case invertColors
     case loupe
     case translate
-    case record  // enters recording mode (shows recording toolbar)
-    case startRecord  // actually starts recording
-    case stopRecord
-    case mouseHighlight
-    case systemAudio
-    case micAudio
     case detach
     case scrollCapture
     case addCapture  // editor only: capture a new region and append to the canvas
-    case showKeystrokes
-    case webcam
-    case recordSettings  // recording mode: open format/FPS/when-done popover
     case effects  // image effects (CIFilter adjustments + presets)
 }
 
@@ -140,7 +131,7 @@ class ToolbarLayout {
         UserDefaults.standard.removeObject(forKey: "toolbarBgColor")
     }
 
-    static func topButtons(isRecording: Bool = false, isEditorMode: Bool = false) -> [ToolbarButton] {
+    static func topButtons(isEditorMode: Bool = false) -> [ToolbarButton] {
         // 截图界面移除顶部工具栏，编辑器保持顶部工具栏由 EditorTopBarView 处理
         return []
     }
@@ -149,12 +140,9 @@ class ToolbarLayout {
     // Bottom toolbar items (drawing tools + colors + undo/redo + processing actions)
     static func bottomButtons(
         selectedTool: AnnotationTool, selectedColor: NSColor, beautifyEnabled: Bool = false,
-        beautifyStyleIndex: Int = 0, hasAnnotations: Bool = false, isRecording: Bool = false,
+        beautifyStyleIndex: Int = 0, hasAnnotations: Bool = false,
         effectsActive: Bool = false, isEditorMode: Bool = false
     ) -> [ToolbarButton] {
-        // Hide the bottom bar entirely while recording
-        if isRecording { return [] }
-
         var buttons: [ToolbarButton] = []
 
         // Get enabled tools from UserDefaults — migrate: only add tools that are brand-new.
@@ -322,83 +310,10 @@ class ToolbarLayout {
     static func rightButtons(
         selectedTool: AnnotationTool = .pencil,
         beautifyEnabled: Bool = false, beautifyStyleIndex: Int = 0, hasAnnotations: Bool = false,
-        effectsActive: Bool = false, translateEnabled: Bool = false, isRecording: Bool = false,
+        effectsActive: Bool = false, translateEnabled: Bool = false,
         isEditorMode: Bool = false
     ) -> [ToolbarButton] {
         var buttons: [ToolbarButton] = []
-
-        // Recording setup mode — show start button + toggles, then return early
-        if isRecording {
-            var startBtn = ToolbarButton(
-                action: .startRecord, sfSymbol: "record.circle", label: nil,
-                tooltip: L("Start Recording"))
-            startBtn.tintColor = .systemRed
-            buttons.append(startBtn)
-
-            // Stop/cancel button to exit recording mode without starting
-            buttons.append(
-                ToolbarButton(action: .stopRecord, sfSymbol: "xmark", label: nil, tooltip: L("Cancel Recording")))
-
-            let mouseHighlightOn = UserDefaults.standard.bool(forKey: "recordMouseHighlight")
-            var mouseBtn = ToolbarButton(
-                action: .mouseHighlight, sfSymbol: "cursorarrow.click.2", label: nil,
-                tooltip: L("Highlight Mouse Clicks"))
-            mouseBtn.isSelected = mouseHighlightOn
-            mouseBtn.sectionBreakBefore = true
-            buttons.append(mouseBtn)
-
-            let keystrokesOn = UserDefaults.standard.bool(forKey: "recordKeystroke")
-            var keystrokeBtn = ToolbarButton(
-                action: .showKeystrokes, sfSymbol: "keyboard", label: nil,
-                tooltip: L("Show Keystrokes"))
-            keystrokeBtn.isSelected = keystrokesOn
-            keystrokeBtn.hasContextMenu = true
-            buttons.append(keystrokeBtn)
-
-            let audioOn = UserDefaults.standard.bool(forKey: "recordSystemAudio")
-            var audioBtn = ToolbarButton(
-                action: .systemAudio, sfSymbol: audioOn ? "speaker.wave.2.fill" : "speaker.slash",
-                label: nil, tooltip: L("Record System Audio"))
-            audioBtn.isSelected = audioOn
-            buttons.append(audioBtn)
-
-            let micOn = UserDefaults.standard.bool(forKey: "recordMicAudio")
-            var micBtn = ToolbarButton(
-                action: .micAudio, sfSymbol: micOn ? "mic.fill" : "mic.slash", label: nil,
-                tooltip: L("Record Microphone"))
-            micBtn.isSelected = micOn
-            micBtn.hasContextMenu = true
-            buttons.append(micBtn)
-
-            let webcamOn = UserDefaults.standard.bool(forKey: DefaultsKey.recordWebcam)
-            let webcamSymbol: String = {
-                if #available(macOS 14.0, *) {
-                    return webcamOn ? "web.camera.fill" : "web.camera"
-                }
-                return webcamOn ? "camera.fill" : "camera"
-            }()
-            var webcamBtn = ToolbarButton(
-                action: .webcam, sfSymbol: webcamSymbol, label: nil,
-                tooltip: L("Webcam Overlay"))
-            webcamBtn.isSelected = webcamOn
-            webcamBtn.hasContextMenu = true
-            buttons.append(webcamBtn)
-
-            // Recording settings gear
-            var settingsBtn = ToolbarButton(
-                action: .recordSettings, sfSymbol: "gearshape", label: nil,
-                tooltip: L("Recording Settings"))
-            settingsBtn.sectionBreakBefore = true
-            buttons.append(settingsBtn)
-
-            // Allow moving the selection before starting
-            buttons.append(
-                ToolbarButton(
-                    action: .moveSelection, sfSymbol: "arrow.up.and.down.and.arrow.left.and.right",
-                    label: nil, tooltip: L("Move Selection")))
-
-            return buttons
-        }
 
         let allKnownActionTags: [Int] = [
             1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008, 1009, 1010, 1011, 1012, 1013, 1014, 1015, 1016, 1017, 1018,
@@ -537,14 +452,6 @@ class ToolbarLayout {
                 tooltip: L("Scroll Capture"))
             beginSection(&hasPlacedAdvancedSection, button: &scrollBtn)
             buttons.append(scrollBtn)
-        }
-
-        if !isEditorMode && actionEnabled(1009) {
-            var recordBtn = ToolbarButton(
-                action: .record, sfSymbol: "video.fill", label: nil, tooltip: L("Record"))
-            recordBtn.tintColor = ToolbarLayout.iconColor
-            beginSection(&hasPlacedAdvancedSection, button: &recordBtn)
-            buttons.append(recordBtn)
         }
 
         return buttons

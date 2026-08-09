@@ -29,7 +29,6 @@ macshot/
 │
 ├── Capture/
 │   ├── ScreenCaptureManager.swift      # Multi-screen capture via ScreenCaptureKit (async/await)
-│   ├── RecordingEngine.swift           # Screen recording (MP4 via AVAssetWriter, GIF via GIFEncoder)
 │   └── ScrollCaptureEngine.swift       # Scroll capture with SAD-based stitching
 │
 ├── Store/
@@ -41,7 +40,6 @@ macshot/
 ├── Processors/
 │   ├── BackgroundRemovalProcessor.swift # Foreground subject extraction
 │   ├── BeautifyRenderer.swift          # Gradient frame / background beautification
-│   ├── GIFEncoder.swift                # Animated GIF from video frames
 │   ├── ImageEffects.swift              # Core Image-based image effects
 │   └── ImageEncoder.swift              # PNG/JPEG/HEIC/WebP encoding, clipboard copy, scaling
 │
@@ -76,8 +74,7 @@ macshot/
 │   │   ├── EditorView.swift            # OverlayView subclass: NSScrollView mode, no selection chrome
 │   │   ├── DetachedEditorWindowController.swift  # Standalone editor window (resizable, titled)
 │   │   ├── EditorTopBarView.swift      # NSView with crop, flip, zoom buttons
-│   │   ├── CenteringClipView.swift     # NSClipView subclass that centers document when smaller than clip
-│   │   └── VideoEditorWindowController.swift  # Standalone video editor (trim, export, upload)
+│   │   └── CenteringClipView.swift     # NSClipView subclass that centers document when smaller than clip
 │   │
 │   ├── Toolbar/
 │   │   ├── ToolbarDefinitions.swift    # ToolbarButtonAction enum, ToolbarButton struct, ToolbarLayout constants
@@ -112,12 +109,10 @@ macshot/
 │   └── Windows/
 │       ├── PinWindowController.swift          # Floating always-on-top pinned screenshot
 │       ├── FloatingThumbnailController.swift  # Auto-dismiss thumbnail after capture
-│       ├── PreferencesWindowController.swift  # Settings: General, Tools, Recording tabs
+│       ├── SettingsWindowController.swift     # Settings: General, Capture, Behavior, Shortcuts, Tools, Uploads, About tabs
 │       ├── OCRResultController.swift          # Text recognition results window with translation
 │       ├── HistoryOverlayController.swift     # Recent captures visual overlay panel
 │       ├── UploadToastController.swift        # Upload progress/success toast
-│       ├── RecordingControlView.swift         # Click-through recording control overlay
-│       ├── RecordingToastView.swift           # Toast notification after recording completes
 │       ├── CountdownView.swift                # Delay capture countdown display
 │       └── PermissionOnboardingController.swift  # First-run permission guide
 │
@@ -132,8 +127,8 @@ macshot/
 - NSStatusItem in menu bar with "Capture Screen", "Recent Captures", "Preferences...", "Quit"
 - Registers global hotkey via HotkeyManager
 - On trigger: ScreenCaptureManager captures all screens → creates one OverlayWindowController per screen
-- Implements `OverlayWindowControllerDelegate` — handles confirm, cancel, pin, OCR, recording, scroll capture, upload, delay
-- Manages: `overlayControllers[]`, `thumbnailControllers[]`, `pinControllers[]`, `ocrController`, `recordingEngine`, `scrollCaptureController`
+- Implements `OverlayWindowControllerDelegate` — handles confirm, cancel, pin, OCR, scroll capture, upload, delay
+- Manages: `overlayControllers[]`, `thumbnailControllers[]`, `pinControllers[]`, `ocrController`, `scrollCaptureController`
 
 #### OverlayView — The Main Interaction Surface
 The core canvas view. Handles selection state machine, annotation rendering, input routing, and toolbar positioning. Tool-specific creation/update/finish logic is delegated to `AnnotationToolHandler` implementations in `UI/Tools/`.
@@ -163,7 +158,7 @@ The core canvas view. Handles selection state machine, annotation rendering, inp
 4. Annotations rendered with cached composite when not actively drawing
 5. Toolbars positioned (real NSView subviews, not drawn inline)
 6. Zoom label (fades out)
-7. Recording/scroll capture HUD overlays
+7. Scroll capture HUD overlays
 
 #### Tool Handler Architecture
 Each annotation tool's creation logic (start/update/finish) is extracted into an `AnnotationToolHandler` implementation. OverlayView dispatches through `toolHandlers[currentTool]` in `startAnnotation`, `updateAnnotation`, `finishAnnotation`.
@@ -211,7 +206,7 @@ TextEditingCanvas                — Coordinate transforms + annotation storage 
 ### Coordinate Systems
 - **Overlay:** View coordinates = screen frame, bottom-left origin (AppKit)
 - **Editor:** EditorView inside NSScrollView — `isInsideScrollView` makes all transforms identity. NSScrollView handles zoom/pan/centering.
-- **ScreenCaptureKit:** Top-left origin, needs conversion from AppKit bottom-left for recording crop rects
+- **ScreenCaptureKit:** Top-left origin, needs conversion from AppKit bottom-left for scroll capture crop rects
 - **Annotation coords:** Always relative to the overlay/editor view — shifted when transferring between overlay and editor
 
 ### Persistence (UserDefaults)
@@ -221,7 +216,6 @@ TextEditingCanvas                — Coordinate transforms + annotation storage 
 - Selection: `lastSelectionRect`, `lastSelectionScreenFrame`, `rememberLastSelection`
 - Thumbnails: `showFloatingThumbnail`, `thumbnailStacking`, `thumbnailAutoDismissSeconds`
 - Image: `imageFormat` (png/jpeg/heic/webp), `imageQuality` (0.0–1.0), `downscaleRetina` (bool), `embedColorProfile` (bool)
-- Recording: `recordingFormat` (mp4/gif), `recordingFPS`, `recordingOnStop`
 - History: `historySize`
 - Tools: `enabledTools`, `knownToolRawValues`
 - Features: `imgbbAPIKey`, `beautifyEnabled`, `beautifyStyleIndex`, `beautifyMode`, `beautifyPadding`, `beautifyCornerRadius`, `beautifyShadowRadius`, `pencilSmoothEnabled`, `loupeSize`, `translateTargetLang`
@@ -230,11 +224,9 @@ TextEditingCanvas                — Coordinate transforms + annotation storage 
 
 ### Threading Model
 - **Capture:** Async/await TaskGroup for concurrent multi-display capture
-- **Recording:** SCStream output on background thread, main actor for state updates
 - **Scroll capture:** Background throttle/settlement timers, serialized captureAndStitch
 - **OCR:** VNImageRequestHandler on background thread, results to main
 - **Upload:** URLSession background task
-- **GIF:** Frame encoding on background thread
 - **UI:** All drawing, state changes, and user interaction on main thread
 
 ## Features
@@ -259,8 +251,6 @@ Copy to clipboard, Save to file (PNG/JPEG/HEIC/WebP), Pin (floating always-on-to
 
 ### Advanced
 - **Editor Window:** Standalone resizable window for post-capture editing, full annotation tools, zoom 0.1x–8x via NSScrollView
-- **Video Editor:** Standalone video editor window for trimming, exporting, and uploading recorded videos
-- **Screen Recording:** MP4/GIF, annotation mode during recording, configurable FPS (up to 120fps), mouse click highlighting, system audio capture
 - **Scroll Capture:** Automatic scroll detection + stitching via SAD matching
 - **Auto-Redact:** Right-click filled rect → regex patterns (emails, phones, SSN, credit cards, IPs, AWS keys, bearer tokens)
 - **Barcode/QR Detection:** Live Vision detection with decoded payload, open/copy actions
@@ -286,12 +276,12 @@ Copy to clipboard, Save to file (PNG/JPEG/HEIC/WebP), Pin (floating always-on-to
 - UserDefaults for all preferences (no Core Data, no plist files)
 - Annotation is a class (reference type) for mutation during drag/resize — use `clone()` for safe copies. **When adding new properties to Annotation, update three places:** the property declaration, `clone()`, and `CodableAnnotation` in `AnnotationCodable.swift` (`toCodable` + `fromCodable`). The compiler won't catch missing fields — annotations will silently lose data on clone or history reload.
 - `autoreleasepool` for overlay teardown to prevent memory spikes
-- Extension files (`OverlayView+Feature.swift`) for self-contained feature code that accesses OverlayView state but is logically separate (recording overlays, scroll capture HUD, window snapping, popovers)
+- Extension files (`OverlayView+Feature.swift`) for self-contained feature code that accesses OverlayView state but is logically separate (scroll capture HUD, window snapping, popovers)
 - **Light/dark mode:** The toolbar and popovers always use a dark background regardless of system appearance. `ToolOptionsRowView` and `PopoverHelper` force `NSAppearance(named: .darkAqua)` so system controls render with light text. Never use system-adaptive colors (`.labelColor`, `.secondaryLabelColor`) for text in toolbar/popover contexts without verifying contrast against the dark background. Always test new toolbar UI elements in both light and dark system appearance.
 - **Focus management:** macshot is an `LSUIElement` (menu bar app) that temporarily shows windows. All focus return is handled by `AppDelegate.returnFocusIfNeeded()` — one centralized method. Rules:
   - `previousApp` is captured in `startCapture()` before the overlay steals focus. Cleared after single use.
   - `returnFocusIfNeeded()` checks for visible titled windows, switches to `.accessory` policy, activates `previousApp`. Falls back to `NSApp.hide(nil)` when `previousApp` is nil (editor/OCR/preferences close).
-  - `dismissOverlays(refocusPreviousApp: true)` (default) calls `returnFocusIfNeeded()`. Pass `false` only when macshot creates floating panels immediately after (pin, upload toast, recording HUD).
+  - `dismissOverlays(refocusPreviousApp: true)` (default) calls `returnFocusIfNeeded()`. Pass `false` only when macshot creates floating panels immediately after (pin, upload toast).
   - **Critical pattern for pin/upload/OCR-window paths:** `returnFocusIfNeeded()` uses `NSApp.hide(nil)` as fallback, which hides ALL windows — including floating panels with `hidesOnDeactivate = false`. So any overlay dismiss that creates a floating panel afterward MUST: (1) save `previousApp` locally, (2) `dismissOverlays(refocusPreviousApp: false)`, (3) create the panel, (4) manually `app.activate(options: .activateIgnoringOtherApps)` on the saved app. See `overlayDidRequestPin` and `overlayDidRequestUpload` for the pattern.
   - Every window close (editor, video editor, OCR, preferences) calls `returnFocusIfNeeded()` — never inline `setActivationPolicy`/`activate` directly.
   - All floating panels (thumbnails, pins, upload toasts, HUD, overlays) must set `hidesOnDeactivate = false` so they survive app deactivation. Pin windows must use `orderFrontRegardless()` instead of `makeKeyAndOrderFront` to avoid activating macshot.

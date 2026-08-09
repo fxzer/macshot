@@ -836,11 +836,6 @@ extension OverlayView {
                 updateCursorForPoint(point)
             }
             scheduleBarcodeDetection()
-            // Auto-enter recording mode if triggered from "Record Screen"
-            if autoEnterRecordingMode {
-                autoEnterRecordingMode = false
-                overlayDelegate?.overlayViewDidRequestEnterRecordingMode()
-            }
             // Auto-trigger OCR if triggered from "Capture OCR"
             if autoOCRMode {
                 triggerPendingAutoOCRIfReady()

@@ -10,16 +10,11 @@ final class StatusBarController: NSObject {
         let quickCapture: () -> Void
         let scrollCapture: () -> Void
         let setDelaySeconds: (Int) -> Void
-        let recordArea: () -> Void
-        let recordScreen: () -> Void
         let showHistoryOverlay: () -> Void
         let openImage: () -> Void
         let openFromClipboard: () -> Void
         let openSettings: () -> Void
         let quit: () -> Void
-        let stopRecording: () -> Void
-        let pauseRecording: () -> Void
-        let resumeRecording: () -> Void
     }
 
     private let historyMenuController: HistoryMenuController
@@ -27,7 +22,6 @@ final class StatusBarController: NSObject {
     private let statusItem: NSStatusItem
 
     private var statusBarMenu: NSMenu?
-    private var recordingStatusItemView: RecordingStatusItemView?
     private var pendingMenuAction: (@Sendable () -> Void)?
     private(set) var interactionScreen: NSScreen?
 
@@ -108,24 +102,6 @@ final class StatusBarController: NSObject {
         menu.addItem(delayItem)
 
         menu.addItem(.separator())
-
-        let recordAreaItem = makeMenuItem(
-            title: L("Record Area"),
-            image: "record.circle",
-            action: #selector(recordAreaFromMenu)
-        )
-        HotkeyManager.applyMenuShortcut(for: .recordArea, to: recordAreaItem)
-        menu.addItem(recordAreaItem)
-
-        let recordScreenItem = makeMenuItem(
-            title: L("Record Screen"),
-            image: "menubar.dock.rectangle",
-            action: #selector(recordScreenFromMenu)
-        )
-        HotkeyManager.applyMenuShortcut(for: .recordScreen, to: recordScreenItem)
-        menu.addItem(recordScreenItem)
-
-        menu.addItem(.separator())
         menu.addItem(historyMenuController.makeMenuItem())
 
         let historyOverlayItem = makeMenuItem(
@@ -170,39 +146,6 @@ final class StatusBarController: NSObject {
         menu.addItem(quitItem)
 
         statusBarMenu = menu
-    }
-
-    func enterRecordingMode(controlsMode: RecordingControlsMode) {
-        removeRecordingStatusItemView()
-
-        if controlsMode == .menuBar {
-            installRecordingStatusItemView()
-        } else if let button = statusItem.button {
-            statusItem.length = NSStatusItem.variableLength
-            button.title = ""
-            button.image = NSImage(systemSymbolName: "stop.circle.fill", accessibilityDescription: "Stop Recording")
-            button.image?.isTemplate = true
-            button.image?.size = NSSize(width: 22, height: 22)
-            button.target = self
-            button.action = #selector(stopRecordingFromStatusItem)
-        }
-
-        statusItem.menu = nil
-    }
-
-    func exitRecordingMode() {
-        removeRecordingStatusItemView()
-        statusItem.length = NSStatusItem.variableLength
-        applyNormalStatusBarIcon()
-        rebuildMenu()
-    }
-
-    func updateRecording(seconds: Int) {
-        recordingStatusItemView?.update(elapsedSeconds: seconds)
-    }
-
-    func setRecordingPaused(_ paused: Bool) {
-        recordingStatusItemView?.setPaused(paused)
     }
 
     private func makeMenuItem(
@@ -269,44 +212,6 @@ final class StatusBarController: NSObject {
         DispatchQueue.main.async(execute: action)
     }
 
-    private func installRecordingStatusItemView() {
-        guard let button = statusItem.button else { return }
-
-        let controlsView = RecordingStatusItemView(frame: .zero)
-        controlsView.translatesAutoresizingMaskIntoConstraints = false
-        controlsView.update(elapsedSeconds: 0)
-        controlsView.onStopRecording = { [weak self] in
-            self?.actions.stopRecording()
-        }
-        controlsView.onPauseRecording = { [weak self] in
-            self?.actions.pauseRecording()
-        }
-        controlsView.onResumeRecording = { [weak self] in
-            self?.actions.resumeRecording()
-        }
-
-        button.image = nil
-        button.title = ""
-        button.target = nil
-        button.action = nil
-
-        statusItem.length = RecordingStatusItemView.preferredWidth + 6
-        button.addSubview(controlsView)
-        NSLayoutConstraint.activate([
-            controlsView.leadingAnchor.constraint(equalTo: button.leadingAnchor, constant: 3),
-            controlsView.trailingAnchor.constraint(equalTo: button.trailingAnchor, constant: -3),
-            controlsView.centerYAnchor.constraint(equalTo: button.centerYAnchor),
-            controlsView.heightAnchor.constraint(equalToConstant: controlsView.intrinsicContentSize.height),
-        ])
-
-        recordingStatusItemView = controlsView
-    }
-
-    private func removeRecordingStatusItemView() {
-        recordingStatusItemView?.removeFromSuperview()
-        recordingStatusItemView = nil
-    }
-
     @objc private func captureAreaFromMenu() {
         enqueueMenuAction(actions.captureArea)
     }
@@ -325,14 +230,6 @@ final class StatusBarController: NSObject {
 
     @objc private func scrollCaptureFromMenu() {
         enqueueMenuAction(actions.scrollCapture)
-    }
-
-    @objc private func recordAreaFromMenu() {
-        enqueueMenuAction(actions.recordArea)
-    }
-
-    @objc private func recordScreenFromMenu() {
-        enqueueMenuAction(actions.recordScreen)
     }
 
     @objc private func showHistoryOverlayFromMenu() {
@@ -362,9 +259,5 @@ final class StatusBarController: NSObject {
                 item.state = item.tag == sender.tag ? .on : .off
             }
         }
-    }
-
-    @objc private func stopRecordingFromStatusItem() {
-        actions.stopRecording()
     }
 }

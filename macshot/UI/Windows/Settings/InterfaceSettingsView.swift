@@ -25,7 +25,6 @@ struct InterfaceSettingsView: View {
 
     // Output (Save Location & Filename)
     @State private var savePath: String = SaveDirectoryAccess.displayPath
-    @State private var recordingSavePath: String = SaveDirectoryAccess.recordingDisplayPath
     @State private var sharedFilenameFormat = TokenFilenameFormat.sharedFormat
     @State private var previewKind: FilenameOutputKind = .screenshot
 
@@ -186,13 +185,7 @@ struct InterfaceSettingsView: View {
             Section {
                 SaveLocationSettingsRow(
                     screenshotPath: savePath,
-                    recordingPath: recordingSavePath,
-                    onBrowseScreenshot: browseSavePath,
-                    onBrowseRecording: browseRecordingSavePath,
-                    onClearRecording: {
-                        SaveDirectoryAccess.clearRecordingDirectory()
-                        recordingSavePath = SaveDirectoryAccess.recordingDisplayPath
-                    }
+                    onBrowseScreenshot: browseSavePath
                 )
 
                 FilenameFormatSettingsRow(
@@ -291,19 +284,6 @@ struct InterfaceSettingsView: View {
             guard response == .OK, let url = panel.url else { return }
             SaveDirectoryAccess.save(url: url)
             savePath = url.path
-        }
-    }
-
-    private func browseRecordingSavePath() {
-        let panel = NSOpenPanel()
-        panel.canChooseDirectories = true
-        panel.canChooseFiles = false
-        panel.allowsMultipleSelection = false
-        panel.directoryURL = SaveDirectoryAccess.recordingDirectoryHint()
-        FilePanelPresenter.begin(panel) { response in
-            guard response == .OK, let url = panel.url else { return }
-            SaveDirectoryAccess.saveRecordingDirectory(url: url)
-            recordingSavePath = url.path
         }
     }
 }

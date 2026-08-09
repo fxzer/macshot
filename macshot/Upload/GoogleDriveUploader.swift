@@ -196,32 +196,6 @@ final class GoogleDriveUploader: NSObject, ASWebAuthenticationPresentationContex
         upload(data: data, filename: filename, mimeType: mime, progress: progress, completion: completion)
     }
 
-    /// Upload a video file from URL.
-    func uploadVideo(
-        url: URL,
-        progress: ((Double) -> Void)? = nil,
-        completion: @escaping (Result<String, Error>) -> Void
-    ) {
-        let ext = url.pathExtension.lowercased()
-        let mime = ext == "gif" ? "image/gif" : "video/mp4"
-        let filename = url.lastPathComponent
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            guard let data = try? Data(contentsOf: url) else {
-                DispatchQueue.main.async {
-                    completion(.failure(Self.error("Failed to read video file")))
-                }
-                return
-            }
-            self?.upload(
-                data: data,
-                filename: filename,
-                mimeType: mime,
-                progress: progress,
-                completion: completion
-            )
-        }
-    }
-
     // MARK: - OAuth Token Exchange
 
     private func exchangeCodeWithRedirect(_ code: String, codeVerifier: String, redirectURI: String, completion: @escaping (Bool) -> Void) {

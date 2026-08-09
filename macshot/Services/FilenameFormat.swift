@@ -58,7 +58,6 @@ struct FilenameFormat: Codable, Equatable {
 
 extension FilenameFormat {
     private static let screenshotKey = "screenshotFilenameFormat"
-    private static let recordingKey = "recordingFilenameFormat"
 
     /// Get the screenshot filename format from UserDefaults
     static var screenshotFormat: FilenameFormat {
@@ -72,22 +71,6 @@ extension FilenameFormat {
         set {
             if let data = try? JSONEncoder().encode(newValue) {
                 UserDefaults.standard.set(data, forKey: screenshotKey)
-            }
-        }
-    }
-
-    /// Get the recording filename format from UserDefaults
-    static var recordingFormat: FilenameFormat {
-        get {
-            guard let data = UserDefaults.standard.data(forKey: recordingKey),
-                  let format = try? JSONDecoder().decode(FilenameFormat.self, from: data) else {
-                return .default
-            }
-            return format
-        }
-        set {
-            if let data = try? JSONEncoder().encode(newValue) {
-                UserDefaults.standard.set(data, forKey: recordingKey)
             }
         }
     }

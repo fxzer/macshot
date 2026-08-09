@@ -2,8 +2,6 @@ import Foundation
 
 enum FilenameOutputKind: String, CaseIterable, Identifiable {
     case screenshot
-    case recording
-    case gif
 
     var id: String { rawValue }
 
@@ -11,10 +9,6 @@ enum FilenameOutputKind: String, CaseIterable, Identifiable {
         switch self {
         case .screenshot:
             return "Screenshot"
-        case .recording:
-            return "Recording"
-        case .gif:
-            return "GIF"
         }
     }
 
@@ -22,10 +16,6 @@ enum FilenameOutputKind: String, CaseIterable, Identifiable {
         switch self {
         case .screenshot:
             return L("Screenshot")
-        case .recording:
-            return L("Recording")
-        case .gif:
-            return L("GIF")
         }
     }
 }

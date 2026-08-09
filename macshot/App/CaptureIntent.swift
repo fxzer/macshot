@@ -4,17 +4,6 @@ enum CaptureIntent {
     case ocr
     case quickCapture
     case scrollCapture
-    case areaRecording
-    case fullScreenRecording(autoStartAfterDelay: Bool)
-
-    var startsInRecordingMode: Bool {
-        switch self {
-        case .areaRecording, .fullScreenRecording:
-            return true
-        default:
-            return false
-        }
-    }
 
     var startsInOCRMode: Bool {
         switch self {
@@ -45,17 +34,8 @@ enum CaptureIntent {
 
     var appliesFullScreenSelection: Bool {
         switch self {
-        case .fullScreen, .fullScreenRecording:
+        case .fullScreen:
             return true
-        default:
-            return false
-        }
-    }
-
-    var autoStartsFullScreenRecording: Bool {
-        switch self {
-        case .fullScreenRecording(let autoStartAfterDelay):
-            return autoStartAfterDelay
         default:
             return false
         }
@@ -93,10 +73,6 @@ enum CaptureIntent {
             return "quickCapture"
         case .scrollCapture:
             return "scrollCapture"
-        case .areaRecording:
-            return "areaRecording"
-        case .fullScreenRecording:
-            return "fullScreenRecording"
         }
     }
 }

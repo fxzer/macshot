@@ -121,12 +121,6 @@ struct TokenFilenameFormat: Codable, Equatable {
         set { sharedFormat = newValue }
     }
 
-    /// 兼容旧调用方，实际已经收口到 sharedFormat。
-    static var recordingFormat: TokenFilenameFormat {
-        get { sharedFormat }
-        set { sharedFormat = newValue }
-    }
-
     static var sharedFormat: TokenFilenameFormat {
         get {
             migrateIfNeeded()

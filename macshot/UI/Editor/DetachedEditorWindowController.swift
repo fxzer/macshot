@@ -710,15 +710,11 @@ extension DetachedEditorWindowController: OverlayViewDelegate {
         }
     }
 
-    func overlayViewDidRequestEnterRecordingMode() {}
-    func overlayViewDidRequestStartRecording(rect: NSRect) {}
-    func overlayViewDidRequestStopRecording() {}
     func overlayViewDidRequestDetach() {}
     func overlayViewDidRequestScrollCapture(rect: NSRect) {}
     func overlayViewDidRequestStopScrollCapture() {}
     func overlayViewDidRequestToggleAutoScroll() {}
     func overlayViewDidRequestAccessibilityPermission() {}
-    func overlayViewDidRequestInputMonitoringPermission() {}
     func overlayViewDidChangeWindowSnapState() {}  // Not applicable in editor mode
     func overlayViewDidChangeAspectRatioLock() {}  // Not applicable in editor mode
     func overlayViewDidChangeMouseLocation() {}  // Not applicable in editor mode
@@ -829,13 +825,10 @@ private class AddCaptureOverlayHandler: NSObject, OverlayWindowControllerDelegat
     func overlayDidStartOCR(_ controller: OverlayWindowController) {}
     func overlayDidFinishOCR(_ controller: OverlayWindowController?, text: String) {}
     func overlayDidRequestUpload(_ controller: OverlayWindowController, image: NSImage) {}
-    func overlayDidRequestStartRecording(_ controller: OverlayWindowController, rect: NSRect, screen: NSScreen) {}
-    func overlayDidRequestStopRecording(_ controller: OverlayWindowController) {}
     func overlayDidRequestScrollCapture(_ controller: OverlayWindowController, rect: NSRect, screen: NSScreen) {}
     func overlayDidRequestStopScrollCapture(_ controller: OverlayWindowController) {}
     func overlayDidRequestToggleAutoScroll(_ controller: OverlayWindowController) {}
     func overlayDidRequestAccessibilityPermission(_ controller: OverlayWindowController) {}
-    func overlayDidRequestInputMonitoringPermission(_ controller: OverlayWindowController) {}
     func overlayDidBeginSelection(_ controller: OverlayWindowController) {
         // Clear selections on other overlays
         for other in overlayControllers where other !== controller {

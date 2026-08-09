@@ -376,23 +376,6 @@ extension ToolOptionsRowView {
         ov.showColorPickerPopover(target: .textOutline, anchorView: sender)
     }
 
-    @objc func fpsChanged(_ sender: NSSlider) {
-        let fps = Int(sender.floatValue)
-        UserDefaults.standard.set(fps, forKey: "recordingFPS")
-        if let label = viewWithTag(ToolOptionTag.fpsValueLabel.rawValue) as? NSTextField {
-            label.stringValue = "\(fps)"
-        }
-    }
-
-    @objc func recordingFormatChanged(_ sender: NSSegmentedControl) {
-        let format = sender.selectedSegment == 0 ? "mp4" : "gif"
-        UserDefaults.standard.set(format, forKey: "recordingFormat")
-    }
-
-    @objc func highlightClicksToggled(_ sender: NSButton) {
-        UserDefaults.standard.set(sender.state == .on, forKey: "highlightMouseClicks")
-    }
-
     @objc func annotationOutlineToggled(_ sender: NSButton) {
         guard let ov = overlayView else { return }
         let isOn = sender.state == .on

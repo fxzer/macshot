@@ -16,18 +16,6 @@ struct BehaviorSettingsView: View {
     @AppStorage(PostCaptureActionPreferences.Keys.screenshotPinToScreen)
     private var screenshotPinToScreen = false
 
-    // Recording actions
-    @AppStorage(PostCaptureActionPreferences.Keys.recordingShowQuickAccessOverlay)
-    private var recordingShowQuickAccessOverlay = false
-    @AppStorage(PostCaptureActionPreferences.Keys.recordingCopyToClipboard)
-    private var recordingCopyToClipboard = false
-    @AppStorage(PostCaptureActionPreferences.Keys.recordingSaveToFile)
-    private var recordingSaveToFile = false
-    @AppStorage(PostCaptureActionPreferences.Keys.recordingUploadAndCopyLink)
-    private var recordingUploadAndCopyLink = false
-    @AppStorage(PostCaptureActionPreferences.Keys.recordingOpenVideoEditor)
-    private var recordingOpenVideoEditor = true
-
     // Sound feedback
     @AppStorage(SoundSettings.captureEnabled) private var captureSoundEnabled = true
 
@@ -40,57 +28,41 @@ struct BehaviorSettingsView: View {
 
     // Show in Finder
     @AppStorage("screenshotShowInFinder") private var screenshotShowInFinder = false
-    @AppStorage("recordingShowInFinder") private var recordingShowInFinder = false
 
     var body: some View {
         Form {
             Section {
-                actionMatrixHeader()
-
-                actionMatrixRow(
-                    screenshotBinding: $captureSoundEnabled,
-                    recordingBinding: nil,
+                actionRow(
+                    binding: $captureSoundEnabled,
                     title: L("Play sound")
                 )
-                actionMatrixRow(
-                    screenshotBinding: $screenshotSaveToFile,
-                    recordingBinding: $recordingSaveToFile,
+                actionRow(
+                    binding: $screenshotSaveToFile,
                     title: L("Save to file")
                 )
-                actionMatrixRow(
-                    screenshotBinding: $screenshotCopyToClipboard,
-                    recordingBinding: $recordingCopyToClipboard,
+                actionRow(
+                    binding: $screenshotCopyToClipboard,
                     title: L("Copy file to clipboard")
                 )
-                actionMatrixRow(
-                    screenshotBinding: $screenshotShowInFinder,
-                    recordingBinding: $recordingShowInFinder,
+                actionRow(
+                    binding: $screenshotShowInFinder,
                     title: L("Show in Finder")
                 )
-                actionMatrixRow(
-                    screenshotBinding: $screenshotShowQuickAccessOverlay,
-                    recordingBinding: $recordingShowQuickAccessOverlay,
+                actionRow(
+                    binding: $screenshotShowQuickAccessOverlay,
                     title: L("Show quick access overlay")
                 )
-                actionMatrixRow(
-                    screenshotBinding: $screenshotUploadAndCopyLink,
-                    recordingBinding: $recordingUploadAndCopyLink,
+                actionRow(
+                    binding: $screenshotUploadAndCopyLink,
                     title: L("Upload and copy link")
                 )
-                actionMatrixRow(
-                    screenshotBinding: $screenshotPinToScreen,
-                    recordingBinding: nil,
+                actionRow(
+                    binding: $screenshotPinToScreen,
                     title: L("Pin to screen")
                 )
-                actionMatrixRow(
-                    screenshotBinding: $screenshotOpenEditor,
-                    recordingBinding: nil,
+                actionRow(
+                    binding: $screenshotOpenEditor,
                     title: L("Open screenshot editor")
-                )
-                actionMatrixRow(
-                    screenshotBinding: nil,
-                    recordingBinding: $recordingOpenVideoEditor,
-                    title: L("Open video editor")
                 )
             } header: {
                 Text(L("After Capture"))
@@ -170,59 +142,9 @@ struct BehaviorSettingsView: View {
     }
 
     @ViewBuilder
-    private func actionMatrixHeader() -> some View {
-        HStack(spacing: 12) {
-            Text(L("Screenshot"))
-                .font(.subheadline.weight(.medium))
-                .foregroundColor(.secondary)
-                .frame(width: 100, alignment: .center)
-
-            Text(L("Recording"))
-                .font(.subheadline.weight(.medium))
-                .foregroundColor(.secondary)
-                .frame(width: 100, alignment: .center)
-
-            Text(L("Action"))
-                .font(.subheadline.weight(.medium))
-                .foregroundColor(.secondary)
-                .padding(.leading, 30)
-
-            Spacer(minLength: 0)
-        }
-        .padding(.bottom, 2)
-    }
-
-    @ViewBuilder
-    private func actionMatrixRow(
-        screenshotBinding: Binding<Bool>?,
-        recordingBinding: Binding<Bool>?,
-        title: String
-    ) -> some View {
-        HStack(spacing: 12) {
-            actionToggleCell(binding: screenshotBinding)
-                .frame(width: 100)
-
-            actionToggleCell(binding: recordingBinding)
-                .frame(width: 100)
-
-            Text(title)
-                .padding(.leading, 30)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .padding(.vertical, 2)
-    }
-
-    @ViewBuilder
-    private func actionToggleCell(binding: Binding<Bool>?) -> some View {
-        if let binding {
-            Toggle("", isOn: binding)
-                .labelsHidden()
-                .frame(maxWidth: .infinity, alignment: .center)
-        } else {
-            Text("—")
-                .foregroundColor(.secondary)
-                .frame(maxWidth: .infinity, alignment: .center)
-        }
+    private func actionRow(binding: Binding<Bool>, title: String) -> some View {
+        Toggle(title, isOn: binding)
+            .padding(.vertical, 2)
     }
 }
 

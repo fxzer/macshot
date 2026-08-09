@@ -23,17 +23,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             captureFullScreenFromHotkey: { [weak self] in
                 self?.beginCapture(intent: .fullScreen, triggerOrigin: .hotkey)
             },
-            recordAreaFromHotkey: { [weak self] in
-                self?.beginCapture(intent: .areaRecording, triggerOrigin: .hotkey)
-            },
-            recordScreenFromHotkey: { [weak self] in
-                self?.beginCapture(
-                    intent: .fullScreenRecording(
-                        autoStartAfterDelay: UserDefaults.standard.integer(forKey: DefaultsKey.captureDelaySeconds) > 0
-                    ),
-                    triggerOrigin: .hotkey
-                )
-            },
             showHistoryOverlay: { [weak self] in self?.showHistoryOverlay() },
             captureOCRFromHotkey: { [weak self] in
                 self?.beginCapture(intent: .ocr, triggerOrigin: .hotkey)
@@ -66,19 +55,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             captureFullScreen: { [weak self] in self?.beginCapture(intent: .fullScreen, triggerOrigin: .external) },
             quickCapture: { [weak self] in self?.beginCapture(intent: .quickCapture, triggerOrigin: .external) },
             captureOCR: { [weak self] in self?.beginCapture(intent: .ocr, triggerOrigin: .external) },
-            recordArea: { [weak self] in self?.beginCapture(intent: .areaRecording, triggerOrigin: .external) },
-            recordFullScreen: { [weak self] in
-                self?.beginCapture(
-                    intent: .fullScreenRecording(
-                        autoStartAfterDelay: UserDefaults.standard.integer(forKey: DefaultsKey.captureDelaySeconds) > 0
-                    ),
-                    triggerOrigin: .external
-                )
-            },
             scrollCapture: { [weak self] in self?.beginCapture(intent: .scrollCapture, triggerOrigin: .external) },
             showHistory: { [weak self] in self?.showHistoryOverlay() },
-            openSettings: { [weak self] in self?.openSettings() },
-            stopRecording: { [weak self] in self?.stopRecording() }
+            openSettings: { [weak self] in self?.openSettings() }
         ),
         showError: { [weak self] message in
             self?.showStatusError(message: message)
@@ -95,23 +74,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             setDelaySeconds: { seconds in
                 UserDefaults.standard.set(seconds, forKey: DefaultsKey.captureDelaySeconds)
             },
-            recordArea: { [weak self] in self?.beginCapture(intent: .areaRecording, triggerOrigin: .menuBar) },
-            recordScreen: { [weak self] in
-                self?.beginCapture(
-                    intent: .fullScreenRecording(
-                        autoStartAfterDelay: UserDefaults.standard.integer(forKey: DefaultsKey.captureDelaySeconds) > 0
-                    ),
-                    triggerOrigin: .menuBar
-                )
-            },
             showHistoryOverlay: { [weak self] in self?.showHistoryOverlay() },
             openImage: { [weak self] in self?.routeHandler.openImageFromMenu() },
             openFromClipboard: { [weak self] in self?.routeHandler.openImageFromClipboard() },
             openSettings: { [weak self] in self?.openSettings() },
-            quit: { [weak self] in self?.quitApp() },
-            stopRecording: { [weak self] in self?.stopRecording() },
-            pauseRecording: { [weak self] in self?.pauseRecording() },
-            resumeRecording: { [weak self] in self?.resumeRecording() }
+            quit: { [weak self] in self?.quitApp() }
         )
     )
     private lazy var captureFlowCoordinator = CaptureFlowCoordinator(
@@ -131,30 +98,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private lazy var outputCoordinator = ScreenshotOutputCoordinator(
         dependencies: .init(
             resolveTargetScreen: { [weak self] in self?.preferredOutputScreen() }
-        )
-    )
-    lazy var recordingFlowCoordinator = RecordingFlowCoordinator(
-        dependencies: .init(
-            dismissOverlays: { [weak self] refocus in self?.dismissOverlays(refocusPreviousApp: refocus) },
-            clearPreviousApp: { [weak self] in self?.focusCoordinator.clearPreviousApp() },
-            setMenuBarIconVisible: { [weak self] visible in self?.setMenuBarIconVisible(visible) },
-            isMenuBarIconHiddenByPreference: { UserDefaults.standard.bool(forKey: "hideMenuBarIcon") },
-            statusBarEnterRecordingMode: { [weak self] controlsMode in
-                self?.statusBarController.enterRecordingMode(controlsMode: controlsMode)
-            },
-            statusBarExitRecordingMode: { [weak self] in
-                self?.statusBarController.exitRecordingMode()
-            },
-            statusBarUpdateRecordingSeconds: { [weak self] seconds in
-                self?.statusBarController.updateRecording(seconds: seconds)
-            },
-            statusBarSetRecordingPaused: { [weak self] paused in
-                self?.statusBarController.setRecordingPaused(paused)
-            },
-            restartCapture: { [weak self] in
-                // Restart capture flow to re-show overlays after countdown cancellation
-                self?.beginCapture(intent: .area, triggerOrigin: .external)
-            }
         )
     )
     lazy var overlaySessionCoordinator = OverlaySessionCoordinator(
@@ -258,7 +201,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func isRecordingInProgress() -> Bool {
-        recordingFlowCoordinator.isRecordingInProgress
+        false
     }
 
     /// Call when a macshot window closes. If no titled windows remain,
@@ -411,18 +354,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         outputCoordinator.uploadImage(image)
     }
 
-    @objc private func stopRecording() {
-        recordingFlowCoordinator.stopRecording()
-    }
-
-    private func pauseRecording() {
-        recordingFlowCoordinator.pauseRecording()
-    }
-
-    private func resumeRecording() {
-        recordingFlowCoordinator.resumeRecording()
-    }
-
     private func handleLanguageChange() {
         // Language changes can originate from an AppKit popup menu, so defer
         // rebuilding the status menu until that tracking loop has unwound.
@@ -437,7 +368,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         historyOverlayController?.updateLocalization()
 
         outputCoordinator.updateLocalization()
-        recordingFlowCoordinator.updateLocalization()
         launchCoordinator.updateLocalization()
     }
 

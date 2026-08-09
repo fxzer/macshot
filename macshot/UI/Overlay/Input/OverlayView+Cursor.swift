@@ -171,11 +171,6 @@ extension OverlayView {
             return
         }
         if state == .idle || state == .selecting {
-            // Recording mode: arrow cursor (no selection interaction)
-            if isRecording {
-                NSCursor.arrow.set()
-                return
-            }
             // Show resize cursor for remote selection handles
             if state == .idle && remoteSelectionRect.width >= 1 && remoteSelectionRect.height >= 1 {
                 let remoteHandle = hitTestRemoteHandle(at: point)

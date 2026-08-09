@@ -73,14 +73,6 @@ extension AppDelegate: OverlayWindowControllerDelegate {
         }
     }
 
-    func overlayDidRequestStartRecording(_ controller: OverlayWindowController, rect: NSRect, screen: NSScreen) {
-        recordingFlowCoordinator.startRecording(from: controller, rect: rect, screen: screen)
-    }
-
-    func overlayDidRequestStopRecording(_ controller: OverlayWindowController) {
-        recordingFlowCoordinator.handleStopRecordingRequest()
-    }
-
     func overlayDidRequestScrollCapture(_ controller: OverlayWindowController, rect: NSRect, screen: NSScreen) {
         scrollCaptureFlowCoordinator.startScrollCapture(from: controller, rect: rect, screen: screen)
     }
@@ -92,14 +84,7 @@ extension AppDelegate: OverlayWindowControllerDelegate {
     func overlayDidRequestAccessibilityPermission(_ controller: OverlayWindowController) {
         dismissOverlays()
         SystemPermissionPrompter.requestAccessibilityPermission(
-            message: L("macshot needs Accessibility permission to show keystrokes during recording. Please grant access in System Settings, then try again.")
-        )
-    }
-
-    func overlayDidRequestInputMonitoringPermission(_ controller: OverlayWindowController) {
-        dismissOverlays()
-        SystemPermissionPrompter.requestInputMonitoringPermission(
-            message: L("macshot needs Input Monitoring permission to show keystrokes during recording. Please grant access in System Settings, then try again.")
+            message: L("macshot needs Accessibility permission for some features. Please grant access in System Settings, then try again.")
         )
     }
 

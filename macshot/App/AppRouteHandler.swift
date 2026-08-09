@@ -9,12 +9,9 @@ final class AppRouteHandler: NSObject {
         let captureFullScreen: () -> Void
         let quickCapture: () -> Void
         let captureOCR: () -> Void
-        let recordArea: () -> Void
-        let recordFullScreen: () -> Void
         let scrollCapture: () -> Void
         let showHistory: () -> Void
         let openSettings: () -> Void
-        let stopRecording: () -> Void
     }
 
     private let actions: ExternalActions
@@ -102,18 +99,12 @@ final class AppRouteHandler: NSObject {
             actions.quickCapture()
         case .captureOCR:
             actions.captureOCR()
-        case .recordArea:
-            actions.recordArea()
-        case .recordFullScreen:
-            actions.recordFullScreen()
         case .scrollCapture:
             actions.scrollCapture()
         case .history:
             actions.showHistory()
         case .settings:
             actions.openSettings()
-        case .stopRecording:
-            actions.stopRecording()
         case .openImage(let fileURL):
             openImageFile(url: fileURL)
         }
