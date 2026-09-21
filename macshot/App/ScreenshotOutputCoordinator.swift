@@ -180,7 +180,10 @@ final class ScreenshotOutputCoordinator: NSObject, PinWindowControllerDelegate, 
             metadata: "historyEntryID=\(historyEntryID ?? "nil") context=\(context)"
         )
 
-        if actions.copyToClipboard {
+        let isSavingToFile = (actions.saveToFile && context != .manualSave) || context == .manualSave
+        let shouldCopyPathOnSave = PostCaptureActionPreferences.copyPathOnSave && isSavingToFile
+
+        if actions.copyToClipboard && !shouldCopyPathOnSave {
             ImageEncoder.copyToClipboard(image)
             memory.step("copyToClipboard")
         }
@@ -235,8 +238,13 @@ final class ScreenshotOutputCoordinator: NSObject, PinWindowControllerDelegate, 
     ) {
         ImageSaveService.saveToDefaultDirectoryAsync(image, kind: kind) { [weak self] result in
             self?.showSaveResultToast(result, showFailureToast: showFailureToast)
-            if case .success(let fileURL) = result, showInFinder {
-                _ = FinderRevealService.reveal(fileURL)
+            if case .success(let fileURL) = result {
+                if PostCaptureActionPreferences.copyPathOnSave {
+                    PasteboardWriter.writeString(fileURL.path)
+                }
+                if showInFinder {
+                    _ = FinderRevealService.reveal(fileURL)
+                }
             }
             completion?(result)
         }
@@ -441,26 +449,10 @@ final class ScreenshotOutputCoordinator: NSObject, PinWindowControllerDelegate, 
             return image
         }
 
-        let scale = min(
-            max(targetSize.width / sourceSize.width, targetSize.height / sourceSize.height),
-            1.0
-        )
-        let renderSize = NSSize(
-            width: max(1, round(sourceSize.width * scale)),
-            height: max(1, round(sourceSize.height * scale))
-        )
-
-        return NSImage(size: renderSize, flipped: false) { _ in
-            guard let context = NSGraphicsContext.current else { return true }
-            context.imageInterpolation = .high
-            image.draw(
-                in: NSRect(origin: .zero, size: renderSize),
-                from: NSRect(origin: .zero, size: sourceSize),
-                operation: .copy,
-                fraction: 1.0
-            )
-            return true
-        }
+        // Rasterized thumbnail — the previous drawing-handler closure captured
+        // the full-resolution screenshot and pinned it while the panel was open.
+        return ImageRasterizer.downscale(
+            image, maxDimension: max(targetSize.width, targetSize.height))
     }
 
     private func loadImageFromHistory(entryID: String?) -> NSImage? {

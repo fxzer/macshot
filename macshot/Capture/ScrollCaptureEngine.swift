@@ -560,29 +560,32 @@ final class ScrollCaptureEngine {
 
         let merged: CGImage? = await withCheckedContinuation { cont in
             captureQueue.async {
-                let cs = CGColorSpaceCreateDeviceRGB()
-                let bitmapInfo = CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
-                guard let ctx = CGContext(data: nil, width: w, height: totalH,
-                                          bitsPerComponent: 8, bytesPerRow: w * 4,
-                                          space: cs, bitmapInfo: bitmapInfo) else {
-                    cont.resume(returning: nil)
-                    return
-                }
+                autoreleasepool {
+                    // Display P3 so wide-gamut captures keep their gamut through stitching.
+                    let cs = CGColorSpace(name: CGColorSpace.displayP3) ?? CGColorSpaceCreateDeviceRGB()
+                    let bitmapInfo = CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
+                    guard let ctx = CGContext(data: nil, width: w, height: totalH,
+                                              bitsPerComponent: 8, bytesPerRow: w * 4,
+                                              space: cs, bitmapInfo: bitmapInfo) else {
+                        cont.resume(returning: nil)
+                        return
+                    }
 
-                let stripY = currentFrame.height - stripHeight
-                guard stripY >= 0,
-                      let strip = currentFrame.cropping(to: CGRect(
-                          x: 0, y: stripY, width: w, height: stripHeight)) else {
-                    cont.resume(returning: nil)
-                    return
-                }
+                    let stripY = currentFrame.height - stripHeight
+                    guard stripY >= 0,
+                          let strip = currentFrame.cropping(to: CGRect(
+                              x: 0, y: stripY, width: w, height: stripHeight)) else {
+                        cont.resume(returning: nil)
+                        return
+                    }
 
-                // Draw existing first (at y=newRows), then the strip on top (y=0,
-                // height=stripHeight) so the strip's top `overlap` rows overwrite
-                // existing's bottom rows and hide the seam.
-                ctx.draw(existing, in: CGRect(x: 0, y: newRows, width: w, height: existingH))
-                ctx.draw(strip, in: CGRect(x: 0, y: 0, width: w, height: stripHeight))
-                cont.resume(returning: ctx.makeImage())
+                    // Draw existing first (at y=newRows), then the strip on top (y=0,
+                    // height=stripHeight) so the strip's top `overlap` rows overwrite
+                    // existing's bottom rows and hide the seam.
+                    ctx.draw(existing, in: CGRect(x: 0, y: newRows, width: w, height: existingH))
+                    ctx.draw(strip, in: CGRect(x: 0, y: 0, width: w, height: stripHeight))
+                    cont.resume(returning: ctx.makeImage())
+                }
             }
         }
 

@@ -54,7 +54,7 @@ extension OverlayView {
 
         let w = cgImage.width
         let h = cgImage.height
-        let cs = CGColorSpaceCreateDeviceRGB()
+        let cs = cgImage.colorSpace ?? CGColorSpaceCreateDeviceRGB()
         let bitmapInfo =
             CGImageAlphaInfo.premultipliedFirst.rawValue
             | CGBitmapInfo.byteOrder32Little.rawValue
@@ -101,7 +101,7 @@ extension OverlayView {
 
         let w = cgImage.width
         let h = cgImage.height
-        let cs = CGColorSpaceCreateDeviceRGB()
+        let cs = cgImage.colorSpace ?? CGColorSpaceCreateDeviceRGB()
         let bitmapInfo =
             CGImageAlphaInfo.premultipliedFirst.rawValue
             | CGBitmapInfo.byteOrder32Little.rawValue
@@ -324,7 +324,8 @@ extension OverlayView {
         filter.setValue(ciImage, forKey: kCIInputImageKey)
         guard let output = filter.outputImage else { return }
 
-        guard let inverted = Self.sharedCIContext.createCGImage(output, from: output.extent) else {
+        guard let inverted = Self.sharedCIContext.createCGImage(
+            output, from: output.extent, format: .RGBA8, colorSpace: cgImage.colorSpace) else {
             return
         }
 

@@ -314,25 +314,43 @@ extension Annotation {
         guard let output = blur.outputImage else { return nil }
 
         let outputRect = CGRect(x: 0, y: 0, width: w, height: h)
-        return Annotation.ciContext.createCGImage(output, from: outputRect)
+        return Annotation.ciContext.createCGImage(
+            output, from: outputRect, format: .RGBA8, colorSpace: cgImage.colorSpace)
     }
 
     // MARK: - Shared region crop
 
     /// Render the source image region matching boundingRect into a new NSImage.
-    /// Uses NSImage drawing which handles all coordinate transforms correctly.
+    /// Rasterized at the source's native pixel scale — bakePixelate extracts
+    /// pixels via cgImage(forProposedRect:), which rasterizes closure-based
+    /// images at 72dpi (half-resolution blur/pixelate content on retina).
     fileprivate func cropRegionFromSource() -> NSImage? {
         guard let sourceImage = sourceImage else { return nil }
         let rect = boundingRect
         guard rect.width > 4, rect.height > 4 else { return nil }
 
         let srcBounds = sourceImageBounds
-        let regionImage = NSImage(size: rect.size, flipped: false) { _ in
-            sourceImage.draw(in: NSRect(x: -rect.minX, y: -rect.minY,
-                                         width: srcBounds.width, height: srcBounds.height),
-                             from: .zero, operation: .copy, fraction: 1.0)
-            return true
-        }
-        return regionImage
+        let scale = ImageRasterizer.pixelScale(of: sourceImage)
+        let pxW = max(1, Int((rect.width * scale).rounded()))
+        let pxH = max(1, Int((rect.height * scale).rounded()))
+        let cs = sourceImage.cgImage(forProposedRect: nil, context: nil, hints: nil)?.colorSpace
+            ?? CGColorSpaceCreateDeviceRGB()
+        guard let cgCtx = CGContext(
+            data: nil, width: pxW, height: pxH,
+            bitsPerComponent: 8, bytesPerRow: 0, space: cs,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else { return nil }
+        cgCtx.scaleBy(x: scale, y: scale)
+        cgCtx.translateBy(x: -rect.minX, y: -rect.minY)
+        let nsContext = NSGraphicsContext(cgContext: cgCtx, flipped: false)
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = nsContext
+        sourceImage.draw(
+            in: NSRect(origin: .zero, size: srcBounds.size),
+            from: .zero, operation: .copy, fraction: 1.0)
+        NSGraphicsContext.restoreGraphicsState()
+
+        guard let cgImage = cgCtx.makeImage() else { return nil }
+        return NSImage(cgImage: cgImage, size: rect.size)
     }
 }

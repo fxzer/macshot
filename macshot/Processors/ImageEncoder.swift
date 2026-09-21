@@ -68,6 +68,11 @@ enum ImageEncoder {
     private static let bitmapCache: NSCache<BitmapCacheKey, NSBitmapImageRep> = {
         let cache = NSCache<BitmapCacheKey, NSBitmapImageRep>()
         cache.countLimit = 4  // bound to a handful of recent captures
+        // Bound the steady-state footprint: each entry pins both the source
+        // NSImage (via the key) and the bitmap copy, i.e. up to 2× the pixel
+        // bytes per 4K capture. Without a cost limit the last 4 captures stay
+        // resident until system memory pressure forces eviction.
+        cache.totalCostLimit = 128 * 1024 * 1024
         return cache
     }()
 
@@ -110,7 +115,12 @@ enum ImageEncoder {
         let bitmap = makeBitmapUncached(image, downscale: downscale)
 
         if let bitmap {
-            bitmapCache.setObject(bitmap, forKey: cacheKey)
+            // Cost = bitmap copy + pinned source image, both counted so the
+            // totalCostLimit bounds the real resident footprint.
+            let bitmapBytes = bitmap.bytesPerRow * bitmap.pixelsHigh
+            let sourceBytes = image.cgImage(forProposedRect: nil, context: nil, hints: nil)
+                .map { $0.bytesPerRow * $0.height } ?? bitmapBytes
+            bitmapCache.setObject(bitmap, forKey: cacheKey, cost: bitmapBytes + sourceBytes)
         }
         return bitmap
     }

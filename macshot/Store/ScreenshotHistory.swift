@@ -457,18 +457,10 @@ var maxEntries: Int {
 
     /// Scale an image to fit within maxDimension on its longest side.
     /// Used for both thumbnails (maxDimension=36) and previews (maxDimension=240).
+    /// Returns a real bitmap — a drawing-handler closure here would capture the
+    /// full-resolution source and pin it in memory for the entry's lifetime.
     private func makeScaledImage(_ image: NSImage, maxDimension: CGFloat) -> NSImage {
-        let size = image.size
-        guard size.width > 0, size.height > 0 else { return image }
-        let scale = min(maxDimension / size.width, maxDimension / size.height, 1.0)
-        let targetSize = NSSize(width: round(size.width * scale), height: round(size.height * scale))
-
-        // Memory optimization: wrap in autoreleasepool when called from async contexts
-        // to ensure NSBitmapImageRep and other temporary objects are released promptly
-        return NSImage(size: targetSize, flipped: false) { _ in
-            image.draw(in: NSRect(origin: .zero, size: targetSize), from: .zero, operation: .copy, fraction: 1.0)
-            return true
-        }
+        ImageRasterizer.downscale(image, maxDimension: maxDimension)
     }
 
     /// Write an NSImage to disk as PNG using CGImageDestination.
@@ -508,13 +500,9 @@ var maxEntries: Int {
 
         let size = full.size
         guard size.width > 0, size.height > 0 else { return full }
-        let maxDim: CGFloat = 240
-        let scale = min(maxDim / size.width, maxDim / size.height, 1.0)
-        let targetSize = NSSize(width: round(size.width * scale), height: round(size.height * scale))
-        let preview = NSImage(size: targetSize, flipped: false) { _ in
-            full.draw(in: NSRect(origin: .zero, size: targetSize), from: .zero, operation: .copy, fraction: 1.0)
-            return true
-        }
+        // Rasterized preview: a drawing-handler closure would capture `full`
+        // (the decoded full-size screenshot) and pin it while the panel is open.
+        let preview = ImageRasterizer.downscale(full, maxDimension: 240)
 
         if let cgPreview = preview.cgImage(forProposedRect: nil, context: nil, hints: nil) {
             writeCGImagePNG(cgPreview, to: previewURL)

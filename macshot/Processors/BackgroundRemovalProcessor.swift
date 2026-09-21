@@ -113,7 +113,9 @@ enum BackgroundRemovalProcessor {
                     let outputCIImage = blendFilter.outputImage,
                     let finalCGImage = BeautifyRenderer.sharedCIContext.createCGImage(
                         outputCIImage,
-                        from: originalCIImage.extent
+                        from: originalCIImage.extent,
+                        format: .RGBA8,
+                        colorSpace: cgImage.colorSpace
                     )
                 else {
                     throw ProcessingError.renderFailed

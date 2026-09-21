@@ -146,10 +146,15 @@ class BeautifyRenderer {
     /// Cached mesh gradient renders keyed by "\(colorsHash)_\(width)x\(height)".
     /// Only accessed from @MainActor (renderMeshGradient requires main thread).
     private static var meshCache: [String: CGImage] = [:]
+    /// Insertion order for bounded eviction — every entry is a full-size
+    /// bitmap, so without a cap the cache grows with each new output size.
+    private static var meshCacheOrder: [String] = []
+    private static let meshCacheLimit = 4
 
     /// Clear the mesh gradient cache (call when user changes beautify style or custom background).
     static func clearMeshCache() {
         meshCache.removeAll()
+        meshCacheOrder.removeAll()
     }
 
     /// Render a SwiftUI MeshGradient offscreen into a CGImage (macOS 15+).
@@ -187,6 +192,11 @@ class BeautifyRenderer {
 
         if let result = result {
             meshCache[cacheKey] = result
+            meshCacheOrder.append(cacheKey)
+            while meshCacheOrder.count > meshCacheLimit {
+                let oldest = meshCacheOrder.removeFirst()
+                meshCache.removeValue(forKey: oldest)
+            }
         }
         return result
     }

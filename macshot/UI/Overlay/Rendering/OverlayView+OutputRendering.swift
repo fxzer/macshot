@@ -13,6 +13,9 @@ extension OverlayView {
 
     /// Render screenshot + all existing annotations into a full-size image.
     /// Used as source for pixelate/blur so they operate on the composited result.
+    /// Rasterized at the screenshot's native pixel scale — censor tools extract
+    /// pixels via cgImage(forProposedRect:), which rasterizes closure-based
+    /// images at 72dpi (half resolution on retina).
     func compositedImage() -> NSImage? {
         if let cached = cachedCompositedImage { return cached }
         guard let screenshot = screenshotImage else { return nil }
@@ -25,28 +28,38 @@ extension OverlayView {
 
         let drawRect = captureDrawRect
         let annotationsCopy = annotations
-        var success = false
-        let image = NSImage(size: drawRect.size, flipped: false) { _ in
-            guard let context = NSGraphicsContext.current else {
-                return true
-            }
-            screenshot.draw(
-                in: NSRect(origin: .zero, size: drawRect.size), from: .zero, operation: .copy,
-                fraction: 1.0)
-            context.cgContext.translateBy(x: -drawRect.origin.x, y: -drawRect.origin.y)
-            self.drawAnnotationListLive(annotationsCopy, in: context)
-            success = true
-            return true
+        let scale = ImageRasterizer.pixelScale(of: screenshot)
+        let pxW = max(1, Int((drawRect.width * scale).rounded()))
+        let pxH = max(1, Int((drawRect.height * scale).rounded()))
+        let cs = screenshot.cgImage(forProposedRect: nil, context: nil, hints: nil)?.colorSpace
+            ?? CGColorSpace(name: CGColorSpace.displayP3)
+            ?? CGColorSpaceCreateDeviceRGB()
+        guard let cgCtx = CGContext(
+            data: nil, width: pxW, height: pxH,
+            bitsPerComponent: 8, bytesPerRow: 0, space: cs,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else {
+            memory.finish("context allocation failed")
+            return screenshot
         }
-        if !success {
-            _ = image.cgImage(forProposedRect: nil, context: nil, hints: nil)
-        }
-        if !success {
+        cgCtx.scaleBy(x: scale, y: scale)
+        let nsContext = NSGraphicsContext(cgContext: cgCtx, flipped: false)
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = nsContext
+        screenshot.draw(
+            in: NSRect(origin: .zero, size: drawRect.size), from: .zero, operation: .copy,
+            fraction: 1.0)
+        cgCtx.translateBy(x: -drawRect.origin.x, y: -drawRect.origin.y)
+        drawAnnotationListLive(annotationsCopy, in: nsContext)
+        NSGraphicsContext.restoreGraphicsState()
+
+        guard let cgImage = cgCtx.makeImage() else {
             memory.finish("render failed")
             return screenshot
         }
+        let image = NSImage(cgImage: cgImage, size: drawRect.size)
         cachedCompositedImage = image
-        memory.finish("rendered", images: [("composited", image)], metadata: "drawRect=\(NSStringFromRect(drawRect))")
+        memory.finish("rendered", images: [("composited", image)], metadata: "drawRect=\(NSStringFromRect(drawRect)) pixels=\(pxW)x\(pxH)")
         return image
     }
 
