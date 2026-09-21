@@ -1912,6 +1912,22 @@
         }
       }
     },
+    "Copy file path to clipboard on save" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy file path to clipboard on save"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保存后复制文件路径到剪贴板"
+          }
+        }
+      }
+    },
     "Copy Path" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -2230,6 +2246,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "嵌入 sRGB 颜色配置文件"
+          }
+        }
+      }
+    },
+    "Embed color profile" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Embed color profile"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "嵌入颜色配置文件"
           }
         }
       }

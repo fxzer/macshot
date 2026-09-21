@@ -81,7 +81,7 @@ struct CaptureSettingsView: View {
                     Toggle("", isOn: $downscaleRetina).labelsHidden()
                 }
                 settingWithDescription(
-                    title: L("Embed sRGB color profile"),
+                    title: L("Embed color profile"),
                     description: L("Ensures consistent colors across different displays")
                 ) {
                     Toggle("", isOn: $embedColorProfile).labelsHidden()

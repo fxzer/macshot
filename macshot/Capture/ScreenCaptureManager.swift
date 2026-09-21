@@ -185,7 +185,7 @@ class ScreenCaptureManager {
                             config.height = targetHeight
                             config.showsCursor = false
                             config.captureResolution = .automatic
-                            config.colorSpaceName = CGColorSpace.sRGB
+                            config.colorSpaceName = CGColorSpace.displayP3
                             _ = try? await SCScreenshotManager.captureImage(
                                 contentFilter: filter,
                                 configuration: config
@@ -253,7 +253,7 @@ class ScreenCaptureManager {
                                 config.height = display.height * scale
                                 config.showsCursor = false
                                 config.captureResolution = .best
-                                config.colorSpaceName = CGColorSpace.sRGB
+                                config.colorSpaceName = CGColorSpace.displayP3
 
                                 guard let image = try? await SCScreenshotManager.captureImage(
                                     contentFilter: filter, configuration: config
@@ -375,7 +375,7 @@ class ScreenCaptureManager {
                     config.height = display.height * scale
                     config.showsCursor = false
                     config.captureResolution = .best
-                    config.colorSpaceName = CGColorSpace.sRGB
+                    config.colorSpaceName = CGColorSpace.displayP3
 
                     guard let image = try? await SCScreenshotManager.captureImage(
                         contentFilter: filter,
@@ -503,7 +503,7 @@ class ScreenCaptureManager {
             config.height = Int(scWindow.frame.height) * scale
             config.showsCursor = false
             config.captureResolution = .best
-            config.colorSpaceName = CGColorSpace.sRGB
+            config.colorSpaceName = CGColorSpace.displayP3
 
             guard let image = try? await SCScreenshotManager.captureImage(
                 contentFilter: filter, configuration: config

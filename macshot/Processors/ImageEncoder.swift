@@ -34,7 +34,7 @@ enum ImageEncoder {
         UserDefaults.standard.bool(forKey: "downscaleRetina")
     }
 
-    /// Whether to embed an sRGB ICC color profile in saved images.
+    /// Whether to embed the source image's ICC color profile in saved images.
     static var embedColorProfile: Bool {
         let val = UserDefaults.standard.object(forKey: "embedColorProfile") as? Bool
         return val ?? true  // on by default
@@ -173,7 +173,7 @@ enum ImageEncoder {
         }
     }
 
-    /// Encode PNG, optionally embedding sRGB profile via CGImageDestination.
+    /// Encode PNG, optionally embedding the source color profile via CGImageDestination.
     private static func encodePNG(bitmap: NSBitmapImageRep) -> Data? {
         if embedColorProfile, let cgImage = bitmap.cgImage {
             return encodeWithCGImageDestination(cgImage: cgImage, type: "public.png", lossyQuality: nil)
@@ -213,7 +213,7 @@ enum ImageEncoder {
         return CGImageDestinationFinalize(dest) ? data as Data : nil
     }
 
-    /// Encode JPEG, optionally embedding sRGB profile via CGImageDestination.
+    /// Encode JPEG, optionally embedding the source color profile via CGImageDestination.
     private static func encodeJPEG(bitmap: NSBitmapImageRep, quality: CGFloat) -> Data? {
         if embedColorProfile, let cgImage = bitmap.cgImage {
             return encodeWithCGImageDestination(cgImage: cgImage, type: "public.jpeg", lossyQuality: quality)
@@ -249,7 +249,10 @@ enum ImageEncoder {
         return try? encoder.encode(RGBA: rgbaImage, config: config)
     }
 
-    /// Generic CGImageDestination encoder — handles sRGB profile embedding.
+    /// Generic CGImageDestination encoder — color profile handling.
+    /// When embedding is enabled the image's native profile is preserved (e.g.
+    /// Display P3 captures keep their gamut, matching macOS system screenshots);
+    /// images without a color space are converted to sRGB as a fallback.
     private static func encodeWithCGImageDestination(cgImage: CGImage, type: String, lossyQuality: CGFloat?) -> Data? {
         let data = NSMutableData()
         guard let dest = CGImageDestinationCreateWithData(data as CFMutableData, type as CFString, 1, nil) else { return nil }
@@ -259,9 +262,8 @@ enum ImageEncoder {
             properties[kCGImageDestinationLossyCompressionQuality as String] = q
         }
 
-        // Convert to sRGB color space (proper pixel value conversion, not just re-tagging)
         var imageToEncode = cgImage
-        if embedColorProfile, let sRGB = CGColorSpace(name: CGColorSpace.sRGB) {
+        if embedColorProfile, cgImage.colorSpace == nil, let sRGB = CGColorSpace(name: CGColorSpace.sRGB) {
             let w = cgImage.width, h = cgImage.height
             if let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8,
                                    bytesPerRow: w * 4, space: sRGB,
