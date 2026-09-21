@@ -130,6 +130,10 @@ class OverlayWindowController {
         screen = capture.screen
         captureAsset = capture.asset
 
+        // 截图已就绪，恢复鼠标事件接收（占位 overlay 在捕获前被设为
+        // ignoresMouseEvents = true 以保持目标应用 hover 状态）。
+        overlayWindow?.ignoresMouseEvents = false
+
         let nsImage = capture.asset.displayImage
         CaptureDiagnostics.log(
             "[macshot-perf][OWC.capture] apply displayImage \(String(format: "%.0f", nsImage.size.width))x\(String(format: "%.0f", nsImage.size.height))"
@@ -443,13 +447,18 @@ class OverlayWindowController {
     }
 
     /// Composite annotations onto the snapped window image (preserving transparency).
+    /// Rasterized at the window image's native pixel scale — a closure-based NSImage
+    /// here would rasterize at 72dpi downstream and halve the resolution.
     func compositeAnnotationsOnSnappedWindow(_ windowImage: NSImage, annotations: [Annotation], selectionRect: NSRect) -> NSImage {
         guard !annotations.isEmpty else { return windowImage }
         let sel = selectionRect
         let size = windowImage.size
-        let result = NSImage(size: size, flipped: false) { _ in
+        let result = BeautifyRenderer.rasterize(
+            pointSize: size,
+            sourceScale: BeautifyRenderer.pixelScale(of: windowImage)
+        ) {
             windowImage.draw(in: NSRect(origin: .zero, size: size), from: .zero, operation: .copy, fraction: 1.0)
-            guard let ctx = NSGraphicsContext.current else { return true }
+            guard let ctx = NSGraphicsContext.current else { return false }
             // Translate so annotation coords (relative to selectionRect) map to image coords
             ctx.cgContext.translateBy(x: -sel.origin.x, y: -sel.origin.y)
             for annotation in annotations {
@@ -457,7 +466,7 @@ class OverlayWindowController {
             }
             return true
         }
-        return result
+        return result ?? windowImage
     }
 
     func applyBeautifyIfNeeded(_ image: NSImage?) -> NSImage? {

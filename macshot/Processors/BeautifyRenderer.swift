@@ -198,6 +198,67 @@ class BeautifyRenderer {
         return NSImage(cgImage: cgImage, size: NSSize(width: size, height: size))
     }
 
+    // MARK: - Bitmap rasterization helpers
+
+    /// Native pixel scale of an image (backing CGImage width ÷ point width).
+    /// Closure-based NSImages rasterize at 72dpi, so this reads 1x for them —
+    /// callers wrapping such images should rasterize them first.
+    static func pixelScale(of image: NSImage) -> CGFloat {
+        guard image.size.width > 0,
+            let cg = image.cgImage(forProposedRect: nil, context: nil, hints: nil),
+            cg.width > 0
+        else { return 2.0 }
+        let scale = CGFloat(cg.width) / image.size.width
+        return scale > 0 ? scale : 2.0
+    }
+
+    /// Rasterize a point-space drawing closure into a CGImage-backed NSImage at
+    /// the source capture's native pixel scale.
+    /// Closure-based NSImages (`NSImage(size:flipped:)`) rasterize at 72dpi (1x)
+    /// when extracted via `cgImage(forProposedRect:)` — every encoding path
+    /// (clipboard PNG, file save, upload, history) extracts that way, which
+    /// silently halved beautified output resolution on retina displays.
+    static func renderIntoBitmap(
+        pointSize: NSSize,
+        sourceScale: CGFloat,
+        config: BeautifyConfig,
+        draw: (_ prerenderedMesh: CGImage?) -> Bool
+    ) -> NSImage? {
+        let scale = max(1.0, sourceScale)
+        let pxW = max(1, Int((pointSize.width * scale).rounded()))
+        let pxH = max(1, Int((pointSize.height * scale).rounded()))
+
+        // Mesh prerender runs at pixel dims so the background isn't upscaled.
+        let prerenderedMesh = prerenderBackground(config: config, width: pxW, height: pxH)
+        return rasterize(pointSize: pointSize, sourceScale: sourceScale) {
+            draw(prerenderedMesh)
+        }
+    }
+
+    /// Core rasterizer without beautify-specific preparation.
+    static func rasterize(pointSize: NSSize, sourceScale: CGFloat, draw: () -> Bool) -> NSImage? {
+        let scale = max(1.0, sourceScale)
+        let pxW = max(1, Int((pointSize.width * scale).rounded()))
+        let pxH = max(1, Int((pointSize.height * scale).rounded()))
+
+        let cs = CGColorSpace(name: CGColorSpace.displayP3) ?? CGColorSpaceCreateDeviceRGB()
+        guard let ctx = CGContext(
+            data: nil, width: pxW, height: pxH,
+            bitsPerComponent: 8, bytesPerRow: 0, space: cs,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else { return nil }
+        ctx.scaleBy(x: scale, y: scale)
+
+        let nsContext = NSGraphicsContext(cgContext: ctx, flipped: false)
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = nsContext
+        let success = draw()
+        NSGraphicsContext.restoreGraphicsState()
+
+        guard success, let cg = ctx.makeImage() else { return nil }
+        return NSImage(cgImage: cg, size: pointSize)
+    }
+
     // MARK: - Window mode (macOS title bar chrome)
 
     private static func renderWindow(image: NSImage, config: BeautifyConfig) -> NSImage {
@@ -214,13 +275,13 @@ class BeautifyRenderer {
         let totalWidth = windowWidth + padding * 2
         let totalHeight = windowHeight + padding * 2
 
-        // Pre-render mesh gradient outside the drawing handler to avoid @MainActor isolation issues
-        let prerenderedMesh = prerenderBackground(config: config, width: Int(totalWidth), height: Int(totalHeight))
-
-        var success = false
-        let result = NSImage(size: NSSize(width: totalWidth, height: totalHeight), flipped: false) { _ in
+        let result = renderIntoBitmap(
+            pointSize: NSSize(width: totalWidth, height: totalHeight),
+            sourceScale: pixelScale(of: image),
+            config: config
+        ) { prerenderedMesh in
             guard let context = NSGraphicsContext.current?.cgContext else {
-                return true
+                return false
             }
 
             // Gradient background — fill entire canvas, no outer rounding
@@ -296,14 +357,9 @@ class BeautifyRenderer {
 
             context.restoreGState()
 
-            success = true
             return true
         }
-        if !success {
-            // Force the drawing handler to run so we can check `success`
-            _ = result.cgImage(forProposedRect: nil, context: nil, hints: nil)
-        }
-        return success ? result : image
+        return result ?? image
     }
 
     // MARK: - Snapped window mode (native window chrome, no synthetic title bar)
@@ -321,12 +377,12 @@ class BeautifyRenderer {
         let totalWidth = imgSize.width + padding * 2
         let totalHeight = imgSize.height + padding * 2
 
-        // Pre-render mesh gradient outside the drawing handler to avoid @MainActor isolation issues
-        let prerenderedMesh = prerenderBackground(config: config, width: Int(totalWidth), height: Int(totalHeight))
-
-        var success = false
-        let result = NSImage(size: NSSize(width: totalWidth, height: totalHeight), flipped: false) { _ in
-            guard let context = NSGraphicsContext.current?.cgContext else { return true }
+        let result = renderIntoBitmap(
+            pointSize: NSSize(width: totalWidth, height: totalHeight),
+            sourceScale: pixelScale(of: image),
+            config: config
+        ) { prerenderedMesh in
+            guard let context = NSGraphicsContext.current?.cgContext else { return false }
 
             // Gradient background
             let bgRect = NSRect(x: 0, y: 0, width: totalWidth, height: totalHeight)
@@ -347,13 +403,9 @@ class BeautifyRenderer {
             }
             image.draw(in: imageRect, from: .zero, operation: .sourceOver, fraction: 1.0)
 
-            success = true
             return true
         }
-        if !success {
-            _ = result.cgImage(forProposedRect: nil, context: nil, hints: nil)
-        }
-        return success ? result : image
+        return result ?? image
     }
 
     // MARK: - Rounded mode (just rounded corners, no title bar)
@@ -368,13 +420,13 @@ class BeautifyRenderer {
         let totalWidth = imgSize.width + padding * 2
         let totalHeight = imgSize.height + padding * 2
 
-        // Pre-render mesh gradient outside the drawing handler to avoid @MainActor isolation issues
-        let prerenderedMesh = prerenderBackground(config: config, width: Int(totalWidth), height: Int(totalHeight))
-
-        var success = false
-        let result = NSImage(size: NSSize(width: totalWidth, height: totalHeight), flipped: false) { _ in
+        let result = renderIntoBitmap(
+            pointSize: NSSize(width: totalWidth, height: totalHeight),
+            sourceScale: pixelScale(of: image),
+            config: config
+        ) { prerenderedMesh in
             guard let context = NSGraphicsContext.current?.cgContext else {
-                return true
+                return false
             }
 
             // Gradient background — fill entire canvas, no outer rounding
@@ -399,12 +451,8 @@ class BeautifyRenderer {
             context.endTransparencyLayer()
             context.restoreGState()
 
-            success = true
             return true
         }
-        if !success {
-            _ = result.cgImage(forProposedRect: nil, context: nil, hints: nil)
-        }
-        return success ? result : image
+        return result ?? image
     }
 }
