@@ -298,7 +298,8 @@ enum ImageEncoder {
             guard let bitmap = makeBitmap(image),
                   let pngData = bitmap.representation(using: .png, properties: [:]) else { return }
             // Write a temp file so Finder can paste it as a file.
-            // Reuse a single stable path to avoid unbounded tmp growth.
+            // Unique filename per copy — clipboard managers (Raycast etc.)
+            // cache previews by file URL; a stable path showed stale previews.
             let fileURL = TemporaryFileManager.writeClipboardImageData(pngData)
             DispatchQueue.main.async {
                 // Declare both types so image editors get PNG data and Finder gets a file URL.
