@@ -560,7 +560,12 @@ extension OverlayWindowController: OverlayViewDelegate {
         if let appDelegate = NSApp.delegate as? AppDelegate {
             appDelegate.saveImageToPreferredDirectory(image, showFailureToast: false, completion: completion)
         } else {
-            ImageSaveService.saveToDefaultDirectoryAsync(image, kind: .screenshot, completion: completion)
+            ImageSaveService.saveToDefaultDirectoryAsync(image, kind: .screenshot) { result in
+                if case .success(let fileURL) = result, PostCaptureActionPreferences.copyPathOnSave {
+                    PasteboardWriter.writeString(fileURL.path)
+                }
+                completion(result)
+            }
         }
     }
 
@@ -583,6 +588,9 @@ extension OverlayWindowController: OverlayViewDelegate {
                 let result = ImageSaveService.save(image, to: url)
                 switch result {
                 case .success(let fileURL):
+                    if PostCaptureActionPreferences.copyPathOnSave {
+                        PasteboardWriter.writeString(fileURL.path)
+                    }
                     (NSApp.delegate as? AppDelegate)?.showSaveResultToast(.success(fileURL))
                     SaveDirectoryAccess.save(url: fileURL.deletingLastPathComponent())
                     self.dismiss()

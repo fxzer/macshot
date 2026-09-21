@@ -51,6 +51,12 @@ enum PostCaptureActionPreferences {
         )
     }
 
+    /// After a successful save, write the file path to the clipboard instead of
+    /// the image (mutually exclusive with copy-to-clipboard on the same save).
+    static var copyPathOnSave: Bool {
+        bool(forKey: "copyPathOnSave", default: false)
+    }
+
     private static func setDefaultIfMissing(_ key: String, value: Bool) {
         guard defaults.object(forKey: key) == nil else { return }
         defaults.set(value, forKey: key)

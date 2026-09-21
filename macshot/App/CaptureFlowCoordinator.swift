@@ -543,6 +543,11 @@ final class CaptureFlowCoordinator {
         controller.overlayView?.suppressBackdropUntilCapture = true
         configureController(controller, screenName: screen.localizedName, t0: t0)
         controller.showOverlay(activateAppIfNeeded: false)
+        // 捕获完成前，占位 overlay 必须鼠标穿透（ignoresMouseEvents = true）：
+        // 若拦截鼠标事件，目标应用（浏览器/Electron 等）会收到 mouseleave、
+        // 或在下一次失激活（blur）时清除 hover 状态，导致 tooltip / hover-only
+        // 元素在截图瞬间消失。截图就绪后 applyCapture 会恢复交互。
+        controller.overlayWindow?.ignoresMouseEvents = true
         perf.step("controller screen=\(screen.localizedName)")
         memory.step("controller ready", metadata: "overlayCountBeforeAppend=\(overlayControllersStorage.count)")
         overlayControllersStorage.append(controller)

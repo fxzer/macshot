@@ -29,6 +29,9 @@ struct BehaviorSettingsView: View {
     // Show in Finder
     @AppStorage("screenshotShowInFinder") private var screenshotShowInFinder = false
 
+    // Copy file path after save (instead of copying the image)
+    @AppStorage("copyPathOnSave") private var copyPathOnSave = false
+
     var body: some View {
         Form {
             Section {
@@ -47,6 +50,10 @@ struct BehaviorSettingsView: View {
                 actionRow(
                     binding: $screenshotShowInFinder,
                     title: L("Show in Finder")
+                )
+                actionRow(
+                    binding: $copyPathOnSave,
+                    title: L("Copy file path to clipboard on save")
                 )
                 actionRow(
                     binding: $screenshotShowQuickAccessOverlay,
