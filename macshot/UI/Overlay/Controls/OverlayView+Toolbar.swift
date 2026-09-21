@@ -187,6 +187,10 @@ extension OverlayView {
         case .translate:
             showTranslatePopover(
                 anchorRect: anchorView.convert(anchorView.bounds, to: self), anchorView: anchorView)
+        case .beautify:
+            showBeautifyPopover(anchorView: anchorView)
+        case .effects:
+            showEffectsPopover(anchorView: anchorView)
         default:
             break
         }
@@ -362,16 +366,9 @@ extension OverlayView {
         case .invertColors:
             invertImageColors()
         case .effects:
-            let btn = rightStripView?.buttonViews.first {
-                if case .effects = $0.action { return true }
-                return false
-            }
-            showEffectsPopover(anchorView: btn)
+            toggleEffects()
         case .beautify:
-            let btn = rightStripView?.buttonViews.first {
-                if case .beautify = $0.action { return true } else { return false }
-            }
-            showBeautifyPopover(anchorView: btn)
+            toggleBeautify()
         case .beautifyStyle:
             beautifyStyleIndex = (beautifyStyleIndex + 1) % beautifyStyles.count
             UserDefaults.standard.set(beautifyStyleIndex, forKey: "beautifyStyleIndex")
@@ -805,6 +802,57 @@ extension OverlayView {
             }
             subs.append(contentsOf: toolbars)
             parent.subviews = subs
+        }
+    }
+
+    func toggleBeautify() {
+        beautifyEnabled.toggle()
+        showStateHint(
+            message: L("Beautify") + " ",
+            statusText: beautifyEnabled ? L("Status enabled") : L("Status disabled"),
+            state: beautifyEnabled ? .enabled : .disabled
+        )
+        if isEditorMode {
+            updateEditorFrameForBeautify()
+        } else {
+            refreshBeautifyRendering()
+            startBeautifyToolbarAnimation()
+        }
+        rebuildToolbarLayout(reason: "toggleBeautify")
+        needsDisplay = true
+    }
+
+    func toggleEffects() {
+        if effectsActive {
+            effectsEnabled = false
+            cachedEffectsScreenshot = nil
+            cachedCompositedImage = nil
+            showStateHint(
+                message: L("Adjust") + " ",
+                statusText: L("Status disabled"),
+                state: .disabled
+            )
+            rebuildToolbarLayout(reason: "toggleEffects")
+            needsDisplay = true
+        } else {
+            if effectsConfig.isIdentity {
+                let btn = rightStripView?.buttonViews.first {
+                    if case .effects = $0.action { return true }
+                    return false
+                }
+                showEffectsPopover(anchorView: btn)
+            } else {
+                effectsEnabled = true
+                cachedEffectsScreenshot = nil
+                cachedCompositedImage = nil
+                showStateHint(
+                    message: L("Adjust") + " ",
+                    statusText: L("Status enabled"),
+                    state: .enabled
+                )
+                rebuildToolbarLayout(reason: "toggleEffects")
+                needsDisplay = true
+            }
         }
     }
 }

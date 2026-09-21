@@ -160,7 +160,8 @@ extension OverlayView {
         longPressTimer?.invalidate()
         longPressTimer = nil
         colorWheel.dismiss()
-        beautifyEnabled = UserDefaults.standard.bool(forKey: "beautifyEnabled")
+        beautifyEnabled = false
+        effectsEnabled = false
         beautifyStyleIndex = UserDefaults.standard.integer(forKey: "beautifyStyleIndex")
         beautifyMode =
             BeautifyMode(rawValue: UserDefaults.standard.integer(forKey: "beautifyMode")) ?? .window

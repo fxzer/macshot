@@ -1,7 +1,8 @@
 import AppKit
 
 final class OverlayAppearanceState {
-    var beautifyEnabled = UserDefaults.standard.bool(forKey: "beautifyEnabled")
+    var beautifyEnabled = false
+    var effectsEnabled = false
     var beautifyEditorOffset: NSPoint = .zero
     var beautifyStyleIndex = UserDefaults.standard.integer(forKey: "beautifyStyleIndex")
     var beautifyMode =
@@ -151,7 +152,12 @@ extension OverlayView {
             sharpness: effectsSharpness)
     }
 
-    var effectsActive: Bool { !effectsConfig.isIdentity }
+    var effectsEnabled: Bool {
+        get { appearanceState.effectsEnabled }
+        set { appearanceState.effectsEnabled = newValue }
+    }
+
+    var effectsActive: Bool { effectsEnabled && !effectsConfig.isIdentity }
 
     var cachedEffectsScreenshot: NSImage? {
         get { appearanceState.cachedEffectsScreenshot }

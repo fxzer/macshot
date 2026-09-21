@@ -181,6 +181,7 @@ extension OverlayView {
     }
 
     func applyEffects(_ config: ImageEffectsConfig) {
+        effectsEnabled = !config.isIdentity
         effectsPreset = config.preset
         effectsBrightness = config.brightness
         effectsContrast = config.contrast

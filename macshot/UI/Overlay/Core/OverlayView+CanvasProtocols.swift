@@ -10,6 +10,7 @@ import AppKit
 extension OverlayView {
     func effectsProcessedScreenshot(_ screenshot: NSImage) -> NSImage {
         if let cached = cachedEffectsScreenshot { return cached }
+        guard effectsActive else { return screenshot }
         let config = effectsConfig
         guard !config.isIdentity else { return screenshot }
         let processed = ImageEffects.apply(to: screenshot, config: config)
