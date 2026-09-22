@@ -81,6 +81,7 @@ final class BeautifyBackgroundPickerView: NSView {
     }
 
     override func mouseDown(with event: NSEvent) {
+        window?.makeFirstResponder(self)
         let point = convert(event.locationInWindow, from: nil)
         let total = beautifyStyles.count + (hasCustomImage ? 1 : 0) + 1
         for slot in 0..<total where rect(for: slot).contains(point) {
@@ -101,15 +102,21 @@ final class BeautifyBackgroundPickerView: NSView {
     }
 
     override func keyDown(with event: NSEvent) {
-        let isDelete = event.keyCode == 51 || event.keyCode == 117
-        if isDelete, selectedIndex == -1, hasCustomImage {
-            onRemoveCustomImage?()
-            return
-        }
-        if moveSelection(for: event.keyCode) {
+        if handlePickerKey(event) {
             return
         }
         super.keyDown(with: event)
+    }
+
+    /// Returns true when the event was consumed (arrow navigation or delete custom image).
+    @discardableResult
+    func handlePickerKey(_ event: NSEvent) -> Bool {
+        let isDelete = event.keyCode == 51 || event.keyCode == 117
+        if isDelete, selectedIndex == -1, hasCustomImage {
+            onRemoveCustomImage?()
+            return true
+        }
+        return moveSelection(for: event.keyCode)
     }
 
     private func rect(for index: Int) -> NSRect {

@@ -148,6 +148,10 @@ extension OverlayView {
             return
         }
 
+        if handleBeautifyStyleKeys(with: event) {
+            return
+        }
+
         // Space: reposition shape/selection mid-drag (design tool convention)
         if event.keyCode == 49 {
             // Swallow all repeats while repositioning to prevent system beep

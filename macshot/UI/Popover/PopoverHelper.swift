@@ -103,6 +103,22 @@ enum PopoverHelper {
         return popover.isShown
     }
 
+    static var currentType: PopoverType? {
+        isVisible ? currentPopoverType : nil
+    }
+
+    static func findContentView<T: NSView>(_ type: T.Type) -> T? {
+        func search(_ view: NSView) -> T? {
+            if let match = view as? T { return match }
+            for subview in view.subviews {
+                if let found = search(subview) { return found }
+            }
+            return nil
+        }
+        guard let root = activePopover?.contentViewController?.view else { return nil }
+        return search(root)
+    }
+
     static var window: NSWindow? {
         activePopover?.contentViewController?.view.window
     }

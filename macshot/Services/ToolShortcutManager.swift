@@ -23,6 +23,8 @@ enum ToolShortcutManager {
         case pin
         case openInEditor
         case moveSelection
+        case toggleBeautify  // one-shot beautify on/off — S for Sparkle/Style
+        case toggleEffects   // one-shot effects on/off  — J for adJust
 
         var label: String {
             switch self {
@@ -42,6 +44,8 @@ enum ToolShortcutManager {
             case .pin: return L("Pin")
             case .openInEditor: return L("Open in Editor")
             case .moveSelection: return L("Move Selection")
+            case .toggleBeautify: return L("Toggle Beautify")
+            case .toggleEffects: return L("Toggle Adjust")
             }
         }
 
@@ -63,6 +67,8 @@ enum ToolShortcutManager {
             case .pin: return ToolShortcutManager.rightClickShortcut
             case .openInEditor: return "e"
             case .moveSelection: return "v"
+            case .toggleBeautify: return "s"
+            case .toggleEffects: return "j"
             }
         }
     }
@@ -161,6 +167,8 @@ enum ToolShortcutManager {
             case .pin: lookup[k] = .pin
             case .openInEditor: lookup[k] = .detach
             case .moveSelection: lookup[k] = .moveSelection
+            case .toggleBeautify: lookup[k] = .beautify
+            case .toggleEffects: lookup[k] = .effects
             }
         }
         _cachedLookup = lookup

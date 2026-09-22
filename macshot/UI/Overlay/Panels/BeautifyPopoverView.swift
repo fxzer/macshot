@@ -53,6 +53,7 @@ final class BeautifyPopoverView: NSView {
                 }
                 self?.rebuild()
             }
+            segmented.cell?.refusesFirstResponder = true
             segmented.frame = NSRect(x: 14, y: currentY, width: contentWidth - 28, height: 24)
             addSubview(segmented)
             currentY += 34
@@ -88,8 +89,12 @@ final class BeautifyPopoverView: NSView {
 
         let picker = BeautifyBackgroundPickerView(selectedIndex: overlayView.beautifyStyleIndex, columns: 8, horizontalPadding: 0)
         picker.onSelect = { [weak self] index in
+            let wasCustom = self?.overlayView?.beautifyStyleIndex == -1
             self?.overlayView?.applyBeautifyStyleSelection(index)
-            self?.rebuild()
+            // Only rebuild when the blur slider appears/disappears.
+            if wasCustom != (index == -1) {
+                self?.rebuild()
+            }
         }
         picker.onCustomImage = { [weak self] in
             self?.overlayView?.pickCustomBeautifyBackground { [weak self] in
@@ -115,6 +120,7 @@ final class BeautifyPopoverView: NSView {
         addSubview(label)
 
         let toggle = makeOverlayCheckbox("", isOn: isOn, onChange: onToggle)
+        toggle.cell?.refusesFirstResponder = true
         toggle.frame = NSRect(x: contentWidth - 28, y: currentY + 2, width: 24, height: 18)
         addSubview(toggle)
         currentY += 28
@@ -136,6 +142,7 @@ final class BeautifyPopoverView: NSView {
         )
         slider.frame = NSRect(x: 78, y: currentY, width: 140, height: 20)
         slider.isContinuous = true
+        slider.cell?.refusesFirstResponder = true
         addSubview(slider)
 
         let valueLabel = NSTextField(labelWithString: "\(Int(value))")
