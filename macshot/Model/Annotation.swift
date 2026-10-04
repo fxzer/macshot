@@ -1,25 +1,27 @@
 import Cocoa
 import Vision
 
+// Explicit raw values: annotations persist `tool` as this Int (history,
+// enabledTools defaults). Never renumber — removed cases leave gaps.
 enum AnnotationTool: Int, CaseIterable {
-    case pencil          // freeform draw
-    case line            // straight line
-    case arrow           // arrow
-    case rectangle       // outlined rect
-    case filledRectangle // filled rect (opaque/redact)
-    case ellipse         // outlined ellipse
-    case marker          // highlighter (semi-transparent wide)
-    case text            // text annotation
-    case number          // auto-incrementing numbered circle
-    case pixelate        // pixelate/blur region
-    case blur            // gaussian blur region
-    case measure         // pixel ruler / measurement line
-    case loupe           // magnifying glass
-    case select          // select & move existing annotations
-    case translateOverlay // translated text painted over original
-    case crop            // crop image (detached editor only)
-    case colorSampler    // pick color from screen
-    case stamp           // emoji or image stamp
+    case pencil = 0
+    case line = 1
+    case arrow = 2
+    case rectangle = 3
+    case filledRectangle = 4
+    case ellipse = 5
+    case marker = 6
+    case text = 7
+    case number = 8
+    case pixelate = 9
+    case blur = 10
+    case measure = 11
+    case loupe = 12
+    case select = 13
+    // 14 was translateOverlay (feature removed) — do not reuse.
+    case crop = 15
+    case colorSampler = 16
+    case stamp = 17
 }
 
 enum LineStyle: Int, CaseIterable {
@@ -394,7 +396,7 @@ class Annotation {
     /// Whether this annotation type can be moved
     var isMovable: Bool {
         switch tool {
-        case .select, .translateOverlay:
+        case .select:
             return false
         default:
             return true

@@ -14,7 +14,6 @@ enum PopoverHelper {
         case effects
         case uploadConfirm
         case redactType
-        case translate
         case beautifyGradient
         case emoji
         case colorPicker

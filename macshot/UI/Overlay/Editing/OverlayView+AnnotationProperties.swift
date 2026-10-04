@@ -120,7 +120,7 @@ extension OverlayView {
     /// Marker uses a fixed alpha in its draw method; loupe/measure/pixelate/blur are color-independent.
     func opacityAppliedColor(for tool: AnnotationTool) -> NSColor {
         switch tool {
-        case .marker, .loupe, .measure, .pixelate, .blur, .translateOverlay:
+        case .marker, .loupe, .measure, .pixelate, .blur:
             return currentColor
         default:
             return annotationColor

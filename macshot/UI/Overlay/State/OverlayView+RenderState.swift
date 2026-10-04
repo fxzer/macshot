@@ -6,8 +6,6 @@ final class OverlayRenderState {
     var cachedAnnotationLayerExcludingSelected: NSImage?
     var cachedOpaqueRect: NSRect?
     var estimatedCacheMemory = 0
-    var isTranslating = false
-    var translateEnabled = false
     var isRemovingBackground = false
     var isCropDragging = false
     var cropDragStart: NSPoint = .zero
@@ -78,16 +76,6 @@ extension OverlayView {
     var estimatedCacheMemory: Int {
         get { renderState.estimatedCacheMemory }
         set { renderState.estimatedCacheMemory = newValue }
-    }
-
-    var isTranslating: Bool {
-        get { renderState.isTranslating }
-        set { renderState.isTranslating = newValue }
-    }
-
-    var translateEnabled: Bool {
-        get { renderState.translateEnabled }
-        set { renderState.translateEnabled = newValue }
     }
 
     var isRemovingBackground: Bool {

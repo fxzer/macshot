@@ -2,14 +2,15 @@ import Foundation
 
 enum TemporaryFileManager {
 
+    /// Legacy: clipboard copies used to be written as temp files declared on
+    /// the pasteboard as file URLs. Nothing writes these anymore (the clipboard
+    /// is image-data only now), but older versions left files behind — the
+    /// prefix keeps them recognized as managed so stale cleanup removes them.
     private static let clipboardFilePrefix = "macshot-clipboard-"
     /// Pre-unique-filename era: every copy reused this exact path. Clipboard
     /// managers (Raycast/Alfred/Maccy) cache previews by file URL, so a stable
     /// path made every entry preview as the first-ever cached image.
     private static let legacyStableClipboardFileName = "macshot-clipboard-current.png"
-    /// How many recent clipboard files to keep — recent entries in clipboard
-    /// history and a pending Finder paste may still resolve their file URL.
-    private static let clipboardFilesToKeep = 8
     private static let genericMacshotPrefix = "macshot_"
     private static let shareFilePrefix = "macshot-share-"
     private static let recordingFilePrefix = "macshot-recording-"
@@ -17,26 +18,7 @@ enum TemporaryFileManager {
 
     static func cleanupOnLaunch(now: Date = Date()) {
         removeLegacyStableClipboardFile()
-        pruneClipboardFiles()
         cleanupStaleMacshotFiles(now: now)
-    }
-
-    /// Writes the clipboard image to a **uniquely named** temp file.
-    /// Clipboard managers cache/dedupe previews by file URL — reusing one
-    /// stable filename made every copy preview as a stale image (the pasted
-    /// PNG data itself was always fresh). Files are pruned to the newest few.
-    static func writeClipboardImageData(_ data: Data) -> URL? {
-        removeLegacyStableClipboardFile()
-
-        let name = "\(clipboardFilePrefix)\(Int(Date().timeIntervalSince1970 * 1000)).png"
-        let url = uniqueTemporaryURL(for: name)
-        do {
-            try data.write(to: url, options: .atomic)
-        } catch {
-            return nil
-        }
-        pruneClipboardFiles()
-        return url
     }
 
     static func writeDragImageData(_ data: Data, fileExtension: String) -> URL? {
@@ -72,22 +54,6 @@ enum TemporaryFileManager {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent(legacyStableClipboardFileName)
         try? FileManager.default.removeItem(at: url)
-    }
-
-    /// Keep only the newest `clipboardFilesToKeep` clipboard temp files.
-    private static func pruneClipboardFiles() {
-        let fm = FileManager.default
-        var files: [(url: URL, date: Date)] = temporaryFiles()
-            .filter { $0.lastPathComponent.hasPrefix(clipboardFilePrefix) }
-            .compactMap { url in
-                let values = try? url.resourceValues(forKeys: [.contentModificationDateKey])
-                return (url, values?.contentModificationDate ?? .distantPast)
-            }
-        guard files.count > clipboardFilesToKeep else { return }
-        files.sort { $0.date > $1.date }
-        for entry in files.dropFirst(clipboardFilesToKeep) {
-            try? fm.removeItem(at: entry.url)
-        }
     }
 
     private static func cleanupStaleMacshotFiles(now: Date) {

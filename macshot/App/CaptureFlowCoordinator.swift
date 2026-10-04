@@ -80,6 +80,12 @@ final class CaptureFlowCoordinator {
         dependencies.showThumbnails()
         if refocusPreviousApp {
             dependencies.restoreFocusIfNeeded()
+        } else {
+            // Overlays dismissed but MacShot keeps focus (e.g. pin window or detached editor).
+            // Restore arrow cursor cleanly on the next runloop turn after window teardown finishes.
+            DispatchQueue.main.async {
+                NSCursor.arrow.set()
+            }
         }
         CaptureDiagnostics.log(
             "[macshot-mem][capture] dismissOverlays.after overlayCount=\(overlayControllersStorage.count) \(MemoryDiagnostics.currentSummary())"
@@ -196,8 +202,9 @@ final class CaptureFlowCoordinator {
         )
 
         for window in strayWindows {
-            window.contentView = nil
+            window.ignoresMouseEvents = true
             window.orderOut(nil)
+            window.contentView = nil
             window.close()
         }
         logOverlayWindowState("\(reason) strayClosed=\(strayWindows.count)")

@@ -278,7 +278,7 @@
 				CODE_SIGN_ENTITLEMENTS = macshot/Resources/macshot.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 5120;
+				CURRENT_PROJECT_VERSION = 5304;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_APP_SANDBOX = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -290,7 +290,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 5.1.3;
+				MARKETING_VERSION = 5.3.4;
 				PRODUCT_BUNDLE_IDENTIFIER = com.fxzer.macshot.macshot;
 				PRODUCT_NAME = MacShot;
 				REGISTER_APP_GROUPS = YES;
@@ -311,7 +311,7 @@
 				CODE_SIGN_ENTITLEMENTS = macshot/Resources/macshot.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 5120;
+				CURRENT_PROJECT_VERSION = 5304;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_APP_SANDBOX = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -323,7 +323,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 5.1.3;
+				MARKETING_VERSION = 5.3.4;
 				PRODUCT_BUNDLE_IDENTIFIER = com.fxzer.macshot.macshot;
 				PRODUCT_NAME = MacShot;
 				REGISTER_APP_GROUPS = YES;

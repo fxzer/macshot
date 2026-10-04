@@ -2080,6 +2080,23 @@
         }
       }
     },
+    "Detected: %@" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Detected: %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "识别语言：%@"
+          }
+        }
+      }
+    },
     "Discard" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -2330,6 +2347,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "引擎"
+          }
+        }
+      }
+    },
+    "English" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "English"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "英语"
           }
         }
       }
@@ -4163,6 +4197,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "关闭"
+          }
+        }
+      }
+    },
+    "OCR failed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OCR failed"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OCR 识别失败"
+          }
+        }
+      }
+    },
+    "OCR timed out after %d s" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OCR timed out after %d s"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OCR 识别超时（%d 秒）"
           }
         }
       }
@@ -6587,6 +6655,23 @@
         }
       }
     },
+    "Simplified Chinese" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chinese (Simplified)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "简体中文"
+          }
+        }
+      }
+    },
     "Size" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -6889,6 +6974,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "描边"
+          }
+        }
+      }
+    },
+    "Swap translation direction" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Swap translation direction"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "反转翻译方向（中⇄英）"
           }
         }
       }

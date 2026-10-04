@@ -48,8 +48,6 @@ extension Annotation {
             break  // not a drawable tool
         case .crop:
             break  // handled separately in OverlayView
-        case .translateOverlay:
-            drawTranslateOverlay()
         case .colorSampler:
             break  // preview-only tool, no annotation drawn
         case .stamp:

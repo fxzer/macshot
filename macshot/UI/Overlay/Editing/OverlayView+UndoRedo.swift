@@ -25,13 +25,11 @@ extension OverlayView {
                 }
                 for e in batch { annotations.removeAll { $0 === e.annotation } }
                 if ann.tool == .number { numberCounter = max(0, numberCounter - batch.count) }
-                if ann.tool == .translateOverlay { translateEnabled = false; rebuildToolbarLayout() }
                 redoStack.append(contentsOf: batch)
                 clearHoverIfNeeded(batch.map { $0.annotation })
             } else {
                 annotations.removeAll { $0 === ann }
                 if ann.tool == .number { numberCounter = max(0, numberCounter - 1) }
-                if ann.tool == .translateOverlay { translateEnabled = false; rebuildToolbarLayout() }
                 redoStack.append(.added(ann))
                 clearHoverIfNeeded([ann])
             }

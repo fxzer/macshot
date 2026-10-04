@@ -184,9 +184,6 @@ extension OverlayView {
         case .upload:
             showUploadConfirmPopover(
                 anchorRect: anchorView.convert(anchorView.bounds, to: self), anchorView: anchorView)
-        case .translate:
-            showTranslatePopover(
-                anchorRect: anchorView.convert(anchorView.bounds, to: self), anchorView: anchorView)
         case .beautify:
             showBeautifyPopover(anchorView: anchorView)
         case .effects:
@@ -376,17 +373,6 @@ extension OverlayView {
             needsDisplay = true
         case .delayCapture:
             break
-        case .translate:
-            shouldRebuildToolbar = true
-            if translateEnabled {
-                translateEnabled = false
-                annotations.removeAll { $0.tool == .translateOverlay }
-                isTranslating = false
-            } else {
-                translateEnabled = true
-                performTranslate(targetLang: TranslationService.targetLanguage)
-            }
-            needsDisplay = true
         case .cancel:
             overlayDelegate?.overlayViewDidCancel()
         case .detach:
@@ -426,7 +412,6 @@ extension OverlayView {
             selectedTool: currentTool,
             beautifyEnabled: beautifyEnabled, beautifyStyleIndex: beautifyStyleIndex,
             hasAnnotations: movableAnnotations, effectsActive: effectsActive,
-            translateEnabled: translateEnabled,
             isEditorMode: isEditorMode)
         CaptureDiagnostics.log(
             "[macshot-perf][toolbar] rebuild STEP id=\(rebuildID) buttonModels elapsed=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - buttonModelT0) * 1000))ms bottomCount=\(bottomButtons.count) rightCount=\(rightButtons.count)"

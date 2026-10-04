@@ -26,7 +26,9 @@ protocol OverlayWindowControllerDelegate: AnyObject {
     )
     func overlayDidRequestPin(_ controller: OverlayWindowController, image: NSImage, at globalOrigin: NSPoint)
     func overlayDidStartOCR(_ controller: OverlayWindowController)
-    func overlayDidFinishOCR(_ controller: OverlayWindowController?, text: String)
+    func overlayDidFinishOCR(
+        _ controller: OverlayWindowController?, text: String, errorMessage: String?
+    )
     func overlayDidRequestUpload(_ controller: OverlayWindowController, image: NSImage)
     func overlayDidRequestScrollCapture(
         _ controller: OverlayWindowController, rect: NSRect, screen: NSScreen)
@@ -57,6 +59,7 @@ class OverlayWindowController {
 
     weak var overlayDelegate: OverlayWindowControllerDelegate?
     var capturedWindowTitle: String?
+    private(set) var isDismissed = false
 
     var backgroundRemovalToken: BackgroundRemovalProcessor.CancellationToken?
     var overlayView: OverlayView?
@@ -361,6 +364,9 @@ class OverlayWindowController {
     }
 
     func dismiss() {
+        guard !isDismissed else { return }
+        isDismissed = true
+
         let cacheSummary = overlayView.map {
             "annotations=\($0.annotations.count) undo=\($0.undoStack.count) redo=\($0.redoStack.count) cacheEstimate=\(MemoryDiagnostics.format(bytes: UInt64($0.estimatedCacheMemory)))"
         } ?? "overlayView=nil"
@@ -382,6 +388,20 @@ class OverlayWindowController {
         onFirstFrameShown = nil
         saveSelectionIfNeeded()
 
+        // 1. Immediately cut off mouse events from WindowServer so no pending
+        //    or trailing mouse move/click events can target this tearing-down window.
+        overlayWindow?.ignoresMouseEvents = true
+
+        // 2. Remove mouseMoved tracking area immediately to prevent cursor updates during teardown.
+        if let view = overlayView, let trackingArea = view.mouseMovedTrackingArea {
+            view.removeTrackingArea(trackingArea)
+            view.mouseMovedTrackingArea = nil
+        }
+
+        // 3. Immediately order out the window so WindowServer removes it from
+        //    the compositor before layers and views are detached.
+        overlayWindow?.orderOut(nil)
+
         // Memory optimization: use autoreleasepool to ensure screenshotImage,
         // captureAsset, and other large objects are released promptly
         autoreleasepool {
@@ -393,11 +413,9 @@ class OverlayWindowController {
             overlayView?.overlayDelegate = nil
             overlayWindow?.contentView = nil
             overlayView = nil
-            overlayWindow?.orderOut(nil)
             overlayWindow?.close()
             overlayWindow = nil
         }
-        NSCursor.arrow.set()
         MemoryDiagnostics.snapshot("OverlayWindowController.dismiss.after", metadata: "screen=\(screenName)")
         CaptureDiagnostics.log(
             "[macshot-mem][OWC.dismiss] screen=\(screenName) \(MemoryDiagnostics.currentSummary())"

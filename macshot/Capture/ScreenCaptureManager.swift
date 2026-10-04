@@ -499,8 +499,11 @@ class ScreenCaptureManager {
 
             let config = SCStreamConfiguration()
             let scale = Int(screen.backingScaleFactor)
-            config.width = Int(scWindow.frame.width) * scale
-            config.height = Int(scWindow.frame.height) * scale
+            // Round in device-pixel space: truncating the point size first doubles the
+            // error on retina, and any size mismatch makes SCK rescale the whole window
+            // capture (progressive subpixel smear across the image).
+            config.width = Int((scWindow.frame.width * CGFloat(scale)).rounded())
+            config.height = Int((scWindow.frame.height * CGFloat(scale)).rounded())
             config.showsCursor = false
             config.captureResolution = .best
             config.colorSpaceName = CGColorSpace.displayP3

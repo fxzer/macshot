@@ -45,6 +45,9 @@ final class FocusCoordinator {
                 $0.isActive && $0.bundleIdentifier != Bundle.main.bundleIdentifier
             } ?? NSWorkspace.shared.frontmostApplication ?? NSRunningApplication.current
             Self.activateApp(fallbackApp)
+            if fallbackApp == NSRunningApplication.current {
+                NSCursor.arrow.set()
+            }
         }
     }
 

@@ -163,6 +163,18 @@ enum ImageEncoder {
 
     // MARK: - Encoding
 
+    /// Effective pixel scale of the FINAL bitmap vs the source image's point size.
+    /// Drives DPI metadata: a 2x retina capture written at 72dpi displays at twice
+    /// its physical size in DPI-respecting viewers (Preview, chat apps, Finder),
+    /// upscaled 2x and visibly soft. 72 × scale (144 for retina) matches the system
+    /// screenshot convention — natural size = logical points = 1:1 device-pixel
+    /// mapping, pixel-sharp.
+    static func effectiveScale(source: NSImage, bitmap: NSBitmapImageRep) -> CGFloat {
+        guard source.size.width > 0, bitmap.pixelsWide > 0 else { return 1 }
+        let scale = CGFloat(bitmap.pixelsWide) / source.size.width
+        return scale >= 1 ? scale : 1
+    }
+
     static func encode(_ asset: CaptureImageAsset, source: CaptureImageExportSource = .display) -> Data? {
         encode(asset.image(for: source))
     }
@@ -170,24 +182,28 @@ enum ImageEncoder {
     /// Encode an NSImage to Data in the configured format.
     static func encode(_ image: NSImage) -> Data? {
         guard let bitmap = makeBitmap(image) else { return nil }
+        let scale = effectiveScale(source: image, bitmap: bitmap)
 
         switch format {
         case .png:
-            return encodePNG(bitmap: bitmap)
+            return encodePNG(bitmap: bitmap, scale: scale)
         case .jpeg:
-            return encodeJPEG(bitmap: bitmap, quality: quality)
+            return encodeJPEG(bitmap: bitmap, quality: quality, scale: scale)
         case .heic:
-            return encodeHEIC(bitmap: bitmap, quality: quality)
+            return encodeHEIC(bitmap: bitmap, quality: quality, scale: scale)
         case .webp:
             return encodeWebP(bitmap: bitmap, quality: quality)
         }
     }
 
     /// Encode PNG, optionally embedding the source color profile via CGImageDestination.
-    private static func encodePNG(bitmap: NSBitmapImageRep) -> Data? {
+    private static func encodePNG(bitmap: NSBitmapImageRep, scale: CGFloat = 1) -> Data? {
         if embedColorProfile, let cgImage = bitmap.cgImage {
-            return encodeWithCGImageDestination(cgImage: cgImage, type: "public.png", lossyQuality: nil)
+            return encodeWithCGImageDestination(cgImage: cgImage, type: "public.png", lossyQuality: nil, scale: scale)
         }
+        // Best-effort DPI in the non-destination path: the rep derives pHYs from
+        // its point size vs pixel count.
+        bitmap.size = NSSize(width: CGFloat(bitmap.pixelsWide) / scale, height: CGFloat(bitmap.pixelsHigh) / scale)
         return bitmap.representation(using: .png, properties: [:])
     }
 
@@ -197,7 +213,7 @@ enum ImageEncoder {
     /// `cgImage(forProposedRect:)` + CGImageDestination.
     static func encodePNG(_ image: NSImage) -> Data? {
         guard let bitmap = makeBitmap(image) else { return nil }
-        return encodePNG(bitmap: bitmap)
+        return encodePNG(bitmap: bitmap, scale: effectiveScale(source: image, bitmap: bitmap))
     }
 
     /// Encode a CGImage directly to JPEG Data at the given quality.
@@ -224,17 +240,17 @@ enum ImageEncoder {
     }
 
     /// Encode JPEG, optionally embedding the source color profile via CGImageDestination.
-    private static func encodeJPEG(bitmap: NSBitmapImageRep, quality: CGFloat) -> Data? {
+    private static func encodeJPEG(bitmap: NSBitmapImageRep, quality: CGFloat, scale: CGFloat = 1) -> Data? {
         if embedColorProfile, let cgImage = bitmap.cgImage {
-            return encodeWithCGImageDestination(cgImage: cgImage, type: "public.jpeg", lossyQuality: quality)
+            return encodeWithCGImageDestination(cgImage: cgImage, type: "public.jpeg", lossyQuality: quality, scale: scale)
         }
         return bitmap.representation(using: .jpeg, properties: [.compressionFactor: quality])
     }
 
     /// Encode HEIC via CGImageDestination (NSBitmapImageRep doesn't support HEIC).
-    private static func encodeHEIC(bitmap: NSBitmapImageRep, quality: CGFloat) -> Data? {
+    private static func encodeHEIC(bitmap: NSBitmapImageRep, quality: CGFloat, scale: CGFloat = 1) -> Data? {
         guard let cgImage = bitmap.cgImage else { return nil }
-        return encodeWithCGImageDestination(cgImage: cgImage, type: "public.heic", lossyQuality: quality)
+        return encodeWithCGImageDestination(cgImage: cgImage, type: "public.heic", lossyQuality: quality, scale: scale)
     }
 
     /// Encode WebP via Swift-WebP (libwebp).
@@ -263,13 +279,20 @@ enum ImageEncoder {
     /// When embedding is enabled the image's native profile is preserved (e.g.
     /// Display P3 captures keep their gamut, matching macOS system screenshots);
     /// images without a color space are converted to sRGB as a fallback.
-    private static func encodeWithCGImageDestination(cgImage: CGImage, type: String, lossyQuality: CGFloat?) -> Data? {
+    /// Writes DPI metadata (72 × scale) so retina captures display at logical
+    /// size like system screenshots instead of being upscaled.
+    private static func encodeWithCGImageDestination(cgImage: CGImage, type: String, lossyQuality: CGFloat?, scale: CGFloat = 1) -> Data? {
         let data = NSMutableData()
         guard let dest = CGImageDestinationCreateWithData(data as CFMutableData, type as CFString, 1, nil) else { return nil }
 
         var properties: [String: Any] = [:]
         if let q = lossyQuality {
             properties[kCGImageDestinationLossyCompressionQuality as String] = q
+        }
+        if scale > 1.0 {
+            let dpi = 72.0 * scale
+            properties[kCGImagePropertyDPIWidth as String] = dpi
+            properties[kCGImagePropertyDPIHeight as String] = dpi
         }
 
         var imageToEncode = cgImage
@@ -298,28 +321,21 @@ enum ImageEncoder {
     /// Copy image to pasteboard as PNG.
     /// Explicitly sets PNG data so receiving apps (browsers, editors) get
     /// a lossless PNG instead of the TIFF that NSImage.writeObjects provides.
-    /// Also writes a temporary file URL so Finder paste (Cmd+V in a folder) works.
+    /// Deliberately image-data only, no fileURL: sandboxed clipboard managers
+    /// (Raycast etc.) classify pasteboard items carrying a file URL as *file*
+    /// entries — filename + generic icon, never a thumbnail — while image-data
+    /// entries get the "Image (WxH)" preview. Finder pastes raw image data by
+    /// creating a file anyway, so the URL is not needed for that either.
     static func copyToClipboard(_ image: NSImage) {
         // Clear pasteboard immediately so Cmd+V doesn't paste stale content
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
         // PNG encode on background thread (the expensive part), then write to pasteboard on main
         DispatchQueue.global(qos: .userInitiated).async {
-            guard let bitmap = makeBitmap(image),
-                  let pngData = bitmap.representation(using: .png, properties: [:]) else { return }
-            // Write a temp file so Finder can paste it as a file.
-            // Unique filename per copy — clipboard managers (Raycast etc.)
-            // cache previews by file URL; a stable path showed stale previews.
-            let fileURL = TemporaryFileManager.writeClipboardImageData(pngData)
+            guard let pngData = encodePNG(image) else { return }
             DispatchQueue.main.async {
-                // Declare both types so image editors get PNG data and Finder gets a file URL.
-                var types: [NSPasteboard.PasteboardType] = [.png]
-                if fileURL != nil { types.append(.fileURL) }
-                pasteboard.declareTypes(types, owner: nil)
+                pasteboard.declareTypes([.png], owner: nil)
                 pasteboard.setData(pngData, forType: .png)
-                if let url = fileURL {
-                    pasteboard.setString(url.absoluteString, forType: .fileURL)
-                }
             }
         }
     }

@@ -1,6 +1,35 @@
 # Changelog
 
+## [5.3.4] - 2026-10-04
+
+### Fixed
+- **OCR 结果窗口显示识别语言** — 顶部新增「识别语言：简体中文」显示：识别完成后按字符集统计自动判别中/英文，假名等杂字符直接忽略（OCR 会把 ⇄ 这类符号误识成片假名"マ"，一个杂字符不能带偏结果）。OCR 只做中英文识别（识别语言 `[简体中文, 英文]`，自动检测），结果窗口保留拷贝与 AI 搜索。
+- **Raycast 等剪贴板历史显示缩略图** — 复制到剪贴板的内容此前同时携带 PNG 数据与临时文件的 file URL，Raycast（沙盒应用）把带 file URL 的条目归类为"文件"，只显示文件名和通用图标、不生成缩略图（沙盒下也无法稳定读取其他 App 容器内的临时文件来出预览）。现在剪贴板只写图片数据：Raycast 中显示为 "Image (宽x高)" 并带真实缩略图，历史条目由 Raycast 自行持久化、不再依赖临时文件存活；Finder 对纯图片数据的 Cmd+V 粘贴本就会创建文件，该功能不受影响。同步删除了剪贴板临时文件的写入与裁剪逻辑（旧版本遗留文件仍按 24h 过期清理）。
+- **OCR 极慢/永远"识别中"（实测 143 倍提速）** — OCR 此前开启 `automaticallyDetectsLanguage` 且未指定语言列表，Vision 会逐一尝试系统支持的全部 33 种语言模型。实测 4800×2800 截图：旧配置 **66.2 秒**（用户以为卡死，关窗即"识别失败"），显式指定 `[简体中文, 繁体中文, 英文]` 后冷启动仅 **0.46 秒**；且逐行自动检测还会选错语言模型（"更新日志"被识别成"TEa"），显式列表准确率同样更高。现 OCR 请求统一走 `VisionOCR.recognizeText`：显式语言列表（按系统支持自动过滤）、20 秒看门狗超时、结果必定回调——`perform()` 抛错或超时不再让结果窗口永远停在"识别中"，而是显示"OCR 识别失败/超时"的具体原因。工具栏 OCR、编辑器 OCR、翻译覆盖层、自动打码（Auto-Redact）、荧光笔文字吸附全部受益。
+
+### Removed
+- **翻译功能整体移除** — OCR 结果窗口的"翻译"按钮、目标语言选择、⇄ 反转与设置里的翻译引擎配置（Google/有道）全部删除；翻译覆盖层工具（Translate Overlay）及其工具栏按钮、快捷键条目、`translateOverlay` 标注类型、翻译服务（TranslationService/Youdao）一并删除。OCR 只做中英文识别（识别语言 `[简体中文, 英文]`，自动检测），结果窗口保留"识别语言"显示、拷贝与 AI 搜索。数据兼容：`AnnotationTool` 改为显式 raw value 编号，旧数据里 translateOverlay（raw 14）的标注加载时自动跳过，其余工具编号不变，历史截图/启用工具偏好不受影响。
+
+
+## [5.3.2] - 2026-10-02
+
+### Fixed
+- **Retina 截图"看起来糊"（DPI 元数据缺失）** — 2x 显示器上捕获的截图像素本身无损，但输出 PNG 始终写入 72dpi 元数据：按"自然大小"显示图片的应用（预览、备忘录、聊天窗口、剪贴板管理器预览）会把它以 2 倍物理尺寸显示，Retina 屏上再双线性放大 2x，观感明显发糊；而系统截图写入 144dpi、按逻辑尺寸 1:1 像素映射显示。现在保存/复制/上传的 PNG（及 JPEG/HEIC）都按捕获像素比例写入 DPI（2x → 144dpi），与系统截图行为完全一致。
+- **历史 → 编辑器再保存丢一半分辨率** — 历史 PNG 此前也是 72dpi，`NSImage(data:)` 重载后 2x 截图被标记为 1x 图像，从历史打开编辑器再保存/复制会按 1x 渲染（分辨率减半）。现在历史主图/原图 PNG 同样写入捕获比例 DPI，重载即恢复正确的 point 尺寸与像素比例。
+
+## [5.3.1] - 2026-09-29
+
+### Fixed
+- **美化输出糊化（亚像素重采样）** — 美化（渐变背景/窗口模式/窗口吸附）后的截图整体发糊。根因：美化边距滑杆存储连续小数（如 24.316pt），渲染时截图被绘制在小数像素偏移上，CoreGraphics 对整张截图做了一次双线性重采样，所有文字边缘被涂抹约 1 像素（高频细节损失约 1/3）。现在三个美化渲染器与实时预览的边距/内容原点统一对齐到设备整数像素，截图内容 1:1 直拷，锐度与未美化输出完全一致（拉普拉斯能量 27.1 vs 原图 26.7，修复前仅 17.8）。
+- **全链路画质审计修复（同类亚像素/缩放隐患）**：
+  - 编辑器"添加截图"后的画布收缩/扩展（`expandCanvasToFitAnnotations`）原先以小数像素坐标重绘整张截图，现改为设备像素对齐，且图像 point 尺寸由像素尺寸反推，后续渲染保持精确 1:1。
+  - 窗口吸附捕获（`captureWindow`）原先对窗口 frame 先取整再乘 scale（2x 屏误差可达 2px，导致 SCK 非整数缩放整窗截图），现改为在设备像素空间四舍五入。
+  - 马赛克（pixelate）烘焙尺寸原先硬编码 `×2`，在 1x/3x 显示器上马赛克块会被非整数缩放涂抹，现按源图像素比例烘焙。
+
 ## [5.2.0] - 2026-08-09
+
+### Fixed
+- **WindowServer cursor lockup & focus race condition** — fixed hard system freeze where dismissing capture overlays over focused browser text fields (e.g. Chrome / X article editor) caused WindowServer to disable hardware cursor updates (`failed set_cursor_surface`) and lock mouse clicks. Overlays now immediately ignore mouse events and order out before view teardown, redundant cursor assertions are removed, and cursor ownership cleanly yields to the target application.
 
 ### Removed
 - **Screen video recording** — removed the entire screen recording feature (MP4/GIF capture, recording engine, recording HUD, video editor, audio merge, mouse-click highlight, keystroke overlay, webcam overlay, GIF encoder, recording settings). The recording quality did not match native or dedicated open-source tools, so the feature has been dropped to simplify the codebase. Scroll capture is unaffected and fully retained.

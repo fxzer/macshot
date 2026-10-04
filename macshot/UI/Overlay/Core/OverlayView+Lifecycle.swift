@@ -122,13 +122,6 @@ extension OverlayView {
         if isScrollCapturing {
             stopScrollCaptureMode()
         }
-        // Safety net: ensure the overlay window always accepts mouse events when
-        // scroll capture ends. Under rare timing conditions, stopScrollCaptureMode()
-        // may run when the view's `window` property is already nil, leaving
-        // ignoresMouseEvents = true and freezing all toolbar buttons.
-        if let win = window, win.ignoresMouseEvents {
-            win.ignoresMouseEvents = false
-        }
         selectionRect = .zero
         selectionWasRestoredFromMemory = false
         clearSelectionSizeSnapState()
@@ -147,8 +140,6 @@ extension OverlayView {
         PopoverHelper.dismiss()
         editorTooltipView?.removeFromSuperview()
         editorTooltipView = nil
-        isTranslating = false
-        translateEnabled = false
         autoMeasurePreview = nil
         autoMeasureKeyHeld = false
         autoMeasureBitmapCtx = nil

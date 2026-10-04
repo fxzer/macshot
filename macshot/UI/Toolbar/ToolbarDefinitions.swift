@@ -28,7 +28,6 @@ enum ToolbarButtonAction: Equatable {
     case removeBackground
     case invertColors
     case loupe
-    case translate
     case detach
     case scrollCapture
     case addCapture  // editor only: capture a new region and append to the canvas
@@ -148,7 +147,7 @@ class ToolbarLayout {
         // Get enabled tools from UserDefaults — migrate: only add tools that are brand-new.
         // Track introduced tools in `knownToolRawValues` so user-disabled tools are never re-enabled.
         let allKnownToolRawValues = AnnotationTool.allCases
-            .filter { $0 != .select && $0 != .translateOverlay }
+            .filter { $0 != .select }
             .map { $0.rawValue }
         var enabledRawValues = UserDefaults.standard.array(forKey: "enabledTools") as? [Int]
         let knownToolRawValues = UserDefaults.standard.array(forKey: "knownToolRawValues") as? [Int]
@@ -235,7 +234,7 @@ class ToolbarLayout {
 
         // Get enabled actions from UserDefaults
         let allKnownActionTags: [Int] = [
-            1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008, 1009, 1010, 1011, 1012, 1013, 1014, 1015, 1016, 1017, 1018,
+            1001, 1002, 1003, 1004, 1005, 1006, 1007, 1009, 1010, 1011, 1012, 1013, 1014, 1015, 1016, 1017, 1018,
         ]
         var enabledActions = UserDefaults.standard.array(forKey: "enabledActions") as? [Int]
         let knownActionTags = UserDefaults.standard.array(forKey: "knownActionTags") as? [Int]
@@ -310,13 +309,13 @@ class ToolbarLayout {
     static func rightButtons(
         selectedTool: AnnotationTool = .pencil,
         beautifyEnabled: Bool = false, beautifyStyleIndex: Int = 0, hasAnnotations: Bool = false,
-        effectsActive: Bool = false, translateEnabled: Bool = false,
+        effectsActive: Bool = false,
         isEditorMode: Bool = false
     ) -> [ToolbarButton] {
         var buttons: [ToolbarButton] = []
 
         let allKnownActionTags: [Int] = [
-            1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008, 1009, 1010, 1011, 1012, 1013, 1014, 1015, 1016, 1017, 1018,
+            1001, 1002, 1003, 1004, 1005, 1006, 1007, 1009, 1010, 1011, 1012, 1013, 1014, 1015, 1016, 1017, 1018,
         ]
         // Migrate: only add action tags that are brand-new (never seen before).
         // knownActionTags tracks which tags have been introduced so user-disabled tags are
@@ -426,16 +425,6 @@ class ToolbarLayout {
             autoRedactBtn.hasContextMenu = true
             beginSection(&hasPlacedImageEffectsSection, button: &autoRedactBtn)
             buttons.append(autoRedactBtn)
-        }
-
-        // 内容处理（翻译、OCR — 在图像效果组下方）
-        if actionEnabled(1008) {
-            var translateBtn = ToolbarButton(
-                action: .translate, sfSymbol: "translate", label: nil, tooltip: L("Translate"))
-            translateBtn.isSelected = translateEnabled
-            translateBtn.hasContextMenu = true
-            beginSection(&hasPlacedContentSection, button: &translateBtn)
-            buttons.append(translateBtn)
         }
 
         if actionEnabled(1003) {

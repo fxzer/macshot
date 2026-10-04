@@ -99,7 +99,11 @@ extension OverlayView {
     /// The expanded rect including beautify padding (for live preview).
     func drawBeautifyPreview(context: NSGraphicsContext) {
         let config = beautifyConfig
-        let pad = config.padding
+        // Snap padding to device pixels — a fractional pad draws the screenshot
+        // at a subpixel offset and smears the live preview (matches the
+        // pixel-snapped final render in BeautifyRenderer).
+        let backingScale = window?.backingScaleFactor ?? 2.0
+        let pad = BeautifyRenderer.pixelSnapped(config.padding, scale: backingScale)
         let cornerRadius = config.isWindowSnap ? 10 : config.cornerRadius  // native macOS corner radius for snapped windows
         let shadowRadius = config.shadowRadius
         let shadowOffset = min(shadowRadius * 0.4, 10)

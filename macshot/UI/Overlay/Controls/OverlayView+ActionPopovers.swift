@@ -51,47 +51,6 @@ extension OverlayView {
         )
     }
 
-    func showTranslatePopover(anchorRect: NSRect, anchorView: NSView? = nil) {
-        let languages = TranslationService.availableLanguages
-        let picker = ListPickerView()
-        let width: CGFloat = 220
-        picker.frame.size.width = width
-        picker.items = languages.map {
-            .init(title: $0.name, isSelected: $0.code == TranslationService.targetLanguage, isEnabled: true, subtitle: nil)
-        }
-        picker.onSelect = { [weak self] index in
-            let code = languages[index].code
-            TranslationService.targetLanguage = code
-            PopoverHelper.dismiss()
-            if self?.translateEnabled == true {
-                self?.performTranslate(targetLang: code)
-            }
-            self?.needsDisplay = true
-        }
-
-        let size = NSSize(width: width, height: min(350, picker.frame.height))
-        let scrollView = NSScrollView(frame: NSRect(origin: .zero, size: size))
-        scrollView.hasVerticalScroller = true
-        scrollView.scrollerStyle = .overlay
-        scrollView.drawsBackground = false
-        scrollView.borderType = .noBorder
-        scrollView.documentView = picker
-
-        presentOverlayPopover(
-            scrollView,
-            size: size,
-            type: .translate,
-            edge: .maxY,
-            anchorView: anchorView,
-            anchorRect: anchorRect,
-            fallbackPoint: NSPoint(x: anchorRect.maxX + 4, y: anchorRect.midY)
-        )
-
-        DispatchQueue.main.async {
-            picker.scrollToSelected()
-        }
-    }
-
     func showEmojiPopover(anchorView: NSView? = nil, anchorRect: NSRect = .zero) {
         let picker = EmojiPickerView()
         picker.onSelectEmoji = { [weak self] emoji in

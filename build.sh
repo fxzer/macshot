@@ -158,15 +158,7 @@ rm -rf "$APP_WORKTREE_PATH"
 echo "   ✅ 已清理"
 
 # 3. 构建
-SPARKLE_XCFW="$DERIVED_DATA/SourcePackages/artifacts/sparkle/Sparkle/Sparkle.xcframework"
-if [ -d "$DERIVED_DATA/SourcePackages" ] && [ ! -d "$SPARKLE_XCFW" ]; then
-    echo "📍 步骤 3a/4: Sparkle 产物缺失，正在重解析..."
-    rm -rf "$DERIVED_DATA/SourcePackages/artifacts/sparkle"
-    rm -rf "$DERIVED_DATA/SourcePackages/artifacts/extract/sparkle"
-    rm -f "$DERIVED_DATA/SourcePackages/workspace-state.json"
-    xcodebuild -project "$ROOT_DIR/macshot.xcodeproj" -scheme macshot -derivedDataPath "$DERIVED_DATA" -resolvePackageDependencies -quiet
-    echo "   ✅ 依赖已重新解析"
-fi
+# (Sparkle is no longer a project dependency — stale re-resolve branch removed.)
 
 if [ "$DO_CLEAN" -eq 1 ]; then
     echo "📍 步骤 3/4: 构建（全量）..."

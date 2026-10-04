@@ -131,16 +131,8 @@ extension OverlayView {
                     layer.draw(in: bounds, from: .zero, operation: .sourceOver, fraction: 1.0)
                 }
             } else if !annotations.isEmpty {
-                context.saveGraphicsState()
-                applyCanvasTransform(to: context)
-                NSBezierPath(rect: selectionRect).setClip()
-                for annotation in annotations where annotation.tool == .translateOverlay {
-                    annotation.draw(in: context)
-                }
-                context.restoreGraphicsState()
-
                 beginCanvasGraphicsStateIfNeeded()
-                drawAnnotationListLive(annotations.filter { $0.tool != .translateOverlay }, in: context)
+                drawAnnotationListLive(annotations, in: context)
             }
         } else {
             beginCanvasGraphicsStateIfNeeded()

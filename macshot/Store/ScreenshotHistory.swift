@@ -122,9 +122,19 @@ var maxEntries: Int {
         let id = UUID().uuidString
         let ext = "png"
 
-        // Capture metadata on main thread (cheap)
+        // Capture metadata on main thread (cheap). Actual pixel scale from the
+        // image itself (cg pixels ÷ point size) — screen backing factor is only
+        // a fallback; mixed-display setups capture at the source display's scale.
         let size = image.size
-        let scale: CGFloat = ImageEncoder.downscaleRetina ? 1.0 : (NSScreen.main?.backingScaleFactor ?? 2.0)
+        let scale: CGFloat
+        if ImageEncoder.downscaleRetina {
+            scale = 1.0
+        } else if size.width > 0,
+                  let cg = image.cgImage(forProposedRect: nil, context: nil, hints: nil) {
+            scale = Swift.max(1.0, CGFloat(cg.width) / size.width)
+        } else {
+            scale = NSScreen.main?.backingScaleFactor ?? 2.0
+        }
 
         let hasAnns = annotations != nil && !(annotations!.isEmpty) && rawImage != nil
 
@@ -176,6 +186,7 @@ var maxEntries: Int {
         }
         let rawCGImage = rawImage?.cgImage(forProposedRect: nil, context: nil, hints: nil)
         let capturedAnnotationData = annotationData
+        let rawScale = rawCGImage.map { Self.storageScale(of: rawImage!, cgImage: $0) } ?? 1
         let pendingWrite = registerPendingWrite(for: id)
 
         persistenceQueue.async { [weak self] in
@@ -184,10 +195,10 @@ var maxEntries: Int {
             autoreleasepool {
                 guard !pendingWrite.isCancelled else { return }
                 // Write images using direct CGImageDestination (avoids tiff→bitmap→png overhead)
-                Self.writeCGImagePNG(mainCGImage, to: fileURL)
+                Self.writeCGImagePNG(mainCGImage, to: fileURL, scale: scale)
                 Self.writeCGImagePNG(thumbCGImage, to: thumbURL)
                 try? FileManager.default.removeItem(at: previewURL)
-                if let raw = rawCGImage { Self.writeCGImagePNG(raw, to: rawURL) }
+                if let raw = rawCGImage { Self.writeCGImagePNG(raw, to: rawURL, scale: rawScale) }
                 if let annData = capturedAnnotationData {
                     try? annData.write(to: annURL, options: .atomic)
                 }
@@ -241,17 +252,19 @@ var maxEntries: Int {
             return
         }
         let rawCGImage = rawImage?.cgImage(forProposedRect: nil, context: nil, hints: nil)
+        let captureScale = Self.storageScale(of: compositedImage, cgImage: mainCGImage)
+        let rawScale = rawCGImage.map { Self.storageScale(of: rawImage!, cgImage: $0) } ?? 1
         let pendingWrite = registerPendingWrite(for: id)
 
         persistenceQueue.async { [weak self] in
             // Memory optimization: use autoreleasepool to ensure temporary objects are released promptly
             autoreleasepool {
                 guard !pendingWrite.isCancelled else { return }
-                Self.writeCGImagePNG(mainCGImage, to: fileURL)
+                Self.writeCGImagePNG(mainCGImage, to: fileURL, scale: captureScale)
                 Self.writeCGImagePNG(thumbCGImage, to: thumbURL)
                 try? FileManager.default.removeItem(at: previewURL)
                 if let raw = rawCGImage {
-                    Self.writeCGImagePNG(raw, to: rawURL)
+                    Self.writeCGImagePNG(raw, to: rawURL, scale: rawScale)
                 } else {
                     try? FileManager.default.removeItem(at: rawURL)
                 }
@@ -475,10 +488,24 @@ var maxEntries: Int {
 
     /// Write a CGImage to disk as PNG using CGImageDestination.
     /// Sendable-safe version for background thread use.
-    nonisolated private static func writeCGImagePNG(_ cgImage: CGImage, to url: URL) {
+    /// Writes DPI metadata (72 × scale) so reloading via NSImage(data:) restores
+    /// the correct point size — without it, retina captures reload as 1x-labeled
+    /// and any later edit/save renders them at half resolution.
+    nonisolated private static func writeCGImagePNG(_ cgImage: CGImage, to url: URL, scale: CGFloat = 1) {
         guard let dest = CGImageDestinationCreateWithURL(url as CFURL, UTType.png.identifier as CFString, 1, nil) else { return }
-        CGImageDestinationAddImage(dest, cgImage, nil)
+        var properties: [String: Any] = [:]
+        if scale > 1.0 {
+            properties[kCGImagePropertyDPIWidth as String] = 72.0 * scale
+            properties[kCGImagePropertyDPIHeight as String] = 72.0 * scale
+        }
+        CGImageDestinationAddImage(dest, cgImage, properties as CFDictionary)
         CGImageDestinationFinalize(dest)
+    }
+
+    /// Pixel scale to stamp into history PNGs: cg pixels ÷ point size.
+    nonisolated private static func storageScale(of image: NSImage, cgImage: CGImage) -> CGFloat {
+        guard image.size.width > 0 else { return 1 }
+        return max(1.0, CGFloat(cgImage.width) / image.size.width)
     }
 
     // MARK: - Background preview loading (non-isolated)

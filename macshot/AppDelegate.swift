@@ -287,15 +287,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         ocr.show()
     }
 
-    func finishOCRSession(text: String) {
+    func finishOCRSession(text: String, errorMessage: String? = nil) {
         let shouldCopy = OCRPreferences.shouldCopyToClipboard
         let shouldShowWindow = OCRPreferences.shouldShowWindow
 
-        if shouldCopy && !text.isEmpty {
+        if shouldCopy, errorMessage == nil, !text.isEmpty {
             PasteboardWriter.writeString(text)
         }
 
-        if shouldShowWindow {
+        guard shouldShowWindow else { return }
+        if let errorMessage {
+            ocrController?.showOCRFailure("\(L("OCR failed")): \(errorMessage)")
+        } else {
             ocrController?.showRecognizedText(text)
         }
     }

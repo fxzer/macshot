@@ -5,14 +5,12 @@ class OCRResultController: NSObject {
     private var window: NSPanel?
     private var textView: NSTextView?
     private var charCountLabel: NSTextField?
-    private var translateButton: NSButton?
-    private var langPopup: NSPopUpButton?
     private var copyButton: NSButton?
     private var aiSearchButton: NSButton?
-    private var spinnerView: NSProgressIndicator?
+    private var detectedLanguageLabel: NSTextField?
+    private var detectedLanguageCode: String?
 
     private var originalText: String
-    private var isShowingTranslation = false
     private var isLoading = false
     private var hasDetectedText = false
 
@@ -72,27 +70,14 @@ class OCRResultController: NSObject {
         header.autoresizingMask = [.width, .minYMargin]
         cv.addSubview(header)
 
-        // Language popup
-        let langLabel = NSTextField(labelWithString: L("Translate to:"))
-        langLabel.font = NSFont.systemFont(ofSize: 12)
-        langLabel.textColor = .secondaryLabelColor
-        langLabel.frame = NSRect(x: 12, y: (headerH - 16) / 2, width: 90, height: 16)
-        header.addSubview(langLabel)
-
-        let popup = NSPopUpButton(frame: NSRect(x: 106, y: (headerH - 24) / 2, width: 160, height: 24), pullsDown: false)
-        for lang in TranslationService.availableLanguages {
-            popup.addItem(withTitle: lang.name)
-            popup.lastItem?.representedObject = lang.code
-        }
-        // Select saved language
-        let savedCode = TranslationService.targetLanguage
-        if let idx = TranslationService.availableLanguages.firstIndex(where: { $0.code == savedCode }) {
-            popup.selectItem(at: idx)
-        }
-        popup.target = self
-        popup.action = #selector(languageChanged(_:))
-        header.addSubview(popup)
-        self.langPopup = popup
+        // Detected language label (left side)
+        let detectedLabel = NSTextField(labelWithString: "")
+        detectedLabel.font = NSFont.systemFont(ofSize: 12)
+        detectedLabel.textColor = .secondaryLabelColor
+        detectedLabel.lineBreakMode = .byTruncatingTail
+        detectedLabel.frame = NSRect(x: 12, y: (headerH - 16) / 2, width: 114, height: 16)
+        header.addSubview(detectedLabel)
+        self.detectedLanguageLabel = detectedLabel
 
         // Char/word count label (right side of header)
         let charCount = text.count
@@ -141,24 +126,6 @@ class OCRResultController: NSObject {
         aiSearchBtn.autoresizingMask = [.minXMargin]
         footer.addSubview(aiSearchBtn)
         self.aiSearchButton = aiSearchBtn
-
-        // Translate button
-        let translateBtn = NSButton(title: L("Translate"), target: self, action: #selector(toggleTranslate))
-        translateBtn.bezelStyle = .rounded
-        translateBtn.frame = NSRect(x: contentW - 330, y: (footerH - 28) / 2, width: 100, height: 28)
-        translateBtn.autoresizingMask = [.minXMargin]
-        footer.addSubview(translateBtn)
-        self.translateButton = translateBtn
-
-        // Spinner (hidden)
-        let spinner = NSProgressIndicator(frame: NSRect(x: contentW - 350, y: (footerH - 16) / 2, width: 16, height: 16))
-        spinner.style = .spinning
-        spinner.controlSize = .small
-        spinner.isIndeterminate = true
-        spinner.isHidden = true
-        spinner.autoresizingMask = [.minXMargin]
-        footer.addSubview(spinner)
-        self.spinnerView = spinner
 
         // Scrollable text view
         let textAreaY = footerH + 1
@@ -232,99 +199,43 @@ class OCRResultController: NSObject {
         close()
     }
 
-    @objc private func languageChanged(_ sender: NSPopUpButton) {
-        guard let code = sender.selectedItem?.representedObject as? String else { return }
-        TranslationService.targetLanguage = code
-        // If currently showing translation, re-translate with new language
-        if isShowingTranslation {
-            performTranslation(targetLang: code)
-        }
-    }
-
-    @objc private func toggleTranslate() {
-        guard !isLoading, hasDetectedText else { return }
-        if isShowingTranslation {
-            restoreOriginal()
-        } else {
-            let code = (langPopup?.selectedItem?.representedObject as? String)
-                ?? TranslationService.targetLanguage
-            performTranslation(targetLang: code)
-        }
-    }
-
-    @objc private func restoreOriginal() {
-        isShowingTranslation = false
-        setTextViewString(originalText)  // registers undo back to translated state
-        translateButton?.title = L("Translate")
-        updateCharCount(for: originalText)
-    }
-
-    /// Sets the text view string and registers an undo action that restores
-    /// the previous string AND flips isShowingTranslation + button title.
-    private func setTextViewString(_ newText: String) {
-        guard let tv = textView, let um = tv.undoManager else {
-            textView?.string = newText
+    /// Detects the dominant language of the recognized text and shows it.
+    /// Also auto-picks the sensible default target: Chinese text → English,
+    /// English text → Chinese; other languages keep the saved preference.
+    private func updateDetectedLanguage(for text: String) {
+        detectedLanguageCode = nil
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, let detected = Self.detectLanguage(trimmed) else {
+            detectedLanguageLabel?.stringValue = ""
             return
         }
-        let previousText = tv.string
-        let wasShowingTranslation = isShowingTranslation
-        tv.string = newText
-        um.registerUndo(withTarget: self) { [weak self] target in
-            guard let self = self else { return }
-            self.isShowingTranslation = wasShowingTranslation
-            self.setTextViewString(previousText)
-            self.translateButton?.title = wasShowingTranslation ? L("Show Original") : L("Translate")
-            self.updateCharCount(for: previousText)
-        }
-        um.setActionName(L("Translation"))
+        detectedLanguageCode = detected
+        detectedLanguageLabel?.stringValue = String(format: L("Detected: %@"), Self.displayName(for: detected))
     }
 
-    private func performTranslation(targetLang: String) {
-        guard let tv = textView else { return }
-        let sourceText = isShowingTranslation ? originalText : tv.string
-        guard !isLoading,
-              hasDetectedText,
-              !sourceText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-              !sourceText.hasPrefix("(No text") else { return }
-
-        translateButton?.isEnabled = false
-        spinnerView?.isHidden = false
-        spinnerView?.startAnimation(nil)
-
-        // Split into lines for per-line translation (preserves layout)
-        let lines = sourceText.components(separatedBy: "\n")
-        let nonEmpty = lines.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-
-        TranslationService.translateBatch(texts: nonEmpty, targetLang: targetLang) { [weak self] result in
-            guard let self = self else { return }
-            self.spinnerView?.stopAnimation(nil)
-            self.spinnerView?.isHidden = true
-            self.translateButton?.isEnabled = true
-
-            switch result {
-            case .failure(let error):
-                let alert = NSAlert()
-                alert.messageText = L("Translation Failed")
-                alert.informativeText = error.localizedDescription
-                alert.alertStyle = .warning
-                if let window = self.window { alert.beginSheetModal(for: window) }
-
-            case .success(let translated):
-                // Restore empty lines to preserve paragraph structure
-                var result: [String] = []
-                for (i, original) in lines.enumerated() {
-                    if original.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        result.append("")
-                    } else if i < translated.count {
-                        result.append(translated[i])
-                    }
-                }
-                let translatedText = result.joined(separator: "\n")
-                self.isShowingTranslation = true
-                self.setTextViewString(translatedText)
-                self.translateButton?.title = L("Show Original")
-                self.updateCharCount(for: translatedText)
+    /// Chinese/English detection by script counting. This app's OCR workflow
+    /// only ever produces Chinese, English, or a mix — no other language logic.
+    /// Kana/hangul are deliberately not counted: OCR misreads symbols as
+    /// kana (⇄ came back as マ), and one stray glyph must not flip the result.
+    private static func detectLanguage(_ text: String) -> String? {
+        var cjk = 0, latin = 0
+        for scalar in text.unicodeScalars {
+            switch scalar.value {
+            case 0x4E00...0x9FAF, 0x3400...0x4DBF, 0xF900...0xFAFF: cjk += 1
+            case 0x41...0x5A, 0x61...0x7A: latin += 1
+            default: break
             }
+        }
+        if cjk > 0, cjk * 2 >= latin { return "zh-Hans" }
+        if latin > 0 { return "en" }
+        return nil
+    }
+
+    private static func displayName(for code: String) -> String {
+        switch code {
+        case "zh-Hans": return L("Simplified Chinese")
+        case "en": return L("English")
+        default: return code
         }
     }
 
@@ -336,7 +247,6 @@ class OCRResultController: NSObject {
 
     func showRecognizedText(_ text: String) {
         isLoading = false
-        isShowingTranslation = false
         originalText = text
 
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -349,18 +259,35 @@ class OCRResultController: NSObject {
         textView?.scrollRangeToVisible(NSRange(location: 0, length: 0))
 
         hasDetectedText = !trimmed.isEmpty
-        translateButton?.title = L("Translate")
-        spinnerView?.stopAnimation(nil)
-        spinnerView?.isHidden = true
         updateActionAvailability()
         updateCharCount(for: trimmed)
+        updateDetectedLanguage(for: text)
+    }
+
+    /// Terminal state for a failed recognition (Vision error / timeout). Keeps
+    /// result actions disabled — there is no text to copy or translate.
+    func showOCRFailure(_ message: String) {
+        isLoading = false
+        originalText = ""
+        hasDetectedText = false
+        detectedLanguageCode = nil
+        detectedLanguageLabel?.stringValue = ""
+
+        textView?.string = message
+        textView?.textColor = .secondaryLabelColor
+        textView?.isEditable = false
+        textView?.setSelectedRange(NSRange(location: 0, length: 0))
+
+        charCountLabel?.stringValue = ""
+        updateActionAvailability()
     }
 
     private func applyLoadingState() {
         isLoading = true
-        isShowingTranslation = false
         originalText = ""
         hasDetectedText = false
+        detectedLanguageCode = nil
+        detectedLanguageLabel?.stringValue = ""
 
         textView?.string = L("Recognizing text...")
         textView?.textColor = .secondaryLabelColor
@@ -369,9 +296,6 @@ class OCRResultController: NSObject {
         textView?.scrollRangeToVisible(NSRange(location: 0, length: 0))
 
         charCountLabel?.stringValue = L("Recognizing text...")
-        translateButton?.title = L("Translate")
-        spinnerView?.isHidden = false
-        spinnerView?.startAnimation(nil)
         updateActionAvailability()
     }
 
@@ -379,18 +303,18 @@ class OCRResultController: NSObject {
         let canUseResultActions = !isLoading && hasDetectedText
         copyButton?.isEnabled = canUseResultActions
         aiSearchButton?.isEnabled = canUseResultActions
-        translateButton?.isEnabled = canUseResultActions
-        langPopup?.isEnabled = !isLoading
     }
 
     func updateLocalization() {
         window?.title = L("Text Recognition")
         copyButton?.title = L("Copy")
         aiSearchButton?.title = L("AI Search")
+        if let code = detectedLanguageCode, !isLoading {
+            detectedLanguageLabel?.stringValue = String(format: L("Detected: %@"), Self.displayName(for: code))
+        }
         if isLoading {
             applyLoadingState()
         } else {
-            translateButton?.title = isShowingTranslation ? L("Show Original") : L("Translate")
             if let tv = textView, let text = tv.textStorage?.string, hasDetectedText {
                 updateCharCount(for: text)
             } else {

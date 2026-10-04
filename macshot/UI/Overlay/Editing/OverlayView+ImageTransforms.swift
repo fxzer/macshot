@@ -212,8 +212,11 @@ extension OverlayView {
 
         let newPtW = targetRect.width
         let newPtH = targetRect.height
-        let newPxW = max(1, Int(newPtW * scale))
-        let newPxH = max(1, Int(newPtH * scale))
+        // Pixel-align the crop: opaque-rect scans and annotation bounding boxes are
+        // fractional points, and a fractional device-space draw rect makes CoreGraphics
+        // bilinear-resample the entire screenshot. Round everything to whole pixels.
+        let newPxW = max(1, Int((newPtW * scale).rounded()))
+        let newPxH = max(1, Int((newPtH * scale).rounded()))
 
         let cs = oldCG.colorSpace ?? CGColorSpaceCreateDeviceRGB()
         guard let ctx = CGContext(
@@ -222,20 +225,23 @@ extension OverlayView {
             bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
         ) else { return }
 
-        let drawX = -targetRect.origin.x * scale
-        let drawY = -targetRect.origin.y * scale
+        let drawX = (-(targetRect.origin.x * scale)).rounded()
+        let drawY = (-(targetRect.origin.y * scale)).rounded()
         ctx.draw(
             oldCG,
             in: CGRect(x: drawX, y: drawY, width: CGFloat(oldCG.width), height: CGFloat(oldCG.height)))
 
         guard let newCG = ctx.makeImage() else { return }
         let prevImage = original.copy() as! NSImage
-        let shiftDx = -targetRect.origin.x
-        let shiftDy = -targetRect.origin.y
+        let shiftDx = -drawX / scale
+        let shiftDy = -drawY / scale
         let offsets = annotations.map { ($0, shiftDx, shiftDy) }
         undoStack.append(.imageTransform(previousImage: prevImage, annotationOffsets: offsets))
 
-        let newNSImage = NSImage(cgImage: newCG, size: NSSize(width: newPtW, height: newPtH))
+        // Point size derived from pixel size keeps pixelScale(of:) exact so later
+        // output renders stay pixel-aligned.
+        let newPtSize = NSSize(width: CGFloat(newPxW) / scale, height: CGFloat(newPxH) / scale)
+        let newNSImage = NSImage(cgImage: newCG, size: newPtSize)
         replaceScreenshotImage(newCG, size: newNSImage.size)
         cachedOpaqueRect = nil
 
@@ -245,8 +251,8 @@ extension OverlayView {
             }
         }
 
-        selectionRect = NSRect(origin: .zero, size: NSSize(width: newPtW, height: newPtH))
-        frame.size = NSSize(width: newPtW, height: newPtH)
+        selectionRect = NSRect(origin: .zero, size: newPtSize)
+        frame.size = newPtSize
         cachedCompositedImage = nil
     }
 

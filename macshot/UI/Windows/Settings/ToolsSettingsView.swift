@@ -63,7 +63,6 @@ struct ToolsSettingsView: View {
     // 捕获操作 Capture Actions
     private let otherActions: [(tag: Int, label: String)] = [
         (1003, L("OCR")),
-        (1008, L("Translate")),
         (1010, L("Scroll Capture")),
     ]
 
@@ -76,7 +75,7 @@ struct ToolsSettingsView: View {
             AnnotationTool.pixelate.rawValue, AnnotationTool.loupe.rawValue,
             AnnotationTool.stamp.rawValue, AnnotationTool.measure.rawValue,
         ]
-        let allActionDefaults: [Int] = [1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008, 1009, 1010, 1011, 1012, 1013, 1014, 1015, 1016, 1017, 1018]
+        let allActionDefaults: [Int] = [1001, 1002, 1003, 1004, 1005, 1006, 1007, 1009, 1010, 1011, 1012, 1013, 1014, 1015, 1016, 1017, 1018]
 
         let tools = UserDefaults.standard.array(forKey: "enabledTools") as? [Int] ?? allToolDefaults
         let actions = UserDefaults.standard.array(forKey: "enabledActions") as? [Int] ?? allActionDefaults

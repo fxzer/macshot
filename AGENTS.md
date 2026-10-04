@@ -46,8 +46,6 @@ macshot/
 ├── Services/
 │   ├── AutoRedactor.swift              # PII regex detection + Vision OCR → redaction annotations
 │   ├── BarcodeDetector.swift           # Async Vision barcode/QR scanning, badge drawing, hit-testing
-│   ├── TranslationOverlay.swift        # OCR → translate → overlay annotations
-│   ├── TranslationService.swift        # Google Translate API wrapper
 │   ├── VisionOCR.swift                 # Vision text recognition request factory
 │   └── HotkeyManager.swift             # Global keyboard shortcut (Carbon RegisterEventHotKey)
 │
@@ -66,7 +64,7 @@ macshot/
 │   │   ├── Rendering/                  # Draw pipeline, output rendering, cache, previews, guides
 │   │   │   └── Renderers/              # Annotation draw dispatch + tool-specific rendering
 │   │   ├── Controls/                   # Toolbar, tool options, popovers, overlay control chrome
-│   │   ├── Modes/                      # Zooming, color sampler, beautify, scroll capture, translation
+│   │   ├── Modes/                      # Zooming, color sampler, beautify, scroll capture, redaction
 │   │   ├── Panels/                     # HUDs, overlays, preview panels, tooltip views
 │   │   └── Window/                     # OverlayWindowController and delegate/share/window splits
 │   │
@@ -110,7 +108,7 @@ macshot/
 │       ├── PinWindowController.swift          # Floating always-on-top pinned screenshot
 │       ├── FloatingThumbnailController.swift  # Auto-dismiss thumbnail after capture
 │       ├── SettingsWindowController.swift     # Settings: General, Capture, Behavior, Shortcuts, Tools, Uploads, About tabs
-│       ├── OCRResultController.swift          # Text recognition results window with translation
+│       ├── OCRResultController.swift          # Text recognition results window with AI search
 │       ├── HistoryOverlayController.swift     # Recent captures visual overlay panel
 │       ├── UploadToastController.swift        # Upload progress/success toast
 │       ├── CountdownView.swift                # Delay capture countdown display
@@ -176,7 +174,7 @@ Class (not struct) with `clone()` for safe copying. Lives in `Model/Annotation.s
 ```
 pencil, line, arrow, rectangle, filledRectangle, ellipse, marker,
 text, number, stamp, pixelate, blur, measure, loupe, select,
-translateOverlay, crop, colorSampler
+crop, colorSampler
 ```
 
 **Each annotation draws itself** via `draw(in:)`. Has `hitTest(point:threshold:)`, `move(dx:dy:)`, `isMovable`, `boundingRect`, `drawSelectionHighlight()`.
@@ -218,7 +216,7 @@ TextEditingCanvas                — Coordinate transforms + annotation storage 
 - Image: `imageFormat` (png/jpeg/heic/webp), `imageQuality` (0.0–1.0), `downscaleRetina` (bool), `embedColorProfile` (bool)
 - History: `historySize`
 - Tools: `enabledTools`, `knownToolRawValues`
-- Features: `imgbbAPIKey`, `beautifyEnabled`, `beautifyStyleIndex`, `beautifyMode`, `beautifyPadding`, `beautifyCornerRadius`, `beautifyShadowRadius`, `pencilSmoothEnabled`, `loupeSize`, `translateTargetLang`
+- Features: `imgbbAPIKey`, `beautifyEnabled`, `beautifyStyleIndex`, `beautifyMode`, `beautifyPadding`, `beautifyCornerRadius`, `beautifyShadowRadius`, `pencilSmoothEnabled`, `loupeSize`
 - Styles: `currentLineStyle`, `currentArrowStyle`, `currentRectFillStyle`, `currentRectCornerRadius`
 - Upload: `uploadProvider` (imgbb/gdrive), `googleDriveRefreshToken`, `uploadConfirmEnabled`
 
@@ -237,8 +235,8 @@ TextEditingCanvas                — Coordinate transforms + annotation storage 
 - Full-screen capture (single click without drag)
 - Remember last selection rectangle
 
-### Annotation Tools (18)
-Pencil, Line, Arrow, Rectangle, Filled Rectangle, Ellipse, Marker/Highlighter, Text (rich formatting), Number (auto-incrementing), Stamp/Emoji, Pixelate, Blur, Measure (pixel ruler), Loupe (2x magnifier), Select & Edit, Translate Overlay, Crop (editor only), Color Sampler
+### Annotation Tools (17)
+Pencil, Line, Arrow, Rectangle, Filled Rectangle, Ellipse, Marker/Highlighter, Text (rich formatting), Number (auto-incrementing), Stamp/Emoji, Pixelate, Blur, Measure (pixel ruler), Loupe (2x magnifier), Select & Edit, Crop (editor only), Color Sampler
 
 - **Line styles:** Solid, dashed, dotted
 - **Arrow styles:** Single, thick, double, open, tail
@@ -247,7 +245,7 @@ Pencil, Line, Arrow, Rectangle, Filled Rectangle, Ellipse, Marker/Highlighter, T
 - **Stamp tool:** Place emoji or custom images, load from file
 
 ### Output Actions
-Copy to clipboard, Save to file (PNG/JPEG/HEIC/WebP), Pin (floating always-on-top), OCR with translation (30+ languages), Upload to imgbb or Google Drive (OAuth2), Remove background (VNGenerateForegroundInstanceMaskRequest), Open in editor, Beautify (30 gradient styles including 7 mesh gradients on macOS 15+), Flip horizontal/vertical
+Copy to clipboard, Save to file (PNG/JPEG/HEIC/WebP), Pin (floating always-on-top), OCR (Chinese + English, auto-detected), Upload to imgbb or Google Drive (OAuth2), Remove background (VNGenerateForegroundInstanceMaskRequest), Open in editor, Beautify (30 gradient styles including 7 mesh gradients on macOS 15+), Flip horizontal/vertical
 
 ### Advanced
 - **Editor Window:** Standalone resizable window for post-capture editing, full annotation tools, zoom 0.1x–8x via NSScrollView

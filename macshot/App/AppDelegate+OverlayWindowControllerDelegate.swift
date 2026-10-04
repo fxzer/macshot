@@ -61,8 +61,10 @@ extension AppDelegate: OverlayWindowControllerDelegate {
         beginOCRSessionIfNeeded()
     }
 
-    func overlayDidFinishOCR(_ controller: OverlayWindowController?, text: String) {
-        finishOCRSession(text: text)
+    func overlayDidFinishOCR(
+        _ controller: OverlayWindowController?, text: String, errorMessage: String? = nil
+    ) {
+        finishOCRSession(text: text, errorMessage: errorMessage)
     }
 
     func overlayDidRequestUpload(_ controller: OverlayWindowController, image: NSImage) {

@@ -210,6 +210,16 @@ class BeautifyRenderer {
 
     // MARK: - Bitmap rasterization helpers
 
+    /// Snap a point-space length to whole device pixels at the raster scale.
+    /// The padding slider stores continuous values (e.g. 24.316pt); using them
+    /// raw places the screenshot at a subpixel offset inside the output context,
+    /// so CoreGraphics bilinear-resamples the entire capture — a uniform ~1px
+    /// smear on every text edge. Snapped, the content draw is pixel-exact.
+    static func pixelSnapped(_ value: CGFloat, scale: CGFloat) -> CGFloat {
+        guard scale > 0 else { return value }
+        return (value * scale).rounded() / scale
+    }
+
     /// Native pixel scale of an image (backing CGImage width ÷ point width).
     /// Closure-based NSImages rasterize at 72dpi, so this reads 1x for them —
     /// callers wrapping such images should rasterize them first.
@@ -273,7 +283,8 @@ class BeautifyRenderer {
 
     private static func renderWindow(image: NSImage, config: BeautifyConfig) -> NSImage {
         let imgSize = image.size
-        let padding = config.padding
+        let scale = pixelScale(of: image)
+        let padding = pixelSnapped(config.padding, scale: scale)
         let windowCornerRadius = config.cornerRadius
         let shadowRadius = config.shadowRadius
         let shadowOffset = min(shadowRadius * 0.3, 8)
@@ -287,7 +298,7 @@ class BeautifyRenderer {
 
         let result = renderIntoBitmap(
             pointSize: NSSize(width: totalWidth, height: totalHeight),
-            sourceScale: pixelScale(of: image),
+            sourceScale: scale,
             config: config
         ) { prerenderedMesh in
             guard let context = NSGraphicsContext.current?.cgContext else {
@@ -379,7 +390,8 @@ class BeautifyRenderer {
     /// background with a drop shadow — no synthetic elements needed.
     private static func renderSnappedWindow(image: NSImage, config: BeautifyConfig) -> NSImage {
         let imgSize = image.size
-        let padding = config.padding
+        let scale = pixelScale(of: image)
+        let padding = pixelSnapped(config.padding, scale: scale)
         let shadowRadius = config.shadowRadius
         let shadowOffset = min(shadowRadius * 0.3, 8)
         // macOS window corner radius is 10pt (not used in rendering, informational)
@@ -389,7 +401,7 @@ class BeautifyRenderer {
 
         let result = renderIntoBitmap(
             pointSize: NSSize(width: totalWidth, height: totalHeight),
-            sourceScale: pixelScale(of: image),
+            sourceScale: scale,
             config: config
         ) { prerenderedMesh in
             guard let context = NSGraphicsContext.current?.cgContext else { return false }
@@ -422,7 +434,8 @@ class BeautifyRenderer {
 
     private static func renderRounded(image: NSImage, config: BeautifyConfig) -> NSImage {
         let imgSize = image.size
-        let padding = config.padding
+        let scale = pixelScale(of: image)
+        let padding = pixelSnapped(config.padding, scale: scale)
         let cornerRadius = config.cornerRadius
         let shadowRadius = config.shadowRadius
         let shadowOffset = min(shadowRadius * 0.3, 8)
@@ -432,7 +445,7 @@ class BeautifyRenderer {
 
         let result = renderIntoBitmap(
             pointSize: NSSize(width: totalWidth, height: totalHeight),
-            sourceScale: pixelScale(of: image),
+            sourceScale: scale,
             config: config
         ) { prerenderedMesh in
             guard let context = NSGraphicsContext.current?.cgContext else {

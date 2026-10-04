@@ -23,9 +23,6 @@ struct BehaviorSettingsView: View {
     @AppStorage("ocrShowWindow") private var ocrShowWindow = true
     @AppStorage("ocrCopyToClipboard") private var ocrCopyToClipboard = true
 
-    // Translation
-    @AppStorage("translationProvider") private var translationProvider = "google"
-
     // Show in Finder
     @AppStorage("screenshotShowInFinder") private var screenshotShowInFinder = false
 
@@ -105,30 +102,6 @@ struct BehaviorSettingsView: View {
                 }
             }
 
-            // MARK: - Translation
-            Section {
-                VStack(alignment: .leading, spacing: 4) {
-                    Picker(L("Engine"), selection: $translationProvider) {
-                        Text(L("Google Translate")).tag("google")
-                        Text(L("Youdao (有道)")).tag("youdao")
-                    }
-                    .onChange(of: translationProvider) { newValue in
-                        TranslationService.provider = TranslationProvider(rawValue: newValue) ?? .youdao
-                    }
-
-                    if translationProvider == "google" {
-                        Text(L("Google Translate supports more languages."))
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                    } else if translationProvider == "youdao" {
-                        Text(L("Youdao provides excellent Chinese-English translation."))
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                    }
-                }
-            } header: {
-                Text(L("Translation"))
-            }
         }
         .formStyle(.grouped)
         .onAppear(perform: normalizeSettings)
@@ -137,11 +110,6 @@ struct BehaviorSettingsView: View {
     private func normalizeSettings() {
         PostCaptureActionPreferences.migrateIfNeeded()
 
-        translationProvider = normalized(
-            translationProvider,
-            allowed: ["google", "youdao"],
-            fallback: "youdao"
-        )
     }
 
     private func normalized<T: Equatable>(_ value: T, allowed: [T], fallback: T) -> T {

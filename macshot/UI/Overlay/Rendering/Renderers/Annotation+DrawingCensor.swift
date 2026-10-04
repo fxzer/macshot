@@ -41,7 +41,7 @@ extension Annotation {
             return
         }
 
-        guard let _ = sourceImage, let regionImage = cropRegionFromSource() else { return }
+        guard let sourceImg = sourceImage, let regionImage = cropRegionFromSource() else { return }
         guard let cgImage = regionImage.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return }
 
         if mode == .blur {
@@ -69,8 +69,11 @@ extension Annotation {
             ctx2.draw(tiny1, in: CGRect(x: 0, y: 0, width: tinyW2, height: tinyH2))
             guard let tiny2 = ctx2.makeImage() else { return }
 
-            let finalW = max(1, Int(rect.width * 2))
-            let finalH = max(1, Int(rect.height * 2))
+            // Bake at the source's native pixel scale — a hardcoded 2x made blocks
+            // bilinear-resampled when drawn at 1x/3x output scales.
+            let bakeScale = ImageRasterizer.pixelScale(of: sourceImg)
+            let finalW = max(1, Int((rect.width * bakeScale).rounded()))
+            let finalH = max(1, Int((rect.height * bakeScale).rounded()))
             guard let ctx3 = CGContext(data: nil, width: finalW, height: finalH,
                                         bitsPerComponent: 8, bytesPerRow: 0, space: cs, bitmapInfo: bitmapInfo) else { return }
             ctx3.interpolationQuality = .none

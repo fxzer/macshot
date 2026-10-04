@@ -17,7 +17,6 @@ extension OverlayWindowController: OverlayViewDelegate {
     }
 
     func overlayViewDidCancel() {
-        dismiss()
         overlayDelegate?.overlayDidCancel(self)
     }
 
@@ -128,23 +127,13 @@ extension OverlayWindowController: OverlayViewDelegate {
         let delegate = self.overlayDelegate
         overlayDelegate?.overlayDidStartOCR(self)
 
-        DispatchQueue.global(qos: .userInitiated).async { [cgImage, weak delegate] in
-            let request = VisionOCR.makeTextRecognitionRequest { request, error in
-                var lines: [String] = []
-                if let observations = request.results as? [VNRecognizedTextObservation] {
-                    for observation in observations {
-                        if let candidate = observation.topCandidates(1).first {
-                            lines.append(candidate.string)
-                        }
-                    }
-                }
-                let text = lines.joined(separator: "\n")
-                DispatchQueue.main.async {
-                    delegate?.overlayDidFinishOCR(nil, text: text)
-                }
+        VisionOCR.recognizeText(in: cgImage) { [weak delegate] result in
+            switch result {
+            case .success(let text):
+                delegate?.overlayDidFinishOCR(nil, text: text, errorMessage: nil)
+            case .failure(let error):
+                delegate?.overlayDidFinishOCR(nil, text: "", errorMessage: error.localizedDescription)
             }
-            let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
-            try? handler.perform([request])
         }
     }
 
@@ -254,7 +243,6 @@ extension OverlayWindowController: OverlayViewDelegate {
                 self.shareDelegate = nil
                 let img = image
                 let pinOrigin = self.selectionPinOrigin()
-                self.dismiss()
                 self.overlayDelegate?.overlayDidConfirm(
                     self,
                     capturedImage: img,
@@ -410,7 +398,6 @@ extension OverlayWindowController: OverlayViewDelegate {
             switch result {
             case .success(let finalImage):
                 let pinOrigin = self.selectionPinOrigin()
-                self.dismiss()
                 self.overlayDelegate?.overlayDidConfirm(
                     self,
                     capturedImage: finalImage,
@@ -537,7 +524,6 @@ extension OverlayWindowController: OverlayViewDelegate {
             guard let self = self else { return }
             switch result {
             case .success:
-                self.dismiss()
                 self.overlayDelegate?.overlayDidConfirm(
                     self,
                     capturedImage: image,
@@ -593,7 +579,6 @@ extension OverlayWindowController: OverlayViewDelegate {
                     }
                     (NSApp.delegate as? AppDelegate)?.showSaveResultToast(.success(fileURL))
                     SaveDirectoryAccess.save(url: fileURL.deletingLastPathComponent())
-                    self.dismiss()
                     self.overlayDelegate?.overlayDidConfirm(
                         self,
                         capturedImage: nil,
