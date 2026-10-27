@@ -84,12 +84,8 @@ extension OverlayView {
             beautifyEditorOffset = .zero
         }
 
-        if isInsideScrollView {
-            bounds.size = targetSize
-        } else {
-            frame.size = targetSize
-            bounds.size = targetSize
-        }
+        frame.size = targetSize
+        bounds.size = targetSize
 
         cachedCompositedImage = nil
         needsDisplay = true

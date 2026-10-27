@@ -228,7 +228,7 @@ extension OverlayWindowController: OverlayViewDelegate {
         //     mouseMoved even when not key and re-asserts the active tool cursor (e.g. the
         //     pencil crosshair) over the system picker. With ignoresMouseEvents the overlay
         //     no longer receives mouseMoved, so the system arrow cursor shows through.
-        let savedLevel = overlayWindow?.level ?? NSWindow.Level(257)
+        let savedLevel = overlayWindow?.level ?? NSWindow.Level(rawValue: Int(CGShieldingWindowLevel()))
         let savedIgnoresMouseEvents = overlayWindow?.ignoresMouseEvents ?? false
         overlayWindow?.level = .floating
         overlayWindow?.ignoresMouseEvents = true
@@ -347,16 +347,18 @@ extension OverlayWindowController: OverlayViewDelegate {
                       let srcCG = src.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return nil }
                 // Pixel-perfect crop via CGImage.cropping() — no color space
                 // conversion, no draw pipeline, just a sub-image reference.
-                let scale = view.window?.backingScaleFactor ?? 2.0
+                let scale = ImageRasterizer.pixelScale(of: src)
                 let imgH = CGFloat(srcCG.height) / scale
                 // CGImage uses top-left origin; sel is in AppKit bottom-left coords.
-                let cropRect = CGRect(
-                    x: sel.origin.x * scale,
-                    y: (imgH - sel.origin.y - sel.height) * scale,
-                    width: sel.width * scale,
-                    height: sel.height * scale)
+                // Snap crop rect to integer device pixels to prevent subpixel scaling blur in the editor.
+                let pxX = (sel.origin.x * scale).rounded()
+                let pxY = ((imgH - sel.origin.y - sel.height) * scale).rounded()
+                let pxW = max(1, (sel.width * scale).rounded())
+                let pxH = max(1, (sel.height * scale).rounded())
+                let cropRect = CGRect(x: pxX, y: pxY, width: pxW, height: pxH)
                 guard let cropped = srcCG.cropping(to: cropRect) else { return nil }
-                return NSImage(cgImage: cropped, size: sel.size)
+                let pointSize = NSSize(width: pxW / scale, height: pxH / scale)
+                return NSImage(cgImage: cropped, size: pointSize)
             }()
         guard let image = croppedImage else { return }
 

@@ -8,10 +8,11 @@ class BeautifyRenderer {
     /// This is the canonical context used by ImageEffects, Annotation+DrawingCensor,
     /// and OverlayView+AnnotationOutlineGlow to avoid redundant GPU resource allocation.
     static let sharedCIContext: CIContext = {
-        CIContext(options: [
+        let p3 = CGColorSpace(name: CGColorSpace.displayP3) ?? CGColorSpaceCreateDeviceRGB()
+        return CIContext(options: [
             .useSoftwareRenderer: false,
-            .workingColorSpace: CGColorSpaceCreateDeviceRGB(),
-            .outputColorSpace: CGColorSpaceCreateDeviceRGB(),
+            .workingColorSpace: p3,
+            .outputColorSpace: p3,
         ])
     }()
 

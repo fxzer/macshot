@@ -11,9 +11,13 @@ import AppKit
 ///    in memory for as long as the thumbnail lives.
 enum ImageRasterizer {
 
-    /// True for drawing-handler images — they carry no representations.
+    /// True for drawing-handler images — either no representations or backed by NSCustomImageRep (closure).
     static func isClosureBased(_ image: NSImage) -> Bool {
-        image.representations.isEmpty
+        if image.representations.isEmpty { return true }
+        if image.representations.allSatisfy({ $0 is NSCustomImageRep }) { return true }
+        let hasCustom = image.representations.contains { $0 is NSCustomImageRep }
+        let hasBitmap = image.representations.contains { $0 is NSBitmapImageRep }
+        return hasCustom && !hasBitmap
     }
 
     /// Native pixel scale of a CGImage-backed image (pixels ÷ points).

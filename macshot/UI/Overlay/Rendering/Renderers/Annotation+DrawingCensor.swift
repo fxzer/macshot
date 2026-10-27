@@ -173,13 +173,14 @@ extension Annotation {
             }
             return true
         }
-        return result
+        let scale = ImageRasterizer.pixelScale(of: regionImage)
+        return ImageRasterizer.rasterize(result, scale: scale) ?? result
     }
 
     /// Erase mode: sample the border pixels around the rect from the source image,
     /// then fill each pixel by interpolating from the nearest edge colors.
     fileprivate func bakeErase() -> NSImage? {
-        guard let src = sourceImage, let srcBounds = sourceImageBounds as NSRect? else { return nil }
+        guard sourceImage != nil else { return nil }
         let rect = boundingRect
         guard rect.width > 2, rect.height > 2 else { return nil }
 
@@ -189,14 +190,8 @@ extension Annotation {
             x: rect.minX - samplePad, y: rect.minY - samplePad,
             width: rect.width + samplePad * 2, height: rect.height + samplePad * 2)
 
-        let regionImage = NSImage(size: sampleRect.size, flipped: false) { _ in
-            src.draw(in: NSRect(x: -(sampleRect.minX - srcBounds.minX),
-                                y: -(sampleRect.minY - srcBounds.minY),
-                                width: srcBounds.width, height: srcBounds.height),
-                     from: .zero, operation: .copy, fraction: 1.0)
-            return true
-        }
-        guard let cgImage = regionImage.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return nil }
+        guard let regionImage = cropRegion(rect: sampleRect),
+              let cgImage = regionImage.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return nil }
         let bitmap = NSBitmapImageRep(cgImage: cgImage)
 
         let bmpW = bitmap.pixelsWide, bmpH = bitmap.pixelsHigh
@@ -323,14 +318,10 @@ extension Annotation {
 
     // MARK: - Shared region crop
 
-    /// Render the source image region matching boundingRect into a new NSImage.
-    /// Rasterized at the source's native pixel scale — bakePixelate extracts
-    /// pixels via cgImage(forProposedRect:), which rasterizes closure-based
-    /// images at 72dpi (half-resolution blur/pixelate content on retina).
-    fileprivate func cropRegionFromSource() -> NSImage? {
+    /// Render a source image region into a new rasterized NSImage at native pixel scale.
+    fileprivate func cropRegion(rect: NSRect) -> NSImage? {
         guard let sourceImage = sourceImage else { return nil }
-        let rect = boundingRect
-        guard rect.width > 4, rect.height > 4 else { return nil }
+        guard rect.width > 2, rect.height > 2 else { return nil }
 
         let srcBounds = sourceImageBounds
         let scale = ImageRasterizer.pixelScale(of: sourceImage)
@@ -355,5 +346,10 @@ extension Annotation {
 
         guard let cgImage = cgCtx.makeImage() else { return nil }
         return NSImage(cgImage: cgImage, size: rect.size)
+    }
+
+    /// Render the source image region matching boundingRect into a new NSImage.
+    fileprivate func cropRegionFromSource() -> NSImage? {
+        cropRegion(rect: boundingRect)
     }
 }

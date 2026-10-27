@@ -98,8 +98,8 @@ extension OverlayView {
             height: round(selectionRect.height * scale) / scale
         )
 
-        let pixelW = Int(snappedRect.width * scale)
-        let pixelH = Int(snappedRect.height * scale)
+        let pixelW = max(1, Int((snappedRect.width * scale).rounded()))
+        let pixelH = max(1, Int((snappedRect.height * scale).rounded()))
         guard pixelW > 0, pixelH > 0 else {
             memory.finish("invalid pixel size")
             return nil
@@ -141,6 +141,9 @@ extension OverlayView {
             let drawRect = captureDrawRect
             screenshot.draw(in: drawRect, from: .zero, operation: .copy, fraction: 1.0)
         }
+
+        // Restore high-quality interpolation for vector annotations, text, arrows, and smoothed paths
+        cgCtx.interpolationQuality = .high
 
         if includeAnnotations {
             for annotation in annotations {

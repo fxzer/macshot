@@ -249,13 +249,14 @@ extension Annotation {
 
     private static func encodeImage(_ image: NSImage) -> Data? {
         // Drawing-handler NSImages rasterize at 72dpi via cgImage(forProposedRect:)
-        // — rasterize at 2x first so text/stamp images keep retina resolution
+        // — rasterize at native scale first so text/stamp images keep retina resolution
         // across a history save/load round-trip.
-        let image = ImageRasterizer.rasterizeIfClosure(image, scale: 2.0)
+        let scale = ImageRasterizer.pixelScale(of: image)
+        let image = ImageRasterizer.rasterizeIfClosure(image, scale: scale)
         // Fast path: CGImage-backed images go straight through CGImageDestination,
         // avoiding the tiffRepresentation → NSBitmapImageRep round-trip.
         if let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) {
-            return ImageEncoder.encodePNG(cgImage: cgImage)
+            return ImageEncoder.encodePNG(cgImage: cgImage, scale: scale)
         }
         // Fallback for images without CGImage backing (e.g. drawing-handler NSImages):
         // force rasterization via TIFF, then PNG-encode the bitmap.
