@@ -288,6 +288,18 @@ Copy to clipboard, Save to file (PNG/JPEG/HEIC/WebP), Pin (floating always-on-to
 
 ## Build & Run
 
+### ⚠️ 打包铁律（MANDATORY）
+
+**任何代码改动后，安装/更新本机 `/Applications/MacShot.app` 必须且只能跑仓库根目录的 `./build.sh`。绝对禁止绕过它**：
+
+- ❌ 禁止直接 `xcodebuild` 裸跑（会用默认 DerivedData 产生新的 app 副本并注册进 LaunchServices，Finder/Raycast「打开方式」里会多出好几个 MacShot——已为此踩过坑）
+- ❌ 禁止 `ditto`/`cp` 手动拷贝 .app 到 /Applications（会丢自签名和 entitlements，屏幕录制权限失效）
+- ✅ 唯一正确方式：`cd /Users/fxj/m/macshot && ./build.sh`（停止旧版 → 构建 → 自签名 → rsync 安装 → 注销多余 LS 注册 → 启动）
+
+`build.sh` 自己会做签名（自签名证书 + entitlements）、LaunchServices 清理（按 bundle id 注销除 `/Applications/MacShot.app` 外的所有注册）和启动。裸 `xcodebuild` 只允许用来**验证编译**（看报错），不得用于安装；如确需产物，必须加 `-derivedDataPath /Users/fxj/m/macshot/DerivedData`。
+
+### 日常运行
+
 - Open `macshot.xcodeproj` in Xcode
 - Build & Run (Cmd+R)
 - Grant Screen Recording permission when prompted

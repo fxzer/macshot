@@ -1,5 +1,16 @@
 # Changelog
 
+## [5.3.6] - 2026-10-27
+
+### Fixed
+- **系统弹窗截图时遮罩层级处于弹窗下方** — Overlay 窗口层级此前硬编码为 257，低于 macOS 系统级权限弹窗与模态对话框（如 TCC 本地网络/麦克风/摄像头授权弹窗、CoreServicesUIAgent 对话框处于 level 1000 到 2147483628）。现将 Overlay 窗口层级提升至 `CGShieldingWindowLevel()`，并同步将所有挂载在其上的辅助面板与 Popover 提升，确保半透明遮罩与框选标注完整覆盖系统弹窗。
+- **Hover/悬浮态与菜单在截图触发瞬间失焦消失** — 框选与 OCR 模式此前开启了 `prefersImmediateOverlayPresentation`，在 ScreenCaptureKit 捕获屏幕前过早弹出透明占位窗口且分发了 `makePrimaryOverlayKey` 激活应用，导致被截应用的悬浮 Tooltip、下拉菜单与上下文菜单因失去焦点（blur / mouseleave）而在截图前瞬间关闭。现对齐系统原生截图（Cmd+Shift+4）流程，捕获前不弹出窗口、不抢占应用焦点，完整保留光标悬停与菜单状态。
+
+## [5.3.5] - 2026-10-15
+
+### Fixed
+- **复制到剪贴板的截图发糊（缺 DPI 元数据）** — 剪贴板路径此前直接对 NSBitmapImageRep 调 `representation(using: .png)`，完全绕过写 DPI 的编码器：2x Retina 截图以无 pHYs 块的 PNG 上板，Raycast 预览/粘贴到按"自然大小"显示图片的应用（预览、备忘录、聊天窗口）时被当作 651×485 **点**（2 倍物理尺寸）显示，再被 Retina 放大——观感明显发糊（美化图因有渐变边框更醒目，实际所有复制图都受影响；像素本身完好）。保存/上传走 `encode()` 一直有 DPI，唯独复制漏了。现在 `copyToClipboard` 统一走 DPI 感知的 `encodePNG`（2x → 144dpi），与系统截图行为一致。实测：旧路径无 pHYs，新路径 pHYs=144dpi。
+
 ## [5.3.4] - 2026-10-04
 
 ### Fixed

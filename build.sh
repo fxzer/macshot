@@ -227,12 +227,30 @@ sync_app "$DERIVED_DATA/Build/Products/Debug/MacShot.app" "$APP_INSTALL_PATH"
 rm -rf "$APP_WORKTREE_PATH"
 sign_app "$APP_INSTALL_PATH"
 
-# 注销临时编译目录下的 LaunchServices 注册入口，确保系统“打开方式”仅保留 /Applications/MacShot.app
+# 注销所有非安装路径的 MacShot 注册（Finder/Raycast「打开方式」只保留 /Applications 这一个）。
+# 逐个硬编码路径注销管不住别处产生的副本（如裸跑 xcodebuild 注册的默认 DerivedData），
+# 因此这里按 bundle id 从 LS 数据库枚举全部注册路径，除安装路径外逐一注销。
 LSREGISTER="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
 if [ -x "$LSREGISTER" ]; then
-    "$LSREGISTER" -u "$DERIVED_DATA/Build/Products/Debug/MacShot.app" 2>/dev/null || true
-    "$LSREGISTER" -u "$DERIVED_DATA/Build/Products/Release/MacShot.app" 2>/dev/null || true
-    "$LSREGISTER" -u "$APP_WORKTREE_PATH" 2>/dev/null || true
+    # LS dump 中每个 app 注册块含 "path: …/xxx.app (0x…)" 与我们的 bundle id，
+    # path 行出现在 identifier 行之前；块分隔线重置缓存。路径匹配放宽到任意 .app
+    # （副本可能叫 "MacShot 2.app" 等），真正的过滤由 identifier 行把关。
+    stray_registrations="$("$LSREGISTER" -dump 2>/dev/null | awk -v keep="$APP_INSTALL_PATH" '
+        /^----------/ { path = "" }
+        /path:[ \t]+\/.*\.app \(/ {
+            path = $0
+            sub(/.*path:[ \t]+/, "", path)
+            sub(/ \(0x[0-9a-fA-F]+\)$/, "", path)
+        }
+        $0 ~ /identifier:[ \t]+com\.fxzer\.macshot\.macshot([ \t]|$)/ && path != "" && path != keep { print path; path = "" }
+    ' | sort -u)"
+    if [ -n "$stray_registrations" ]; then
+        while IFS= read -r stray_app; do
+            [ -n "$stray_app" ] || continue
+            echo "   🧹 注销多余的 MacShot 注册: $stray_app"
+            "$LSREGISTER" -u "$stray_app" 2>/dev/null || true
+        done <<< "$stray_registrations"
+    fi
     "$LSREGISTER" -f "$APP_INSTALL_PATH" 2>/dev/null || true
 fi
 
