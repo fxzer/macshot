@@ -1,7 +1,7 @@
 import Cocoa
 
 enum FilePanelPresenter {
-    private static let foregroundLevel = NSWindow.Level(258)
+    private static let foregroundLevel = NSWindow.Level(rawValue: Int(CGShieldingWindowLevel()) + 1)
 
     static func begin(
         _ panel: NSSavePanel,

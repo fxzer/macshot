@@ -49,16 +49,12 @@ enum CaptureIntent {
     }
 
     var prefersImmediateOverlayPresentation: Bool {
-        switch self {
-        case .area, .ocr:
-            // Safe now that the live capture path explicitly excludes the placeholder
-            // overlay window and refreshes SCShareableContent when needed.
-            return true
-        case .fullScreen:
-            return false
-        default:
-            return false
-        }
+        // Disabled: presenting a placeholder overlay window before capture (even transparent)
+        // steals mouse hit-testing or triggers application focus deactivation, causing hover
+        // tooltips, dropdown menus, and popups in the frontmost application to dismiss before
+        // ScreenCaptureKit captures the screen. macOS native screenshot (Cmd+Shift+4) captures
+        // the frame first while target app remains undisturbed.
+        return false
     }
 
     var debugName: String {

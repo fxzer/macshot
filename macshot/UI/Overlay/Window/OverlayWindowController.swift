@@ -91,11 +91,14 @@ class OverlayWindowController {
             backing: .buffered,
             defer: false
         )
-        window.level = NSWindow.Level(257)  // above modal panels, alerts, and security popups
+        // Display-shielding window level ensures the overlay and its dimming mask
+        // sit above all system modal alerts, permission dialogs (TCC/Local Network),
+        // and security popups, while staying just below the system cursor.
+        window.level = NSWindow.Level(rawValue: Int(CGShieldingWindowLevel()))
         window.isOpaque = false
         window.backgroundColor = .clear
         window.hasShadow = false
-        window.ignoresMouseEvents = false
+        window.ignoresMouseEvents = true
         window.acceptsMouseMovedEvents = true
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         window.isReleasedWhenClosed = false
