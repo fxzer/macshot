@@ -193,8 +193,8 @@ class FloatingThumbnailController: NSObject, NSDraggingSource {
         let screen = anchoredScreen()
             ?? NSScreen.screens.first { $0.visibleFrame.intersects(frame) }
             ?? NSScreen.main
-            ?? NSScreen.screens[0]
-        let offscreenX = screen.visibleFrame.maxX + 10
+            ?? NSScreen.screens.first
+        let offscreenX = (screen?.visibleFrame.maxX ?? frame.maxX) + 10
 
         NSAnimationContext.runAnimationGroup({ ctx in
             ctx.duration = 0.4

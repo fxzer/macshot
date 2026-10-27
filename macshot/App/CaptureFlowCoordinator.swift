@@ -350,7 +350,7 @@ final class CaptureFlowCoordinator {
     }
 
     private func showPreCaptureCountdown(seconds: Int) {
-        let screen = NSScreen.main ?? NSScreen.screens[0]
+        guard let screen = NSScreen.main ?? NSScreen.screens.first else { return }
         let size = NSSize(width: 140, height: 140)
         let origin = NSPoint(
             x: screen.frame.midX - size.width / 2,
@@ -549,12 +549,11 @@ final class CaptureFlowCoordinator {
         let controller = OverlayWindowController(screen: screen)
         controller.overlayView?.suppressBackdropUntilCapture = true
         configureController(controller, screenName: screen.localizedName, t0: t0)
-        controller.showOverlay(activateAppIfNeeded: false)
-        // 捕获完成前，占位 overlay 必须鼠标穿透（ignoresMouseEvents = true）：
-        // 若拦截鼠标事件，目标应用（浏览器/Electron 等）会收到 mouseleave、
-        // 或在下一次失激活（blur）时清除 hover 状态，导致 tooltip / hover-only
-        // 元素在截图瞬间消失。截图就绪后 applyCapture 会恢复交互。
+        // 占位 overlay 必须在呈现前就设置鼠标穿透（ignoresMouseEvents = true）：
+        // 若以默认拦截鼠标状态呈现，目标应用（浏览器/Electron 等）会立即收到 mouseleave、
+        // 导致 tooltip / hover-only 元素在截图瞬间消失。截图就绪后 applyCapture 会恢复交互。
         controller.overlayWindow?.ignoresMouseEvents = true
+        controller.showOverlay(activateAppIfNeeded: false)
         perf.step("controller screen=\(screen.localizedName)")
         memory.step("controller ready", metadata: "overlayCountBeforeAppend=\(overlayControllersStorage.count)")
         overlayControllersStorage.append(controller)

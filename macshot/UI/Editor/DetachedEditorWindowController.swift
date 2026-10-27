@@ -73,8 +73,8 @@ class DetachedEditorWindowController: NSObject, NSWindowDelegate {
             metadata: "annotations=\(annotations.count) historyEntryID=\(historyEntryID ?? "nil")"
         )
         let imgSize = image.size
-        let screen = NSScreen.main ?? NSScreen.screens.first!
-        let screenFrame = screen.visibleFrame
+        let screen = NSScreen.main ?? NSScreen.screens.first
+        let screenFrame = screen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
 
         let minW: CGFloat = 800
         let minH: CGFloat = 400

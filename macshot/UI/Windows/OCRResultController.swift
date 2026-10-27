@@ -36,7 +36,7 @@ class OCRResultController: NSObject {
         let W: CGFloat = 520
         let H: CGFloat = 460
 
-        let screen = NSScreen.main ?? NSScreen.screens[0]
+        guard let screen = NSScreen.main ?? NSScreen.screens.first else { return }
         let origin = NSPoint(
             x: screen.visibleFrame.midX - W / 2,
             y: screen.visibleFrame.midY - H / 2

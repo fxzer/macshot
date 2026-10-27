@@ -30,7 +30,7 @@ final class HistoryOverlayController: NSObject, QLPreviewPanelDataSource, QLPrev
         let backdrop = NSWindow(
             contentRect: screen.frame, styleMask: [.borderless],
             backing: .buffered, defer: false)
-        backdrop.level = NSWindow.Level(256)
+        backdrop.level = NSWindow.Level(rawValue: Int(CGShieldingWindowLevel()))
         backdrop.isOpaque = false
         backdrop.backgroundColor = NSColor.black.withAlphaComponent(0.001)
         backdrop.hasShadow = false
@@ -59,7 +59,7 @@ final class HistoryOverlayController: NSObject, QLPreviewPanelDataSource, QLPrev
         let win = KeyablePanel(
             contentRect: startFrame, styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered, defer: false)
-        win.level = NSWindow.Level(257)
+        win.level = NSWindow.Level(rawValue: Int(CGShieldingWindowLevel()) + 1)
         win.isOpaque = false
         win.backgroundColor = .clear
         win.hasShadow = true
@@ -132,6 +132,7 @@ final class HistoryOverlayController: NSObject, QLPreviewPanelDataSource, QLPrev
         guard let win = panel else {
             contentView = nil
             onDismiss?()
+            (NSApp.delegate as? AppDelegate)?.returnFocusIfNeeded()
             return
         }
         panel = nil
@@ -150,6 +151,7 @@ final class HistoryOverlayController: NSObject, QLPreviewPanelDataSource, QLPrev
             win.close()
             self?.contentView = nil
             self?.onDismiss?()
+            (NSApp.delegate as? AppDelegate)?.returnFocusIfNeeded()
         })
     }
 
@@ -268,7 +270,9 @@ final class HistoryOverlayController: NSObject, QLPreviewPanelDataSource, QLPrev
         deleteItem.tag = globalIndex
         menu.addItem(deleteItem)
 
-        NSMenu.popUpContextMenu(menu, with: NSApp.currentEvent!, for: view)
+        if let event = NSApp.currentEvent {
+            NSMenu.popUpContextMenu(menu, with: event, for: view)
+        }
     }
 
     @objc private func contextCopy(_ sender: NSMenuItem) { copyAndDismiss(index: sender.tag) }

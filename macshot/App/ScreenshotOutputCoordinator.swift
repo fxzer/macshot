@@ -80,7 +80,7 @@ final class ScreenshotOutputCoordinator: NSObject, PinWindowControllerDelegate, 
             thumbnailControllers.removeAll()
         }
 
-        let screen = resolveTargetScreen ?? NSScreen.main ?? NSScreen.screens[0]
+        guard let screen = resolveTargetScreen ?? NSScreen.main ?? NSScreen.screens.first else { return }
         let displayID = screenDisplayID(for: screen)
         let screenFrame = screen.visibleFrame
         let padding: CGFloat = 16
@@ -351,9 +351,9 @@ final class ScreenshotOutputCoordinator: NSObject, PinWindowControllerDelegate, 
         }
 
         for displayID in displayIDs {
-            let screen = NSScreen.screens.first { screenDisplayID(for: $0) == displayID }
+            guard let screen = NSScreen.screens.first(where: { screenDisplayID(for: $0) == displayID })
                 ?? NSScreen.main
-                ?? NSScreen.screens[0]
+                ?? NSScreen.screens.first else { continue }
             var y = screen.visibleFrame.minY + padding
             for controller in thumbnailControllers where controller.anchorDisplayID == displayID {
                 let height = controller.windowFrame.height

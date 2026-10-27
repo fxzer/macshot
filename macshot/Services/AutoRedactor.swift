@@ -205,7 +205,7 @@ enum AutoRedactor {
             DispatchQueue.main.async {
                 for ann in annotations {
                     ann.censorMode = censorMode
-                    ann.censorDrawScope = .textOnly
+                    ann.censorDrawScope = .all
                     ann.bakePixelate()
                 }
                 completion(annotations)
@@ -267,7 +267,7 @@ enum AutoRedactor {
             DispatchQueue.main.async {
                 for ann in annotations {
                     ann.censorMode = censorMode
-                    ann.censorDrawScope = .textOnly
+                    ann.censorDrawScope = .all
                     ann.bakePixelate()
                 }
                 completion(annotations)
