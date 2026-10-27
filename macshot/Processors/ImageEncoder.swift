@@ -230,12 +230,18 @@ enum ImageEncoder {
     /// `AnnotationCodable.encodeImage` and `OverlayWindowController.encodeToPNGData`.
     /// Note: does not apply sRGB profile embedding — call sites want raw pixel
     /// fidelity (annotations/history are internal storage paths).
-    static func encodePNG(cgImage: CGImage) -> Data? {
+    static func encodePNG(cgImage: CGImage, scale: CGFloat = 2.0) -> Data? {
         let data = NSMutableData()
         guard let dest = CGImageDestinationCreateWithData(
             data as CFMutableData, UTType.png.identifier as CFString, 1, nil
         ) else { return nil }
-        CGImageDestinationAddImage(dest, cgImage, nil)
+        var properties: [String: Any] = [:]
+        if scale > 1.0 {
+            let dpi = 72.0 * scale
+            properties[kCGImagePropertyDPIWidth as String] = dpi
+            properties[kCGImagePropertyDPIHeight as String] = dpi
+        }
+        CGImageDestinationAddImage(dest, cgImage, properties.isEmpty ? nil : (properties as CFDictionary))
         return CGImageDestinationFinalize(dest) ? data as Data : nil
     }
 
@@ -318,7 +324,9 @@ enum ImageEncoder {
         copyToClipboard(asset.image(for: source))
     }
 
-    /// Copy image to pasteboard as PNG.
+    private static var clipboardGeneration = 0
+
+    /// Copy image to pasteboard as PNG (with TIFF fallback for legacy AppKit apps).
     /// Explicitly sets PNG data so receiving apps (browsers, editors) get
     /// a lossless PNG instead of the TIFF that NSImage.writeObjects provides.
     /// Deliberately image-data only, no fileURL: sandboxed clipboard managers
@@ -327,15 +335,24 @@ enum ImageEncoder {
     /// entries get the "Image (WxH)" preview. Finder pastes raw image data by
     /// creating a file anyway, so the URL is not needed for that either.
     static func copyToClipboard(_ image: NSImage) {
-        // Clear pasteboard immediately so Cmd+V doesn't paste stale content
+        clipboardGeneration += 1
+        let currentGen = clipboardGeneration
         let pasteboard = NSPasteboard.general
-        pasteboard.clearContents()
-        // PNG encode on background thread (the expensive part), then write to pasteboard on main
+
+        // PNG encode on background thread (the expensive part), then atomic write to pasteboard on main
         DispatchQueue.global(qos: .userInitiated).async {
             guard let pngData = encodePNG(image) else { return }
+            let tiffData = image.tiffRepresentation
             DispatchQueue.main.async {
-                pasteboard.declareTypes([.png], owner: nil)
+                guard currentGen == clipboardGeneration else { return }
+                pasteboard.clearContents()
+                var types: [NSPasteboard.PasteboardType] = [.png]
+                if tiffData != nil { types.append(.tiff) }
+                pasteboard.declareTypes(types, owner: nil)
                 pasteboard.setData(pngData, forType: .png)
+                if let tiff = tiffData {
+                    pasteboard.setData(tiff, forType: .tiff)
+                }
             }
         }
     }

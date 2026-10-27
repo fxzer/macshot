@@ -469,11 +469,7 @@ class ScreenCaptureManager {
             bitmapInfo: bitmapInfo
         ) else { return nil }
         ctx.draw(src, in: CGRect(x: 0, y: 0, width: w, height: h))
-        guard let result = ctx.makeImage() else { return nil }
-        // Force pixel data to materialize now (not lazily on first draw).
-        // Accessing the data provider triggers any deferred rendering.
-        _ = result.dataProvider?.data
-        return result
+        return ctx.makeImage()
     }
     // MARK: - Single window capture (with transparency)
 

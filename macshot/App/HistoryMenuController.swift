@@ -31,7 +31,9 @@ final class HistoryMenuController: NSObject, NSMenuDelegate {
             return
         }
 
-        for (index, entry) in entries.enumerated() {
+        // Limit menu bar entries to recent 15 captures to avoid heavy main-thread disk I/O
+        let displayEntries = entries.prefix(15)
+        for (index, entry) in displayEntries.enumerated() {
             let title = "\(entry.pixelWidth) \u{00D7} \(entry.pixelHeight)  —  \(entry.timeAgoString)"
             let item = NSMenuItem(title: title, action: #selector(copyHistoryEntry(_:)), keyEquivalent: "")
             item.target = self
