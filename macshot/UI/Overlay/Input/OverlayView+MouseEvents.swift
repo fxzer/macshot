@@ -755,6 +755,10 @@ extension OverlayView {
                 if ann.tool == .loupe { ann.bakeLoupe() }
                 // .blur shares the bakedBlurNSImage/bakePixelate pipeline with .pixelate.
                 if ann.tool == .pixelate || ann.tool == .blur {
+                    if ann.sourceImage == nil {
+                        ann.sourceImage = compositedImage() ?? screenshotImage
+                        ann.sourceImageBounds = captureDrawRect
+                    }
                     ann.bakedBlurNSImage = nil
                     ann.bakePixelate()
                 }
@@ -891,6 +895,10 @@ extension OverlayView {
                     // .blur shares the bakedBlurNSImage/bakePixelate pipeline with .pixelate
                     // (see Annotation+DrawingCensor); both must rebake after a drag.
                     if ann.tool == .pixelate || ann.tool == .blur {
+                        if ann.sourceImage == nil {
+                            ann.sourceImage = compositedImage() ?? screenshotImage
+                            ann.sourceImageBounds = captureDrawRect
+                        }
                         ann.bakedBlurNSImage = nil
                         ann.bakePixelate()
                     }

@@ -60,15 +60,32 @@ extension OverlayView {
                 image.draw(in: bounds, from: .zero, operation: .copy, fraction: 1.0)
             }
 
+            // Optimization: Punch out selectionRect (and remoteSelectionRect) using even-odd
+            // fill when not zoomed, so the underlying screenshot shows through at 100% directly.
+            // This eliminates the redundant second full-screen image.draw() call per frame
+            // during selection drag / resize.
+            let maskPath = NSBezierPath(rect: bounds)
+            let isZoomed = zoomLevel != 1.0 || zoomAnchorCanvas != .zero || zoomAnchorView != .zero
+            if !isZoomed {
+                if state != .idle && selectionRect.width >= 1 && selectionRect.height >= 1 {
+                    maskPath.appendRect(selectionRect)
+                    maskPath.windingRule = .evenOdd
+                }
+                if remoteSelectionRect.width >= 1 && remoteSelectionRect.height >= 1 {
+                    maskPath.appendRect(remoteSelectionRect)
+                    maskPath.windingRule = .evenOdd
+                }
+            }
             NSColor.black.withAlphaComponent(0.45).setFill()
-            NSBezierPath(rect: bounds).fill()
+            maskPath.fill()
         }
     }
 
     private func drawRemoteSelectionIfNeeded(in context: NSGraphicsContext) {
         guard remoteSelectionRect.width >= 1, remoteSelectionRect.height >= 1 else { return }
 
-        if shouldClipSelectionImage() {
+        let isZoomed = zoomLevel != 1.0 || zoomAnchorCanvas != .zero || zoomAnchorView != .zero
+        if shouldClipSelectionImage() && isZoomed {
             context.saveGraphicsState()
             NSBezierPath(rect: remoteSelectionRect).setClip()
             if let image = screenshotImage {
@@ -94,7 +111,8 @@ extension OverlayView {
             context.restoreGraphicsState()
         }
 
-        if shouldClipSelectionImage() {
+        let isZoomed = zoomLevel != 1.0 || zoomAnchorCanvas != .zero || zoomAnchorView != .zero
+        if shouldClipSelectionImage() && isZoomed {
             context.saveGraphicsState()
             NSBezierPath(rect: selectionRect).setClip()
             applyZoomTransform(to: context)

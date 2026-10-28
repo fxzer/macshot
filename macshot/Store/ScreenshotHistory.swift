@@ -429,26 +429,40 @@ var maxEntries: Int {
         guard let data = try? Data(contentsOf: indexFile),
               let indexEntries = try? JSONDecoder().decode([IndexEntry].self, from: data) else { return }
 
-        entries = indexEntries.compactMap { ie in
-            // Only include entries whose image file still exists
-            let ext = ie.fileExtension
-            let fileURL = historyDir.appendingPathComponent("\(ie.id).\(ext)")
-            guard FileManager.default.fileExists(atPath: fileURL.path) else { return nil }
-            return HistoryEntry(id: ie.id, fileExtension: ext, timestamp: ie.timestamp, pixelWidth: ie.pixelWidth, pixelHeight: ie.pixelHeight, hasAnnotations: ie.hasAnnotations ?? false, thumbnail: nil)
-        }
-
-        // Prune if maxEntries was lowered since last run
+        // Populate entries directly from the index (instant in-memory decode, zero blocking stat calls)
         let max = maxEntries
-        if max <= 0 {
-            clear()
-        } else {
-            while entries.count > max {
-                let removed = entries.removeLast()
-                cancelPendingWrite(for: removed.id)
-                deleteFiles(for: removed.id, ext: removed.fileExtension)
+        var initialEntries: [HistoryEntry] = []
+        for ie in indexEntries {
+            if max > 0 && initialEntries.count >= max { break }
+            initialEntries.append(HistoryEntry(
+                id: ie.id,
+                fileExtension: ie.fileExtension,
+                timestamp: ie.timestamp,
+                pixelWidth: ie.pixelWidth,
+                pixelHeight: ie.pixelHeight,
+                hasAnnotations: ie.hasAnnotations ?? false,
+                thumbnail: nil
+            ))
+        }
+        entries = initialEntries
+
+        // Offload disk existence validation and excess file pruning to the persistence queue
+        let dir = historyDir
+        persistenceQueue.async { [weak self] in
+            let verified = initialEntries.filter { ie in
+                let fileURL = dir.appendingPathComponent("\(ie.id).\(ie.fileExtension)")
+                return FileManager.default.fileExists(atPath: fileURL.path)
             }
-            if entries.count < indexEntries.count {
-                saveIndex()
+            if indexEntries.count > max && max > 0 {
+                for ie in indexEntries.dropFirst(max) {
+                    Self.deleteFiles(for: ie.id, ext: ie.fileExtension, in: dir)
+                }
+            }
+            if verified.count < initialEntries.count {
+                Task { @MainActor [weak self] in
+                    self?.entries = verified
+                    self?.saveIndex()
+                }
             }
         }
     }
@@ -456,11 +470,15 @@ var maxEntries: Int {
     // MARK: - File helpers
 
     private func deleteFiles(for id: String, ext: String = "png") {
-        let fileURL = historyDir.appendingPathComponent("\(id).\(ext)")
-        let thumbURL = historyDir.appendingPathComponent("\(id)_thumb.png")
-        let previewURL = historyDir.appendingPathComponent("\(id)_preview.png")
-        let rawURL = historyDir.appendingPathComponent("\(id)_raw.png")
-        let annURL = historyDir.appendingPathComponent("\(id)_annotations.json")
+        Self.deleteFiles(for: id, ext: ext, in: historyDir)
+    }
+
+    nonisolated private static func deleteFiles(for id: String, ext: String = "png", in dir: URL) {
+        let fileURL = dir.appendingPathComponent("\(id).\(ext)")
+        let thumbURL = dir.appendingPathComponent("\(id)_thumb.png")
+        let previewURL = dir.appendingPathComponent("\(id)_preview.png")
+        let rawURL = dir.appendingPathComponent("\(id)_raw.png")
+        let annURL = dir.appendingPathComponent("\(id)_annotations.json")
         try? FileManager.default.removeItem(at: fileURL)
         try? FileManager.default.removeItem(at: thumbURL)
         try? FileManager.default.removeItem(at: previewURL)

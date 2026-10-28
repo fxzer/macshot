@@ -17,18 +17,24 @@ enum TemporaryFileManager {
     private static let staleMacshotFileLifetime: TimeInterval = 24 * 60 * 60
 
     static func cleanupOnLaunch(now: Date = Date()) {
-        removeLegacyStableClipboardFile()
-        cleanupStaleMacshotFiles(now: now)
+        DispatchQueue.global(qos: .utility).async {
+            removeLegacyStableClipboardFile()
+            cleanupStaleMacshotFiles(now: now)
+        }
     }
 
     static func writeDragImageData(_ data: Data, fileExtension: String) -> URL? {
-        cleanupStaleMacshotFiles(now: Date())
+        DispatchQueue.global(qos: .utility).async {
+            cleanupStaleMacshotFiles(now: Date())
+        }
 
         return writeManagedImageData(data, prefix: genericMacshotPrefix, fileExtension: fileExtension)
     }
 
     static func writeShareImageData(_ data: Data, fileExtension: String) -> URL? {
-        cleanupStaleMacshotFiles(now: Date())
+        DispatchQueue.global(qos: .utility).async {
+            cleanupStaleMacshotFiles(now: Date())
+        }
         guard let url = writeManagedImageData(data, prefix: shareFilePrefix, fileExtension: fileExtension) else {
             return nil
         }

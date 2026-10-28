@@ -20,6 +20,7 @@ extension Annotation {
 
         if censorDrawScope == .textOnly, let textOnlyImage = bakeTextOnlyCensor() {
             bakedBlurNSImage = textOnlyImage
+            sourceImage = nil
             return
         }
 
@@ -31,6 +32,7 @@ extension Annotation {
                 return true
             }
             bakedBlurNSImage = img
+            sourceImage = nil
             return
         }
 
@@ -38,6 +40,7 @@ extension Annotation {
         if mode == .erase {
             guard let _ = sourceImage else { return }
             bakedBlurNSImage = bakeErase()
+            sourceImage = nil
             return
         }
 
@@ -47,6 +50,7 @@ extension Annotation {
         if mode == .blur {
             guard let blurredCG = applyGaussianBlur(to: cgImage) else { return }
             bakedBlurNSImage = NSImage(cgImage: blurredCG, size: rect.size)
+            sourceImage = nil
         } else {
             // Pixelate: down-sample → up-scale with nearest-neighbor
             let pixelBlock = 8
@@ -81,6 +85,7 @@ extension Annotation {
 
             guard let pixelatedCG = ctx3.makeImage() else { return }
             bakedBlurNSImage = NSImage(cgImage: pixelatedCG, size: rect.size)
+            sourceImage = nil
         }
     }
 
