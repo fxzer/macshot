@@ -228,7 +228,7 @@ extension OverlayWindowController: OverlayViewDelegate {
         //     mouseMoved even when not key and re-asserts the active tool cursor (e.g. the
         //     pencil crosshair) over the system picker. With ignoresMouseEvents the overlay
         //     no longer receives mouseMoved, so the system arrow cursor shows through.
-        let savedLevel = overlayWindow?.level ?? NSWindow.Level(rawValue: Int(CGShieldingWindowLevel()))
+        let savedLevel = overlayWindow?.level ?? NSWindow.Level(257)
         let savedIgnoresMouseEvents = overlayWindow?.ignoresMouseEvents ?? false
         overlayWindow?.level = .floating
         overlayWindow?.ignoresMouseEvents = true

@@ -43,7 +43,7 @@ final class ScrollCaptureFlowCoordinator {
         let maxHeight = UserDefaults.standard.object(forKey: "scrollMaxHeight") as? Int ?? 30000
         controller.setScrollCaptureState(isActive: true, maxHeight: maxHeight)
 
-        let overlayLevel = Int(CGShieldingWindowLevel())
+        let overlayLevel = 257
         if let previewPanel = ScrollCapturePreviewPanel(
             captureRect: rect,
             screen: screen,

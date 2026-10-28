@@ -30,7 +30,7 @@ final class HistoryOverlayController: NSObject, QLPreviewPanelDataSource, QLPrev
         let backdrop = NSWindow(
             contentRect: screen.frame, styleMask: [.borderless],
             backing: .buffered, defer: false)
-        backdrop.level = NSWindow.Level(rawValue: Int(CGShieldingWindowLevel()))
+        backdrop.level = NSWindow.Level(256)
         backdrop.isOpaque = false
         backdrop.backgroundColor = NSColor.black.withAlphaComponent(0.001)
         backdrop.hasShadow = false
@@ -59,7 +59,7 @@ final class HistoryOverlayController: NSObject, QLPreviewPanelDataSource, QLPrev
         let win = KeyablePanel(
             contentRect: startFrame, styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered, defer: false)
-        win.level = NSWindow.Level(rawValue: Int(CGShieldingWindowLevel()) + 1)
+        win.level = NSWindow.Level(257)
         win.isOpaque = false
         win.backgroundColor = .clear
         win.hasShadow = true

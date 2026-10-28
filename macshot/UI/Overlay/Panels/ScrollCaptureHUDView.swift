@@ -129,7 +129,7 @@ class ScrollCaptureHUDPanel: NSPanel {
         isOpaque = false
         backgroundColor = .clear
         hasShadow = false
-        level = NSWindow.Level(rawValue: Int(CGShieldingWindowLevel()) + 1)  // above the overlay window
+        level = .statusBar + 2  // above the overlay window
         isMovableByWindowBackground = false
         hidesOnDeactivate = false
 
