@@ -227,9 +227,13 @@ sync_app "$DERIVED_DATA/Build/Products/Debug/MacShot.app" "$APP_INSTALL_PATH"
 rm -rf "$APP_WORKTREE_PATH"
 sign_app "$APP_INSTALL_PATH"
 
-# 注销所有非安装路径的 MacShot 注册（Finder/Raycast「打开方式」只保留 /Applications 这一个）。
+# 阻止 Spotlight 索引 DerivedData，避免 Raycast / Finder 通过 Spotlight 搜出编译临时 .app 副本
+mkdir -p "$DERIVED_DATA"
+touch "$DERIVED_DATA/.metadata_never_index"
+
+# 注销并物理删除所有非安装路径的 MacShot 注册（Finder/Raycast「打开方式」只保留 /Applications 这一个）。
 # 逐个硬编码路径注销管不住别处产生的副本（如裸跑 xcodebuild 注册的默认 DerivedData），
-# 因此这里按 bundle id 从 LS 数据库枚举全部注册路径，除安装路径外逐一注销。
+# 因此这里按 bundle id 从 LS 数据库枚举全部注册路径，除安装路径外逐一注销并删除磁盘上的实体包。
 LSREGISTER="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
 if [ -x "$LSREGISTER" ]; then
     # LS dump 中每个 app 注册块含 "path: …/xxx.app (0x…)" 与我们的 bundle id，
@@ -247,10 +251,14 @@ if [ -x "$LSREGISTER" ]; then
     if [ -n "$stray_registrations" ]; then
         while IFS= read -r stray_app; do
             [ -n "$stray_app" ] || continue
-            echo "   🧹 注销多余的 MacShot 注册: $stray_app"
+            echo "   🧹 注销并物理清理多余的 MacShot 副本: $stray_app"
             "$LSREGISTER" -u "$stray_app" 2>/dev/null || true
+            rm -rf "$stray_app" 2>/dev/null || true
         done <<< "$stray_registrations"
     fi
+    # 清理 DerivedData 下遗留的 .app 产物，避免 Spotlight/Raycast 扫盘残留
+    rm -rf "$DERIVED_DATA/Build/Products/Debug/MacShot.app" 2>/dev/null || true
+    rm -rf "$DERIVED_DATA/Build/Products/Release/MacShot.app" 2>/dev/null || true
     "$LSREGISTER" -f "$APP_INSTALL_PATH" 2>/dev/null || true
 fi
 

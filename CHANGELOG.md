@@ -1,5 +1,20 @@
 # Changelog
 
+## [5.3.8] - 2026-10-28
+
+### Fixed
+- **区域截图快捷键触发后无法框选交互修复** — 修复上一版本误将 OverlayWindow 层级提升至硬件屏保级（`CGShieldingWindowLevel`）导致的窗口无法成为 Key 窗口（`canBecomeKey` 为 false）、且鼠标事件穿透丢失的问题；还原为标准的 AppKit 交互层级 `NSWindow.Level(257)` 并取消穿透，恢复正常的点击、拖拽框选与即时响应体验。
+
+## [5.3.7] - 2026-10-27
+
+### Performance
+- **选区拖拽底图双重重绘消除** — 采用 EvenOdd 挖空中空路径单次绘制 45% 暗色遮罩，选区直接透出底图。在常规 1x 缩放下，彻底剔除了选区内部每帧重复调用 `image.draw(in: bounds)` 的全屏绘制，大幅降低 4K/5K 屏框选和移动选区时的 CPU/GPU 负载。
+- **打码与擦除底图即时释放** — 打码（像素化/模糊/擦除）在位图烘焙完成后立即置空 `sourceImage`，杜绝撤销/重做栈对 4K 全屏原图的持久强引用，截图会话期间内存即时回落 40 到 160MB；后续移动或调整大小按需重绑底图。
+- **临时文件扫描与历史索引异步化** — 拖拽分享时对 `/tmp` 目录的全量过期文件扫描、以及历史记录 500 次 `fileExists` 磁盘检测与多余文件清理均移入后台异步队列，消除启动与拖拽卡顿。
+
+### Fixed
+- **彻底根除 Raycast/Finder 打开方式出现多个 MacShot 残留** — 查明残留原因为 macOS Spotlight 自动对 `DerivedData` 编译输出目录进行索引，且 LaunchServices 监测到磁盘文件常驻会静默重新注册。构建脚本在安装后自动在 `DerivedData` 注入 `.metadata_never_index` 彻底禁止 Spotlight 扫盘，并物理清理编译目录内的 `.app` 副本与多余 LS 注册项，保证全系统仅保留 `/Applications/MacShot.app` 唯一入口。
+
 ## [5.3.6] - 2026-10-27
 
 ### Fixed
