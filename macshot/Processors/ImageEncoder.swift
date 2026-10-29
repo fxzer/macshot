@@ -326,9 +326,12 @@ enum ImageEncoder {
 
     private static var clipboardGeneration = 0
 
-    /// Copy image to pasteboard as PNG (with TIFF fallback for legacy AppKit apps).
+    /// Copy image to pasteboard as PNG.
     /// Explicitly sets PNG data so receiving apps (browsers, editors) get
-    /// a lossless PNG instead of the TIFF that NSImage.writeObjects provides.
+    /// a lossless PNG instead of TIFF. Modern macOS apps all read PNG natively;
+    /// providing TIFF causes Electron/Chromium apps (e.g. Antigravity, Claude,
+    /// web editors) to select `image/tiff` from clipboardData.items, which fails
+    /// validation as "Unsupported file format".
     /// Deliberately image-data only, no fileURL: sandboxed clipboard managers
     /// (Raycast etc.) classify pasteboard items carrying a file URL as *file*
     /// entries — filename + generic icon, never a thumbnail — while image-data
@@ -338,21 +341,15 @@ enum ImageEncoder {
         clipboardGeneration += 1
         let currentGen = clipboardGeneration
         let pasteboard = NSPasteboard.general
+        // Clear pasteboard immediately so Cmd+V doesn't paste stale content while encoding
+        pasteboard.clearContents()
 
-        // PNG encode on background thread (the expensive part), then atomic write to pasteboard on main
+        // PNG encode on background thread (the expensive part), then write to pasteboard on main
         DispatchQueue.global(qos: .userInitiated).async {
             guard let pngData = encodePNG(image) else { return }
-            let tiffData = image.tiffRepresentation
             DispatchQueue.main.async {
                 guard currentGen == clipboardGeneration else { return }
-                pasteboard.clearContents()
-                var types: [NSPasteboard.PasteboardType] = [.png]
-                if tiffData != nil { types.append(.tiff) }
-                pasteboard.declareTypes(types, owner: nil)
                 pasteboard.setData(pngData, forType: .png)
-                if let tiff = tiffData {
-                    pasteboard.setData(tiff, forType: .tiff)
-                }
             }
         }
     }
