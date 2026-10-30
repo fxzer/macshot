@@ -262,6 +262,17 @@ if [ -x "$LSREGISTER" ]; then
     "$LSREGISTER" -f "$APP_INSTALL_PATH" 2>/dev/null || true
 fi
 
+# 安装 Finder 右键快捷操作服务（在 MacShot 编辑器中打开）
+SERVICE_SRC="$ROOT_DIR/macshot/Resources/Services/在 MacShot 编辑器中打开.workflow"
+SERVICE_DST="$HOME/Library/Services/在 MacShot 编辑器中打开.workflow"
+if [ -d "$SERVICE_SRC" ]; then
+    mkdir -p "$HOME/Library/Services"
+    rm -rf "$SERVICE_DST"
+    cp -R "$SERVICE_SRC" "$SERVICE_DST"
+    /System/Library/CoreServices/pbs -update 2>/dev/null || true
+    echo "   🪄 已安装 Finder 右键快捷操作: 在 MacShot 编辑器中打开"
+fi
+
 open "$APP_INSTALL_PATH"
 echo "   ✅ 已安装并启动（已清理多余的打开方式注册入口）"
 

@@ -115,6 +115,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ aNotification: Notification) {
         migrateSoundSettings()
+        NSApp.servicesProvider = self
+        NSUpdateDynamicServices()
         guard launchCoordinator.applicationDidFinishLaunching() else { return }
     }
 
@@ -387,6 +389,28 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     /// Handle files opened via Finder "Open With", drag-to-dock, or command line.
     func application(_ application: NSApplication, open urls: [URL]) {
         launchCoordinator.handleOpen(urls: urls)
+    }
+
+    // MARK: - Services
+
+    /// Handles Finder Services / Quick Actions: "在 MacShot 编辑器中打开"
+    @objc func openInMacShotEditor(_ pboard: NSPasteboard, userData: String?, error: AutoreleasingUnsafeMutablePointer<NSString?>) {
+        var urls: [URL] = []
+        if let fileURLs = pboard.readObjects(forClasses: [NSURL.self], options: nil) as? [URL] {
+            urls = fileURLs
+        } else if let filenames = pboard.propertyList(forType: NSPasteboard.PasteboardType("NSFilenamesPboardType")) as? [String] {
+            urls = filenames.map { URL(fileURLWithPath: $0) }
+        }
+
+        guard !urls.isEmpty else {
+            error.pointee = "No valid image files found" as NSString
+            return
+        }
+
+        DispatchQueue.main.async { [weak self] in
+            self?.routeHandler.handleOpen(urls: urls)
+            NSApp.activate(ignoringOtherApps: true)
+        }
     }
 
     // MARK: - Settings

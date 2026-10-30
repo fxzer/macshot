@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>actions</key>
+  <array>
+    <dict>
+      <key>action</key>
+      <dict>
+        <key>ActionBundlePath</key>
+        <string>/System/Library/Automator/Run Shell Script.action</string>
+        <key>ActionName</key>
+        <string>Run Shell Script</string>
+        <key>ActionParameters</key>
+        <dict>
+          <key>COMMAND_STRING</key>
+          <string>for item in "$@"; do
+  if [ -f "$item" ]; then
+    /usr/bin/open -a /Applications/MacShot.app "$item"
+  fi
+done
+</string>
+          <key>CheckedForUserDefaultShell</key>
+          <true/>
+          <key>inputMethod</key>
+          <integer>1</integer>
+          <key>shell</key>
+          <string>/bin/zsh</string>
+          <key>source</key>
+          <string></string>
+        </dict>
+        <key>AMAccepts</key>
+        <dict>
+          <key>Container</key>
+          <string>List</string>
+          <key>Optional</key>
+          <true/>
+          <key>Types</key>
+          <array>
+            <string>com.apple.cocoa.path</string>
+          </array>
+        </dict>
+        <key>AMActionVersion</key>
+        <string>2.0.3</string>
+        <key>AMApplication</key>
+        <array>
+          <string>Automator</string>
+        </array>
+        <key>BundleIdentifier</key>
+        <string>com.apple.RunShellScript</string>
+        <key>CFBundleVersion</key>
+        <string>2.0.3</string>
+        <key>Class Name</key>
+        <string>RunShellScriptAction</string>
+        <key>InputUUID</key>
+        <string>A57E860B-7D8C-4C7A-92F6-B2D9B78C2F31</string>
+        <key>OutputUUID</key>
+        <string>E78F292B-4A1C-4B9F-83C4-F7A6E5C8A901</string>
+        <key>UUID</key>
+        <string>D3B9C4A2-9E1A-4F7D-81F0-A3D9E2F8B1C4</string>
+      </dict>
+      <key>isViewVisible</key>
+      <true/>
+    </dict>
+  </array>
+  <key>AMApplicationBuild</key>
+  <string>521</string>
+  <key>AMApplicationVersion</key>
+  <string>2.10</string>
+  <key>AMDocumentVersion</key>
+  <string>2</string>
+  <key>connectors</key>
+  <dict/>
+  <key>workflowMetaData</key>
+  <dict>
+    <key>serviceApplicationBundleID</key>
+    <string>com.apple.finder</string>
+    <key>serviceApplicationPath</key>
+    <string>/System/Library/CoreServices/Finder.app</string>
+    <key>serviceInputTypeIdentifier</key>
+    <string>com.apple.Automator.fileSystemObject.image</string>
+    <key>serviceOutputTypeIdentifier</key>
+    <string>com.apple.Automator.nothing</string>
+    <key>serviceProcessesInput</key>
+    <false/>
+    <key>workflowTypeIdentifier</key>
+    <string>com.apple.Automator.servicesMenu</string>
+  </dict>
+</dict>
+</plist>
