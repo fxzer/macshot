@@ -341,14 +341,16 @@ enum ImageEncoder {
         clipboardGeneration += 1
         let currentGen = clipboardGeneration
         let pasteboard = NSPasteboard.general
-        // Clear pasteboard immediately so Cmd+V doesn't paste stale content while encoding
-        pasteboard.clearContents()
 
-        // PNG encode on background thread (the expensive part), then write to pasteboard on main
+        // PNG encode on background thread (the expensive part), then atomic write to pasteboard on main.
+        // pasteboard.clearContents() MUST NOT be called before data is ready: clearing advances changeCount
+        // immediately, causing Raycast and other clipboard monitors to inspect an empty pasteboard. The subsequent
+        // setData does NOT advance changeCount, leaving clipboard managers permanently unaware of the new image.
         DispatchQueue.global(qos: .userInitiated).async {
             guard let pngData = encodePNG(image) else { return }
             DispatchQueue.main.async {
                 guard currentGen == clipboardGeneration else { return }
+                pasteboard.clearContents()
                 pasteboard.setData(pngData, forType: .png)
             }
         }

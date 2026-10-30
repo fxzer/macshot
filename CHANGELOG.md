@@ -1,6 +1,14 @@
 # Changelog
 
-## [5.3.8] - 2026-10-28
+## [5.3.10] - 2026-10-30
+
+### Fixed
+- **复制截图至剪贴板后 Raycast 剪贴板历史无法抓取与落盘修复** — 修复上一版本为防止编码延迟残留旧内容而在后台异步编码前同步执行 `pasteboard.clearContents()` 导致的竞态条件：`clearContents()` 会立即递增剪贴板 `changeCount`，致使 Raycast 观察者在 PNG 数据尚在后台编码时即读取空剪贴板并缓存该版本号；后续 `pasteboard.setData` 回到主线程写入图片数据时并不递增 `changeCount`，导致 Raycast 彻底错过图片更新。现将 `clearContents()` 与 `setData()` 恢复在主线程原子执行，数据就绪后再触发表更，恢复 Raycast 剪贴板历史与图片缩略图索引。
+
+## [5.3.9] - 2026-10-29
+
+### Fixed
+- **剔除剪贴板 TIFF 冗余数据并修复 Web/Electron 客户端粘贴报错** — 剪贴板仅写入标准的 lossless PNG 数据，避免 Electron/Chromium 应用（如 Claude、Discord、Antigravity、Web 编辑器）从 `clipboardData.items` 优先提取 TIFF 导致格式校验失败。
 
 ### Fixed
 - **区域截图快捷键触发后无法框选交互修复** — 修复上一版本误将 OverlayWindow 层级提升至硬件屏保级（`CGShieldingWindowLevel`）导致的窗口无法成为 Key 窗口（`canBecomeKey` 为 false）、且鼠标事件穿透丢失的问题；还原为标准的 AppKit 交互层级 `NSWindow.Level(257)` 并取消穿透，恢复正常的点击、拖拽框选与即时响应体验。
