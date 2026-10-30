@@ -3501,6 +3501,22 @@
         }
       }
     },
+    "MacShot needs Accessibility permission to paste screenshots at your cursor. Please grant access in System Settings, then try again." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MacShot needs Accessibility permission to paste screenshots at your cursor. Please grant access in System Settings, then try again."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MacShot 需要辅助功能权限以自动将截图粘贴到光标位置。请在系统设置中授予权限后重试。"
+          }
+        }
+      }
+    },
     "macshot needs Accessibility permission for scroll capture. Please grant access in System Settings, then try again." : {
       "extractionState" : "stale",
       "localizations" : {

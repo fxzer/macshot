@@ -14,6 +14,7 @@ final class HistoryOverlayController: NSObject, QLPreviewPanelDataSource, QLPrev
     private var panel: NSPanel?
     private var contentView: HistoryPanelView?
     private var backdropWindow: NSWindow?
+    private var targetApp: NSRunningApplication?
     var previewLoadTask: Task<Void, Never>?
     var onDismiss: (() -> Void)?
 
@@ -25,6 +26,16 @@ final class HistoryOverlayController: NSObject, QLPreviewPanelDataSource, QLPrev
 
     func show() {
         guard let screen = NSScreen.main else { return }
+
+        // Remember frontmost application before showing history panel to support pasting back
+        if let frontmost = NSWorkspace.shared.frontmostApplication,
+           frontmost.bundleIdentifier != Bundle.main.bundleIdentifier {
+            targetApp = frontmost
+        } else {
+            targetApp = NSWorkspace.shared.runningApplications.first {
+                $0.isActive && $0.bundleIdentifier != Bundle.main.bundleIdentifier
+            }
+        }
 
         // Transparent click-catching backdrop (dismisses on click)
         let backdrop = NSWindow(
@@ -116,7 +127,7 @@ final class HistoryOverlayController: NSObject, QLPreviewPanelDataSource, QLPrev
         }
     }
 
-    func dismiss() {
+    func dismiss(activating appToActivate: NSRunningApplication? = nil, completion: (() -> Void)? = nil) {
         previewLoadTask?.cancel()
         previewLoadTask = nil
         NotificationCenter.default.removeObserver(self,
@@ -129,10 +140,20 @@ final class HistoryOverlayController: NSObject, QLPreviewPanelDataSource, QLPrev
             backdropWindow = nil
         }
 
+        let finish = { [weak self] in
+            self?.contentView = nil
+            self?.onDismiss?()
+            if let target = appToActivate, !target.isTerminated {
+                NSApp.setActivationPolicy(.accessory)
+                FocusCoordinator.activateApp(target)
+            } else {
+                (NSApp.delegate as? AppDelegate)?.returnFocusIfNeeded()
+            }
+            completion?()
+        }
+
         guard let win = panel else {
-            contentView = nil
-            onDismiss?()
-            (NSApp.delegate as? AppDelegate)?.returnFocusIfNeeded()
+            finish()
             return
         }
         panel = nil
@@ -146,12 +167,10 @@ final class HistoryOverlayController: NSObject, QLPreviewPanelDataSource, QLPrev
             ctx.timingFunction = CAMediaTimingFunction(name: .easeIn)
             win.animator().setFrame(hiddenFrame, display: true)
             win.animator().alphaValue = 0.0
-        }, completionHandler: { [weak self] in
+        }, completionHandler: {
             win.orderOut(nil)
             win.close()
-            self?.contentView = nil
-            self?.onDismiss?()
-            (NSApp.delegate as? AppDelegate)?.returnFocusIfNeeded()
+            finish()
         })
     }
 
@@ -160,6 +179,38 @@ final class HistoryOverlayController: NSObject, QLPreviewPanelDataSource, QLPrev
     func copyAndDismiss(index: Int) {
         ScreenshotHistory.shared.copyEntry(at: index)
         dismiss()
+    }
+
+    func copyPasteAndDismiss(index: Int) {
+        let appToPaste = targetApp
+
+        guard AXIsProcessTrusted() else {
+            copyAndDismiss(index: index)
+            SystemPermissionPrompter.requestAccessibilityPermission(
+                message: L("MacShot needs Accessibility permission to paste screenshots at your cursor. Please grant access in System Settings, then try again.")
+            )
+            return
+        }
+
+        var isCopied = false
+        var isDismissed = false
+
+        let tryPaste = {
+            guard isCopied && isDismissed else { return }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                PasteboardWriter.simulatePaste()
+            }
+        }
+
+        ScreenshotHistory.shared.copyEntry(at: index) {
+            isCopied = true
+            tryPaste()
+        }
+
+        dismiss(activating: appToPaste) {
+            isDismissed = true
+            tryPaste()
+        }
     }
 
     func deleteEntry(index: Int) {
@@ -921,10 +972,10 @@ private final class HistoryPanelView: NSView, NSDraggingSource {
                 selectedIndex += 1
                 scrollToCard(at: selectedIndex)
             }
-        case 36: // Return/Enter - copy selected to clipboard
+        case 36, 76: // Return/Enter or Keypad Enter - copy and paste directly to cursor
             if selectedIndex >= 0, selectedIndex < filteredCount {
                 let globalIndex = filteredIndex(at: selectedIndex)
-                controller?.copyAndDismiss(index: globalIndex)
+                controller?.copyPasteAndDismiss(index: globalIndex)
             }
         default:
             super.keyDown(with: event)

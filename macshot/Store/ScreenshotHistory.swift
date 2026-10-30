@@ -324,14 +324,20 @@ var maxEntries: Int {
         saveIndex()
     }
 
-    func copyEntry(at index: Int) {
-        guard index >= 0, index < entries.count else { return }
+    func copyEntry(at index: Int, completion: (() -> Void)? = nil) {
+        guard index >= 0, index < entries.count else {
+            completion?()
+            return
+        }
         let entry = entries[index]
         waitForPendingWriteIfNeeded(id: entry.id, purpose: "copyEntry")
         let fileURL = historyDir.appendingPathComponent("\(entry.id).\(entry.fileExtension)")
         guard let imageData = try? Data(contentsOf: fileURL),
-              let image = NSImage(data: imageData) else { return }
-        ImageEncoder.copyToClipboard(image)
+              let image = NSImage(data: imageData) else {
+            completion?()
+            return
+        }
+        ImageEncoder.copyToClipboard(image, completion: completion)
     }
 
     func loadImage(for entry: HistoryEntry) -> NSImage? {

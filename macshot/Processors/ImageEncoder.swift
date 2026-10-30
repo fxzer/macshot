@@ -320,8 +320,8 @@ enum ImageEncoder {
 
     // MARK: - Clipboard
 
-    static func copyToClipboard(_ asset: CaptureImageAsset, source: CaptureImageExportSource = .display) {
-        copyToClipboard(asset.image(for: source))
+    static func copyToClipboard(_ asset: CaptureImageAsset, source: CaptureImageExportSource = .display, completion: (() -> Void)? = nil) {
+        copyToClipboard(asset.image(for: source), completion: completion)
     }
 
     private static var clipboardGeneration = 0
@@ -337,7 +337,7 @@ enum ImageEncoder {
     /// entries — filename + generic icon, never a thumbnail — while image-data
     /// entries get the "Image (WxH)" preview. Finder pastes raw image data by
     /// creating a file anyway, so the URL is not needed for that either.
-    static func copyToClipboard(_ image: NSImage) {
+    static func copyToClipboard(_ image: NSImage, completion: (() -> Void)? = nil) {
         clipboardGeneration += 1
         let currentGen = clipboardGeneration
         let pasteboard = NSPasteboard.general
@@ -347,11 +347,18 @@ enum ImageEncoder {
         // immediately, causing Raycast and other clipboard monitors to inspect an empty pasteboard. The subsequent
         // setData does NOT advance changeCount, leaving clipboard managers permanently unaware of the new image.
         DispatchQueue.global(qos: .userInitiated).async {
-            guard let pngData = encodePNG(image) else { return }
+            guard let pngData = encodePNG(image) else {
+                DispatchQueue.main.async { completion?() }
+                return
+            }
             DispatchQueue.main.async {
-                guard currentGen == clipboardGeneration else { return }
+                guard currentGen == clipboardGeneration else {
+                    completion?()
+                    return
+                }
                 pasteboard.clearContents()
                 pasteboard.setData(pngData, forType: .png)
+                completion?()
             }
         }
     }
