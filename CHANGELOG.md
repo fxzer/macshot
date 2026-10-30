@@ -1,5 +1,10 @@
 # Changelog
 
+## [5.5.1] - 2026-10-30
+
+### Fixed
+- **Finder 右键服务名称消除重复项与来源括号后缀** — 移除多余的外部 `.workflow` 文件，完全采用 MacShot.app 内置的原生 `NSServices` 提供服务。消除因 App 原生服务与外部 Workflow 同名冲突导致系统自动追加 `(MacShot.app)` / `(.workflow)` 区分后缀的问题，使 Finder 右键菜单精简为纯粹唯一的「在 MacShot 编辑器中打开」。
+
 ## [5.5.0] - 2026-10-30
 
 ### Added
