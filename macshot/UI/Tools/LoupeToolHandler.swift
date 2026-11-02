@@ -4,6 +4,23 @@ struct MagnifiedCalloutGeometry {
     static let sourceDotRadius: CGFloat = 2.0
     static let magnification: CGFloat = 2.0
     static let minimumCommitDistance: CGFloat = 6.0
+    static let minDiameter: CGFloat = 40.0
+    static let maxDiameter: CGFloat = 320.0
+    static let minMagnification: CGFloat = 1.2
+    static let maxMagnification: CGFloat = 6.0
+
+    /// Default magnification dynamically derived from bubble diameter.
+    /// Smooth mapping: 40px -> 1.5x, 120px -> 2.4x, 320px -> 4.5x.
+    static func defaultMagnification(for diameter: CGFloat) -> CGFloat {
+        let clamped = min(max(diameter, minDiameter), maxDiameter)
+        let t = (clamped - minDiameter) / (maxDiameter - minDiameter)
+        let raw = 1.5 + t * 3.0
+        return (round(raw * 10) / 10)
+    }
+
+    static func clampMagnification(_ mag: CGFloat) -> CGFloat {
+        min(max(mag, minMagnification), maxMagnification)
+    }
 
     static func connectorFillColor(for accentColor: NSColor) -> NSColor {
         accentColor.withAlphaComponent(0.22)
@@ -95,14 +112,16 @@ struct MagnifiedCalloutGeometry {
         from image: CGImage,
         sourcePoint: CGPoint,
         bubbleDiameter: CGFloat,
-        imageDrawRect: CGRect
+        imageDrawRect: CGRect,
+        magnification: CGFloat = 2.0
     ) -> CGImage? {
         guard bubbleDiameter > 1,
             imageDrawRect.width > 1,
             imageDrawRect.height > 1
         else { return nil }
 
-        let sampleSize = bubbleDiameter / magnification
+        let mag = max(1.0, magnification)
+        let sampleSize = bubbleDiameter / mag
         let scaleX = CGFloat(image.width) / imageDrawRect.width
         let scaleY = CGFloat(image.height) / imageDrawRect.height
 
@@ -139,20 +158,23 @@ final class MagnifiedCalloutPreviewController {
     private let bubbleShadowLayer = CALayer()
     private let bubbleContentLayer = CALayer()
     private let bubbleBorderLayer = CAShapeLayer()
+    private let badgeLayer = CATextLayer()
 
     private(set) var sourcePoint: CGPoint?
     private(set) var destinationPoint: CGPoint?
     private(set) var bubbleDiameter: CGFloat = 0
+    private(set) var magnification: CGFloat = 2.0
 
     init(hostView: NSView) {
         self.hostView = hostView
         configureLayers()
     }
 
-    func begin(at sourcePoint: CGPoint, diameter: CGFloat, color: NSColor) {
+    func begin(at sourcePoint: CGPoint, diameter: CGFloat, color: NSColor, magnification: CGFloat? = nil) {
         self.sourcePoint = sourcePoint
         destinationPoint = nil
         bubbleDiameter = diameter
+        self.magnification = magnification ?? MagnifiedCalloutGeometry.defaultMagnification(for: diameter)
         attachIfNeeded()
 
         CATransaction.begin()
@@ -172,6 +194,7 @@ final class MagnifiedCalloutPreviewController {
         funnelLayer.isHidden = true
         bubbleShadowLayer.isHidden = true
         bubbleContentLayer.contents = nil
+        badgeLayer.isHidden = true
         CATransaction.commit()
     }
 
@@ -229,12 +252,26 @@ final class MagnifiedCalloutPreviewController {
         bubbleBorderLayer.frame = bubbleShadowLayer.bounds
         bubbleBorderLayer.path = CGPath(ellipseIn: bubbleBorderLayer.bounds.insetBy(dx: 2, dy: 2), transform: nil)
 
+        let badgeW: CGFloat = 38
+        let badgeH: CGFloat = 18
+        badgeLayer.frame = CGRect(
+            x: bubbleRect.midX - badgeW / 2,
+            y: bubbleRect.minY - badgeH - 6,
+            width: badgeW,
+            height: badgeH
+        )
+        badgeLayer.contentsScale = backingScale
+        let magText = String(format: "%.1f×", magnification).replacingOccurrences(of: ".0×", with: "×")
+        badgeLayer.string = magText
+        badgeLayer.isHidden = false
+
         if let image {
             bubbleContentLayer.contents = MagnifiedCalloutGeometry.croppedImage(
                 from: image,
                 sourcePoint: sourcePoint,
                 bubbleDiameter: bubbleDiameter,
-                imageDrawRect: imageDrawRect
+                imageDrawRect: imageDrawRect,
+                magnification: magnification
             )
         } else {
             bubbleContentLayer.contents = nil
@@ -259,7 +296,8 @@ final class MagnifiedCalloutPreviewController {
         return LoupeCalloutPreviewSnapshot(
             sourcePoint: sourcePoint,
             destinationPoint: resolvedDestination,
-            bubbleDiameter: bubbleDiameter
+            bubbleDiameter: bubbleDiameter,
+            magnification: magnification
         )
     }
 
@@ -273,6 +311,7 @@ final class MagnifiedCalloutPreviewController {
         funnelLayer.isHidden = true
         bubbleShadowLayer.isHidden = true
         bubbleContentLayer.contents = nil
+        badgeLayer.isHidden = true
         CATransaction.commit()
     }
 
@@ -293,22 +332,33 @@ final class MagnifiedCalloutPreviewController {
 
         bubbleContentLayer.masksToBounds = true
         bubbleContentLayer.contentsGravity = .resizeAspectFill
-        bubbleContentLayer.magnificationFilter = .trilinear
-        bubbleContentLayer.minificationFilter = .trilinear
+        bubbleContentLayer.magnificationFilter = .linear
+        bubbleContentLayer.minificationFilter = .linear
 
         bubbleBorderLayer.fillColor = NSColor.clear.cgColor
         bubbleBorderLayer.strokeColor = NSColor.white.withAlphaComponent(0.96).cgColor
         bubbleBorderLayer.lineWidth = 4
+
+        badgeLayer.alignmentMode = .center
+        badgeLayer.fontSize = 11
+        badgeLayer.foregroundColor = NSColor.white.cgColor
+        badgeLayer.backgroundColor = NSColor(white: 0.12, alpha: 0.92).cgColor
+        badgeLayer.cornerRadius = 9
+        badgeLayer.masksToBounds = true
+        badgeLayer.borderWidth = 1.0
+        badgeLayer.borderColor = NSColor.white.withAlphaComponent(0.3).cgColor
 
         bubbleShadowLayer.addSublayer(bubbleContentLayer)
         bubbleShadowLayer.addSublayer(bubbleBorderLayer)
         rootLayer.addSublayer(funnelLayer)
         rootLayer.addSublayer(sourceDotLayer)
         rootLayer.addSublayer(bubbleShadowLayer)
+        rootLayer.addSublayer(badgeLayer)
 
         sourceDotLayer.isHidden = true
         funnelLayer.isHidden = true
         bubbleShadowLayer.isHidden = true
+        badgeLayer.isHidden = true
     }
 
     private func attachIfNeeded() {
@@ -332,6 +382,7 @@ final class LoupeToolHandler: AnnotationToolHandler {
     var requiresDisplayRefreshDuringDrag: Bool { false }
 
     func start(at point: NSPoint, canvas: AnnotationCanvas) -> Annotation? {
+        let mag = MagnifiedCalloutGeometry.defaultMagnification(for: canvas.currentLoupeSize)
         let annotation = Annotation(
             tool: .loupe,
             startPoint: point,
@@ -340,7 +391,7 @@ final class LoupeToolHandler: AnnotationToolHandler {
             strokeWidth: canvas.currentStrokeWidth
         )
         annotation.loupeSourcePoint = point
-        annotation.loupeMagnification = MagnifiedCalloutGeometry.magnification
+        annotation.loupeMagnification = mag
         annotation.sourceImage = canvas.screenshotImage
         annotation.sourceImageBounds = canvas.captureDrawRect
         canvas.beginMagnifiedCalloutPreview(sourcePoint: point, color: annotation.color)
@@ -373,7 +424,7 @@ final class LoupeToolHandler: AnnotationToolHandler {
             y: preview.destinationPoint.y + halfSize
         )
         annotation.loupeSourcePoint = preview.sourcePoint
-        annotation.loupeMagnification = MagnifiedCalloutGeometry.magnification
+        annotation.loupeMagnification = preview.magnification
         annotation.sourceImage = canvas.screenshotImage
         annotation.sourceImageBounds = canvas.captureDrawRect
         annotation.bakeLoupe()

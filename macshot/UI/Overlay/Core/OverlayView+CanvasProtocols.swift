@@ -57,10 +57,12 @@ extension OverlayView: AnnotationCanvas {
 
     func beginMagnifiedCalloutPreview(sourcePoint: NSPoint, color: NSColor) {
         clearLoupePreview()
+        let defMag = MagnifiedCalloutGeometry.defaultMagnification(for: currentLoupeSize)
         magnifiedCalloutPreview.begin(
             at: sourcePoint,
             diameter: currentLoupeSize,
-            color: color
+            color: color,
+            magnification: defMag
         )
     }
 

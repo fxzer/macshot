@@ -574,22 +574,43 @@ extension OverlayView {
                 }
                 return true
             } else if ann.tool == .loupe {
-                let oldSize = currentLoupeSize
                 let oldSnapshot = ann.propertyChangeSnapshot()
-                let newSize = min(320, max(50, oldSize + delta * step * 10))
-                if newSize != oldSize {
-                    currentLoupeSize = newSize
-                    let center = NSPoint(x: ann.boundingRect.midX, y: ann.boundingRect.midY)
-                    ann.startPoint = NSPoint(x: center.x - newSize / 2, y: center.y - newSize / 2)
-                    ann.endPoint = NSPoint(x: center.x + newSize / 2, y: center.y + newSize / 2)
-                    ann.bakeLoupe()
-                    needsDisplay = true
-                    sharedToolOptionsRowView?.updateStrokeSlider(value: newSize)
-                    scheduleScrollPropertyCommit { [weak self] in
-                        guard let self = self else { return }
-                        UserDefaults.standard.set(newSize, forKey: "loupeSize")
-                        if self.annotations.contains(where: { $0 === ann }) {
-                            self.pushPropertyChangeUndo(annotation: ann, snapshot: oldSnapshot)
+                let isShiftHeld = event.modifierFlags.contains(.shift)
+
+                if isShiftHeld {
+                    let oldSize = currentLoupeSize
+                    let newSize = min(320, max(40, oldSize + delta * step * 10))
+                    if newSize != oldSize {
+                        currentLoupeSize = newSize
+                        let center = NSPoint(x: ann.boundingRect.midX, y: ann.boundingRect.midY)
+                        ann.startPoint = NSPoint(x: center.x - newSize / 2, y: center.y - newSize / 2)
+                        ann.endPoint = NSPoint(x: center.x + newSize / 2, y: center.y + newSize / 2)
+                        ann.bakeLoupe()
+                        needsDisplay = true
+                        sharedToolOptionsRowView?.updateStrokeSlider(value: newSize)
+                        scheduleScrollPropertyCommit { [weak self] in
+                            guard let self = self else { return }
+                            UserDefaults.standard.set(newSize, forKey: "loupeSize")
+                            if self.annotations.contains(where: { $0 === ann }) {
+                                self.pushPropertyChangeUndo(annotation: ann, snapshot: oldSnapshot)
+                            }
+                        }
+                    }
+                } else {
+                    let oldMag = ann.loupeMagnification
+                    let magStep: CGFloat = 0.1
+                    let newMag = MagnifiedCalloutGeometry.clampMagnification(oldMag + delta * magStep)
+                    let roundedMag = (round(newMag * 10) / 10)
+                    if roundedMag != oldMag {
+                        ann.loupeMagnification = roundedMag
+                        ann.bakeLoupe()
+                        needsDisplay = true
+                        sharedToolOptionsRowView?.updateLoupeZoomDisplay(value: roundedMag)
+                        scheduleScrollPropertyCommit { [weak self] in
+                            guard let self = self else { return }
+                            if self.annotations.contains(where: { $0 === ann }) {
+                                self.pushPropertyChangeUndo(annotation: ann, snapshot: oldSnapshot)
+                            }
                         }
                     }
                 }

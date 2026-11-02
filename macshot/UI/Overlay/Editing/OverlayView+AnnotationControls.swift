@@ -280,6 +280,35 @@ extension OverlayView {
         } else {
             annotationEditButtonRect = .zero
         }
+
+        // Magnification badge for loupe annotation
+        if annotation.tool == .loupe {
+            let magStr = String(format: "%.1f×", annotation.loupeMagnification).replacingOccurrences(of: ".0×", with: "×")
+            let font = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .semibold)
+            let attrs: [NSAttributedString.Key: Any] = [
+                .font: font,
+                .foregroundColor: NSColor.white
+            ]
+            let textW = (magStr as NSString).size(withAttributes: attrs).width
+            let badgeW = textW + 14
+            let badgeH: CGFloat = 20
+            let badgeRect = NSRect(
+                x: padded.midX - badgeW / 2,
+                y: padded.minY - badgeH - 6,
+                width: badgeW,
+                height: badgeH
+            )
+            NSColor(white: 0.12, alpha: 0.94).setFill()
+            NSBezierPath(roundedRect: badgeRect, xRadius: 10, yRadius: 10).fill()
+            ToolbarLayout.accentColor.withAlphaComponent(0.8).setStroke()
+            let border = NSBezierPath(roundedRect: badgeRect.insetBy(dx: 0.75, dy: 0.75), xRadius: 9.25, yRadius: 9.25)
+            border.lineWidth = 1.5
+            border.stroke()
+            (magStr as NSString).draw(
+                at: NSPoint(x: badgeRect.minX + 7, y: badgeRect.minY + 2),
+                withAttributes: attrs
+            )
+        }
     }
 
     /// Draw a single-annotation delete circle — dark fill, red border, red xmark icon.

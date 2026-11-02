@@ -96,6 +96,7 @@ struct LoupeCalloutPreviewSnapshot {
     let sourcePoint: NSPoint
     let destinationPoint: NSPoint
     let bubbleDiameter: CGFloat
+    var magnification: CGFloat = 2.0
 }
 
 @MainActor
