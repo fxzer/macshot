@@ -8057,6 +8057,22 @@
         }
       }
     },
+    "Zoom" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zoom"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "倍率"
+          }
+        }
+      }
+    },
     "Zoom Out" : {
       "extractionState" : "stale",
       "localizations" : {

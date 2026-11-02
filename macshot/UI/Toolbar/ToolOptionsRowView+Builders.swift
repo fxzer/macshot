@@ -98,7 +98,12 @@ extension ToolOptionsRowView {
         nameLabel.textColor = ToolbarLayout.iconColor.withAlphaComponent(0.4)
         stack.addArrangedSubview(nameLabel)
 
-        let currentVal = editingAnnotation?.strokeWidth ?? ov.activeStrokeWidthForTool(tool)
+        let currentVal: CGFloat
+        if let ann = editingAnnotation, ann.tool == .loupe {
+            currentVal = ann.boundingRect.width
+        } else {
+            currentVal = editingAnnotation?.strokeWidth ?? ov.activeStrokeWidthForTool(tool)
+        }
         let sliderMin: Double
         let sliderMax: Double
         switch tool {
@@ -135,6 +140,35 @@ extension ToolOptionsRowView {
         label.translatesAutoresizingMaskIntoConstraints = false
         label.widthAnchor.constraint(equalToConstant: labelW).isActive = true
         stack.addArrangedSubview(label)
+    }
+
+    func addLoupeZoomControls(to stack: NSStackView, ov: OverlayView) {
+        let label = NSTextField(labelWithString: L("Zoom"))
+        label.font = NSFont.systemFont(ofSize: 9.5, weight: .medium)
+        label.textColor = ToolbarLayout.iconColor.withAlphaComponent(0.4)
+        stack.addArrangedSubview(label)
+
+        let currentMag = editingAnnotation?.loupeMagnification
+            ?? MagnifiedCalloutGeometry.defaultMagnification(for: ov.currentLoupeSize)
+        let slider = NSSlider(value: Double(currentMag),
+                              minValue: Double(MagnifiedCalloutGeometry.minMagnification),
+                              maxValue: Double(MagnifiedCalloutGeometry.maxMagnification),
+                              target: self, action: #selector(loupeZoomSliderChanged(_:)))
+        slider.isContinuous = true
+        slider.tag = ToolOptionTag.loupeZoomSlider.rawValue
+        slider.translatesAutoresizingMaskIntoConstraints = false
+        slider.widthAnchor.constraint(equalToConstant: 80).isActive = true
+        stack.addArrangedSubview(slider)
+
+        let magStr = String(format: "%.1f×", currentMag).replacingOccurrences(of: ".0×", with: "×")
+        let valLabel = NSTextField(labelWithString: magStr)
+        valLabel.font = NSFont.monospacedDigitSystemFont(ofSize: 10, weight: .medium)
+        valLabel.textColor = ToolbarLayout.iconColor.withAlphaComponent(0.6)
+        valLabel.alignment = .right
+        valLabel.tag = ToolOptionTag.loupeZoomValueLabel.rawValue
+        valLabel.translatesAutoresizingMaskIntoConstraints = false
+        valLabel.widthAnchor.constraint(equalToConstant: 34).isActive = true
+        stack.addArrangedSubview(valLabel)
     }
 
     func addLineStyleSegment(to stack: NSStackView, tool: AnnotationTool, ov: OverlayView) {

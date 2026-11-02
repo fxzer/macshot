@@ -41,12 +41,35 @@ extension ToolOptionsRowView {
         let tool = editingAnnotation?.tool ?? currentTool
         if let ann = editingAnnotation {
             ensureSnapshot()
-            ann.strokeWidth = val
+            if ann.tool == .loupe {
+                let center = NSPoint(x: ann.boundingRect.midX, y: ann.boundingRect.midY)
+                ann.startPoint = NSPoint(x: center.x - val / 2, y: center.y - val / 2)
+                ann.endPoint = NSPoint(x: center.x + val / 2, y: center.y + val / 2)
+                ann.bakeLoupe()
+            } else {
+                ann.strokeWidth = val
+            }
             ov.invalidateCommittedAnnotationRendering()
         }
         if let tool { ov.setActiveStrokeWidth(val, for: tool) }
         if let label = viewWithTag(ToolOptionTag.strokeValueLabel.rawValue) as? NSTextField {
             label.stringValue = tool == .loupe ? "\(Int(val))" : "\(Int(val))px"
+        }
+        ov.needsDisplay = true
+    }
+
+    @objc func loupeZoomSliderChanged(_ sender: NSSlider) {
+        guard let ov = overlayView else { return }
+        let val = CGFloat(sender.floatValue)
+        let rounded = (round(val * 10) / 10)
+        if let ann = editingAnnotation, ann.tool == .loupe {
+            ensureSnapshot()
+            ann.loupeMagnification = rounded
+            ann.bakeLoupe()
+            ov.invalidateCommittedAnnotationRendering()
+        }
+        if let label = viewWithTag(ToolOptionTag.loupeZoomValueLabel.rawValue) as? NSTextField {
+            label.stringValue = String(format: "%.1f×", rounded).replacingOccurrences(of: ".0×", with: "×")
         }
         ov.needsDisplay = true
     }

@@ -70,6 +70,8 @@ class ToolOptionsRowView: NSView {
         case cornerRadiusLabel = 1008
         case fpsSlider = 1009
         case fpsValueLabel = 1010
+        case loupeZoomSlider = 1011
+        case loupeZoomValueLabel = 1012
     }
 
     /// The natural content width calculated during rebuild, before any external resizing.
@@ -169,6 +171,32 @@ class ToolOptionsRowView: NSView {
         }
     }
 
+    /// Lightweight update: sync loupe zoom slider and value label.
+    func updateLoupeZoomDisplay(value: CGFloat) {
+        if let slider = findLoupeZoomSlider(in: stackView) {
+            slider.doubleValue = Double(value)
+        }
+        if let label = viewWithTag(ToolOptionTag.loupeZoomValueLabel.rawValue) as? NSTextField {
+            label.stringValue = String(format: "%.1f×", value).replacingOccurrences(of: ".0×", with: "×")
+        }
+    }
+
+    private func findLoupeZoomSlider(in view: NSView) -> NSSlider? {
+        if let slider = view as? NSSlider,
+            slider.action == #selector(loupeZoomSliderChanged(_:))
+        {
+            return slider
+        }
+
+        for subview in view.subviews {
+            if let slider = findLoupeZoomSlider(in: subview) {
+                return slider
+            }
+        }
+
+        return nil
+    }
+
     /// Rebuild the options row for a selected annotation's tool, reading values from the annotation.
     func rebuild(forAnnotation ann: Annotation) {
         editingAnnotation = ann
@@ -246,6 +274,12 @@ class ToolOptionsRowView: NSView {
         if hasStroke {
             addStrokeSlider(to: stackView, tool: tool, ov: ov)
             strokeSliderView = findStrokeSlider(in: stackView)
+        }
+
+        // ── Loupe zoom controls ──
+        if tool == .loupe {
+            addSeparator(to: stackView)
+            addLoupeZoomControls(to: stackView, ov: ov)
         }
 
         // ── Line style (line, pencil, rectangle) ──
