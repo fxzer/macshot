@@ -29,8 +29,34 @@ extension Annotation {
             from: cgImage,
             sourcePoint: samplePoint,
             bubbleDiameter: size,
-            imageDrawRect: sourceImageBounds
+            imageDrawRect: sourceImageBounds,
+            magnification: loupeMagnification
         ) else { return nil }
+
+        // Resample cropped slice to 2x Retina resolution with high bicubic interpolation
+        let scale: CGFloat = 2.0
+        let targetWidth = max(1, Int(size * scale))
+        let targetHeight = max(1, Int(size * scale))
+        let colorSpace = cgImage.colorSpace ?? CGColorSpaceCreateDeviceRGB()
+        let bitmapInfo = CGImageAlphaInfo.premultipliedLast.rawValue
+
+        if let ctx = CGContext(
+            data: nil,
+            width: targetWidth,
+            height: targetHeight,
+            bitsPerComponent: 8,
+            bytesPerRow: 0,
+            space: colorSpace,
+            bitmapInfo: bitmapInfo
+        ) {
+            ctx.interpolationQuality = .high
+            ctx.setShouldAntialias(true)
+            ctx.setAllowsAntialiasing(true)
+            ctx.draw(cropped, in: CGRect(x: 0, y: 0, width: targetWidth, height: targetHeight))
+            if let smoothCG = ctx.makeImage() {
+                return NSImage(cgImage: smoothCG, size: NSSize(width: size, height: size))
+            }
+        }
 
         return NSImage(cgImage: cropped, size: NSSize(width: size, height: size))
     }
@@ -109,6 +135,11 @@ extension Annotation {
         // 2. Magnified content clipped to circle
         context.saveGraphicsState()
         path.addClip()
+        context.imageInterpolation = .high
+        let cgCtx = context.cgContext
+        cgCtx.interpolationQuality = .high
+        cgCtx.setShouldAntialias(true)
+        cgCtx.setAllowsAntialiasing(true)
 
         if let baked = bakedBlurNSImage {
             baked.draw(in: squareRect, from: NSRect(origin: .zero, size: baked.size),
@@ -124,13 +155,11 @@ extension Annotation {
                 width: srcSize * scaleX,
                 height: srcSize * scaleY
             )
-            context.imageInterpolation = .high
             image.draw(in: squareRect, from: fromRect, operation: .copy, fraction: 1.0)
         }
         context.restoreGraphicsState()
 
         // 3. Gradient border ring
-        let cgCtx = context.cgContext
         let borderWidth: CGFloat = 4.0
         let innerPath = NSBezierPath(ovalIn: squareRect.insetBy(dx: borderWidth, dy: borderWidth))
         let ringPath = NSBezierPath()

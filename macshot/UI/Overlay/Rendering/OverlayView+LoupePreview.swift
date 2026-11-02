@@ -18,9 +18,13 @@ extension OverlayView {
         let size = currentLoupeSize
         let squareRect = NSRect(
             x: center.x - size / 2, y: center.y - size / 2, width: size, height: size)
-        let magnification: CGFloat = 2.0
+        let magnification = MagnifiedCalloutGeometry.defaultMagnification(for: size)
 
         context.saveGraphicsState()
+        context.imageInterpolation = .high
+        context.cgContext.interpolationQuality = .high
+        context.cgContext.setShouldAntialias(true)
+        context.cgContext.setAllowsAntialiasing(true)
         context.cgContext.setAlpha(0.75)
 
         let path = NSBezierPath(ovalIn: squareRect)
