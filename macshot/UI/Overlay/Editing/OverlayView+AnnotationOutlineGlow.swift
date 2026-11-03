@@ -14,13 +14,14 @@ extension OverlayView {
         // invalidating the CIFilter cache. A simple stroke rect is drawn instead.
         if isResizingAnnotation && isSelected(annotation) {
             let rect = annotation.boundingRect.insetBy(dx: -2, dy: -2)
-            ToolbarLayout.accentColor.withAlphaComponent(0.5).setStroke()
+            ToolbarLayout.accentColor.withAlphaComponent(0.35).setStroke()
             let path = NSBezierPath(roundedRect: rect, xRadius: 2, yRadius: 2)
-            path.lineWidth = 2
+            path.lineWidth = 1.0
             path.stroke()
             return
         }
-        let outlineWidth: CGFloat = 3
+        let outlineWidth: CGFloat = 1.5
+        let glowAlpha: CGFloat = 0.30
         // Generous padding — accounts for stroke width, line caps, Chaikin smoothing overshoot,
         // arrowheads, and the dilation radius. Bitmap is cached so size doesn't matter per-frame.
         let effectiveStroke = annotation.strokeWidth
@@ -69,7 +70,7 @@ extension OverlayView {
         if let cached = annotation.outlineGlowImage, annotation.outlineGlowRect == unrotatedBBox {
             guard let context = NSGraphicsContext.current else { return }
             context.cgContext.saveGState()
-            context.cgContext.setAlpha(0.55)
+            context.cgContext.setAlpha(glowAlpha)
             if annotation.rotation != 0 && annotation.supportsRotation {
                 let cx = unrotatedBBox.midX, cy = unrotatedBBox.midY
                 context.cgContext.translateBy(x: cx, y: cy)
@@ -131,7 +132,7 @@ extension OverlayView {
 
         guard let context = NSGraphicsContext.current else { return }
         context.cgContext.saveGState()
-        context.cgContext.setAlpha(0.55)
+        context.cgContext.setAlpha(glowAlpha)
         if annotation.rotation != 0 && annotation.supportsRotation {
             let cx = unrotatedBBox.midX, cy = unrotatedBBox.midY
             context.cgContext.translateBy(x: cx, y: cy)
