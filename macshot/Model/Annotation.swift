@@ -380,6 +380,14 @@ class Annotation {
         var minY = min(startPoint.y, endPoint.y)
         var maxX = max(startPoint.x, endPoint.x)
         var maxY = max(startPoint.y, endPoint.y)
+        if let pts = points, !pts.isEmpty {
+            for p in pts {
+                if p.x < minX { minX = p.x }
+                if p.x > maxX { maxX = p.x }
+                if p.y < minY { minY = p.y }
+                if p.y > maxY { maxY = p.y }
+            }
+        }
         if let anchors = anchorPoints {
             for p in anchors {
                 minX = min(minX, p.x); minY = min(minY, p.y)

@@ -156,6 +156,10 @@ extension OverlayView {
             beginCanvasGraphicsStateIfNeeded()
         }
 
+        if currentAnnotation != nil || autoMeasurePreview != nil {
+            beginCanvasGraphicsStateIfNeeded()
+        }
+
         drawCurrentAnnotationIfNeeded(in: context)
         autoMeasurePreview?.draw(in: context)
 
