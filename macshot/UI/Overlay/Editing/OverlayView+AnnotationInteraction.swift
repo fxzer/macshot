@@ -164,6 +164,15 @@ extension OverlayView {
                         existingText: existingAnn.attributedText,
                         existingFrame: existingAnn.textDrawRect)
                     cachedCompositedImage = nil
+                } else {
+                    // 单击选中文本时立即初始化拖拽状态，确保用户在抓手光标下按下并拖动时能顺畅调整文字位置
+                    isDraggingAnnotation = true
+                    didMoveAnnotation = false
+                    annotationDragStart = point
+                    setCachedAnnotationLayerExcludingSelected(
+                        buildInteractionAnnotationLayer(excluding: Set(selectedAnnotations.map { ObjectIdentifier($0) }))
+                    )
+                    NSCursor.closedHand.set()
                 }
             } else {
                 showTextField(at: point)

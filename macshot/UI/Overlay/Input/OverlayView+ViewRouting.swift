@@ -199,15 +199,12 @@ extension OverlayView {
     }
 
     func isPointOnLiveTextDragEdge(_ point: NSPoint, frame: NSRect) -> Bool {
-        let horizontalBleed: CGFloat = 6
-        let topOutsidePadding: CGFloat = 8
-        let topInsidePadding: CGFloat = 6
-        let topRect = NSRect(
-            x: frame.minX - horizontalBleed,
-            y: frame.maxY - topInsidePadding,
-            width: frame.width + horizontalBleed * 2,
-            height: topInsidePadding + topOutsidePadding)
-        return topRect.contains(point)
+        // 四周外扩 8px，内缩 6px 的矩形边框环为可拖拽边缘区域（避开中间文本输入正文）
+        let outsidePadding: CGFloat = 8
+        let insidePadding: CGFloat = 6
+        let outer = frame.insetBy(dx: -outsidePadding, dy: -outsidePadding)
+        let inner = frame.insetBy(dx: insidePadding, dy: insidePadding)
+        return outer.contains(point) && !inner.contains(point)
     }
 
     private func setupAspectRatioObservers() {
