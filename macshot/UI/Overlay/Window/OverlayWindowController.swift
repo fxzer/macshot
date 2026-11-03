@@ -99,6 +99,7 @@ class OverlayWindowController {
         window.acceptsMouseMovedEvents = true
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         window.isReleasedWhenClosed = false
+        window.animationBehavior = .none  // 强制禁用任何窗口缩放/弹出动画，确保零抖动零缩放
         perf.step("window")
 
         let view = OverlayView()
