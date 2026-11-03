@@ -395,11 +395,9 @@ class ToolOptionsRowView: NSView {
             addStampOptions(to: stackView, ov: ov)
         }
 
-        // ── Censor tool: mode selector + redact buttons ──
+        // ── Censor tool: mode selector ──
         if tool == .pixelate {
             addCensorModeSegment(to: stackView, ov: ov)
-            addSeparator(to: stackView)
-            addRedactOptions(to: stackView, ov: ov)
         }
 
         // ── Outline toggle + color swatch (line, rectangle, ellipse, number — arrow handled above) ──

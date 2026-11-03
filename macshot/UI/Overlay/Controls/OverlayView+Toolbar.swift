@@ -355,7 +355,7 @@ extension OverlayView {
         case .ocr:
             overlayDelegate?.overlayViewDidRequestOCR()
         case .autoRedact:
-            performAutoRedact()
+            break
         case .removeBackground:
             if #available(macOS 14.0, *) {
                 overlayDelegate?.overlayViewDidRequestRemoveBackground()

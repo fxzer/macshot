@@ -153,10 +153,8 @@ extension ToolOptionsRowView {
 
         ensureSnapshot()
         ann.censorMode = mode
-        if mode != .solid {
-            ann.sourceImage = ann.sourceImage ?? ov.screenshotImage
-            ann.sourceImageBounds = ov.captureDrawRect
-        }
+        ann.sourceImage = ann.sourceImage ?? ov.screenshotImage
+        ann.sourceImageBounds = ov.captureDrawRect
         ann.bakedBlurNSImage = nil
         ann.bakePixelate()
         ov.invalidateCommittedAnnotationRendering()

@@ -17,11 +17,9 @@ final class PixelateToolHandler: AnnotationToolHandler {
             strokeWidth: canvas.initialStrokeWidth(for: .pixelate)
         )
         annotation.censorMode = mode
-        // Solid mode doesn't need a source image; all others do
-        if mode != .solid {
-            annotation.sourceImage = canvas.compositedImage() ?? canvas.screenshotImage
-            annotation.sourceImageBounds = canvas.captureDrawRect
-        }
+        // All censor modes (including solid and erase) need sourceImage to sample background color
+        annotation.sourceImage = canvas.compositedImage() ?? canvas.screenshotImage
+        annotation.sourceImageBounds = canvas.captureDrawRect
         return annotation
     }
 
@@ -50,27 +48,6 @@ final class PixelateToolHandler: AnnotationToolHandler {
             return
         }
 
-        if canvas.censorTextOnly {
-            let drawnRect = annotation.boundingRect
-            let sourceImg = annotation.sourceImage
-            let sourceImgBounds = annotation.sourceImageBounds
-            canvas.activeAnnotation = nil
-            canvas.setNeedsDisplay()
-            guard let screenshot = canvas.screenshotImage else { return }
-            AutoRedactor.redactAllText(
-                screenshot: screenshot, selectionRect: drawnRect,
-                captureDrawRect: canvas.captureDrawRect,
-                redactTool: .pixelate, color: canvas.currentColor,
-                sourceImage: sourceImg, sourceImageBounds: sourceImgBounds
-            ) { [weak canvas] anns in
-                guard let canvas = canvas, !anns.isEmpty else { return }
-                canvas.annotations.append(contentsOf: anns)
-                canvas.undoStack.append(contentsOf: anns.map { .added($0) })
-                canvas.redoStack.removeAll()
-                canvas.setNeedsDisplay()
-            }
-        } else {
-            commitAnnotation(annotation, canvas: canvas)
-        }
+        commitAnnotation(annotation, canvas: canvas)
     }
 }

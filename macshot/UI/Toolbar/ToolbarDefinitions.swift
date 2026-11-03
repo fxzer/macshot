@@ -418,14 +418,6 @@ class ToolbarLayout {
             buttons.append(removeBackgroundBtn)
         }
 
-        if actionEnabled(1006) {
-            var autoRedactBtn = ToolbarButton(
-                action: .autoRedact, sfSymbol: "checkerboard.rectangle", label: nil,
-                tooltip: L("Auto-Redact"))
-            autoRedactBtn.hasContextMenu = true
-            beginSection(&hasPlacedImageEffectsSection, button: &autoRedactBtn)
-            buttons.append(autoRedactBtn)
-        }
 
         if actionEnabled(1003) {
             var ocrBtn = ToolbarButton(
