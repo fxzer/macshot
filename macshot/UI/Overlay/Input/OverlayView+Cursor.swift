@@ -54,39 +54,9 @@ extension OverlayView {
 
     /// Returns the appropriate resize cursor if the point is on a selection handle, nil otherwise.
     func resizeHandleCursor(at point: NSPoint) -> NSCursor? {
-        let r = selectionRect
-        let hs = handleSize + 4
-        let edgeT: CGFloat = 6
-
-        // Corner handles
-        if NSRect(x: r.minX - hs / 2, y: r.maxY - hs / 2, width: hs, height: hs).contains(point)
-            || NSRect(x: r.maxX - hs / 2, y: r.minY - hs / 2, width: hs, height: hs).contains(point)
-        {
-            return Self.nwseCursor
-        }
-        if NSRect(x: r.maxX - hs / 2, y: r.maxY - hs / 2, width: hs, height: hs).contains(point)
-            || NSRect(x: r.minX - hs / 2, y: r.minY - hs / 2, width: hs, height: hs).contains(point)
-        {
-            return Self.neswCursor
-        }
-
-        // Edge handles
-        if NSRect(x: r.minX + hs / 2, y: r.maxY - edgeT / 2, width: r.width - hs, height: edgeT)
-            .contains(point)
-            || NSRect(x: r.minX + hs / 2, y: r.minY - edgeT / 2, width: r.width - hs, height: edgeT)
-                .contains(point)
-        {
-            return .resizeUpDown
-        }
-        if NSRect(x: r.minX - edgeT / 2, y: r.minY + hs / 2, width: edgeT, height: r.height - hs)
-            .contains(point)
-            || NSRect(
-                x: r.maxX - edgeT / 2, y: r.minY + hs / 2, width: edgeT, height: r.height - hs
-            ).contains(point)
-        {
-            return .resizeLeftRight
-        }
-        return nil
+        let handle = hitTestHandle(at: point)
+        guard handle != .none else { return nil }
+        return cursorForHandle(handle)
     }
 
     /// Returns the appropriate cursor for a given resize handle.
