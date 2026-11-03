@@ -660,15 +660,7 @@ extension OverlayView {
                     // Space held: reposition the whole shape
                     let dx = canvasPoint.x - spaceRepositionLast.x
                     let dy = canvasPoint.y - spaceRepositionLast.y
-                    currentAnnotation!.startPoint.x += dx
-                    currentAnnotation!.startPoint.y += dy
-                    currentAnnotation!.endPoint.x += dx
-                    currentAnnotation!.endPoint.y += dy
-                    if let points = currentAnnotation!.points {
-                        currentAnnotation!.points = points.map {
-                            NSPoint(x: $0.x + dx, y: $0.y + dy)
-                        }
-                    }
+                    currentAnnotation!.move(dx: dx, dy: dy)
                     spaceRepositionLast = canvasPoint
                 } else {
                     let p = event.pressure

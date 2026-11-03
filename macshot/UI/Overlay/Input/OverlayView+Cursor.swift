@@ -232,8 +232,8 @@ extension OverlayView {
                 return
             }
 
-            // Body hover — open hand (skip for pencil where click still draws immediately)
-            if currentTool != .select {
+            // Body hover — open hand (skip for pencil/text where click still draws/types immediately)
+            if currentTool != .select && currentTool != .pencil && currentTool != .text {
                 if let selected = selectedAnnotation, selected.hitTest(point: canvasPoint) {
                     NSCursor.openHand.set()
                     return
