@@ -16,6 +16,36 @@ class EditorTopBarView: NSView {
     var onDone: (() -> Void)?
 
     private var tooltips: [NSButton: String] = [:]
+    private var topBarTrackingArea: NSTrackingArea?
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let topBarTrackingArea {
+            removeTrackingArea(topBarTrackingArea)
+        }
+        let area = NSTrackingArea(
+            rect: bounds,
+            options: [.mouseMoved, .cursorUpdate, .activeAlways],
+            owner: self,
+            userInfo: nil
+        )
+        addTrackingArea(area)
+        topBarTrackingArea = area
+    }
+
+    override func resetCursorRects() {
+        super.resetCursorRects()
+        addCursorRect(bounds, cursor: .arrow)
+    }
+
+    override func mouseMoved(with event: NSEvent) {
+        super.mouseMoved(with: event)
+        NSCursor.arrow.set()
+    }
+
+    override func cursorUpdate(with event: NSEvent) {
+        NSCursor.arrow.set()
+    }
 
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -271,10 +301,6 @@ class EditorTopBarView: NSView {
             return nil
         }
         return super.hitTest(point)
-    }
-
-    override func resetCursorRects() {
-        addCursorRect(bounds, cursor: .arrow)
     }
 }
 

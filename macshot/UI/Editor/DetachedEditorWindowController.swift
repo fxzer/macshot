@@ -12,6 +12,17 @@ private class EditorWindow: NSWindow {
         }
         return super.performKeyEquivalent(with: event)
     }
+
+    override func sendEvent(_ event: NSEvent) {
+        if event.type == .mouseMoved {
+            let loc = event.locationInWindow
+            let contentH = contentView?.frame.height ?? frame.height
+            if loc.y >= contentH || loc.x < 0 || loc.y < 0 || loc.x > frame.width {
+                NSCursor.arrow.set()
+            }
+        }
+        super.sendEvent(event)
+    }
 }
 
 /// Hosts a captured screenshot in a standalone editor window.

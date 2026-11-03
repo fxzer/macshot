@@ -92,6 +92,12 @@ class EditorView: OverlayView {
         }
     }
 
+    override func mouseExited(with event: NSEvent) {
+        super.mouseExited(with: event)
+        cursorVisualMode = .system
+        NSCursor.arrow.set()
+    }
+
     // MARK: - Selection interaction (disabled in editor)
 
     override func shouldAllowSelectionResize() -> Bool { false }

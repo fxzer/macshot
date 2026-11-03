@@ -20,7 +20,7 @@ extension OverlayView {
         window?.acceptsMouseMovedEvents = true
         let area = NSTrackingArea(
             rect: .zero,
-            options: [.mouseMoved, .activeAlways, .inVisibleRect],
+            options: [.mouseMoved, .mouseEnteredAndExited, .activeAlways, .inVisibleRect],
             owner: self,
             userInfo: nil)
         addTrackingArea(area)
@@ -128,6 +128,22 @@ extension OverlayView {
     }
 
     override func cursorUpdate(with event: NSEvent) {
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        super.mouseEntered(with: event)
+        let point = convert(event.locationInWindow, from: nil)
+        updateCursorForPoint(point)
+        updateToolCursorPreviews(at: point)
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        super.mouseExited(with: event)
+        clearDrawingCursorPreview()
+        clearLoupePreview()
+        clearStampPreview()
+        NSCursor.arrow.set()
+        needsDisplay = true
     }
 
     override func resetCursorRects() {
