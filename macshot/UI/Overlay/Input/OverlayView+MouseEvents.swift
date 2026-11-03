@@ -685,7 +685,8 @@ extension OverlayView {
                 if let annotation = currentAnnotation,
                     toolHandlers[annotation.tool]?.requiresDisplayRefreshDuringDrag ?? true
                 {
-                    invalidateCanvasRects([annotation.boundingRect], pad: annotation.strokeWidth + 16)
+                    // 全量重绘：避免局部脏矩形遗漏上一帧旋转/拉伸前的位置，彻底消除箭头和线条调整角度时的扫帚状残影
+                    needsDisplay = true
                 }
             }
 
