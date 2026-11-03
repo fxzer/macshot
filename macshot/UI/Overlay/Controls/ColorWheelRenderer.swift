@@ -63,6 +63,59 @@ class ColorWheelRenderer {
             height: (radius + swatchRadius + 8) * 2
         )).fill()
 
+        // Focused swatch index: hovered takes priority, otherwise match currentColor
+        let activeIndex: Int
+        if hoveredIndex >= 0 && hoveredIndex < count {
+            activeIndex = hoveredIndex
+        } else if let currentIndex = colors.firstIndex(where: { Self.colorsMatch($0, currentColor) }) {
+            activeIndex = currentIndex
+        } else {
+            activeIndex = -1
+        }
+
+        // Loupe/Callout-style funnel connector from fixed center to active color swatch
+        if activeIndex >= 0 {
+            let activeColor = colors[activeIndex]
+            let isHovered = (activeIndex == hoveredIndex)
+            let targetRadius = isHovered ? swatchRadius + 3 : swatchRadius
+            let activeAngle = -CGFloat.pi / 2 + CGFloat(activeIndex) * angleStep
+            let sx = center.x + radius * cos(activeAngle)
+            let sy = center.y + radius * sin(activeAngle)
+
+            let sourceRadius: CGFloat = 3.5
+            let dx = sx - center.x
+            let dy = sy - center.y
+            let funnelAngle = atan2(dy, dx)
+            let perp = NSPoint(x: -sin(funnelAngle), y: cos(funnelAngle))
+
+            let c1 = NSPoint(x: center.x + perp.x * sourceRadius, y: center.y + perp.y * sourceRadius)
+            let c2 = NSPoint(x: center.x - perp.x * sourceRadius, y: center.y - perp.y * sourceRadius)
+            let t1 = NSPoint(x: sx + perp.x * targetRadius, y: sy + perp.y * targetRadius)
+            let t2 = NSPoint(x: sx - perp.x * targetRadius, y: sy - perp.y * targetRadius)
+
+            let funnel = NSBezierPath()
+            funnel.move(to: c1)
+            funnel.line(to: t1)
+            funnel.line(to: t2)
+            funnel.line(to: c2)
+            funnel.close()
+
+            let connectorColor = activeColor.blended(withFraction: 0.35, of: .white)?.withAlphaComponent(0.28)
+                ?? NSColor.white.withAlphaComponent(0.22)
+            connectorColor.setFill()
+            funnel.fill()
+
+            // Center fixed hub dot
+            let hubRect = NSRect(
+                x: center.x - sourceRadius,
+                y: center.y - sourceRadius,
+                width: sourceRadius * 2,
+                height: sourceRadius * 2
+            )
+            NSColor.white.withAlphaComponent(0.85).setFill()
+            NSBezierPath(ovalIn: hubRect).fill()
+        }
+
         // All swatches on one ring
         for (i, color) in colors.enumerated() {
             let angle = -CGFloat.pi / 2 + CGFloat(i) * angleStep
