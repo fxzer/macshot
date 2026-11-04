@@ -30,35 +30,49 @@ extension OverlayView {
         let r = selectionRect
         guard r.width >= 1, r.height >= 1 else { return .none }
 
-        // 1. 先检测 4 个角手柄（优先级最高，热区设为宽敞的 24x24 像素，以角点为中心扩展）
-        let cornerHitSize: CGFloat = max(24, handleSize + 10)
-        let halfCorner = cornerHitSize / 2
-        if NSRect(x: r.minX - halfCorner, y: r.maxY - halfCorner, width: cornerHitSize, height: cornerHitSize).contains(point) {
+        // 1. 四个角手柄：外侧保持 12px 宽敞捕获，内侧收窄至 4px 避免误触
+        let outerCorner: CGFloat = 12.0
+        let innerCorner: CGFloat = 4.0
+        let cornerW = outerCorner + innerCorner
+        let cornerH = outerCorner + innerCorner
+
+        // TopLeft
+        if NSRect(x: r.minX - outerCorner, y: r.maxY - innerCorner, width: cornerW, height: cornerH).contains(point) {
             return .topLeft
         }
-        if NSRect(x: r.maxX - halfCorner, y: r.maxY - halfCorner, width: cornerHitSize, height: cornerHitSize).contains(point) {
+        // TopRight
+        if NSRect(x: r.maxX - innerCorner, y: r.maxY - innerCorner, width: cornerW, height: cornerH).contains(point) {
             return .topRight
         }
-        if NSRect(x: r.minX - halfCorner, y: r.minY - halfCorner, width: cornerHitSize, height: cornerHitSize).contains(point) {
+        // BottomLeft
+        if NSRect(x: r.minX - outerCorner, y: r.minY - outerCorner, width: cornerW, height: cornerH).contains(point) {
             return .bottomLeft
         }
-        if NSRect(x: r.maxX - halfCorner, y: r.minY - halfCorner, width: cornerHitSize, height: cornerHitSize).contains(point) {
+        // BottomRight
+        if NSRect(x: r.maxX - innerCorner, y: r.minY - outerCorner, width: cornerW, height: cornerH).contains(point) {
             return .bottomRight
         }
 
-        // 2. 四条边框的拖拽热区宽度：由原先极窄的 6px 拓宽至 18px（边框线内外各 9px），彻底消除误触重新框选
-        let edgeThickness: CGFloat = 18
-        let halfEdge = edgeThickness / 2
-        if NSRect(x: r.minX, y: r.maxY - halfEdge, width: r.width, height: edgeThickness).contains(point) {
+        // 2. 四条边框：采用内外不对称热区。外侧保持 9px 宽敞命中带防滑出误触重新框选；
+        //    内侧收窄至 3px，大幅释放框内操作空间，彻底解决框内操作误触调框大小的问题。
+        let outerEdge: CGFloat = 9.0
+        let innerEdge: CGFloat = 3.0
+        let edgeSpan = outerEdge + innerEdge
+
+        // Top
+        if NSRect(x: r.minX, y: r.maxY - innerEdge, width: r.width, height: edgeSpan).contains(point) {
             return .top
         }
-        if NSRect(x: r.minX, y: r.minY - halfEdge, width: r.width, height: edgeThickness).contains(point) {
+        // Bottom
+        if NSRect(x: r.minX, y: r.minY - outerEdge, width: r.width, height: edgeSpan).contains(point) {
             return .bottom
         }
-        if NSRect(x: r.minX - halfEdge, y: r.minY, width: edgeThickness, height: r.height).contains(point) {
+        // Left
+        if NSRect(x: r.minX - outerEdge, y: r.minY, width: edgeSpan, height: r.height).contains(point) {
             return .left
         }
-        if NSRect(x: r.maxX - halfEdge, y: r.minY, width: edgeThickness, height: r.height).contains(point) {
+        // Right
+        if NSRect(x: r.maxX - innerEdge, y: r.minY, width: edgeSpan, height: r.height).contains(point) {
             return .right
         }
 
@@ -83,33 +97,38 @@ extension OverlayView {
         let r = remoteSelectionRect
         guard r.width >= 1, r.height >= 1 else { return .none }
 
-        let cornerHitSize: CGFloat = max(24, handleSize + 10)
-        let halfCorner = cornerHitSize / 2
-        if NSRect(x: r.minX - halfCorner, y: r.maxY - halfCorner, width: cornerHitSize, height: cornerHitSize).contains(point) {
+        let outerCorner: CGFloat = 12.0
+        let innerCorner: CGFloat = 4.0
+        let cornerW = outerCorner + innerCorner
+        let cornerH = outerCorner + innerCorner
+
+        if NSRect(x: r.minX - outerCorner, y: r.maxY - innerCorner, width: cornerW, height: cornerH).contains(point) {
             return .topLeft
         }
-        if NSRect(x: r.maxX - halfCorner, y: r.maxY - halfCorner, width: cornerHitSize, height: cornerHitSize).contains(point) {
+        if NSRect(x: r.maxX - innerCorner, y: r.maxY - innerCorner, width: cornerW, height: cornerH).contains(point) {
             return .topRight
         }
-        if NSRect(x: r.minX - halfCorner, y: r.minY - halfCorner, width: cornerHitSize, height: cornerHitSize).contains(point) {
+        if NSRect(x: r.minX - outerCorner, y: r.minY - outerCorner, width: cornerW, height: cornerH).contains(point) {
             return .bottomLeft
         }
-        if NSRect(x: r.maxX - halfCorner, y: r.minY - halfCorner, width: cornerHitSize, height: cornerHitSize).contains(point) {
+        if NSRect(x: r.maxX - innerCorner, y: r.minY - outerCorner, width: cornerW, height: cornerH).contains(point) {
             return .bottomRight
         }
 
-        let edgeThickness: CGFloat = 18
-        let halfEdge = edgeThickness / 2
-        if NSRect(x: r.minX, y: r.maxY - halfEdge, width: r.width, height: edgeThickness).contains(point) {
+        let outerEdge: CGFloat = 9.0
+        let innerEdge: CGFloat = 3.0
+        let edgeSpan = outerEdge + innerEdge
+
+        if NSRect(x: r.minX, y: r.maxY - innerEdge, width: r.width, height: edgeSpan).contains(point) {
             return .top
         }
-        if NSRect(x: r.minX, y: r.minY - halfEdge, width: r.width, height: edgeThickness).contains(point) {
+        if NSRect(x: r.minX, y: r.minY - outerEdge, width: r.width, height: edgeSpan).contains(point) {
             return .bottom
         }
-        if NSRect(x: r.minX - halfEdge, y: r.minY, width: edgeThickness, height: r.height).contains(point) {
+        if NSRect(x: r.minX - outerEdge, y: r.minY, width: edgeSpan, height: r.height).contains(point) {
             return .left
         }
-        if NSRect(x: r.maxX - halfEdge, y: r.minY, width: edgeThickness, height: r.height).contains(point) {
+        if NSRect(x: r.maxX - innerEdge, y: r.minY, width: edgeSpan, height: r.height).contains(point) {
             return .right
         }
         return .none
