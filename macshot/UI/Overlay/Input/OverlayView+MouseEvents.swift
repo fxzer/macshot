@@ -776,7 +776,7 @@ extension OverlayView {
                 }
 
                 // Keep the current aspect-ratio lock for drag selections.
-                if !autoOCRMode && !autoQuickSaveMode && !autoScrollCaptureMode && !autoConfirmMode { showToolbars = true }
+                if !hasPendingAutoAction { showToolbars = true }
                 overlayDelegate?.overlayViewDidFinishSelection(selectionRect)
                 clearSelectionSizeSnapState()
             } else if windowSnapEnabled, let snapRect = hoveredWindowRect, !snapRect.isEmpty {
@@ -806,7 +806,7 @@ extension OverlayView {
                 }
 
                 // Keep the current aspect-ratio lock for snapped window selections.
-                if !autoOCRMode && !autoQuickSaveMode && !autoScrollCaptureMode && !autoConfirmMode { showToolbars = true }
+                if !hasPendingAutoAction { showToolbars = true }
                 overlayDelegate?.overlayViewDidFinishSelection(selectionRect)
                 clearSelectionSizeSnapState()
             } else {
@@ -822,7 +822,7 @@ extension OverlayView {
                 }
 
                 aspectRatioLock = .none  // Reset the lock for full-screen selection.
-                if !autoOCRMode && !autoQuickSaveMode && !autoScrollCaptureMode && !autoConfirmMode { showToolbars = true }
+                if !hasPendingAutoAction { showToolbars = true }
                 overlayDelegate?.overlayViewDidFinishSelection(selectionRect)
                 clearSelectionSizeSnapState()
             }
@@ -833,24 +833,20 @@ extension OverlayView {
                 updateCursorForPoint(point)
             }
             scheduleBarcodeDetection()
-            // Auto-trigger OCR if triggered from "Capture OCR"
-            if autoOCRMode {
+            switch autoCaptureAction {
+            case .ocr:
                 triggerPendingAutoOCRIfReady()
-            }
-            // Auto-trigger quick save if triggered from "Quick Capture"
-            if autoQuickSaveMode {
-                autoQuickSaveMode = false
+            case .quickSave:
+                autoCaptureAction = .none
                 overlayDelegate?.overlayViewDidRequestQuickSave()
-            }
-            // Auto-trigger scroll capture if triggered from "Scroll Capture"
-            if autoScrollCaptureMode {
-                autoScrollCaptureMode = false
+            case .scrollCapture:
+                autoCaptureAction = .none
                 overlayDelegate?.overlayViewDidRequestScrollCapture(rect: selectionRect)
-            }
-            // Auto-confirm for "Add Capture" — just confirm selection, no save/copy
-            if autoConfirmMode {
-                autoConfirmMode = false
+            case .confirm:
+                autoCaptureAction = .none
                 overlayDelegate?.overlayViewDidConfirm()
+            case .none:
+                break
             }
             needsDisplay = true
 
@@ -901,7 +897,7 @@ extension OverlayView {
                 needsDisplay = true
             } else if isDraggingSelection {
                 isDraggingSelection = false
-                if !autoOCRMode && !autoQuickSaveMode && !autoScrollCaptureMode && !autoConfirmMode {
+                if !hasPendingAutoAction {
                     showToolbars = true
                 }
                 if isMoveSelectionTemporary {
@@ -916,7 +912,7 @@ extension OverlayView {
                 resizeHandle = .none
                 clearSelectionSizeSnapState()
                 scheduleBarcodeDetection()
-                if !autoOCRMode && !autoQuickSaveMode && !autoScrollCaptureMode && !autoConfirmMode {
+                if !hasPendingAutoAction {
                     showToolbars = true
                 }
                 if let win = window {

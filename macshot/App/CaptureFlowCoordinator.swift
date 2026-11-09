@@ -421,6 +421,8 @@ final class CaptureFlowCoordinator {
         activeCaptureIntent = nil
         ScreenCaptureManager.setCaptureInProgress(false)
         stopOverlayMouseScreenTracking()
+        dependencies.showThumbnails()
+        dependencies.restoreFocusIfNeeded()
     }
 
     private func performCapture(t0: CFAbsoluteTime = 0) {

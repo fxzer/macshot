@@ -30,7 +30,17 @@ final class ScrollCaptureEngine {
     private(set) var stripCount: Int = 0
     private(set) var stitchedImage: CGImage?
     private(set) var stitchedPixelSize: CGSize = .zero
-    private(set) var isActive: Bool = false
+    // MARK: - Lifecycle state machine
+
+    enum SessionState: Equatable {
+        case idle
+        case preparing
+        case active
+        case stopped
+    }
+
+    private(set) var sessionState: SessionState = .idle
+    var isActive: Bool { sessionState == .active }
     private(set) var frozenTopHeight: CGFloat = 0
 
     /// Current estimated total height of the final image (points).
@@ -138,7 +148,8 @@ final class ScrollCaptureEngine {
     // MARK: - Session
 
     func startSession() async {
-        guard !isActive else { return }
+        guard sessionState == .idle else { return }
+        sessionState = .preparing
 
         let ud = UserDefaults.standard
         autoScrollEnabled = ud.object(forKey: "scrollAutoScrollEnabled") as? Bool ?? false
@@ -161,11 +172,17 @@ final class ScrollCaptureEngine {
 
         // Capture first settled frame
         guard let firstFrame = await captureSettledFrame() else {
+            sessionState = .stopped
             onSessionDone?(nil)
             return
         }
 
-        isActive = true
+        // Abort if session was stopped or cancelled while settling the first frame
+        guard sessionState == .preparing else {
+            return
+        }
+
+        sessionState = .active
         shotA = nil
         shotB = nil
         mergedImage = firstFrame
@@ -194,8 +211,9 @@ final class ScrollCaptureEngine {
     }
 
     func stopSession() {
-        guard isActive else { return }
-        isActive = false
+        guard sessionState == .preparing || sessionState == .active else { return }
+        let wasActive = sessionState == .active
+        sessionState = .stopped
 
         autoScrollTask?.cancel(); autoScrollTask = nil
         settlementTimer?.invalidate(); settlementTimer = nil
@@ -204,21 +222,25 @@ final class ScrollCaptureEngine {
         if let m = scrollMonitorLocal  { NSEvent.removeMonitor(m); scrollMonitorLocal  = nil }
         autoScrollActive = false
 
-        // Deliver final image
-        let finalImage: NSImage?
-        if let cg = mergedImage {
-            let ptSize = CGSize(width: CGFloat(cg.width) / backingScale,
-                                height: CGFloat(cg.height) / backingScale)
-            finalImage = NSImage(cgImage: cg, size: ptSize)
+        if wasActive {
+            // Deliver final image
+            let finalImage: NSImage?
+            if let cg = mergedImage {
+                let ptSize = CGSize(width: CGFloat(cg.width) / backingScale,
+                                    height: CGFloat(cg.height) / backingScale)
+                finalImage = NSImage(cgImage: cg, size: ptSize)
+            } else {
+                finalImage = nil
+            }
+            onSessionDone?(finalImage)
         } else {
-            finalImage = nil
+            onSessionDone?(nil)
         }
-        onSessionDone?(finalImage)
     }
 
     func cancelSession() {
-        guard isActive else { return }
-        isActive = false
+        guard sessionState == .preparing || sessionState == .active else { return }
+        sessionState = .stopped
 
         autoScrollTask?.cancel(); autoScrollTask = nil
         settlementTimer?.invalidate(); settlementTimer = nil

@@ -1,11 +1,16 @@
 import AppKit
 
+enum AutoCaptureAction: Equatable {
+    case none
+    case ocr
+    case quickSave
+    case scrollCapture
+    case confirm
+}
+
 final class OverlayCaptureSessionState {
     var suppressBackdropUntilCapture = false
-    var autoOCRMode = false
-    var autoQuickSaveMode = false
-    var autoScrollCaptureMode = false
-    var autoConfirmMode = false
+    var autoCaptureAction: AutoCaptureAction = .none
     var isScrollCapturing = false
     var scrollCaptureStripCount = 0
     var scrollCapturePixelSize: CGSize = .zero
@@ -33,24 +38,33 @@ extension OverlayView {
         set { captureSessionState.suppressBackdropUntilCapture = newValue }
     }
 
+    var autoCaptureAction: AutoCaptureAction {
+        get { captureSessionState.autoCaptureAction }
+        set { captureSessionState.autoCaptureAction = newValue }
+    }
+
+    var hasPendingAutoAction: Bool {
+        captureSessionState.autoCaptureAction != .none
+    }
+
     var autoOCRMode: Bool {
-        get { captureSessionState.autoOCRMode }
-        set { captureSessionState.autoOCRMode = newValue }
+        get { captureSessionState.autoCaptureAction == .ocr }
+        set { captureSessionState.autoCaptureAction = newValue ? .ocr : (captureSessionState.autoCaptureAction == .ocr ? .none : captureSessionState.autoCaptureAction) }
     }
 
     var autoQuickSaveMode: Bool {
-        get { captureSessionState.autoQuickSaveMode }
-        set { captureSessionState.autoQuickSaveMode = newValue }
+        get { captureSessionState.autoCaptureAction == .quickSave }
+        set { captureSessionState.autoCaptureAction = newValue ? .quickSave : (captureSessionState.autoCaptureAction == .quickSave ? .none : captureSessionState.autoCaptureAction) }
     }
 
     var autoScrollCaptureMode: Bool {
-        get { captureSessionState.autoScrollCaptureMode }
-        set { captureSessionState.autoScrollCaptureMode = newValue }
+        get { captureSessionState.autoCaptureAction == .scrollCapture }
+        set { captureSessionState.autoCaptureAction = newValue ? .scrollCapture : (captureSessionState.autoCaptureAction == .scrollCapture ? .none : captureSessionState.autoCaptureAction) }
     }
 
     var autoConfirmMode: Bool {
-        get { captureSessionState.autoConfirmMode }
-        set { captureSessionState.autoConfirmMode = newValue }
+        get { captureSessionState.autoCaptureAction == .confirm }
+        set { captureSessionState.autoCaptureAction = newValue ? .confirm : (captureSessionState.autoCaptureAction == .confirm ? .none : captureSessionState.autoCaptureAction) }
     }
 
     @discardableResult
