@@ -153,42 +153,6 @@ extension OverlayView {
         chromeParentView?.subviews.compactMap { $0 as? EditorTopBarView }.first
     }
 
-    override func hitTest(_ point: NSPoint) -> NSView? {
-        if isSharingActive {
-            return nil
-        }
-        if isEditorMode, let parent = chromeParentView {
-            let localInParent = parent.convert(point, from: superview)
-            if let topBar = findTopBar(), topBar.frame.contains(localInParent) {
-                return nil
-            }
-            if let strip = bottomStripView, !strip.isHidden,
-               strip.frame.contains(localInParent) {
-                return nil
-            }
-            if let strip = rightStripView, !strip.isHidden,
-               strip.frame.contains(localInParent) {
-                return nil
-            }
-            if let row = toolOptionsRowView, !row.isHidden,
-               row.frame.contains(localInParent) {
-                return nil
-            }
-        } else {
-            let localPoint = convert(point, from: superview)
-            if let strip = bottomStripView, !strip.isHidden, strip.frame.contains(localPoint) {
-                return strip.hitTest(localPoint)
-            }
-            if let strip = rightStripView, !strip.isHidden, strip.frame.contains(localPoint) {
-                return strip.hitTest(localPoint)
-            }
-            if let row = toolOptionsRowView, !row.isHidden, row.frame.contains(localPoint) {
-                return row.hitTest(localPoint)
-            }
-        }
-        return super.hitTest(point)
-    }
-
     func isPointOnChrome(_ point: NSPoint) -> Bool {
         if showToolbars {
             if let strip = bottomStripView, !strip.isHidden, strip.frame.contains(point) {
@@ -205,22 +169,6 @@ extension OverlayView {
         if widthLabelRect.contains(point) || heightLabelRect.contains(point) { return true }
         if zoomLabelRect.contains(point) && zoomLabelOpacity > 0 { return true }
         return false
-    }
-
-    func hitTestLiveTextResizeHandle(at point: NSPoint, frame: NSRect) -> ResizeHandle? {
-        for (handle, rect) in liveTextResizeHandles(for: frame) where rect.contains(point) {
-            return handle
-        }
-        return nil
-    }
-
-    func isPointOnLiveTextDragEdge(_ point: NSPoint, frame: NSRect) -> Bool {
-        // 四周外扩 8px，内缩 6px 的矩形边框环为可拖拽边缘区域（避开中间文本输入正文）
-        let outsidePadding: CGFloat = 8
-        let insidePadding: CGFloat = 6
-        let outer = frame.insetBy(dx: -outsidePadding, dy: -outsidePadding)
-        let inner = frame.insetBy(dx: insidePadding, dy: insidePadding)
-        return outer.contains(point) && !inner.contains(point)
     }
 
     private func setupAspectRatioObservers() {
@@ -277,17 +225,5 @@ extension OverlayView {
         needsDisplay = true
     }
 
-    private func liveTextResizeHandles(for frame: NSRect) -> [(ResizeHandle, NSRect)] {
-        let handleSize: CGFloat = 10
-        return [
-            (.bottomLeft, NSRect(x: frame.minX - handleSize / 2, y: frame.minY - handleSize / 2, width: handleSize, height: handleSize)),
-            (.bottomRight, NSRect(x: frame.maxX - handleSize / 2, y: frame.minY - handleSize / 2, width: handleSize, height: handleSize)),
-            (.topLeft, NSRect(x: frame.minX - handleSize / 2, y: frame.maxY - handleSize / 2, width: handleSize, height: handleSize)),
-            (.topRight, NSRect(x: frame.maxX - handleSize / 2, y: frame.maxY - handleSize / 2, width: handleSize, height: handleSize)),
-            (.bottom, NSRect(x: frame.midX - handleSize / 2, y: frame.minY - handleSize / 2, width: handleSize, height: handleSize)),
-            (.top, NSRect(x: frame.midX - handleSize / 2, y: frame.maxY - handleSize / 2, width: handleSize, height: handleSize)),
-            (.left, NSRect(x: frame.minX - handleSize / 2, y: frame.midY - handleSize / 2, width: handleSize, height: handleSize)),
-            (.right, NSRect(x: frame.maxX - handleSize / 2, y: frame.midY - handleSize / 2, width: handleSize, height: handleSize)),
-        ]
-    }
+
 }

@@ -405,58 +405,15 @@ extension OverlayView {
             context.restoreGraphicsState()
         }
 
+        guard showToolbars else { return }
         NSColor.white.withAlphaComponent(0.4).setStroke()
         let borderPath = NSBezierPath(rect: scrollView.frame)
-        borderPath.lineWidth = 1
-        let pattern: [CGFloat] = [4, 3]
+        borderPath.lineWidth = 1 / liveTextViewScale
+        let pattern: [CGFloat] = [4 / liveTextViewScale, 3 / liveTextViewScale]
         borderPath.setLineDash(pattern, count: 2, phase: 0)
         borderPath.stroke()
 
-        let handleSize: CGFloat = 6
-        let handleRects = [
-            NSRect(
-                x: scrollView.frame.minX - handleSize / 2,
-                y: scrollView.frame.minY - handleSize / 2,
-                width: handleSize,
-                height: handleSize),
-            NSRect(
-                x: scrollView.frame.maxX - handleSize / 2,
-                y: scrollView.frame.minY - handleSize / 2,
-                width: handleSize,
-                height: handleSize),
-            NSRect(
-                x: scrollView.frame.minX - handleSize / 2,
-                y: scrollView.frame.maxY - handleSize / 2,
-                width: handleSize,
-                height: handleSize),
-            NSRect(
-                x: scrollView.frame.maxX - handleSize / 2,
-                y: scrollView.frame.maxY - handleSize / 2,
-                width: handleSize,
-                height: handleSize),
-            NSRect(
-                x: scrollView.frame.midX - handleSize / 2,
-                y: scrollView.frame.minY - handleSize / 2,
-                width: handleSize,
-                height: handleSize),
-            NSRect(
-                x: scrollView.frame.midX - handleSize / 2,
-                y: scrollView.frame.maxY - handleSize / 2,
-                width: handleSize,
-                height: handleSize),
-            NSRect(
-                x: scrollView.frame.minX - handleSize / 2,
-                y: scrollView.frame.midY - handleSize / 2,
-                width: handleSize,
-                height: handleSize),
-            NSRect(
-                x: scrollView.frame.maxX - handleSize / 2,
-                y: scrollView.frame.midY - handleSize / 2,
-                width: handleSize,
-                height: handleSize),
-        ]
-
-        for rect in handleRects {
+        for rect in liveTextResizeHandleRects(for: scrollView.frame) {
             NSColor.white.setFill()
             NSBezierPath(roundedRect: rect, xRadius: 1, yRadius: 1).fill()
             NSColor.black.withAlphaComponent(0.3).setStroke()

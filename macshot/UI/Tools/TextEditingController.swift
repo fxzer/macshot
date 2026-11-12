@@ -105,6 +105,8 @@ private final class NoFocusRingClipView: NSClipView {
 }
 
 private final class NoFocusRingTextView: NSTextView {
+    var toolShortcutHandler: ((NSEvent) -> Bool)?
+
     override func drawFocusRingMask() {}
     override var focusRingMaskBounds: NSRect { .zero }
     override var focusRingType: NSFocusRingType {
@@ -178,6 +180,11 @@ private final class NoFocusRingTextView: NSTextView {
             }
         }
         return result
+    }
+
+    override func keyDown(with event: NSEvent) {
+        if toolShortcutHandler?(event) == true { return }
+        super.keyDown(with: event)
     }
 
     override func resignFirstResponder() -> Bool {
@@ -258,6 +265,8 @@ private final class NoFocusRingTextView: NSTextView {
 /// Owns ALL text state: style, NSTextView lifecycle, formatting, commit, cancel.
 @MainActor
 class TextEditingController {
+
+    var onToolShortcut: ((NSEvent) -> Bool)?
 
     // MARK: - Text style state
 
@@ -547,6 +556,9 @@ class TextEditingController {
         sv.wantsLayer = false
 
         let tv = NoFocusRingTextView(frame: NSRect(origin: .zero, size: viewFrame.size))
+        tv.toolShortcutHandler = { [weak self] event in
+            self?.onToolShortcut?(event) ?? false
+        }
         tv.isRichText = true
         tv.allowsUndo = true
         tv.drawsBackground = false

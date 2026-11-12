@@ -137,6 +137,34 @@ class ToolbarLayout {
 
 
     // Bottom toolbar items (drawing tools + colors + undo/redo + processing actions)
+    /// Single-key shortcut suffix for tooltips, e.g. " (r)". Empty when unset or mouse-bound.
+    static func shortcutSuffix(for action: ToolShortcutManager.Action?) -> String {
+        guard let action else { return "" }
+        let key = ToolShortcutManager.key(for: action)
+        guard ToolShortcutManager.isKeyboardShortcut(key) else { return "" }
+        return " (\(key.lowercased()))"
+    }
+
+    /// Maps an annotation tool to its configurable single-key shortcut action.
+    static func shortcutAction(for tool: AnnotationTool) -> ToolShortcutManager.Action? {
+        switch tool {
+        case .pencil: return .pencil
+        case .line: return .line
+        case .arrow: return .arrow
+        case .rectangle: return .rectangle
+        case .ellipse: return .ellipse
+        case .marker: return .marker
+        case .text: return .text
+        case .number: return .number
+        case .stamp: return .stamp
+        case .measure: return .measure
+        case .loupe: return .loupe
+        case .pixelate, .blur, .filledRectangle: return .censor
+        case .colorSampler: return .colorSampler
+        default: return nil
+        }
+    }
+
     static func bottomButtons(
         selectedTool: AnnotationTool, selectedColor: NSColor, beautifyEnabled: Bool = false,
         beautifyStyleIndex: Int = 0, hasAnnotations: Bool = false,
@@ -207,7 +235,10 @@ class ToolbarLayout {
             if let enabledRawValues = enabledRawValues, !enabledRawValues.contains(tool.rawValue) {
                 continue
             }
-            var btn = ToolbarButton(action: .tool(tool), sfSymbol: symbol, label: nil, tooltip: tip)
+            var btn = ToolbarButton(
+                action: .tool(tool), sfSymbol: symbol, label: nil,
+                tooltip: tip + Self.shortcutSuffix(for: Self.shortcutAction(for: tool))
+            )
             btn.isSelected = (tool == selectedTool)
 
             // 根据工具类型确定分组
@@ -268,7 +299,7 @@ class ToolbarLayout {
         if actionEnabled(1016) {
             var colorSamplerBtn = ToolbarButton(
                 action: .tool(.colorSampler), sfSymbol: "eyedropper", label: nil,
-                tooltip: L("Color Picker"))
+                tooltip: L("Color Picker") + Self.shortcutSuffix(for: .colorSampler))
             colorSamplerBtn.isSelected = (selectedTool == .colorSampler)
             beginQuickActionSection(&colorSamplerBtn)
             buttons.append(colorSamplerBtn)
@@ -363,7 +394,7 @@ class ToolbarLayout {
         if !isEditorMode && actionEnabled(1018) {
             var detachBtn = ToolbarButton(
                 action: .detach, sfSymbol: "arrow.up.forward.app", label: nil,
-                tooltip: L("Open in Editor"))
+                tooltip: L("Open in Editor") + Self.shortcutSuffix(for: .openInEditor))
             beginSection(&hasPlacedSessionSection, button: &detachBtn)
             buttons.append(detachBtn)
         }
@@ -386,14 +417,16 @@ class ToolbarLayout {
         // Image effects — above translate/OCR (same order in capture + editor)
         if actionEnabled(1004) {
             var beautifyBtn = ToolbarButton(
-                action: .beautify, sfSymbol: "sparkles", label: nil, tooltip: L("Beautify"))
+                action: .beautify, sfSymbol: "sparkles", label: nil,
+                tooltip: L("Beautify") + Self.shortcutSuffix(for: .toggleBeautify))
             beginSection(&hasPlacedImageEffectsSection, button: &beautifyBtn)
             buttons.append(beautifyBtn)
         }
 
         if actionEnabled(1013) {
             var effectsBtn = ToolbarButton(
-                action: .effects, sfSymbol: "slider.horizontal.3", label: nil, tooltip: L("Adjust"))
+                action: .effects, sfSymbol: "slider.horizontal.3", label: nil,
+                tooltip: L("Adjust") + Self.shortcutSuffix(for: .toggleEffects))
             effectsBtn.isSelected = effectsActive
             if effectsActive {
                 effectsBtn.tintColor = NSColor(calibratedRed: 1.0, green: 0.8, blue: 0.2, alpha: 1.0)

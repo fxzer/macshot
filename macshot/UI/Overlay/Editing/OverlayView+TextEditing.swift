@@ -14,6 +14,10 @@ extension OverlayView {
     func showTextField(
         at point: NSPoint, existingText: NSAttributedString? = nil, existingFrame: NSRect = .zero
     ) {
+        resetLiveTextInteraction()
+        textEditor.onToolShortcut = { [weak self] event in
+            self?.handleLiveTextToolShortcut(with: event) ?? false
+        }
         textEditor.show(
             in: self, at: point, color: currentColor,
             existingText: existingText, existingFrame: existingFrame,
@@ -24,6 +28,7 @@ extension OverlayView {
     }
 
     func cancelTextEditing() {
+        resetLiveTextInteraction()
         textEditor.cancel(canvas: self)
         window?.makeFirstResponder(self)
         requestToolbarRebuild(reason: "textEditing")
@@ -32,6 +37,7 @@ extension OverlayView {
 
     func commitTextFieldIfNeeded() {
         guard textEditor.isEditing else { return }
+        resetLiveTextInteraction()
         textEditor.commit(canvas: self)
         window?.makeFirstResponder(self)
         requestToolbarRebuild(reason: "textEditing")

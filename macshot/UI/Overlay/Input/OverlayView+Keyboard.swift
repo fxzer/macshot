@@ -1,6 +1,27 @@
 import AppKit
 
 extension OverlayView {
+    // NSTextView owns keyDown while editing; route tool keys only over its move/resize affordance.
+    func handleLiveTextToolShortcut(with event: NSEvent) -> Bool {
+        guard !isDraggingTextBox, !isResizingTextBox else { return false }
+
+        guard let window else { return false }
+        let mousePoint = convert(window.mouseLocationOutsideOfEventStream, from: nil)
+        guard liveTextChromeContains(mousePoint), !isPointOnChrome(mousePoint) else { return false }
+
+        let disallowedModifiers: NSEvent.ModifierFlags = [.command, .option, .control]
+        guard event.modifierFlags.intersection(disallowedModifiers).isEmpty,
+              let key = event.charactersIgnoringModifiers?.lowercased(),
+              let action = ToolShortcutManager.lookupAction(for: key),
+              case .tool = action
+        else {
+            return false
+        }
+
+        handleToolbarAction(action)
+        return true
+    }
+
     func shouldHandleEscapeFromMonitor() -> Bool {
         guard let window else { return true }
         guard let responder = window.firstResponder else { return true }

@@ -114,16 +114,24 @@ extension OverlayView {
 
         // Non-interactive states — simple cursors
         if textEditView != nil {
+            if !isEditorMode && isPointOnChrome(point) {
+                NSCursor.arrow.set()
+                return
+            }
+            if isResizingTextBox {
+                cursorForHandle(textBoxResizeHandle).set()
+                return
+            }
             if isDraggingTextBox {
                 NSCursor.closedHand.set()
                 return
             }
             if let sv = textEditor.scrollView {
-                if let handle = hitTestLiveTextResizeHandle(at: point, frame: sv.frame) {
+                if showToolbars, let handle = hitTestLiveTextResizeHandle(at: point, frame: sv.frame) {
                     cursorForHandle(handle).set()
                     return
                 }
-                if isPointOnLiveTextDragEdge(point, frame: sv.frame) {
+                if showToolbars && isPointOnLiveTextDragEdge(point, frame: sv.frame) {
                     NSCursor.openHand.set()
                     return
                 }
@@ -229,6 +237,14 @@ extension OverlayView {
             // Multi-select delete button
             if selectedAnnotations.count > 1 && multiSelectDeleteButtonRect.contains(canvasPoint) {
                 NSCursor.arrow.set()
+                return
+            }
+
+            // 已提交的文字单击即可拖动，光标应与这个行为一致；双击仍进入编辑。
+            if currentTool == .text, pointIsInSelection(point), annotations.reversed().contains(where: {
+                $0.tool == .text && $0.hitTest(point: canvasPoint)
+            }) {
+                NSCursor.openHand.set()
                 return
             }
 

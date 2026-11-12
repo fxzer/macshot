@@ -193,7 +193,7 @@ enum ToolShortcutManager {
                 let button = String(normalized.dropFirst(mousePrefix.count)).uppercased()
                 return String.localizedStringWithFormat(L("Mouse Button %@"), button)
             }
-            return normalized.uppercased()
+            return normalized
         }
     }
 

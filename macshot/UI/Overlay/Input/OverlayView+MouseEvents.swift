@@ -80,35 +80,7 @@ extension OverlayView {
             return
         }
 
-        let isTextEditing = textEditView != nil
-
-        // Check text box resize handles when editing
-        if isTextEditing && showToolbars {
-            // Check text box resize handles
-            if let sv = textEditor.scrollView {
-                let frame = sv.frame
-                if let handle = hitTestLiveTextResizeHandle(at: point, frame: frame) {
-                    isResizingTextBox = true
-                    textBoxResizeHandle = handle
-                    textBoxResizeStart = point
-                    textBoxOrigFrame = frame
-                    textBoxOrigFontSize = textEditor.fontSize
-                    textEditor.lockWidth()
-                    return
-                }
-                if isPointOnLiveTextDragEdge(point, frame: frame) {
-                    isDraggingTextBox = true
-                    textBoxDragStart = point
-                    textBoxDragOrigFrame = frame
-                    NSCursor.closedHand.set()
-                    return
-                }
-                // Clicking on the text editor itself — don't commit
-                if frame.contains(point) {
-                    return
-                }
-            }
-        }
+        if beginLiveTextInteraction(at: point) { return }
 
         // Don't commit text if clicking on text formatting controls in the options row
         let isTextFormattingClick =
@@ -301,82 +273,7 @@ extension OverlayView {
             return
         }
 
-        // Handle text box resize
-        if isResizingTextBox, let sv = textEditor.scrollView, let tv = textEditView {
-            let dx = point.x - textBoxResizeStart.x
-            let dy = point.y - textBoxResizeStart.y
-            let orig = textBoxOrigFrame
-            var newFrame = orig
-            let minW: CGFloat = 60
-            let minH: CGFloat = max(28, textBoxOrigFontSize + 12)
-            let isCornerHandle: Bool
-
-            switch textBoxResizeHandle {
-            case .right:
-                newFrame.size.width = max(minW, orig.width + dx)
-                isCornerHandle = false
-            case .left:
-                newFrame.origin.x = min(orig.maxX - minW, orig.minX + dx)
-                newFrame.size.width = orig.maxX - newFrame.minX
-                isCornerHandle = false
-            case .top:
-                newFrame.size.height = max(minH, orig.height + dy)
-                isCornerHandle = false
-            case .bottom:
-                let newMinY = min(orig.maxY - minH, orig.minY + dy)
-                newFrame.origin.y = newMinY
-                newFrame.size.height = orig.maxY - newMinY
-                isCornerHandle = false
-            case .topRight:
-                newFrame.size.width = max(minW, orig.width + dx)
-                newFrame.size.height = max(minH, orig.height + dy)
-                isCornerHandle = true
-            case .topLeft:
-                newFrame.origin.x = min(orig.maxX - minW, orig.minX + dx)
-                newFrame.size.width = orig.maxX - newFrame.minX
-                newFrame.size.height = max(minH, orig.height + dy)
-                isCornerHandle = true
-            case .bottomRight:
-                newFrame.size.width = max(minW, orig.width + dx)
-                let newMinY = min(orig.maxY - minH, orig.minY + dy)
-                newFrame.origin.y = newMinY
-                newFrame.size.height = orig.maxY - newMinY
-                isCornerHandle = true
-            case .bottomLeft:
-                newFrame.origin.x = min(orig.maxX - minW, orig.minX + dx)
-                newFrame.size.width = orig.maxX - newFrame.minX
-                let newMinY = min(orig.maxY - minH, orig.minY + dy)
-                newFrame.origin.y = newMinY
-                newFrame.size.height = orig.maxY - newMinY
-                isCornerHandle = true
-            default:
-                isCornerHandle = false
-            }
-
-            if isCornerHandle, orig.width > 0, textBoxOrigFontSize > 0 {
-                let newFontSize = max(6, min(200, textBoxOrigFontSize * (newFrame.width / orig.width)))
-                textEditor.scaleLiveText(to: newFontSize)
-                toolOptionsRowView?.updateFontSizeDisplay(value: newFontSize)
-            }
-
-            let shouldFitHeightToContent = textBoxResizeHandle == .left || textBoxResizeHandle == .right
-            textEditor.applyLiveFrame(newFrame, fitHeightToContent: shouldFitHeightToContent)
-            needsDisplay = true
-            return
-        }
-
-        if isDraggingTextBox, let sv = textEditor.scrollView {
-            let dx = point.x - textBoxDragStart.x
-            let dy = point.y - textBoxDragStart.y
-            let newOrigin = NSPoint(
-                x: textBoxDragOrigFrame.origin.x + dx,
-                y: textBoxDragOrigFrame.origin.y + dy
-            )
-            sv.frame.origin = newOrigin
-            NSCursor.closedHand.set()
-            needsDisplay = true
-            return
-        }
+        if updateLiveTextInteraction(at: point) { return }
 
         switch state {
         case .selecting:
@@ -715,22 +612,7 @@ extension OverlayView {
             return
         }
 
-        if isResizingTextBox {
-            isResizingTextBox = false
-            textBoxOrigFontSize = 0
-            if let win = window {
-                updateCursorForPoint(convert(win.mouseLocationOutsideOfEventStream, from: nil))
-            }
-            return
-        }
-
-        if isDraggingTextBox {
-            isDraggingTextBox = false
-            if let win = window {
-                updateCursorForPoint(convert(win.mouseLocationOutsideOfEventStream, from: nil))
-            }
-            return
-        }
+        if endLiveTextInteraction() { return }
         if isRotatingAnnotation {
             isRotatingAnnotation = false
             invalidateAnnotationCaches()
