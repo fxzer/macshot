@@ -53,14 +53,14 @@ extension OverlayView {
         let cgY = Int(CGFloat(cgImage.height) - 1 - py * scaleY)  // flip Y for CGImage (top-left origin)
         guard cgX >= 0, cgX < cgImage.width, cgY >= 0, cgY < cgImage.height else { return nil }
 
-        // First, always sample in sRGB to get the base color values
-        // (screenshots are captured in sRGB color space)
-        let srgbColorSpace = CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB()
+        // Sample directly in the target color space so Display P3 / Native / Adobe RGB
+        // values are not clipped to 8-bit sRGB prior to conversion.
+        let targetCS = gamut.targetCGColorSpace(source: cgImage.colorSpace)
         guard
             let ctx = CGContext(
                 data: nil, width: 1, height: 1,
                 bitsPerComponent: 8, bytesPerRow: 4,
-                space: srgbColorSpace,
+                space: targetCS,
                 bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue)
         else { return nil }
         ctx.interpolationQuality = .none
@@ -72,17 +72,19 @@ extension OverlayView {
         guard let data = ctx.data else { return nil }
         let ptr = data.assumingMemoryBound(to: UInt8.self)
 
-        // Read sRGB values
-        let srgbR = ptr[0]
-        let srgbG = ptr[1]
-        let srgbB = ptr[2]
-
-        // Convert to target color space based on gamut setting
-        let (r, g, b) = gamut.convertFromSRGB(srgbR, srgbG, srgbB)
+        let r = ptr[0]
+        let g = ptr[1]
+        let b = ptr[2]
 
         let hex = String(format: "#%02X%02X%02X", r, g, b)
-        let color = NSColor(
-            srgbRed: CGFloat(r) / 255, green: CGFloat(g) / 255, blue: CGFloat(b) / 255, alpha: 1)
+        let targetNS = gamut.targetNSColorSpace(source: cgImage.colorSpace)
+        let color: NSColor
+        if targetNS.numberOfColorComponents == 3 {
+            let components: [CGFloat] = [CGFloat(r) / 255, CGFloat(g) / 255, CGFloat(b) / 255, 1]
+            color = NSColor(colorSpace: targetNS, components: components, count: 4)
+        } else {
+            color = NSColor(srgbRed: CGFloat(r) / 255, green: CGFloat(g) / 255, blue: CGFloat(b) / 255, alpha: 1)
+        }
         return (color, hex)
     }
 
@@ -162,7 +164,9 @@ extension OverlayView {
             self?.overlayDelegate?.overlayViewDidCancel()
         }
 
-        addSubview(magnifier)
+        magnifier.setFrameSize(magnifier.intrinsicContentSize)
+        let hostView: NSView = isEditorMode ? (chromeParentView ?? self) : self
+        hostView.addSubview(magnifier)
         self.magnifierView = magnifier
 
         updateMagnifierPosition()
@@ -193,24 +197,22 @@ extension OverlayView {
 
         // Sample color using OverlayView's accurate method with gamut setting
         guard let sampled = getSampledColor(at: canvasPoint, gamut: gamut) else { return }
-        let hexColor = sampled.hex
 
-        // Position magnifier at bottom-right of cursor (in view space for positioning)
-        let offset: CGFloat = 20
-        let magnifierOrigin = NSPoint(x: samplePoint.x + offset, y: samplePoint.y + offset)
+        positionMagnifier(magnifier, aroundViewPoint: samplePoint)
 
-        // Ensure magnifier stays within bounds
-        var finalOrigin = magnifierOrigin
-        if finalOrigin.x + magnifier.intrinsicContentSize.width > bounds.width {
-            finalOrigin.x = samplePoint.x - offset - magnifier.intrinsicContentSize.width
+        // ColorSamplerMagnifierView draws directly from `screenshotImage` (origin 0,0),
+        // so convert canvasPoint relative to `captureDrawRect` into screenshot point space.
+        let drawRect = captureDrawRect
+        let imagePoint: NSPoint
+        if drawRect.width > 0, drawRect.height > 0 {
+            imagePoint = NSPoint(
+                x: (canvasPoint.x - drawRect.origin.x) * screenshot.size.width / drawRect.width,
+                y: (canvasPoint.y - drawRect.origin.y) * screenshot.size.height / drawRect.height
+            )
+        } else {
+            imagePoint = canvasPoint
         }
-        if finalOrigin.y + magnifier.intrinsicContentSize.height > bounds.height {
-            finalOrigin.y = samplePoint.y - offset - magnifier.intrinsicContentSize.height
-        }
-
-        magnifier.setFrameOrigin(finalOrigin)
-        // Pass canvasPoint for magnification source (matches what we sample)
-        magnifier.update(at: canvasPoint, screenImage: screenshot, hexColor: hexColor)
+        magnifier.update(at: imagePoint, screenImage: screenshot, hexColor: sampled.hex, color: sampled.color)
     }
 
     /// Toggle color format (triggered by Shift key press).
@@ -228,19 +230,27 @@ extension OverlayView {
     private func updateMagnifierPosition() {
         guard let magnifier = magnifierView,
               let samplePoint = currentColorSamplerViewPoint() else { return }
+        positionMagnifier(magnifier, aroundViewPoint: samplePoint)
+    }
+
+    private func positionMagnifier(_ magnifier: ColorSamplerMagnifierView, aroundViewPoint samplePoint: NSPoint) {
+        let hostView = magnifier.superview ?? self
+        let hostPoint = (hostView === self) ? samplePoint : convert(samplePoint, to: hostView)
+        let hostBounds = hostView.bounds
+        let size = magnifier.intrinsicContentSize
 
         let offset: CGFloat = 20
-        let magnifierOrigin = NSPoint(x: samplePoint.x + offset, y: samplePoint.y + offset)
-
-        // Ensure magnifier stays within bounds
-        var finalOrigin = magnifierOrigin
-        if finalOrigin.x + magnifier.intrinsicContentSize.width > bounds.width {
-            finalOrigin.x = samplePoint.x - offset - magnifier.intrinsicContentSize.width
+        var finalOrigin = NSPoint(x: hostPoint.x + offset, y: hostPoint.y + offset)
+        if finalOrigin.x + size.width > hostBounds.maxX {
+            finalOrigin.x = hostPoint.x - offset - size.width
         }
-        if finalOrigin.y + magnifier.intrinsicContentSize.height > bounds.height {
-            finalOrigin.y = samplePoint.y - offset - magnifier.intrinsicContentSize.height
+        if finalOrigin.y + size.height > hostBounds.maxY {
+            finalOrigin.y = hostPoint.y - offset - size.height
         }
+        finalOrigin.x = min(max(finalOrigin.x, hostBounds.minX), max(hostBounds.minX, hostBounds.maxX - size.width))
+        finalOrigin.y = min(max(finalOrigin.y, hostBounds.minY), max(hostBounds.minY, hostBounds.maxY - size.height))
 
+        magnifier.setFrameSize(size)
         magnifier.setFrameOrigin(finalOrigin)
     }
 
@@ -257,17 +267,19 @@ extension OverlayView {
     @discardableResult
     func moveColorSamplerPointBy(dx: CGFloat, dy: CGFloat) -> Bool {
         guard currentTool == .colorSampler || state == .selecting || magnifierView != nil,
-              let currentPoint = currentColorSamplerViewPoint() else { return false }
+              let currentViewPoint = currentColorSamplerViewPoint() else { return false }
 
-        let sampleBounds = captureDrawRect.isEmpty ? bounds : captureDrawRect
-        let newPoint = NSPoint(
-            x: min(max(currentPoint.x + dx, sampleBounds.minX), sampleBounds.maxX),
-            y: min(max(currentPoint.y + dy, sampleBounds.minY), sampleBounds.maxY)
+        let canvasBounds = captureDrawRect.isEmpty ? bounds : captureDrawRect
+        let currentCanvasPoint = viewToCanvas(currentViewPoint)
+        let clampedCanvasPoint = NSPoint(
+            x: min(max(currentCanvasPoint.x + dx, canvasBounds.minX), canvasBounds.maxX),
+            y: min(max(currentCanvasPoint.y + dy, canvasBounds.minY), canvasBounds.maxY)
         )
-        keyboardSamplePoint = newPoint
+        let newViewPoint = canvasToView(clampedCanvasPoint)
+        keyboardSamplePoint = newViewPoint
 
         if state == .selecting {
-            updateSelectionRectForCurrentSelectionDrag(to: newPoint, shiftHeld: NSEvent.modifierFlags.contains(.shift))
+            updateSelectionRectForCurrentSelectionDrag(to: newViewPoint, shiftHeld: NSEvent.modifierFlags.contains(.shift))
         } else {
             updateMagnifierIfNeeded()
             needsDisplay = true
@@ -300,16 +312,17 @@ extension OverlayView {
     }
 
     private func formatSampledColor(_ sampled: (color: NSColor, hex: String), as format: ColorSamplerMagnifierView.ColorFormat) -> String {
-        guard let rgbColor = sampled.color.usingColorSpace(.sRGB) else { return sampled.hex }
-
-        let r = Int(round(rgbColor.redComponent * 255))
-        let g = Int(round(rgbColor.greenComponent * 255))
-        let b = Int(round(rgbColor.blueComponent * 255))
-
         switch format {
         case .hex:
             return sampled.hex
         case .rgb:
+            if let rgb = ColorSamplerMagnifierView.parseHexRGB(sampled.hex) {
+                return "RGB(\(rgb.r), \(rgb.g), \(rgb.b))"
+            }
+            guard let rgbColor = sampled.color.usingColorSpace(.sRGB) else { return sampled.hex }
+            let r = Int(round(rgbColor.redComponent * 255))
+            let g = Int(round(rgbColor.greenComponent * 255))
+            let b = Int(round(rgbColor.blueComponent * 255))
             return "RGB(\(r), \(g), \(b))"
         }
     }

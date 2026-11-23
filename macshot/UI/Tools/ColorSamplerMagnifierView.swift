@@ -41,47 +41,38 @@ enum ColorGamut: Int, CaseIterable {
         }
     }
 
-    /// Get the NSColorSpace for this gamut (safe, returns nil on failure).
-    private var nsColorSpace: NSColorSpace? {
+    /// Get the CGColorSpace for this gamut (safe for 8-bit RGB CGContext).
+    func targetCGColorSpace(source: CGColorSpace?) -> CGColorSpace {
+        let p3 = CGColorSpace(name: CGColorSpace.displayP3) ?? CGColorSpaceCreateDeviceRGB()
+        let srgb = CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB()
+
         switch self {
-        case .native, .p3:
-            // Native and P3 both use Display P3 (screenshots are captured in sRGB,
-            // so "native" means converting to the display's typical color space)
-            return CGColorSpace(name: CGColorSpace.displayP3).flatMap { NSColorSpace(cgColorSpace: $0) }
+        case .native:
+            guard let source else { return p3 }
+            let name = (source.name as String?) ?? ""
+            let isExtendedOrLinear = name.localizedCaseInsensitiveContains("extended")
+                || name.localizedCaseInsensitiveContains("linear")
+            if source.model == .rgb && source.supportsOutput && source.numberOfComponents == 3 && !isExtendedOrLinear {
+                return source
+            }
+            return source.isWideGamutRGB ? p3 : srgb
+        case .p3:
+            return p3
         case .srgb:
-            return nil  // No conversion needed for sRGB
+            return srgb
         case .displayRGB:
-            return NSColorSpace.deviceRGB
+            return CGColorSpaceCreateDeviceRGB()
         case .adobeRGB:
-            return CGColorSpace(name: CGColorSpace.adobeRGB1998).flatMap { NSColorSpace(cgColorSpace: $0) }
+            return CGColorSpace(name: CGColorSpace.adobeRGB1998) ?? srgb
         }
     }
 
-    /// Convert sRGB color values to this gamut's color space.
-    /// Returns the RGB values as 8-bit integers (0-255).
-    func convertFromSRGB(_ srgbR: UInt8, _ srgbG: UInt8, _ srgbB: UInt8) -> (r: UInt8, g: UInt8, b: UInt8) {
-        // For sRGB, no conversion needed
-        guard self != .srgb, let targetSpace = nsColorSpace else {
-            return (srgbR, srgbG, srgbB)
+    /// Get the matching NSColorSpace for display construction.
+    func targetNSColorSpace(source: CGColorSpace?) -> NSColorSpace {
+        if self == .displayRGB {
+            return .deviceRGB
         }
-
-        // Create sRGB color and convert to target space
-        let srgbColor = NSColor(
-            srgbRed: CGFloat(srgbR) / 255,
-            green: CGFloat(srgbG) / 255,
-            blue: CGFloat(srgbB) / 255,
-            alpha: 1
-        )
-
-        guard let converted = srgbColor.usingColorSpace(targetSpace) else {
-            return (srgbR, srgbG, srgbB)
-        }
-
-        return (
-            r: UInt8(round(converted.redComponent * 255)),
-            g: UInt8(round(converted.greenComponent * 255)),
-            b: UInt8(round(converted.blueComponent * 255))
-        )
+        return NSColorSpace(cgColorSpace: targetCGColorSpace(source: source)) ?? .sRGB
     }
 }
 
@@ -154,6 +145,7 @@ final class ColorSamplerMagnifierView: NSView {
 
     init() {
         super.init(frame: .zero)
+        setFrameSize(intrinsicContentSize)
         wantsLayer = true
         layer?.magnificationFilter = .nearest  // 🔑 Pixel-perfect scaling
         layer?.minificationFilter = .nearest
@@ -176,29 +168,33 @@ final class ColorSamplerMagnifierView: NSView {
 
     // MARK: - Public API
 
+    static func parseHexRGB(_ hex: String) -> (r: Int, g: Int, b: Int)? {
+        let cleaned = hex.trimmingCharacters(in: .whitespacesAndNewlines).replacingOccurrences(of: "#", with: "")
+        var rgb: UInt64 = 0
+        guard cleaned.count == 6, Scanner(string: cleaned).scanHexInt64(&rgb) else { return nil }
+        return (
+            r: Int((rgb & 0xFF0000) >> 16),
+            g: Int((rgb & 0x00FF00) >> 8),
+            b: Int(rgb & 0x0000FF)
+        )
+    }
+
     /// Update the magnifier with a new screen position, image, and pre-extracted color.
     /// - Parameters:
-    ///   - screenPoint: The position in canvas coordinates
+    ///   - screenPoint: The position in screenshot image point coordinates
     ///   - screenImage: The screenshot image
-    ///   - hexColor: Pre-extracted hex color string (for accuracy)
-    func update(at screenPoint: NSPoint, screenImage: NSImage, hexColor: String = "#FFFFFF") {
+    ///   - hexColor: Pre-extracted hex color string in the active gamut
+    ///   - color: Optional pre-extracted NSColor in the target color space
+    func update(at screenPoint: NSPoint, screenImage: NSImage, hexColor: String = "#FFFFFF", color: NSColor? = nil) {
         self.currentPoint = screenPoint
         self.cachedScreenImage = screenImage
         self.currentHexColor = hexColor
 
-        // Parse hex to NSColor and RGB values for display
-        if let color = NSColor(hex: hexColor) {
-            self.currentColor = color
-            // Extract RGB values for format switching
-            if let rgbColor = color.usingColorSpace(.sRGB) {
-                self.currentRGB = (
-                    r: Int(round(rgbColor.redComponent * 255)),
-                    g: Int(round(rgbColor.greenComponent * 255)),
-                    b: Int(round(rgbColor.blueComponent * 255))
-                )
-            }
+        if let rgb = Self.parseHexRGB(hexColor) {
+            self.currentRGB = rgb
+            self.currentColor = color ?? NSColor(hex: hexColor) ?? .white
         } else {
-            self.currentColor = .white
+            self.currentColor = color ?? .white
             self.currentRGB = (255, 255, 255)
         }
 
