@@ -37,7 +37,7 @@ class DetachedEditorWindowController: NSObject, NSWindowDelegate {
     private var topBar: EditorTopBarView?
     private var backgroundRemovalToken: BackgroundRemovalProcessor.CancellationToken?
     private var addCaptureHandler: AddCaptureOverlayHandler?
-    private var ocrController: OCRResultController?
+    private static var activeOCRController: OCRResultController?
     private var shareDelegate: SharePickerDelegate?
     // Notification observer tokens — removed in windowWillClose to avoid accumulating
     // registered observers across repeated editor open/close cycles.
@@ -293,8 +293,9 @@ class DetachedEditorWindowController: NSObject, NSWindowDelegate {
                 if self.historyEntryID == nil, let composited = view.captureSelectedRegion() {
                     let image = self.applyPostProcessing(composited)
                     self.ensureInHistory(compositedImage: image)
+                } else {
+                    self.saveToHistory()
                 }
-                self.saveToHistory()
                 sender.close()
             case .alertSecondButtonReturn:
                 // Discard — close without saving, suppress re-triggering the warning
@@ -312,8 +313,6 @@ class DetachedEditorWindowController: NSObject, NSWindowDelegate {
     func windowWillClose(_ notification: Notification) {
         backgroundRemovalToken?.cancel()
         backgroundRemovalToken = nil
-        ocrController?.close()
-        ocrController = nil
         // Remove notification observers registered in show() — they capture weak refs
         // so there's no retain cycle, but leaving them registered across repeated
         // open/close cycles accumulates stale observers for the app's lifetime.
@@ -338,10 +337,15 @@ class DetachedEditorWindowController: NSObject, NSWindowDelegate {
     }
 
     /// Save current editor state to the linked history entry (without closing).
-    private func saveToHistory() {
+    private func saveToHistory(preRenderedImage: NSImage? = nil) {
         guard let entryID = historyEntryID, let view = overlayView else { return }
-        guard let composited = view.captureSelectedRegion() else { return }
-        let finalImage = applyPostProcessing(composited)
+        let finalImage: NSImage
+        if let preRenderedImage {
+            finalImage = preRenderedImage
+        } else {
+            guard let composited = view.captureSelectedRegion() else { return }
+            finalImage = applyPostProcessing(composited)
+        }
         let annotations = view.annotations.filter { $0.isMovable }
         let rawImage: NSImage? = annotations.isEmpty ? nil : view.captureSelectedRegionRaw()
         ScreenshotHistory.shared.updateEntry(
@@ -363,7 +367,7 @@ class DetachedEditorWindowController: NSObject, NSWindowDelegate {
         } else {
             finalImage = nil
         }
-        saveToHistory()
+        saveToHistory(preRenderedImage: finalImage)
         window?.close()
         // Show a new floating thumbnail with the saved image
         if let image = finalImage, let entryID = historyEntryID {
@@ -374,9 +378,10 @@ class DetachedEditorWindowController: NSObject, NSWindowDelegate {
     /// Called by output actions (copy, save, etc.) to persist changes to history.
     private func autoSaveToHistoryIfNeeded(compositedImage: NSImage) {
         screenshotNeverOutput = false
-        ensureInHistory(compositedImage: compositedImage)
-        if historyEntryID != nil {
-            saveToHistory()
+        if historyEntryID == nil {
+            ensureInHistory(compositedImage: compositedImage)
+        } else {
+            saveToHistory(preRenderedImage: compositedImage)
         }
     }
 
@@ -491,14 +496,24 @@ extension DetachedEditorWindowController: OverlayViewDelegate {
         guard let image = overlayView?.captureSelectedRegion(),
               let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return }
         let shouldShowWindow = OCRPreferences.shouldShowWindow
+        let ocrID: ObjectIdentifier?
         if shouldShowWindow {
-            ocrController?.close()
+            Self.activeOCRController?.close()
             let ocr = OCRResultController.loading()
-            ocrController = ocr
+            Self.activeOCRController = ocr
+            ocrID = ObjectIdentifier(ocr)
             ocr.show()
+        } else {
+            ocrID = nil
         }
-        VisionOCR.recognizeText(in: cgImage) { [weak self, shouldShowWindow] result in
-            guard let self = self else { return }
+        VisionOCR.recognizeText(in: cgImage) { [weak self, shouldShowWindow, ocrID] result in
+            let targetOCR: OCRResultController? = {
+                guard shouldShowWindow,
+                      let ocrID,
+                      let current = Self.activeOCRController,
+                      ObjectIdentifier(current) == ocrID else { return nil }
+                return current
+            }()
             switch result {
             case .success(let text):
                 let shouldCopy = OCRPreferences.shouldCopyToClipboard
@@ -506,16 +521,27 @@ extension DetachedEditorWindowController: OverlayViewDelegate {
                     NSPasteboard.general.clearContents()
                     NSPasteboard.general.setString(text, forType: .string)
                 }
-                if shouldShowWindow {
-                    self.ocrController?.showRecognizedText(text)
-                }
+                targetOCR?.showRecognizedText(text)
             case .failure(let error):
-                if shouldShowWindow {
-                    self.ocrController?.showOCRFailure("\(L("OCR failed")): \(error.localizedDescription)")
-                }
+                targetOCR?.showOCRFailure("\(L("OCR failed")): \(error.localizedDescription)")
             }
-            self.window?.close()
+            self?.window?.close()
         }
+    }
+
+    private func finishQuickSave(image: NSImage, actions: ScreenshotPostActions) {
+        if actions.uploadAndCopyLink {
+            (NSApp.delegate as? AppDelegate)?.uploadImage(image)
+        }
+        if actions.pinToScreen {
+            (NSApp.delegate as? AppDelegate)?.showPin(image: image)
+        }
+        SoundManager.shared.playCapture()
+        if actions.showQuickAccessOverlay {
+            (NSApp.delegate as? AppDelegate)?.showFloatingThumbnail(image: image)
+        }
+        autoSaveToHistoryIfNeeded(compositedImage: image)
+        window?.close()
     }
 
     func overlayViewDidRequestQuickSave() {
@@ -533,7 +559,7 @@ extension DetachedEditorWindowController: OverlayViewDelegate {
                 appDelegate.saveImageToPreferredDirectory(image) { [weak self] result in
                     guard let self = self else { return }
                     if case .success = result {
-                        self.window?.close()
+                        self.finishQuickSave(image: image, actions: actions)
                     }
                 }
             } else {
@@ -541,27 +567,15 @@ extension DetachedEditorWindowController: OverlayViewDelegate {
                     guard let self = self else { return }
                     switch result {
                     case .success:
-                        self.window?.close()
+                        self.finishQuickSave(image: image, actions: actions)
                     case .failure(let error):
                         let message = error.localizedDescription.isEmpty ? L("Save failed") : error.localizedDescription
-                        view.showOverlayError(message)
+                        self.overlayView?.showOverlayError(message)
                     }
                 }
             }
         } else {
-            // 如果没有保存操作，直接关闭
-            if actions.uploadAndCopyLink {
-                (NSApp.delegate as? AppDelegate)?.uploadImage(image)
-            }
-            if actions.pinToScreen {
-                (NSApp.delegate as? AppDelegate)?.showPin(image: image)
-            }
-            SoundManager.shared.playCapture()
-            if actions.showQuickAccessOverlay {
-                (NSApp.delegate as? AppDelegate)?.showFloatingThumbnail(image: image)
-            }
-            autoSaveToHistoryIfNeeded(compositedImage: image)
-            window?.close()
+            finishQuickSave(image: image, actions: actions)
         }
     }
 
