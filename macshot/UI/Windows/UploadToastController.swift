@@ -10,6 +10,9 @@ class UploadToastController {
     private var spinner: NSProgressIndicator?
     private var dismissTask: DispatchWorkItem?
     private var currentOpenURL: URL?
+    /// True when the user explicitly clicked the toast away. Until a new `show`,
+    /// result callbacks must not resurrect the window (`ensureToastWindow`).
+    private var userDismissed = false
     var onDismiss: (() -> Void)?
 
     private let toastWidth: CGFloat = 380
@@ -21,6 +24,7 @@ class UploadToastController {
     }
 
     func show(status: String) {
+        userDismissed = false
         currentOpenURL = nil
         let screen = screenWithMouse() ?? NSScreen.main ?? NSScreen.screens[0]
         let screenFrame = screen.frame
@@ -49,7 +53,12 @@ class UploadToastController {
 
         let contentView = ToastBackgroundView(frame: NSRect(origin: .zero, size: NSSize(width: toastWidth, height: toastHeight)))
         contentView.cornerRadius = cornerRadius
-        contentView.onClicked = { [weak self] in self?.animateOut() }
+        contentView.onClicked = { [weak self] in
+            guard let self else { return }
+            // Explicit user dismissal — suppress result toasts for this session.
+            self.userDismissed = true
+            self.animateOut()
+        }
         panel.contentView = contentView
 
         // Success icon using SF Symbols
@@ -233,6 +242,7 @@ class UploadToastController {
     }
 
     private func ensureToastWindow() {
+        guard !userDismissed else { return }
         if window == nil {
             show(status: "")
         }

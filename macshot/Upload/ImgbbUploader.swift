@@ -17,7 +17,11 @@ enum ImageUploader {
         return key
     }
 
-    static func upload(image: NSImage, completion: @escaping (Result<ImageUploadResult, Error>) -> Void) {
+    static func upload(
+        image: NSImage,
+        progress: ((Double) -> Void)? = nil,
+        completion: @escaping (Result<ImageUploadResult, Error>) -> Void
+    ) {
         func finish(_ result: Result<ImageUploadResult, Error>) {
             DispatchQueue.main.async {
                 completion(result)
@@ -59,9 +63,8 @@ enum ImageUploader {
         body.append("\r\n".data(using: .utf8)!)
         body.append("--\(boundary)--\r\n".data(using: .utf8)!)
 
-        request.httpBody = body
-
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        // uploadTask (instead of dataTask + httpBody) so task.progress is observable.
+        let task = URLSession.shared.uploadTask(with: request, from: body) { data, response, error in
             if let error = error {
                 finish(.failure(error))
                 return
@@ -99,7 +102,20 @@ enum ImageUploader {
             } catch {
                 finish(.failure(error))
             }
-        }.resume()
+        }
+
+        // Observe upload progress (same pattern as S3Uploader)
+        if let progress {
+            let observation = task.progress.observe(\.fractionCompleted) { observedProgress, _ in
+                DispatchQueue.main.async { progress(observedProgress.fractionCompleted) }
+            }
+            // Store observation to keep it alive — released when task completes
+            objc_setAssociatedObject(task, &Self.progressObservationKey, observation, .OBJC_ASSOCIATION_RETAIN)
+        }
+
+        task.resume()
     }
+
+    private static var progressObservationKey: UInt8 = 0
 
 }

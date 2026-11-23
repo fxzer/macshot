@@ -159,7 +159,7 @@ final class GoogleDriveUploader: NSObject, ASWebAuthenticationPresentationContex
     ) {
         ensureValidToken { [weak self] success in
             guard let self = self, success else {
-                completion(.failure(Self.error("Not signed in")))
+                completion(.failure(Self.authError("Not signed in")))
                 return
             }
             self.ensureMacShotFolder { result in
@@ -240,10 +240,6 @@ final class GoogleDriveUploader: NSObject, ASWebAuthenticationPresentationContex
                 NSLog("[GoogleDrive] No data in token response")
                 DispatchQueue.main.async { completion(false) }
                 return
-            }
-
-            if let responseString = String(data: data, encoding: .utf8) {
-                NSLog("[GoogleDrive] Token response: \(responseString)")
             }
 
             guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
@@ -575,7 +571,7 @@ final class GoogleDriveUploader: NSObject, ASWebAuthenticationPresentationContex
             if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 401, attempt < maxRetries {
                 self?.refreshAccessToken { success in
                     guard success else {
-                        completion(.failure(Self.error("Authentication expired")))
+                        completion(.failure(Self.authError("Authentication expired")))
                         return
                     }
                     self?.uploadFileWithRetry(
@@ -702,5 +698,19 @@ final class GoogleDriveUploader: NSObject, ASWebAuthenticationPresentationContex
 
     private static func error(_ msg: String) -> NSError {
         NSError(domain: "GoogleDriveUploader", code: 1, userInfo: [NSLocalizedDescriptionKey: msg])
+    }
+
+    /// Auth-failure errors: the user-facing description tells the user to sign in
+    /// again in Settings, while the English debug string is kept for the log.
+    private static func authError(_ debugDescription: String) -> NSError {
+        NSLog("[GoogleDrive] Auth failed: \(debugDescription)")
+        return NSError(
+            domain: "GoogleDriveUploader",
+            code: 1,
+            userInfo: [
+                NSLocalizedDescriptionKey: L("Google Drive login expired — please sign in again in Settings"),
+                NSDebugDescriptionErrorKey: debugDescription
+            ]
+        )
     }
 }

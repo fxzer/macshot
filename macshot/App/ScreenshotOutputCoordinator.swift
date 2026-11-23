@@ -127,10 +127,11 @@ final class ScreenshotOutputCoordinator: NSObject, PinWindowControllerDelegate, 
         controller.onPin = { [weak self] in
             self?.pinImageFromHistory(entryID: historyEntryID, fallbackImage: nil)
         }
+        let fallbackAnnotationData = (historyEntryID == nil) ? annotationData : nil
         controller.onEdit = { [weak self] in
             if let self = self, let historyEntryID {
                 self.openEditorFromHistory(entryID: historyEntryID, fallbackImage: nil)
-            } else if let data = annotationData {
+            } else if let data = fallbackAnnotationData {
                 DetachedEditorWindowController.open(
                     image: data.rawImage,
                     annotations: data.annotations,
@@ -397,7 +398,10 @@ final class ScreenshotOutputCoordinator: NSObject, PinWindowControllerDelegate, 
                 }
             }
         case .s3:
-            S3Uploader.shared.uploadImage(image, progress: nil) { result in
+            let progressHandler: (Double) -> Void = { fraction in
+                toast.updateProgress(fraction)
+            }
+            S3Uploader.shared.uploadImage(image, progress: progressHandler) { result in
                 switch result {
                 case .success(let link):
                     PasteboardWriter.writeString(link)
@@ -422,7 +426,10 @@ final class ScreenshotOutputCoordinator: NSObject, PinWindowControllerDelegate, 
                 }
             }
         case .imgbb:
-            ImageUploader.upload(image: image) { result in
+            let progressHandler: (Double) -> Void = { fraction in
+                toast.updateProgress(fraction)
+            }
+            ImageUploader.upload(image: image, progress: progressHandler) { result in
                 switch result {
                 case .success(let uploadResult):
                     PasteboardWriter.writeString(uploadResult.link)
