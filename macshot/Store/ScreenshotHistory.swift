@@ -185,18 +185,21 @@ var maxEntries: Int {
             return id
         }
         let rawCGImage = rawImage?.cgImage(forProposedRect: nil, context: nil, hints: nil)
+        let captureScale = Self.storageScale(of: image, cgImage: mainCGImage)
+        let thumbScale = Self.storageScale(of: thumb, cgImage: thumbCGImage)
         let capturedAnnotationData = annotationData
         let rawScale = rawCGImage.map { Self.storageScale(of: rawImage!, cgImage: $0) } ?? 1
         let pendingWrite = registerPendingWrite(for: id)
 
         persistenceQueue.async { [weak self] in
+            defer { pendingWrite.group.leave() }
             // Memory optimization: use autoreleasepool to ensure temporary objects
             // (NSBitmapImageRep, CGImageRefs created during scaling) are released promptly
             autoreleasepool {
                 guard !pendingWrite.isCancelled else { return }
                 // Write images using direct CGImageDestination (avoids tiff→bitmap→png overhead)
-                Self.writeCGImagePNG(mainCGImage, to: fileURL, scale: scale)
-                Self.writeCGImagePNG(thumbCGImage, to: thumbURL)
+                Self.writeCGImagePNG(mainCGImage, to: fileURL, scale: captureScale)
+                Self.writeCGImagePNG(thumbCGImage, to: thumbURL, scale: thumbScale)
                 try? FileManager.default.removeItem(at: previewURL)
                 if let raw = rawCGImage { Self.writeCGImagePNG(raw, to: rawURL, scale: rawScale) }
                 if let annData = capturedAnnotationData {
@@ -253,15 +256,17 @@ var maxEntries: Int {
         }
         let rawCGImage = rawImage?.cgImage(forProposedRect: nil, context: nil, hints: nil)
         let captureScale = Self.storageScale(of: compositedImage, cgImage: mainCGImage)
+        let thumbScale = Self.storageScale(of: thumb, cgImage: thumbCGImage)
         let rawScale = rawCGImage.map { Self.storageScale(of: rawImage!, cgImage: $0) } ?? 1
         let pendingWrite = registerPendingWrite(for: id)
 
         persistenceQueue.async { [weak self] in
+            defer { pendingWrite.group.leave() }
             // Memory optimization: use autoreleasepool to ensure temporary objects are released promptly
             autoreleasepool {
                 guard !pendingWrite.isCancelled else { return }
                 Self.writeCGImagePNG(mainCGImage, to: fileURL, scale: captureScale)
-                Self.writeCGImagePNG(thumbCGImage, to: thumbURL)
+                Self.writeCGImagePNG(thumbCGImage, to: thumbURL, scale: thumbScale)
                 try? FileManager.default.removeItem(at: previewURL)
                 if let raw = rawCGImage {
                     Self.writeCGImagePNG(raw, to: rawURL, scale: rawScale)
@@ -399,11 +404,12 @@ var maxEntries: Int {
         let preview = makeScaledImage(full, maxDimension: 240)
 
         // Cache preview to disk for next time (fire and forget — single background hop)
-        let entryID = entry.id
-        DispatchQueue.global(qos: .utility).async { [weak self] in
-            guard self != nil else { return }
-            guard let cgPreview = preview.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return }
-            Self.writeCGImagePNG(cgPreview, to: previewURL)
+        if let cgPreview = preview.cgImage(forProposedRect: nil, context: nil, hints: nil) {
+            let previewScale = Self.storageScale(of: preview, cgImage: cgPreview)
+            DispatchQueue.global(qos: .utility).async { [weak self] in
+                guard self != nil else { return }
+                Self.writeCGImagePNG(cgPreview, to: previewURL, scale: previewScale)
+            }
         }
 
         return preview
@@ -556,7 +562,8 @@ var maxEntries: Int {
         let preview = ImageRasterizer.downscale(full, maxDimension: 240)
 
         if let cgPreview = preview.cgImage(forProposedRect: nil, context: nil, hints: nil) {
-            writeCGImagePNG(cgPreview, to: previewURL)
+            let previewScale = storageScale(of: preview, cgImage: cgPreview)
+            writeCGImagePNG(cgPreview, to: previewURL, scale: previewScale)
         }
         return preview
     }
@@ -585,7 +592,6 @@ var maxEntries: Int {
     }
 
     private func finishPendingWrite(for id: String, token: PendingWrite) {
-        token.group.leave()
         if pendingWrites[id] === token {
             pendingWrites.removeValue(forKey: id)
         }
