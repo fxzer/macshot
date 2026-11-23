@@ -323,6 +323,43 @@ extension OverlayView {
         let outsideGap: CGFloat = 4
         let insideGap: CGFloat = 4
 
+        // Obstacles in view coords: bottom toolbar strip + tool options row.
+        // The options row sits directly above the bottom bar when that bar is placed
+        // above the selection — exactly where the HUD prefers to go. Without this
+        // check the opaque row covers the size readout.
+        var obstacleRects: [NSRect] = []
+        if showToolbars {
+            if !bottomBarRect.isEmpty { obstacleRects.append(bottomBarRect) }
+            if let row = toolOptionsRowView, !row.isHidden {
+                let rowFrame = row.superview === self ? row.frame : convert(row.frame, from: row.superview)
+                if !rowFrame.isEmpty { obstacleRects.append(rowFrame) }
+            }
+        }
+        func hudRectBlocked(_ y: CGFloat, _ x: CGFloat) -> Bool {
+            let r = NSRect(x: x, y: y, width: totalW, height: labelH)
+            return obstacleRects.contains { $0.intersects(r) }
+        }
+
+        // Horizontal clamp for a candidate position (existing behavior, parameterized).
+        func clampedBaseX(insideSelection: Bool) -> CGFloat {
+            var x = selectionRect.midX - totalW / 2
+            if insideSelection {
+                let innerMinX = selectionRect.minX + screenMargin
+                let innerMaxX = selectionRect.maxX - screenMargin - totalW
+                if innerMaxX >= innerMinX {
+                    x = min(max(x, innerMinX), innerMaxX)
+                } else {
+                    x = selectionRect.midX - totalW / 2
+                }
+            }
+            let outerMinX = bounds.minX + screenMargin
+            let outerMaxX = bounds.maxX - screenMargin - totalW
+            if outerMaxX >= outerMinX {
+                x = min(max(x, outerMinX), outerMaxX)
+            }
+            return x
+        }
+
         // Vertical: prefer outside above, then outside below, then inside selection (Snipaste-style).
         let outsideAboveY = selectionRect.maxY + outsideGap
         let fitsAboveOutside = outsideAboveY + labelH <= bounds.maxY - screenMargin
@@ -336,13 +373,13 @@ extension OverlayView {
 
         let baseY: CGFloat
         let labelInsideSelection: Bool
-        if fitsAboveOutside {
+        if fitsAboveOutside, !hudRectBlocked(outsideAboveY, clampedBaseX(insideSelection: false)) {
             baseY = outsideAboveY
             labelInsideSelection = false
-        } else if fitsBelowOutside {
+        } else if fitsBelowOutside, !hudRectBlocked(outsideBelowY, clampedBaseX(insideSelection: false)) {
             baseY = outsideBelowY
             labelInsideSelection = false
-        } else if fitsInsideTop {
+        } else if fitsInsideTop, !hudRectBlocked(insideTopY, clampedBaseX(insideSelection: true)) {
             baseY = insideTopY
             labelInsideSelection = true
         } else if fitsInsideBottom {
@@ -353,23 +390,7 @@ extension OverlayView {
             baseY = selectionRect.midY - labelH / 2
             labelInsideSelection = true
         }
-
-        // Horizontal: keep strip on-screen; when drawn inside selection, keep within selection width too.
-        var baseX = selectionRect.midX - totalW / 2
-        if labelInsideSelection {
-            let innerMinX = selectionRect.minX + screenMargin
-            let innerMaxX = selectionRect.maxX - screenMargin - totalW
-            if innerMaxX >= innerMinX {
-                baseX = min(max(baseX, innerMinX), innerMaxX)
-            } else {
-                baseX = selectionRect.midX - totalW / 2
-            }
-        }
-        let outerMinX = bounds.minX + screenMargin
-        let outerMaxX = bounds.maxX - screenMargin - totalW
-        if outerMaxX >= outerMinX {
-            baseX = min(max(baseX, outerMinX), outerMaxX)
-        }
+        let baseX = clampedBaseX(insideSelection: labelInsideSelection)
 
         let widthRect = NSRect(x: baseX, y: baseY, width: widthLabelW, height: labelH)
         widthLabelRect = widthRect
