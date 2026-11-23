@@ -29,6 +29,12 @@ enum MemoryDiagnostics {
             metadata: @autoclosure () -> String = ""
         ) {
             self.label = label
+            guard MemoryDiagnostics.isEnabled else {
+                self.startTime = 0
+                self.startSnapshot = nil
+                self.lastSnapshot = nil
+                return
+            }
             self.startTime = CFAbsoluteTimeGetCurrent()
             let snapshot = MemoryDiagnostics.currentSnapshot()
             self.startSnapshot = snapshot
@@ -52,6 +58,7 @@ enum MemoryDiagnostics {
             cgImages: [(String, CGImage?)] = [],
             metadata: @autoclosure () -> String = ""
         ) {
+            guard MemoryDiagnostics.isEnabled else { return }
             let now = CFAbsoluteTimeGetCurrent()
             let snapshot = MemoryDiagnostics.currentSnapshot()
             MemoryDiagnostics.logSnapshot(
@@ -74,6 +81,7 @@ enum MemoryDiagnostics {
             cgImages: [(String, CGImage?)] = [],
             metadata: @autoclosure () -> String = ""
         ) {
+            guard MemoryDiagnostics.isEnabled else { return }
             let now = CFAbsoluteTimeGetCurrent()
             let snapshot = MemoryDiagnostics.currentSnapshot()
             let totalMs = (now - startTime) * 1000
@@ -176,6 +184,7 @@ enum MemoryDiagnostics {
     }
 
     private static func currentSnapshot() -> Snapshot? {
+        guard isEnabled else { return nil }
         var vmInfo = task_vm_info_data_t()
         var vmCount = mach_msg_type_number_t(MemoryLayout<task_vm_info_data_t>.size / MemoryLayout<integer_t>.size)
         let vmKernResult: kern_return_t = withUnsafeMutablePointer(to: &vmInfo) {

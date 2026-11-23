@@ -333,9 +333,12 @@ final class CaptureFlowCoordinator {
             self.overlayScreenSwitchInFlight = false
 
             guard let capture else {
+                self.stopOverlayMouseScreenTracking()
+                self.removeOverlayEscMonitor()
                 self.isCapturing = false
                 self.activeCaptureIntent = nil
                 ScreenCaptureManager.setCaptureInProgress(false)
+                self.dependencies.showThumbnails()
                 self.dependencies.showOnboarding(screen)
                 return
             }
@@ -502,12 +505,15 @@ final class CaptureFlowCoordinator {
             ScreenCaptureManager.setCaptureInProgress(false)
 
             guard let capture else {
+                self.stopOverlayMouseScreenTracking()
+                self.removeOverlayEscMonitor()
                 if let placeholderController {
                     self.overlayControllersStorage.removeAll { $0 === placeholderController }
                     placeholderController.dismiss()
                 }
                 self.isCapturing = false
                 self.activeCaptureIntent = nil
+                self.dependencies.showThumbnails()
                 self.dependencies.showOnboarding(targetScreen)
                 memory.finish("capture missing")
                 return

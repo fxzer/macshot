@@ -19,7 +19,11 @@ enum CaptureDiagnostics {
         if UserDefaults.standard.object(forKey: enabledDefaultsKey) != nil {
             return UserDefaults.standard.bool(forKey: enabledDefaultsKey)
         }
+        #if DEBUG
         return true
+        #else
+        return false
+        #endif
     }
 
     static func log(_ message: @autoclosure () -> String) {

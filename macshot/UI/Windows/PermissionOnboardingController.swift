@@ -4,7 +4,7 @@ import CoreGraphics
 /// A custom onboarding window shown on first launch (or when screen recording
 /// permission is missing). Guides the user step-by-step instead of letting
 /// macOS throw its own generic dialogs.
-class PermissionOnboardingController: NSWindowController {
+class PermissionOnboardingController: NSWindowController, NSWindowDelegate {
 
     // Called when the user has granted permission and we're ready to go
     var onPermissionGranted: (() -> Void)?
@@ -28,6 +28,7 @@ class PermissionOnboardingController: NSWindowController {
         window.isMovableByWindowBackground = true
 
         super.init(window: window)
+        window.delegate = self
         buildUI()
     }
 
@@ -284,8 +285,15 @@ class PermissionOnboardingController: NSWindowController {
     @objc private func continueClicked() {
         pollTimer?.invalidate()
         pollTimer = nil
+        spinner?.stopAnimation(nil)
         window?.orderOut(nil)
         onPermissionGranted?()
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        pollTimer?.invalidate()
+        pollTimer = nil
+        spinner?.stopAnimation(nil)
     }
 
     func updateLocalization() {
