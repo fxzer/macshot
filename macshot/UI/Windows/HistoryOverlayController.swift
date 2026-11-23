@@ -9,7 +9,7 @@ private final class KeyablePanel: NSPanel {
 /// Slides down from the top of the screen. Left-click to copy, right-click for more actions,
 /// ESC or click outside to dismiss.
 @MainActor
-final class HistoryOverlayController: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDelegate {
+final class HistoryOverlayController: NSObject {
 
     private var panel: NSPanel?
     private var contentView: HistoryPanelView?
@@ -17,9 +17,6 @@ final class HistoryOverlayController: NSObject, QLPreviewPanelDataSource, QLPrev
     private var targetApp: NSRunningApplication?
     var previewLoadTask: Task<Void, Never>?
     var onDismiss: (() -> Void)?
-
-    // Quick Look state
-    private var quickLookEntryIndex: Int = -1
 
     private static let panelHeight: CGFloat = 240
     private static let animationDuration: TimeInterval = 0.12
@@ -257,13 +254,11 @@ final class HistoryOverlayController: NSObject, QLPreviewPanelDataSource, QLPrev
     }
 
     func quickLook(index: Int) {
-        quickLookEntryIndex = index
+        let entries = ScreenshotHistory.shared.entries
+        guard index >= 0, index < entries.count else { return }
+        let url = ScreenshotHistory.shared.fileURL(for: entries[index])
         dismiss()
-        guard let qlPanel = QLPreviewPanel.shared() else { return }
-        qlPanel.dataSource = self
-        qlPanel.delegate = self
-        qlPanel.reloadData()
-        qlPanel.makeKeyAndOrderFront(nil)
+        HistoryQuickLookSession.present(url: url)
     }
 
     func saveToFile(index: Int) {
@@ -338,18 +333,65 @@ final class HistoryOverlayController: NSObject, QLPreviewPanelDataSource, QLPrev
         panel?.title = L("Recent Captures")
         contentView?.updateLocalization()
     }
+}
 
-    // MARK: - QLPreviewPanelDataSource
+/// Independent Quick Look session retained until the shared QLPreviewPanel closes,
+/// preventing dangling assign-pointer UAF after HistoryOverlayController deinits.
+private final class HistoryQuickLookSession: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDelegate {
+    @MainActor private static var activeSession: HistoryQuickLookSession?
+
+    private nonisolated let fileURL: URL
+    @MainActor private var closeObserver: NSObjectProtocol?
+
+    init(fileURL: URL) {
+        self.fileURL = fileURL
+        super.init()
+    }
+
+    @MainActor
+    static func present(url: URL) {
+        guard let qlPanel = QLPreviewPanel.shared() else { return }
+
+        if let previous = activeSession, let observer = previous.closeObserver {
+            NotificationCenter.default.removeObserver(observer)
+            previous.closeObserver = nil
+        }
+
+        let session = HistoryQuickLookSession(fileURL: url)
+        activeSession = session
+
+        session.closeObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.willCloseNotification,
+            object: qlPanel,
+            queue: .main
+        ) { [weak session] notification in
+            let panel = notification.object as? QLPreviewPanel
+            MainActor.assumeIsolated {
+                guard let session else { return }
+                if let panel, panel.dataSource === session {
+                    panel.dataSource = nil
+                    panel.delegate = nil
+                }
+                if let observer = session.closeObserver {
+                    NotificationCenter.default.removeObserver(observer)
+                    session.closeObserver = nil
+                }
+                if activeSession === session {
+                    activeSession = nil
+                }
+            }
+        }
+
+        qlPanel.dataSource = session
+        qlPanel.delegate = session
+        qlPanel.reloadData()
+        qlPanel.makeKeyAndOrderFront(nil)
+    }
 
     nonisolated func numberOfPreviewItems(in panel: QLPreviewPanel!) -> Int { 1 }
 
     nonisolated func previewPanel(_ panel: QLPreviewPanel!, previewItemAt index: Int) -> (any QLPreviewItem)! {
-        MainActor.assumeIsolated {
-            let entries = ScreenshotHistory.shared.entries
-            guard quickLookEntryIndex >= 0, quickLookEntryIndex < entries.count else { return nil }
-            let entry = entries[quickLookEntryIndex]
-            return ScreenshotHistory.shared.fileURL(for: entry) as NSURL?
-        }
+        fileURL as NSURL
     }
 }
 
