@@ -23,6 +23,13 @@ class ScreenCaptureManager {
         return (display, screen)
     }
 
+    private static func preferredColorSpaceName(for screen: NSScreen?) -> CFString {
+        guard let cgSpace = screen?.colorSpace?.cgColorSpace else {
+            return CGColorSpace.displayP3
+        }
+        return cgSpace.isWideGamutRGB ? CGColorSpace.displayP3 : CGColorSpace.sRGB
+    }
+
     private static func makeAsset(screen: NSScreen, image: CGImage) -> CaptureImageAsset {
         CaptureImageAsset(
             displayCGImage: image,
@@ -278,7 +285,8 @@ class ScreenCaptureManager {
                                 config.height = display.height * scale
                                 config.showsCursor = false
                                 config.captureResolution = .best
-                                config.colorSpaceName = CGColorSpace.displayP3
+                                config.pixelFormat = kCVPixelFormatType_32BGRA
+                                config.colorSpaceName = preferredColorSpaceName(for: screen)
 
                                 guard let image = try? await SCScreenshotManager.captureImage(
                                     contentFilter: filter, configuration: config
@@ -421,7 +429,8 @@ class ScreenCaptureManager {
                     config.height = display.height * scale
                     config.showsCursor = false
                     config.captureResolution = .best
-                    config.colorSpaceName = CGColorSpace.displayP3
+                    config.pixelFormat = kCVPixelFormatType_32BGRA
+                    config.colorSpaceName = preferredColorSpaceName(for: matchedScreen)
 
                     guard let image = try? await SCScreenshotManager.captureImage(
                         contentFilter: filter,
@@ -528,6 +537,7 @@ class ScreenCaptureManager {
             guard let scWindow = content.windows.first(where: { CGWindowID($0.windowID) == windowID }) else { return nil }
 
             let filter: SCContentFilter
+            var legacySourceRect: CGRect?
             if #available(macOS 14.2, *) {
                 filter = SCContentFilter(desktopIndependentWindow: scWindow)
             } else {
@@ -537,6 +547,13 @@ class ScreenCaptureManager {
                 }) ?? content.displays.first else { return nil }
                 let otherWindows = content.windows.filter { CGWindowID($0.windowID) != windowID }
                 filter = SCContentFilter(display: display, excludingWindows: otherWindows)
+                let displayBounds = CGDisplayBounds(display.displayID)
+                legacySourceRect = CGRect(
+                    x: scWindow.frame.origin.x - displayBounds.origin.x,
+                    y: scWindow.frame.origin.y - displayBounds.origin.y,
+                    width: scWindow.frame.width,
+                    height: scWindow.frame.height
+                )
             }
 
             let config = SCStreamConfiguration()
@@ -546,9 +563,13 @@ class ScreenCaptureManager {
             // capture (progressive subpixel smear across the image).
             config.width = Int((scWindow.frame.width * CGFloat(scale)).rounded())
             config.height = Int((scWindow.frame.height * CGFloat(scale)).rounded())
+            if let legacySourceRect {
+                config.sourceRect = legacySourceRect
+            }
             config.showsCursor = false
             config.captureResolution = .best
-            config.colorSpaceName = CGColorSpace.displayP3
+            config.pixelFormat = kCVPixelFormatType_32BGRA
+            config.colorSpaceName = preferredColorSpaceName(for: screen)
 
             guard let image = try? await SCScreenshotManager.captureImage(
                 contentFilter: filter, configuration: config
@@ -615,14 +636,14 @@ private actor CacheManager {
             return ShareableContentResult(content: try await existing.value, source: .inFlight)
         }
         let task = Task<SCShareableContent, Error> {
-            let content = try await SCShareableContent.excludingDesktopWindows(true, onScreenWindowsOnly: true)
-            cachedContent = content
-            cachedContentTime = Date()
-            inFlightShareableFetch = nil
-            return content
+            try await SCShareableContent.excludingDesktopWindows(true, onScreenWindowsOnly: true)
         }
         inFlightShareableFetch = task
-        return ShareableContentResult(content: try await task.value, source: .freshFetch)
+        defer { inFlightShareableFetch = nil }
+        let content = try await task.value
+        cachedContent = content
+        cachedContentTime = Date()
+        return ShareableContentResult(content: content, source: .freshFetch)
     }
 
     func updateCache(_ content: SCShareableContent) {
