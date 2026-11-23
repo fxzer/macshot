@@ -297,6 +297,7 @@ extension OverlayView {
             showTextField(
                 at: selected.textDrawRect.origin, existingText: selected.attributedText,
                 existingFrame: selected.textDrawRect)
+            cachedCompositedImage = nil
             needsDisplay = true
             return true
         }

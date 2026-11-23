@@ -6094,6 +6094,22 @@
         }
       }
     },
+    "Selection too small" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Selection too small"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选区太小，已取消"
+          }
+        }
+      }
+    },
     "Sends synthetic scroll events to automatically scroll the page" : {
       "extractionState" : "stale",
       "localizations" : {

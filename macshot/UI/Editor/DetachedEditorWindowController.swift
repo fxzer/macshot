@@ -500,8 +500,14 @@ extension DetachedEditorWindowController: OverlayViewDelegate {
         if shouldShowWindow {
             Self.activeOCRController?.close()
             let ocr = OCRResultController.loading()
+            let id = ObjectIdentifier(ocr)
+            ocr.onClose = {
+                if let current = Self.activeOCRController, ObjectIdentifier(current) == id {
+                    Self.activeOCRController = nil
+                }
+            }
             Self.activeOCRController = ocr
-            ocrID = ObjectIdentifier(ocr)
+            ocrID = id
             ocr.show()
         } else {
             ocrID = nil

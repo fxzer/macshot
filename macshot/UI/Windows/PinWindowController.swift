@@ -375,8 +375,9 @@ private class PinView: NSView {
         }
 
         if showsDecorations {
-            // Apply clipping path with rounded corners
-            let path = NSBezierPath(roundedRect: bounds, xRadius: 6, yRadius: 6)
+            // Apply clipping path with rounded corners matching drawRect so 1:1 odd-pixel
+            // captures (ceil bounds) never show a 0.5pt transparent gap inside the border.
+            let path = NSBezierPath(roundedRect: drawRect, xRadius: 6, yRadius: 6)
             path.addClip()
 
             // Draw the image
@@ -384,7 +385,7 @@ private class PinView: NSView {
 
             // Draw border
             NSColor.white.withAlphaComponent(0.3).setStroke()
-            let border = NSBezierPath(roundedRect: bounds.insetBy(dx: 0.5, dy: 0.5), xRadius: 6, yRadius: 6)
+            let border = NSBezierPath(roundedRect: drawRect.insetBy(dx: 0.5, dy: 0.5), xRadius: 6, yRadius: 6)
             border.lineWidth = 1
             border.stroke()
         } else {

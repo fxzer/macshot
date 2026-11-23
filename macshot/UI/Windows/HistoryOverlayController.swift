@@ -352,13 +352,15 @@ private final class HistoryQuickLookSession: NSObject, QLPreviewPanelDataSource,
     static func present(url: URL) {
         guard let qlPanel = QLPreviewPanel.shared() else { return }
 
-        if let previous = activeSession, let observer = previous.closeObserver {
+        // Keep the previous session alive until qlPanel's assign pointers are repointed
+        // to the new session, avoiding a dangling-pointer window during replacement.
+        let previous = activeSession
+        if let previous, let observer = previous.closeObserver {
             NotificationCenter.default.removeObserver(observer)
             previous.closeObserver = nil
         }
 
         let session = HistoryQuickLookSession(fileURL: url)
-        activeSession = session
 
         session.closeObserver = NotificationCenter.default.addObserver(
             forName: NSWindow.willCloseNotification,
@@ -384,6 +386,9 @@ private final class HistoryQuickLookSession: NSObject, QLPreviewPanelDataSource,
 
         qlPanel.dataSource = session
         qlPanel.delegate = session
+        activeSession = session
+        _ = previous
+
         qlPanel.reloadData()
         qlPanel.makeKeyAndOrderFront(nil)
     }

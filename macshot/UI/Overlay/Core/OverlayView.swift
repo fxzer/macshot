@@ -136,6 +136,10 @@ class OverlayView: NSView {
             ann.outlineGlowImage = nil
             // sourceImage is a reference to screenshotImage — don't nil it here
             // (it may still be referenced by live annotations).
+        case .deletedBatch(let items, _):
+            for (ann, _) in items {
+                ann.outlineGlowImage = nil
+            }
         case .propertyChange(_, let snapshot):
             snapshot.outlineGlowImage = nil
             snapshot.textImage = nil

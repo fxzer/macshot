@@ -1,6 +1,8 @@
 import Cocoa
 
-class OCRResultController: NSObject {
+class OCRResultController: NSObject, NSWindowDelegate {
+
+    var onClose: (() -> Void)?
 
     private var window: NSPanel?
     private var textView: NSTextView?
@@ -13,6 +15,7 @@ class OCRResultController: NSObject {
     private var originalText: String
     private var isLoading = false
     private var hasDetectedText = false
+    private var didFinishClose = false
 
     init(text: String, isLoading: Bool = false) {
         self.originalText = text
@@ -56,6 +59,7 @@ class OCRResultController: NSObject {
         panel.minSize = NSSize(width: 420, height: 300)
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.isMovableByWindowBackground = false
+        panel.delegate = self
 
         let cv = NSView(frame: NSRect(x: 0, y: 0, width: W, height: H))
         cv.autoresizingMask = [.width, .height]
@@ -174,9 +178,25 @@ class OCRResultController: NSObject {
     }
 
     func close() {
-        window?.orderOut(nil)
-        window?.close()
+        if let win = window {
+            win.orderOut(nil)
+            win.close()
+        }
+        finalizeCloseIfNeeded()
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        finalizeCloseIfNeeded()
+    }
+
+    private func finalizeCloseIfNeeded() {
+        guard !didFinishClose else { return }
+        didFinishClose = true
+        window?.delegate = nil
         window = nil
+        let callback = onClose
+        onClose = nil
+        callback?()
         MainActor.assumeIsolated {
             (NSApp.delegate as? AppDelegate)?.returnFocusIfNeeded()
         }

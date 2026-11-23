@@ -51,6 +51,7 @@ extension OverlayViewDelegate {
 enum UndoEntry {
     case added(Annotation)
     case deleted(Annotation, Int)
+    case deletedBatch([(Annotation, Int)], previousSelection: NSRect?)
     case imageTransform(previousImage: NSImage, annotationOffsets: [(Annotation, CGFloat, CGFloat)])
     case propertyChange(annotation: Annotation, snapshot: Annotation)
 
@@ -58,6 +59,13 @@ enum UndoEntry {
         switch self {
         case .added(let annotation), .deleted(let annotation, _):
             return annotation
+        case .deletedBatch(let items, _):
+            return items.first?.0 ?? Annotation(
+                tool: .measure,
+                startPoint: .zero,
+                endPoint: .zero,
+                color: .clear,
+                strokeWidth: 0)
         case .propertyChange(let annotation, _):
             return annotation
         case .imageTransform:

@@ -260,8 +260,6 @@ final class ScrollCaptureEngine {
         ) as? [[String: Any]] else { return }
 
         let excluded = Set(excludedWindowIDs)
-        var foundWindow = false
-        var foundApp = false
 
         for info in windowList {
             guard let layer = info[kCGWindowLayer as String] as? Int, layer == 0,
@@ -278,17 +276,11 @@ final class ScrollCaptureEngine {
             )
             guard cgRect.contains(centerPoint) else { continue }
 
-            if !foundWindow {
-                targetWindowID = CGWindowID(winID)
-                foundWindow = true
-            }
-            if !foundApp, let pid = info[kCGWindowOwnerPID as String] as? pid_t {
+            targetWindowID = CGWindowID(winID)
+            if let pid = info[kCGWindowOwnerPID as String] as? pid_t {
                 targetAppPID = pid
-                foundApp = true
             }
-            if foundWindow && foundApp {
-                return
-            }
+            return
         }
     }
 
@@ -315,13 +307,28 @@ final class ScrollCaptureEngine {
         }
 
         let listOption: CGWindowListOption = excludeSet.isEmpty ? [.optionOnScreenOnly] : [.optionOnScreenBelowWindow]
-        let windowID = excludeSet.first ?? kCGNullWindowID
+        let windowID = excludeSet.isEmpty ? kCGNullWindowID : lowestExcludedWindowID(in: excludeSet)
 
         guard let image = CGWindowListCreateImage(
             captureRectCG, listOption, windowID, imageOption
         ) else { return nil }
 
         return image
+    }
+
+    /// Returns the lowest (backmost) window ID in `excludeSet` according to front-to-back
+    /// window server ordering, so `.optionOnScreenBelowWindow` excludes all own windows.
+    private func lowestExcludedWindowID(in excludeSet: Set<CGWindowID>) -> CGWindowID {
+        if let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]] {
+            var lowest: CGWindowID?
+            for info in list {
+                if let winID = info[kCGWindowNumber as String] as? CGWindowID, excludeSet.contains(winID) {
+                    lowest = winID
+                }
+            }
+            if let lowest { return lowest }
+        }
+        return excludedWindowIDs.last ?? kCGNullWindowID
     }
 
     /// Captures a settled frame: grabs frames until two consecutive raw pixel buffers

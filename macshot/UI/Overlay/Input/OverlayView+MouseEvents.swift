@@ -197,14 +197,12 @@ extension OverlayView {
             // Outside everything - start new selection (locked during recording or editor mode)
             guard shouldAllowNewSelection() else { return }
             showToolbars = false
-            // Keep existing annotations recoverable: push them onto the undo stack as a
-            // batch deletion so an accidental click outside the selection is undoable (Cmd+Z).
+            // Keep existing annotations recoverable without mutating Annotation.groupID,
+            // so earlier per-annotation undo history remains intact and accidental clicks
+            // outside the selection (even if cancelled back to .idle) can be undone via Cmd+Z.
             if !annotations.isEmpty {
-                let group = UUID()
-                for (index, ann) in annotations.enumerated() {
-                    ann.groupID = group
-                    undoStack.append(.deleted(ann, index))
-                }
+                let deletedItems = annotations.enumerated().map { ($0.element, $0.offset) }
+                undoStack.append(.deletedBatch(deletedItems, previousSelection: selectionRect))
                 annotations.removeAll()
                 selectedAnnotations.removeAll()
                 hoveredAnnotation = nil
@@ -656,8 +654,10 @@ extension OverlayView {
         lastDragPoint = nil
         switch state {
         case .selecting:
-            if selectionRect.width > 5 && selectionRect.height > 5 {
-                // Real drag — use drawn rect as-is
+            if max(selectionRect.width, selectionRect.height) > 5
+                && min(selectionRect.width, selectionRect.height) >= 2
+            {
+                // Real drag — use drawn rect as-is (allows intentional thin strips, rejects 1px jitter)
                 state = .selected
 
                 // Hide color sampler magnifier when entering selected state

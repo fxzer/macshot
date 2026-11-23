@@ -159,6 +159,10 @@ extension OverlayView {
                     return true
                 default: break
                 }
+            } else if state == .idle, !undoStack.isEmpty, key == 6, !event.modifierFlags.contains(.shift) {
+                // Allow Cmd+Z after an accidental click outside selection collapsed back to .idle
+                undo()
+                return true
             }
         }
         return super.performKeyEquivalent(with: event)

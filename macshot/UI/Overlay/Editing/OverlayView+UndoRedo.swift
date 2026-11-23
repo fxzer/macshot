@@ -56,6 +56,19 @@ extension OverlayView {
                 if ann.tool == .number { numberCounter += 1 }
                 redoStack.append(.deleted(ann, idx))
             }
+        case .deletedBatch(let items, let previousSelection):
+            // Undo a batch deletion without mutating Annotation.groupID.
+            for (ann, idx) in items {
+                let safeIdx = min(idx, annotations.count)
+                annotations.insert(ann, at: safeIdx)
+                if ann.tool == .number { numberCounter += 1 }
+            }
+            if state == .idle, let prevRect = previousSelection, !prevRect.isEmpty {
+                selectionRect = prevRect
+                state = .selected
+                if !hasPendingAutoAction { showToolbars = true }
+            }
+            redoStack.append(.deletedBatch(items, previousSelection: previousSelection))
         case .propertyChange(let ann, let snapshot):
             // Undo property change — swap current state with snapshot
             let currentSnapshot = ann.propertyChangeSnapshot()
@@ -124,12 +137,21 @@ extension OverlayView {
                     annotations.removeAll { $0 === e.annotation }
                     if e.annotation.tool == .number { numberCounter = max(0, numberCounter - 1) }
                 }
+                clearHoverIfNeeded(batch.map { $0.annotation })
                 undoStack.append(contentsOf: batch)
             } else {
                 annotations.removeAll { $0 === ann }
                 if ann.tool == .number { numberCounter = max(0, numberCounter - 1) }
+                clearHoverIfNeeded([ann])
                 undoStack.append(.deleted(ann, idx))
             }
+        case .deletedBatch(let items, let previousSelection):
+            for (ann, _) in items {
+                annotations.removeAll { $0 === ann }
+                if ann.tool == .number { numberCounter = max(0, numberCounter - 1) }
+            }
+            clearHoverIfNeeded(items.map(\.0))
+            undoStack.append(.deletedBatch(items, previousSelection: previousSelection))
         case .propertyChange(let ann, let snapshot):
             // Redo property change — swap again
             let currentSnapshot = ann.propertyChangeSnapshot()
