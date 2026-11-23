@@ -68,20 +68,12 @@ enum ImageEncoder {
     private static let bitmapCache: NSCache<BitmapCacheKey, NSBitmapImageRep> = {
         let cache = NSCache<BitmapCacheKey, NSBitmapImageRep>()
         cache.countLimit = 1
-        cache.totalCostLimit = 32 * 1024 * 1024
+        cache.totalCostLimit = 64 * 1024 * 1024
         return cache
     }()
 
     private static let cacheLock = NSLock()
     private static var cacheGeneration: UInt64 = 0
-
-    /// Drop any cached downscaled bitmap immediately.
-    static func clearBitmapCache() {
-        cacheLock.lock()
-        cacheGeneration &+= 1
-        cacheLock.unlock()
-        bitmapCache.removeAllObjects()
-    }
 
     /// Key holding a strong reference to the source NSImage (keeps the image
     /// alive so its ObjectIdentifier remains stable) plus the downscale flag.
@@ -126,10 +118,10 @@ enum ImageEncoder {
         let bitmap = makeBitmapUncached(image, downscale: true)
 
         if let bitmap {
+            // Cost counts only the downscaled bitmap; counting the full-res source too
+            // made 4K/5K entries exceed totalCostLimit and get silently dropped by NSCache.
             let bitmapBytes = bitmap.bytesPerRow * bitmap.pixelsHigh
-            let sourceBytes = image.cgImage(forProposedRect: nil, context: nil, hints: nil)
-                .map { $0.bytesPerRow * $0.height } ?? bitmapBytes
-            bitmapCache.setObject(bitmap, forKey: cacheKey, cost: bitmapBytes + sourceBytes)
+            bitmapCache.setObject(bitmap, forKey: cacheKey, cost: bitmapBytes)
 
             // Auto-evict after the save+clipboard handoff window so idle memory stays flat.
             cacheLock.lock()

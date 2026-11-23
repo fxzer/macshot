@@ -3,28 +3,37 @@ import SwiftUI
 
 class BeautifyRenderer {
 
-    private static var ciContextInitialized = false
+    private static let ciContextLock = NSLock()
+    private static var _sharedCIContext: CIContext?
 
     /// Shared CIContext — reused across all blur and rendering operations.
     /// CIContext allocation is expensive (GPU/Metal resource setup); avoid creating per-call.
     /// `.cacheIntermediates: false` prevents CoreImage from holding tens of megabytes of
     /// half-float RGhA IOSurfaces after capture/editing ends.
-    static let sharedCIContext: CIContext = {
-        ciContextInitialized = true
+    static var sharedCIContext: CIContext {
+        ciContextLock.lock()
+        defer { ciContextLock.unlock() }
+        if let existing = _sharedCIContext {
+            return existing
+        }
         let linearP3 = CGColorSpace(name: CGColorSpace.extendedLinearDisplayP3)
         let p3 = CGColorSpace(name: CGColorSpace.displayP3) ?? CGColorSpaceCreateDeviceRGB()
-        return CIContext(options: [
+        let ctx = CIContext(options: [
             .useSoftwareRenderer: false,
             .cacheIntermediates: false,
             .workingColorSpace: linearP3 ?? p3,
             .outputColorSpace: p3,
         ])
-    }()
+        _sharedCIContext = ctx
+        return ctx
+    }
 
     /// Release GPU/IOSurface caches held by `sharedCIContext` without lazily initializing it.
     static func clearCachesIfInitialized() {
-        guard ciContextInitialized else { return }
-        sharedCIContext.clearCaches()
+        ciContextLock.lock()
+        let ctx = _sharedCIContext
+        ciContextLock.unlock()
+        ctx?.clearCaches()
     }
 
     /// Apply Gaussian blur to a CGImage and return the blurred result.
