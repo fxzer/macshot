@@ -5,18 +5,24 @@ import CoreGraphics
 /// This preserves 100% accurate native window shadows, subpixel rendering, and active states,
 /// which are discarded by ScreenCaptureKit's re-compositing pipeline.
 enum WindowListDisplaySnapshot {
-    private typealias CGDisplayCreateImageFunc = @convention(c) (CGDirectDisplayID) -> CGImage?
-    private typealias CGWindowListCreateImageFromArrayFunc = @convention(c) (CGRect, CFArray, CGWindowImageOption) -> CGImage?
+    // CGDisplayCreateImage / CGWindowListCreateImageFromArray 均遵循 Core Foundation Create Rule，
+    // 返回 +1 retained 的 CGImageRef。Swift 对 @convention(c) 函数指针看不到 CF_RETURNS_RETAINED，
+    // 若直接写成 `-> CGImage?` 会按 +0 unretained 额外插入一次 CFRetain，导致每次截屏的整屏
+    // CGImage 及其底层 Mach Message 像素缓冲（8 MB - 31.6 MB）永久泄漏。
+    // 因此必须声明返回 `Unmanaged<CGImage>?` 并在调用点用 `takeRetainedValue()` 接管所有权。
+    private typealias CGDisplayCreateImageFunc = @convention(c) (CGDirectDisplayID) -> Unmanaged<CGImage>?
+    private typealias CGWindowListCreateImageFromArrayFunc = @convention(c) (CGRect, CFArray, CGWindowImageOption) -> Unmanaged<CGImage>?
+
+    // RTLD_DEFAULT ((void*)-2)：直接在当前进程已加载符号表中查找，无需额外的 dlopen 句柄。
+    private static let rtldDefault = UnsafeMutableRawPointer(bitPattern: -2)
 
     private static let cgDisplayCreateImage: CGDisplayCreateImageFunc? = {
-        guard let handle = dlopen(nil, RTLD_NOW),
-              let sym = dlsym(handle, "CGDisplayCreateImage") else { return nil }
+        guard let sym = dlsym(rtldDefault, "CGDisplayCreateImage") else { return nil }
         return unsafeBitCast(sym, to: CGDisplayCreateImageFunc.self)
     }()
 
     private static let cgWindowListCreateImageFromArray: CGWindowListCreateImageFromArrayFunc? = {
-        guard let handle = dlopen(nil, RTLD_NOW),
-              let sym = dlsym(handle, "CGWindowListCreateImageFromArray") else { return nil }
+        guard let sym = dlsym(rtldDefault, "CGWindowListCreateImageFromArray") else { return nil }
         return unsafeBitCast(sym, to: CGWindowListCreateImageFromArrayFunc.self)
     }()
 
@@ -30,7 +36,7 @@ enum WindowListDisplaySnapshot {
         let excluded = excludingWindowIDs.filter { $0 != 0 && $0 != CGWindowID.max }
 
         if excluded.isEmpty {
-            if let fn = cgDisplayCreateImage, let img = fn(displayID) {
+            if let fn = cgDisplayCreateImage, let img = fn(displayID)?.takeRetainedValue() {
                 return img
             }
         }
@@ -46,11 +52,13 @@ enum WindowListDisplaySnapshot {
             CFArrayCreate(kCFAllocatorDefault, $0.baseAddress, $0.count, nil)
         }
 
-        if let fn = cgWindowListCreateImageFromArray, let arr = windowArray, let img = fn(bounds, arr, .bestResolution) {
+        if let fn = cgWindowListCreateImageFromArray,
+           let arr = windowArray,
+           let img = fn(bounds, arr, .bestResolution)?.takeRetainedValue() {
             return img
         }
 
-        if let fn = cgDisplayCreateImage, let img = fn(displayID) {
+        if let fn = cgDisplayCreateImage, let img = fn(displayID)?.takeRetainedValue() {
             return img
         }
 
