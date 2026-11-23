@@ -7,6 +7,7 @@ final class ScrollCaptureFlowCoordinator {
         let overlayControllers: () -> [OverlayWindowController]
         let dismissOverlays: () -> Void
         let handleCompletedImage: (NSImage) -> Void
+        let showError: (String) -> Void
     }
 
     private let dependencies: Dependencies
@@ -117,6 +118,8 @@ final class ScrollCaptureFlowCoordinator {
 
         if let completedImage {
             dependencies.handleCompletedImage(completedImage)
+        } else {
+            dependencies.showError(L("Scroll capture failed — no content was captured"))
         }
     }
 

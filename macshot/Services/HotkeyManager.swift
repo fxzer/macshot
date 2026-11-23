@@ -104,12 +104,22 @@ class HotkeyManager {
         )
         if status == noErr, let ref = ref {
             hotKeyRefs[slot] = ref
+        } else {
+            registrationFailures.append((slot, status))
         }
     }
+
+    /// Slots whose hotkey failed to register (e.g. conflict with another app).
+    /// Consumed by `registerAll` via `onRegistrationFailure`.
+    private var registrationFailures: [(HotkeySlot, OSStatus)] = []
+
+    /// Called on the main thread after `registerAll` if any hotkey failed to register.
+    var onRegistrationFailure: (([HotkeySlot]) -> Void)?
 
     /// Register all hotkeys with their callbacks.
     func registerAll(captureArea: @escaping () -> Void, captureFullScreen: @escaping () -> Void, historyOverlay: @escaping () -> Void, captureOCR: @escaping () -> Void, quickCapture: @escaping () -> Void, scrollCapture: @escaping () -> Void, openFromClipboard: @escaping () -> Void) {
         unregisterAll()
+        registrationFailures.removeAll()
         register(slot: .captureArea, callback: captureArea)
         register(slot: .captureFullScreen, callback: captureFullScreen)
         register(slot: .historyOverlay, callback: historyOverlay)
@@ -117,6 +127,11 @@ class HotkeyManager {
         register(slot: .quickCapture, callback: quickCapture)
         register(slot: .scrollCapture, callback: scrollCapture)
         register(slot: .openFromClipboard, callback: openFromClipboard)
+
+        if !registrationFailures.isEmpty, let onRegistrationFailure {
+            let slots = registrationFailures.map(\.0)
+            DispatchQueue.main.async { onRegistrationFailure(slots) }
+        }
     }
 
     private func installEventHandler() {

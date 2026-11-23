@@ -2853,6 +2853,22 @@
         }
       }
     },
+    "Google Drive login expired — please sign in again in Settings" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Google Drive login expired — please sign in again in Settings"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Google Drive 登录已过期，请在设置中重新登录"
+          }
+        }
+      }
+    },
     "Google Translate" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -3007,6 +3023,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "按住 1 自动垂直  ·  按住 2 自动水平"
+          }
+        }
+      }
+    },
+    "Hotkey registration failed: %@. It may conflict with another app — change it in Settings." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hotkey registration failed: %@. It may conflict with another app — change it in Settings."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "快捷键注册失败：%@。可能已被其他应用占用，请在设置中更换。"
           }
         }
       }
@@ -4145,6 +4177,70 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "右键点击"
+          }
+        }
+      }
+    },
+    "No faces detected" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No faces detected"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未检测到人脸"
+          }
+        }
+      }
+    },
+    "No people detected" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No people detected"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未检测到人物"
+          }
+        }
+      }
+    },
+    "No sensitive content detected" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No sensitive content detected"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未检测到敏感信息"
+          }
+        }
+      }
+    },
+    "No text detected" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No text detected"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未检测到文字"
           }
         }
       }
@@ -5971,6 +6067,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "滚动捕获"
+          }
+        }
+      }
+    },
+    "Scroll capture failed — no content was captured" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scroll capture failed — no content was captured"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "滚动截图失败：未能采集到画面"
           }
         }
       }

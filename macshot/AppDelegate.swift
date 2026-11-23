@@ -109,12 +109,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         dependencies: .init(
             overlayControllers: { [weak self] in self?.overlayControllers ?? [] },
             dismissOverlays: { [weak self] in self?.dismissOverlays() },
-            handleCompletedImage: { [weak self] image in self?.completeScrollCapture(with: image) }
+            handleCompletedImage: { [weak self] image in self?.completeScrollCapture(with: image) },
+            showError: { [weak self] message in self?.showStatusError(message: message) }
         )
     )
 
     func applicationDidFinishLaunching(_ aNotification: Notification) {
         migrateSoundSettings()
+        HotkeyManager.shared.onRegistrationFailure = { [weak self] slots in
+            let labels = slots.map(\.label).joined(separator: ", ")
+            self?.showStatusError(message: String.localizedStringWithFormat(
+                L("Hotkey registration failed: %@. It may conflict with another app — change it in Settings."),
+                labels
+            ))
+        }
         NSApp.servicesProvider = self
         NSUpdateDynamicServices()
         guard launchCoordinator.applicationDidFinishLaunching() else { return }
