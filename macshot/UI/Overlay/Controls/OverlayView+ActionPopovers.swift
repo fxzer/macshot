@@ -32,11 +32,11 @@ extension OverlayView {
         picker.items = types.map {
             .init(title: $0.label, isSelected: UserDefaults.standard.object(forKey: $0.key) as? Bool ?? true)
         }
-        picker.onSelect = { [weak self] index in
+        picker.onSelect = { [weak self, weak picker] index in
             let key = types[index].key
             let newValue = !(UserDefaults.standard.object(forKey: key) as? Bool ?? true)
             UserDefaults.standard.set(newValue, forKey: key)
-            picker.updateItem(at: index, isSelected: newValue)
+            picker?.updateItem(at: index, isSelected: newValue)
             self?.needsDisplay = true
         }
 

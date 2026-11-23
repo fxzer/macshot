@@ -77,10 +77,10 @@ extension OverlayView {
         picker.customColors = customColors
         picker.selectedColorSlot = selectedColorSlot
 
-        picker.onColorChanged = { [weak self] color in
+        picker.onColorChanged = { [weak self, weak picker] color in
             guard let self = self else { return }
             self.applyPickedColor(color)
-            picker.saveToSelectedSlot(color)
+            picker?.saveToSelectedSlot(color)
             self.toolOptionsRowView?.updateSwatchColors()
             self.needsDisplay = true
         }

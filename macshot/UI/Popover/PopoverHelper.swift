@@ -38,6 +38,7 @@ enum PopoverHelper {
         let vc = NSViewController()
         vc.view = cursorWrapped(contentView)
         popover.contentViewController = vc
+        popover.delegate = AnchorCleanupDelegate.shared
         popover.show(relativeTo: rect, of: view, preferredEdge: preferredEdge)
 
         // Ensure popover appears above high-level overlay windows
@@ -89,11 +90,18 @@ enum PopoverHelper {
     }
 
     static func dismiss() {
-        activePopover?.close()
+        let popover = activePopover
         activePopover = nil
+        currentPopoverType = nil
+        popover?.delegate = nil
+        popover?.close()
         anchorView?.removeFromSuperview()
         anchorView = nil
-        currentPopoverType = nil
+    }
+
+    fileprivate static func handlePopoverDidClose(_ popover: NSPopover?) {
+        guard popover == nil || popover === activePopover else { return }
+        dismiss()
     }
 
     static var isVisible: Bool {
@@ -146,10 +154,10 @@ private class ArrowCursorView: NSView {
     }
 }
 
-// Cleans up the invisible anchor view when the popover closes
+// Cleans up the active popover and invisible anchor view when the popover closes
 private class AnchorCleanupDelegate: NSObject, NSPopoverDelegate {
     static let shared = AnchorCleanupDelegate()
     func popoverDidClose(_ notification: Notification) {
-        PopoverHelper.dismiss()
+        PopoverHelper.handlePopoverDidClose(notification.object as? NSPopover)
     }
 }
