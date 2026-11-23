@@ -172,7 +172,7 @@ extension OverlayView {
                 let canvasPoint = viewToCanvas(point)
                 // Check if clicking on any movable annotation
                 let clickedOnAnnotation = annotations.reversed().contains(where: { $0.isMovable && $0.hitTest(point: canvasPoint) })
-                if !clickedOnAnnotation && currentTool == .select {
+                if !isEditorMode && !clickedOnAnnotation && currentTool == .select {
                     // Inside selection but not on any annotation — start dragging selection
                     isDraggingSelection = true
                     selectionWasRestoredFromMemory = false
@@ -197,8 +197,18 @@ extension OverlayView {
             // Outside everything - start new selection (locked during recording or editor mode)
             guard shouldAllowNewSelection() else { return }
             showToolbars = false
-            annotations.removeAll()
-            undoStack.removeAll()
+            // Keep existing annotations recoverable: push them onto the undo stack as a
+            // batch deletion so an accidental click outside the selection is undoable (Cmd+Z).
+            if !annotations.isEmpty {
+                let group = UUID()
+                for (index, ann) in annotations.enumerated() {
+                    ann.groupID = group
+                    undoStack.append(.deleted(ann, index))
+                }
+                annotations.removeAll()
+                selectedAnnotations.removeAll()
+                hoveredAnnotation = nil
+            }
             redoStack.removeAll()
             numberCounter = 0
             resetZoom()
@@ -646,7 +656,7 @@ extension OverlayView {
         lastDragPoint = nil
         switch state {
         case .selecting:
-            if selectionRect.width > 5 || selectionRect.height > 5 {
+            if selectionRect.width > 5 && selectionRect.height > 5 {
                 // Real drag — use drawn rect as-is
                 state = .selected
 
@@ -662,7 +672,7 @@ extension OverlayView {
                 overlayDelegate?.overlayViewDidFinishSelection(selectionRect)
                 clearSelectionSizeSnapState()
             } else if windowSnapEnabled, let snapRect = hoveredWindowRect, !snapRect.isEmpty {
-                // Click (no drag) with snap on — snap to hovered window
+                // Click (or tiny jitter) with snap on — snap to hovered window
                 selectionRect = snapRect
                 selectionIsWindowSnap = true
                 snappedWindowID = hoveredWindowID
@@ -691,6 +701,15 @@ extension OverlayView {
                 if !hasPendingAutoAction { showToolbars = true }
                 overlayDelegate?.overlayViewDidFinishSelection(selectionRect)
                 clearSelectionSizeSnapState()
+            } else if selectionRect.width > 1 || selectionRect.height > 1 {
+                // Degenerate drag (a couple of pixels in one dimension) without window snap — accidental.
+                // Cancel instead of silently selecting the whole screen.
+                state = .idle
+                selectionRect = .zero
+                showToolbars = false
+                selectionWasRestoredFromMemory = false
+                showOverlayHint(L("Selection too small"))
+                needsDisplay = true
             } else {
                 // Click (no drag), snap off — expand to full screen
                 selectionRect = bounds

@@ -19,7 +19,7 @@ extension OverlayView {
             // Undo an addition — handle batch (groupID) or single
             if let groupID = ann.groupID {
                 var batch: [UndoEntry] = [.added(ann)]
-                while let prev = undoStack.last, prev.annotation.groupID == groupID {
+                while let prev = undoStack.last, prev.annotation.groupID == groupID, case .added = prev {
                     undoStack.removeLast()
                     batch.append(prev)
                 }
@@ -34,11 +34,28 @@ extension OverlayView {
                 clearHoverIfNeeded([ann])
             }
         case .deleted(let ann, let idx):
-            // Undo a deletion — re-insert at original position
-            let safeIdx = min(idx, annotations.count)
-            annotations.insert(ann, at: safeIdx)
-            if ann.tool == .number { numberCounter += 1 }
-            redoStack.append(.deleted(ann, idx))
+            // Undo a deletion — re-insert at original position (batch-aware via groupID)
+            if let groupID = ann.groupID {
+                var batch: [UndoEntry] = [.deleted(ann, idx)]
+                while let prev = undoStack.last, prev.annotation.groupID == groupID, case .deleted = prev {
+                    undoStack.removeLast()
+                    batch.append(prev)
+                }
+                // Re-insert in original index order (batch was collected stack-first).
+                for e in batch.reversed() {
+                    if case .deleted(let a, let i) = e {
+                        let safeIdx = min(i, annotations.count)
+                        annotations.insert(a, at: safeIdx)
+                        if a.tool == .number { numberCounter += 1 }
+                    }
+                }
+                redoStack.append(contentsOf: batch)
+            } else {
+                let safeIdx = min(idx, annotations.count)
+                annotations.insert(ann, at: safeIdx)
+                if ann.tool == .number { numberCounter += 1 }
+                redoStack.append(.deleted(ann, idx))
+            }
         case .propertyChange(let ann, let snapshot):
             // Undo property change — swap current state with snapshot
             let currentSnapshot = ann.propertyChangeSnapshot()
@@ -83,7 +100,7 @@ extension OverlayView {
         case .added(let ann):
             if let groupID = ann.groupID {
                 var batch: [UndoEntry] = [.added(ann)]
-                while let next = redoStack.last, next.annotation.groupID == groupID {
+                while let next = redoStack.last, next.annotation.groupID == groupID, case .added = next {
                     redoStack.removeLast()
                     batch.append(next)
                 }
@@ -96,10 +113,23 @@ extension OverlayView {
                 undoStack.append(.added(ann))
             }
         case .deleted(let ann, let idx):
-            // Redo a deletion — remove again
-            annotations.removeAll { $0 === ann }
-            if ann.tool == .number { numberCounter = max(0, numberCounter - 1) }
-            undoStack.append(.deleted(ann, idx))
+            // Redo a deletion — remove again (batch-aware via groupID)
+            if let groupID = ann.groupID {
+                var batch: [UndoEntry] = [.deleted(ann, idx)]
+                while let next = redoStack.last, next.annotation.groupID == groupID, case .deleted = next {
+                    redoStack.removeLast()
+                    batch.append(next)
+                }
+                for e in batch {
+                    annotations.removeAll { $0 === e.annotation }
+                    if e.annotation.tool == .number { numberCounter = max(0, numberCounter - 1) }
+                }
+                undoStack.append(contentsOf: batch)
+            } else {
+                annotations.removeAll { $0 === ann }
+                if ann.tool == .number { numberCounter = max(0, numberCounter - 1) }
+                undoStack.append(.deleted(ann, idx))
+            }
         case .propertyChange(let ann, let snapshot):
             // Redo property change — swap again
             let currentSnapshot = ann.propertyChangeSnapshot()

@@ -478,12 +478,6 @@ extension OverlayView {
         )
 
         let moveButtonT0 = CFAbsoluteTimeGetCurrent()
-        for bv in rightStripView?.buttonViews ?? [] {
-            if case .moveSelection = bv.action, bv.onMouseDown == nil {
-                bv.onMouseDown = { [weak self] _ in self?.handleToolbarAction(.moveSelection) }
-            }
-        }
-
         for strip in [topStripView, rightStripView] {
             for bv in strip?.buttonViews ?? [] {
                 if case .moveSelection = bv.action, bv.onMouseDown == nil {
