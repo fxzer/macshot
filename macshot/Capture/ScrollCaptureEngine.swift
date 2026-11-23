@@ -166,9 +166,8 @@ final class ScrollCaptureEngine {
             height: captureRect.height
         )
 
-        // Find the target window under the capture region
-        resolveTargetWindow()
-        resolveTargetApp()
+        // Find the target window and owning app under the capture region in a single IPC call
+        resolveTargetWindowAndApp()
 
         // Capture first settled frame
         guard let firstFrame = await captureSettledFrame() else {
@@ -183,7 +182,7 @@ final class ScrollCaptureEngine {
         }
 
         sessionState = .active
-        shotA = nil
+        shotA = firstFrame
         shotB = nil
         mergedImage = firstFrame
         headerHeight = 0
@@ -252,16 +251,18 @@ final class ScrollCaptureEngine {
 
     // MARK: - Target window/app management
 
-    /// Finds the window ID under the capture region center for targeted capture.
-    private func resolveTargetWindow() {
-        let centerX = captureRectCG.midX
-        let centerY = captureRectCG.midY
+    /// Finds the window ID and owning PID under the capture region center in one query.
+    private func resolveTargetWindowAndApp() {
+        let centerPoint = CGPoint(x: captureRectCG.midX, y: captureRectCG.midY)
 
         guard let windowList = CGWindowListCopyWindowInfo(
             [.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID
         ) as? [[String: Any]] else { return }
 
         let excluded = Set(excludedWindowIDs)
+        var foundWindow = false
+        var foundApp = false
+
         for info in windowList {
             guard let layer = info[kCGWindowLayer as String] as? Int, layer == 0,
                   let boundsDict = info[kCGWindowBounds as String] as? [String: CGFloat],
@@ -269,44 +270,23 @@ final class ScrollCaptureEngine {
                   !excluded.contains(CGWindowID(winID))
             else { continue }
 
-            let x = boundsDict["X"] ?? 0
-            let y = boundsDict["Y"] ?? 0
-            let w = boundsDict["Width"] ?? 0
-            let h = boundsDict["Height"] ?? 0
-            let cgRect = CGRect(x: x, y: y, width: w, height: h)
+            let cgRect = CGRect(
+                x: boundsDict["X"] ?? 0,
+                y: boundsDict["Y"] ?? 0,
+                width: boundsDict["Width"] ?? 0,
+                height: boundsDict["Height"] ?? 0
+            )
+            guard cgRect.contains(centerPoint) else { continue }
 
-            if cgRect.contains(CGPoint(x: centerX, y: centerY)) {
+            if !foundWindow {
                 targetWindowID = CGWindowID(winID)
-                return
+                foundWindow = true
             }
-        }
-    }
-
-    private func resolveTargetApp() {
-        let centerX = captureRectCG.midX
-        let centerY = captureRectCG.midY
-
-        guard let windowList = CGWindowListCopyWindowInfo(
-            [.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID
-        ) as? [[String: Any]] else { return }
-
-        let excluded = Set(excludedWindowIDs)
-        for info in windowList {
-            guard let layer = info[kCGWindowLayer as String] as? Int, layer == 0,
-                  let boundsDict = info[kCGWindowBounds as String] as? [String: CGFloat],
-                  let winID = info[kCGWindowNumber as String] as? Int,
-                  let pid = info[kCGWindowOwnerPID as String] as? pid_t,
-                  !excluded.contains(CGWindowID(winID))
-            else { continue }
-
-            let x = boundsDict["X"] ?? 0
-            let y = boundsDict["Y"] ?? 0
-            let w = boundsDict["Width"] ?? 0
-            let h = boundsDict["Height"] ?? 0
-            let cgRect = CGRect(x: x, y: y, width: w, height: h)
-
-            if cgRect.contains(CGPoint(x: centerX, y: centerY)) {
+            if !foundApp, let pid = info[kCGWindowOwnerPID as String] as? pid_t {
                 targetAppPID = pid
+                foundApp = true
+            }
+            if foundWindow && foundApp {
                 return
             }
         }
@@ -319,14 +299,23 @@ final class ScrollCaptureEngine {
 
     // MARK: - Frame capture via CGWindowListCreateImage
 
-    /// Captures the screen region using CGWindowListCreateImage.
-    /// Returns a complete, compositor-finished snapshot — no stream management needed.
+    /// Captures the screen region using CGWindowListCreateImageFromArray (excluding all own windows)
+    /// or CGWindowListCreateImage as fallback.
     private func captureFrame() -> CGImage? {
         let excludeSet = Set(excludedWindowIDs)
-        let listOption: CGWindowListOption = [.optionOnScreenBelowWindow]
-        let windowID = excludeSet.isEmpty ? kCGNullWindowID : (excludeSet.first ?? kCGNullWindowID)
+        let imageOption: CGWindowImageOption = [.boundsIgnoreFraming, .bestResolution]
 
-        let imageOption: CGWindowImageOption = [.boundsIgnoreFraming]
+        if !excludeSet.isEmpty,
+           let image = WindowListDisplaySnapshot.captureRegion(
+               captureRectCG,
+               excludingWindowIDs: excludeSet,
+               imageOption: imageOption
+           ) {
+            return image
+        }
+
+        let listOption: CGWindowListOption = excludeSet.isEmpty ? [.optionOnScreenOnly] : [.optionOnScreenBelowWindow]
+        let windowID = excludeSet.first ?? kCGNullWindowID
 
         guard let image = CGWindowListCreateImage(
             captureRectCG, listOption, windowID, imageOption
@@ -678,7 +667,7 @@ final class ScrollCaptureEngine {
         defer { isCapturing = false }
 
         guard let currentFrame = captureFrame() else { return }
-        guard let previousFrame = shotA else {
+        guard let previousFrame = shotA ?? mergedImage else {
             shotA = currentFrame
             return
         }
@@ -763,17 +752,6 @@ final class ScrollCaptureEngine {
         }
     }
 
-    /// Extract raw BGRA pixel data from a CGImage as an unsafe pointer.
-    /// Pure function — only reads from the immutable CGImage argument, so it's
-    /// declared `static` to (a) avoid capturing `self` in `captureQueue.async`
-    /// closures (which would otherwise cross actor isolation under Swift 6 strict
-    /// concurrency) and (b) make the lack of instance-state access self-evident.
-    private static func pixelData(for image: CGImage) -> UnsafePointer<UInt8>? {
-        guard let provider = image.dataProvider,
-              let cfData = provider.data else { return nil }
-        return CFDataGetBytePtr(cfData)
-    }
-
     /// Extract raw pixel data as `Data` for byte-level comparison.
     /// Runs the extraction on `captureQueue` to avoid blocking the main thread.
     private func extractPixelData(from image: CGImage) async -> Data? {
@@ -798,47 +776,62 @@ final class ScrollCaptureEngine {
 
         let scrollbarWidth: Int = await withCheckedContinuation { cont in
             captureQueue.async {
-                guard let curData = Self.pixelData(for: current),
-                      let prevData = Self.pixelData(for: previous) else {
+                guard let curCFData = current.dataProvider?.data,
+                      let prevCFData = previous.dataProvider?.data,
+                      let curData = CFDataGetBytePtr(curCFData),
+                      let prevData = CFDataGetBytePtr(prevCFData) else {
                     cont.resume(returning: 0)
                     return
                 }
 
                 let w = current.width
                 let h = current.height
-                let bytesPerRow = w * 4
-
-                let rowStart = h * 2 / 10
-                let rowEnd = h * 8 / 10
-                let rowStep = max(1, (rowEnd - rowStart) / 40)
-
-                var scrollbarWidth = 0
-                let maxScanCols = min(50, w / 8)
-
-                for colOffset in 0..<maxScanCols {
-                    let col = w - 1 - colOffset
-                    var sad: UInt64 = 0
-                    var samples: Int = 0
-
-                    for row in stride(from: rowStart, to: rowEnd, by: rowStep) {
-                        let idx = row * bytesPerRow + col * 4
-                        guard idx + 2 < h * bytesPerRow else { continue }
-                        sad += UInt64(abs(Int(curData[idx]) - Int(prevData[idx]))
-                                    + abs(Int(curData[idx + 1]) - Int(prevData[idx + 1]))
-                                    + abs(Int(curData[idx + 2]) - Int(prevData[idx + 2])))
-                        samples += 1
-                    }
-                    guard samples > 0 else { continue }
-                    let avgSAD = sad / UInt64(samples)
-
-                    if avgSAD > 8 {
-                        scrollbarWidth = colOffset + 1
-                    } else if scrollbarWidth > 0 {
-                        break
-                    }
+                let curBPR = current.bytesPerRow
+                let prevBPR = previous.bytesPerRow
+                let curBPP = current.bitsPerPixel / 8
+                let prevBPP = previous.bitsPerPixel / 8
+                let curLen = CFDataGetLength(curCFData)
+                let prevLen = CFDataGetLength(prevCFData)
+                guard curBPP >= 3, prevBPP >= 3 else {
+                    cont.resume(returning: 0)
+                    return
                 }
 
-                cont.resume(returning: scrollbarWidth)
+                let detected = withExtendedLifetime((curCFData, prevCFData)) { () -> Int in
+                    let rowStart = h * 2 / 10
+                    let rowEnd = h * 8 / 10
+                    let rowStep = max(1, (rowEnd - rowStart) / 40)
+
+                    var scrollbarWidth = 0
+                    let maxScanCols = min(50, w / 8)
+
+                    for colOffset in 0..<maxScanCols {
+                        let col = w - 1 - colOffset
+                        var sad: UInt64 = 0
+                        var samples: Int = 0
+
+                        for row in stride(from: rowStart, to: rowEnd, by: rowStep) {
+                            let curIdx = row * curBPR + col * curBPP
+                            let prevIdx = row * prevBPR + col * prevBPP
+                            guard curIdx + 2 < curLen, prevIdx + 2 < prevLen else { continue }
+                            sad += UInt64(abs(Int(curData[curIdx]) - Int(prevData[prevIdx]))
+                                        + abs(Int(curData[curIdx + 1]) - Int(prevData[prevIdx + 1]))
+                                        + abs(Int(curData[curIdx + 2]) - Int(prevData[prevIdx + 2])))
+                            samples += 1
+                        }
+                        guard samples > 0 else { continue }
+                        let avgSAD = sad / UInt64(samples)
+
+                        if avgSAD > 8 {
+                            scrollbarWidth = colOffset + 1
+                        } else if scrollbarWidth > 0 {
+                            break
+                        }
+                    }
+                    return scrollbarWidth
+                }
+
+                cont.resume(returning: detected)
             }
         }
 
@@ -861,40 +854,53 @@ final class ScrollCaptureEngine {
                 let w = current.width
                 let h = current.height
 
-                guard let curData = Self.pixelData(for: current),
-                      let prevData = Self.pixelData(for: previous) else {
+                guard let curCFData = current.dataProvider?.data,
+                      let prevCFData = previous.dataProvider?.data,
+                      let curData = CFDataGetBytePtr(curCFData),
+                      let prevData = CFDataGetBytePtr(prevCFData) else {
                     cont.resume(returning: (0, w, h))
                     return
                 }
 
-                let bytesPerRow = w * 4
-                let compareBytes = max(4, (w - marginPx)) * 4
+                let curBPR = current.bytesPerRow
+                let prevBPR = previous.bytesPerRow
+                let curBPP = current.bitsPerPixel / 8
+                let prevBPP = previous.bitsPerPixel / 8
+                let curLen = CFDataGetLength(curCFData)
+                let prevLen = CFDataGetLength(prevCFData)
+                guard curBPP >= 3, prevBPP >= 3 else {
+                    cont.resume(returning: (0, w, h))
+                    return
+                }
+
+                let compareCols = max(1, w - marginPx)
                 let colStep = 4
 
-                var frozenRows = 0
-                for row in 0..<h {
-                    var rowSAD: UInt64 = 0
-                    var samples: Int = 0
-                    let offset = row * bytesPerRow
-                    for col in stride(from: 0, to: compareBytes, by: colStep * 4) {
-                        let cR = Int(curData[offset + col])
-                        let cG = Int(curData[offset + col + 1])
-                        let cB = Int(curData[offset + col + 2])
-                        let pR = Int(prevData[offset + col])
-                        let pG = Int(prevData[offset + col + 1])
-                        let pB = Int(prevData[offset + col + 2])
-                        rowSAD += UInt64(abs(cR - pR) + abs(cG - pG) + abs(cB - pB))
-                        samples += 1
+                let frozenRows = withExtendedLifetime((curCFData, prevCFData)) { () -> Int in
+                    for row in 0..<h {
+                        var rowSAD: UInt64 = 0
+                        var samples: Int = 0
+                        let curRowOffset = row * curBPR
+                        let prevRowOffset = row * prevBPR
+                        for col in stride(from: 0, to: compareCols, by: colStep) {
+                            let curIdx = curRowOffset + col * curBPP
+                            let prevIdx = prevRowOffset + col * prevBPP
+                            guard curIdx + 2 < curLen, prevIdx + 2 < prevLen else { continue }
+                            let cR = Int(curData[curIdx])
+                            let cG = Int(curData[curIdx + 1])
+                            let cB = Int(curData[curIdx + 2])
+                            let pR = Int(prevData[prevIdx])
+                            let pG = Int(prevData[prevIdx + 1])
+                            let pB = Int(prevData[prevIdx + 2])
+                            rowSAD += UInt64(abs(cR - pR) + abs(cG - pG) + abs(cB - pB))
+                            samples += 1
+                        }
+                        let avg = samples > 0 ? rowSAD / UInt64(samples) : 999
+                        if avg > 8 {
+                            return row
+                        }
                     }
-                    let avg = samples > 0 ? rowSAD / UInt64(samples) : 999
-                    if avg > 8 {
-                        frozenRows = row
-                        break
-                    }
-                    if row == h - 1 {
-                        cont.resume(returning: (0, w, h))
-                        return
-                    }
+                    return 0
                 }
 
                 cont.resume(returning: (frozenRows, w, h))
@@ -910,7 +916,6 @@ final class ScrollCaptureEngine {
             if headerDetectionSamples == 1 {
                 headerHeight = frozenRows
                 frozenTopHeight = CGFloat(headerHeight) / backingScale
-                headerDetectionDone = true
             } else {
                 if abs(frozenRows - headerHeight) <= 5 {
                     headerHeight = min(headerHeight, frozenRows)

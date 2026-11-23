@@ -43,25 +43,47 @@ enum WindowListDisplaySnapshot {
 
         // When windows need to be excluded (e.g. macshot overlays / pins),
         // composite all on-screen windows except the excluded ones.
+        if let fn = cgWindowListCreateImageFromArray,
+           let arr = makeFilteredWindowArray(excluding: excluded),
+           let img = fn(bounds, arr, .bestResolution)?.takeRetainedValue() {
+            return img
+        }
+
+        // Only allow the unexcluded display snapshot fallback when no windows needed exclusion;
+        // otherwise return nil so ScreenCaptureKit handles window exclusion safely.
+        if excluded.isEmpty,
+           let fn = cgDisplayCreateImage,
+           let img = fn(displayID)?.takeRetainedValue() {
+            return img
+        }
+
+        return nil
+    }
+
+    /// Capture a CG-coordinate region excluding the given window IDs via CoreGraphics.
+    static func captureRegion(
+        _ cgRect: CGRect,
+        excludingWindowIDs: Set<CGWindowID>,
+        imageOption: CGWindowImageOption = [.boundsIgnoreFraming, .bestResolution]
+    ) -> CGImage? {
+        let excluded = excludingWindowIDs.filter { $0 != 0 && $0 != CGWindowID.max }
+        guard !excluded.isEmpty,
+              let fn = cgWindowListCreateImageFromArray,
+              let arr = makeFilteredWindowArray(excluding: excluded),
+              let img = fn(cgRect, arr, imageOption)?.takeRetainedValue() else {
+            return nil
+        }
+        return img
+    }
+
+    private static func makeFilteredWindowArray(excluding excluded: Set<CGWindowID>) -> CFArray? {
         let windowInfo = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]] ?? []
         let onScreenIDs = windowInfo.compactMap { $0[kCGWindowNumber as String] as? CGWindowID }
         let filteredIDs = onScreenIDs.filter { !excluded.contains($0) }
 
         var pointers = filteredIDs.map { UnsafeRawPointer(bitPattern: UInt($0)) }
-        let windowArray = pointers.withUnsafeMutableBufferPointer {
+        return pointers.withUnsafeMutableBufferPointer {
             CFArrayCreate(kCFAllocatorDefault, $0.baseAddress, $0.count, nil)
         }
-
-        if let fn = cgWindowListCreateImageFromArray,
-           let arr = windowArray,
-           let img = fn(bounds, arr, .bestResolution)?.takeRetainedValue() {
-            return img
-        }
-
-        if let fn = cgDisplayCreateImage, let img = fn(displayID)?.takeRetainedValue() {
-            return img
-        }
-
-        return nil
     }
 }

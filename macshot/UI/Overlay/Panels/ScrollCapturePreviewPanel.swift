@@ -55,6 +55,8 @@ class ScrollCapturePreviewPanel: NSPanel {
         level = NSWindow.Level(rawValue: overlayLevel - 1)  // below overlay so HUD/stop button stays clickable
         ignoresMouseEvents = true
         isReleasedWhenClosed = false
+        hidesOnDeactivate = false
+        collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
 
         // Just the image with rounded corners, no container chrome
         let container = NSView(frame: NSRect(origin: .zero, size: frame.size))

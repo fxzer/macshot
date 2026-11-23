@@ -129,9 +129,10 @@ class ScrollCaptureHUDPanel: NSPanel {
         isOpaque = false
         backgroundColor = .clear
         hasShadow = false
-        level = .statusBar + 2  // above the overlay window
+        level = NSWindow.Level(rawValue: 258)  // above overlay (257) and preview panel (256)
         isMovableByWindowBackground = false
         hidesOnDeactivate = false
+        collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
 
         let container = NSView()
         contentView = container
