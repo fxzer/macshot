@@ -288,6 +288,7 @@ extension OverlayView {
         if selected.tool == .text && annotationEditButtonRect != .zero
             && annotationEditButtonRect.contains(point)
         {
+            textEditor.editingAnnotation = selected
             textEditor.restoreState(from: selected)
             if let idx = annotations.firstIndex(where: { $0 === selected }) {
                 annotations.remove(at: idx)

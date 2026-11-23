@@ -50,9 +50,9 @@ extension Annotation {
         let newHeight = max(textDrawRect.height, ceil(boundingRect.height) + inset * 2)
         let imgSize = NSSize(width: textDrawRect.width, height: newHeight)
 
-        // Re-render image
+        // Re-render image without capturing `self` to avoid an Annotation -> NSImage -> closure retain cycle.
         let img = NSImage(size: imgSize, flipped: true) { _ in
-            self.drawAttributedTextLive(
+            Annotation.drawAttributedText(
                 mutable,
                 in: NSRect(
                     x: 0,
@@ -116,6 +116,10 @@ extension Annotation {
     }
 
     func drawAttributedTextLive(_ attrText: NSAttributedString, in drawRect: NSRect) {
+        Annotation.drawAttributedText(attrText, in: drawRect)
+    }
+
+    static func drawAttributedText(_ attrText: NSAttributedString, in drawRect: NSRect) {
         let inset: CGFloat = 4
         attrText.draw(in: NSRect(
             x: drawRect.minX + inset,

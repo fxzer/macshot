@@ -21,7 +21,12 @@ enum ImageRasterizer {
     }
 
     /// Native pixel scale of a CGImage-backed image (pixels ÷ points).
+    /// Closure-based NSImages report 72dpi (1x) via `cgImage(forProposedRect:)`,
+    /// so fall back to the display scale (>= 2.0) instead of downsampling text/stamps.
     static func pixelScale(of image: NSImage) -> CGFloat {
+        if isClosureBased(image) {
+            return max(2.0, NSScreen.main?.backingScaleFactor ?? 2.0)
+        }
         guard image.size.width > 0,
             let cg = image.cgImage(forProposedRect: nil, context: nil, hints: nil),
             cg.width > 0

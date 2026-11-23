@@ -515,7 +515,13 @@ class TextEditingController {
         let viewFrame: NSRect
         let isNewText = existingText == nil
         if existingFrame != .zero {
-            viewFrame = NSRect(origin: canvas.canvasToView(existingFrame.origin), size: existingFrame.size)
+            let topLeftView = canvas.canvasToView(NSPoint(x: existingFrame.minX, y: existingFrame.maxY))
+            viewFrame = NSRect(
+                x: topLeftView.x,
+                y: topLeftView.y - existingFrame.height,
+                width: existingFrame.width,
+                height: existingFrame.height
+            )
             isAutoWidth = false
             let rightMargin: CGFloat = 20
             let availableCanvasWidth = canvas.textEditingBounds.maxX - canvasPoint.x - rightMargin
@@ -714,12 +720,13 @@ class TextEditingController {
                 return true
             }
 
-            let canvasOrigin = canvas.viewToCanvas(sv.frame.origin)
-            let canvasEnd = canvas.viewToCanvas(NSPoint(x: sv.frame.maxX, y: sv.frame.maxY))
+            let canvasTopLeft = canvas.viewToCanvas(NSPoint(x: sv.frame.minX, y: sv.frame.maxY))
             let canvasFrame = NSRect(
-                x: canvasOrigin.x, y: canvasOrigin.y,
-                width: canvasEnd.x - canvasOrigin.x,
-                height: canvasEnd.y - canvasOrigin.y)
+                x: canvasTopLeft.x,
+                y: canvasTopLeft.y - imgSize.height,
+                width: imgSize.width,
+                height: imgSize.height
+            )
 
             let annotation = Annotation(
                 tool: .text,

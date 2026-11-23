@@ -180,7 +180,11 @@ extension Annotation {
         if let rgba = c.textOutlineColorRGBA { ann.textOutlineColor = decodeColor(rgba) }
         ann.textAlignment = NSTextAlignment(rawValue: c.textAlignment) ?? .left
         ann.fontFamilyName = c.fontFamilyName
-        if let data = c.textImagePNG { ann.textImage = NSImage(data: data) }
+        if ann.tool == .text && ann.attributedText != nil && ann.textDrawRect != .zero {
+            ann.reRenderTextImage()
+        } else if let data = c.textImagePNG {
+            ann.textImage = NSImage(data: data)
+        }
 
         // Number
         ann.number = c.number
