@@ -17,107 +17,7 @@ Native macOS screenshot & annotation tool inspired by Flameshot. Built with Swif
 
 Menu bar agent app. No main window. Global hotkey (Cmd+Shift+X) or menu bar click triggers screen capture → fullscreen overlay → selection → annotation → output.
 
-### File Structure
-
-```
-macshot/
-├── main.swift                          # App entry point
-├── AppDelegate.swift                   # App lifecycle, status bar, hotkey, capture orchestration
-│
-├── Model/
-│   └── Annotation.swift                # Annotation data model + geometry / hit-testing
-│
-├── Capture/
-│   ├── ScreenCaptureManager.swift      # Multi-screen capture via ScreenCaptureKit (async/await)
-│   └── ScrollCaptureEngine.swift       # Scroll capture with SAD-based stitching
-│
-├── Store/
-│   ├── BeautifyBackgroundStore.swift   # Custom beautify background persistence
-│   ├── KeychainStore.swift             # Secrets / token persistence
-│   ├── SaveDirectoryAccess.swift       # Security-scoped bookmark persistence
-│   └── ScreenshotHistory.swift         # Local history in ~/Library/Application Support/
-│
-├── Processors/
-│   ├── BackgroundRemovalProcessor.swift # Foreground subject extraction
-│   ├── BeautifyRenderer.swift          # Gradient frame / background beautification
-│   ├── ImageEffects.swift              # Core Image-based image effects
-│   └── ImageEncoder.swift              # PNG/JPEG/HEIC/WebP encoding, clipboard copy, scaling
-│
-├── Services/
-│   ├── AutoRedactor.swift              # PII regex detection + Vision OCR → redaction annotations
-│   ├── BarcodeDetector.swift           # Async Vision barcode/QR scanning, badge drawing, hit-testing
-│   ├── VisionOCR.swift                 # Vision text recognition request factory
-│   └── HotkeyManager.swift             # Global keyboard shortcut (Carbon RegisterEventHotKey)
-│
-├── Upload/
-│   ├── ImgbbUploader.swift             # imgbb image upload
-│   ├── GoogleDriveUploader.swift       # Google Drive OAuth2 upload
-│   └── S3Uploader.swift               # S3-compatible upload
-│
-├── UI/
-│   ├── Overlay/
-│   │   ├── Core/                       # OverlayView core type, protocols, lifecycle, base routing
-│   │   ├── State/                      # OverlayAppearance/Render/Preview/Toolbar/Tool state containers
-│   │   ├── Input/                      # Mouse, keyboard, cursor, hit-testing
-│   │   ├── Selection/                  # Selection drag/resize/memory/aspect/window snapping
-│   │   ├── Editing/                    # Annotation interaction, properties, undo, text editing
-│   │   ├── Rendering/                  # Draw pipeline, output rendering, cache, previews, guides
-│   │   │   └── Renderers/              # Annotation draw dispatch + tool-specific rendering
-│   │   ├── Controls/                   # Toolbar, tool options, popovers, overlay control chrome
-│   │   ├── Modes/                      # Zooming, color sampler, beautify, scroll capture, redaction
-│   │   ├── Panels/                     # HUDs, overlays, preview panels, tooltip views
-│   │   └── Window/                     # OverlayWindowController and delegate/share/window splits
-│   │
-│   ├── Editor/
-│   │   ├── EditorView.swift            # OverlayView subclass: NSScrollView mode, no selection chrome
-│   │   ├── DetachedEditorWindowController.swift  # Standalone editor window (resizable, titled)
-│   │   ├── EditorTopBarView.swift      # NSView with crop, flip, zoom buttons
-│   │   └── CenteringClipView.swift     # NSClipView subclass that centers document when smaller than clip
-│   │
-│   ├── Toolbar/
-│   │   ├── ToolbarDefinitions.swift    # ToolbarButtonAction enum, ToolbarButton struct, ToolbarLayout constants
-│   │   ├── ToolbarButtonView.swift     # NSView for a single toolbar button (hover, press, selection states)
-│   │   ├── ToolbarStripView.swift      # NSView container for horizontal/vertical button rows
-│   │   └── ToolOptionsRowView.swift    # NSView-based tool options bar (sliders, segments, text formatting)
-│   │
-│   ├── Tools/
-│   │   ├── AnnotationToolHandler.swift # AnnotationToolHandler + AnnotationCanvas protocols, shared helpers
-│   │   ├── PencilToolHandler.swift     # Freeform draw with Chaikin smoothing
-│   │   ├── MarkerToolHandler.swift     # Highlighter (semi-transparent wide stroke)
-│   │   ├── LineToolHandler.swift       # Straight line with 45° snap
-│   │   ├── ArrowToolHandler.swift      # Arrow with styles (single, thick, double, open, tail)
-│   │   ├── RectangleToolHandler.swift  # Rectangle with corner radius, fill style, line style
-│   │   ├── FilledRectangleToolHandler.swift  # Opaque filled rectangle (redact)
-│   │   ├── EllipseToolHandler.swift    # Ellipse with fill style
-│   │   ├── PixelateToolHandler.swift   # Pixelate region
-│   │   ├── BlurToolHandler.swift       # Gaussian blur region
-│   │   ├── LoupeToolHandler.swift      # Click-to-place 2x magnifier
-│   │   ├── MeasureToolHandler.swift    # Pixel ruler with 45° snap
-│   │   ├── NumberToolHandler.swift     # Auto-incrementing numbered circle
-│   │   ├── StampToolHandler.swift      # Emoji/image stamp + StampEmojis data
-│   │   └── TextEditingController.swift # Text tool: NSTextView lifecycle, formatting, commit, cancel
-│   │
-│   ├── Popover/
-│   │   ├── PopoverHelper.swift         # Static helper for showing/dismissing NSPopovers
-│   │   ├── ColorPickerView.swift       # Custom color picker: swatches, HSB gradient, opacity, custom slots
-│   │   ├── ListPickerView.swift        # Reusable list picker with checkmark selection
-│   │   ├── EmojiPickerView.swift       # Emoji grid with category tabs
-│   │   └── GradientPickerView.swift    # Beautify gradient style swatch grid
-│   │
-│   └── Windows/
-│       ├── PinWindowController.swift          # Floating always-on-top pinned screenshot
-│       ├── FloatingThumbnailController.swift  # Auto-dismiss thumbnail after capture
-│       ├── SettingsWindowController.swift     # Settings: General, Capture, Behavior, Shortcuts, Tools, Uploads, About tabs
-│       ├── OCRResultController.swift          # Text recognition results window with AI search
-│       ├── HistoryOverlayController.swift     # Recent captures visual overlay panel
-│       ├── UploadToastController.swift        # Upload progress/success toast
-│       ├── CountdownView.swift                # Delay capture countdown display
-│       └── PermissionOnboardingController.swift  # First-run permission guide
-│
-├── Info.plist
-├── Assets.xcassets/
-└── Base.lproj/Main.storyboard
-```
+> Need the full source directory tree, `UserDefaults` key inventory, or complete feature list? Read [docs/architecture.md](docs/architecture.md).
 
 ### Component Overview
 
@@ -170,14 +70,7 @@ Tools not extracted (handled directly in OverlayView): `select` (annotation inte
 #### Annotation — Data Model + Drawing
 Class (not struct) with `clone()` for safe copying. Lives in `Model/Annotation.swift`.
 
-**Tools (AnnotationTool enum, 18 cases):**
-```
-pencil, line, arrow, rectangle, filledRectangle, ellipse, marker,
-text, number, stamp, pixelate, blur, measure, loupe, select,
-crop, colorSampler
-```
-
-**Each annotation draws itself** via `draw(in:)`. Has `hitTest(point:threshold:)`, `move(dx:dy:)`, `isMovable`, `boundingRect`, `drawSelectionHighlight()`.
+**Tools (`AnnotationTool` enum, 18 cases):** `pencil`, `line`, `arrow`, `rectangle`, `filledRectangle`, `ellipse`, `marker`, `text`, `number`, `stamp`, `pixelate`, `blur`, `measure`, `loupe`, `select`, `crop`, `colorSampler` (and video editor variants). Each annotation draws itself via `draw(in:)`, with `hitTest(point:threshold:)`, `move(dx:dy:)`, `isMovable`, `boundingRect`, `drawSelectionHighlight()`.
 
 #### DetachedEditorWindowController — Standalone Editor
 - Opens from overlay ("Open in Editor Window" button) or from thumbnail/pin "Edit" action
@@ -188,7 +81,7 @@ crop, colorSampler
 
 ### Protocols
 
-```
+```text
 OverlayWindowControllerDelegate  — OverlayWindowController → AppDelegate
 OverlayViewDelegate              — OverlayView → OverlayWindowController / DetachedEditorWindowController
 PinWindowControllerDelegate      — PinWindowController → AppDelegate
@@ -207,58 +100,12 @@ TextEditingCanvas                — Coordinate transforms + annotation storage 
 - **ScreenCaptureKit:** Top-left origin, needs conversion from AppKit bottom-left for scroll capture crop rects
 - **Annotation coords:** Always relative to the overlay/editor view — shifted when transferring between overlay and editor
 
-### Persistence (UserDefaults)
-- Drawing: `currentStrokeWidth`, `numberStrokeWidth`, `markerStrokeWidth`
-- Hotkey: `hotkeyKeyCode`, `hotkeyModifiers`
-- Output: `saveDirectory`, `autoCopyToClipboard`, `playCopySound`
-- Selection: `lastSelectionRect`, `lastSelectionScreenFrame`, `rememberLastSelection`
-- Thumbnails: `showFloatingThumbnail`, `thumbnailStacking`, `thumbnailAutoDismissSeconds`
-- Image: `imageFormat` (png/jpeg/heic/webp), `imageQuality` (0.0–1.0), `downscaleRetina` (bool), `embedColorProfile` (bool)
-- History: `historySize`
-- Tools: `enabledTools`, `knownToolRawValues`
-- Features: `imgbbAPIKey`, `beautifyEnabled`, `beautifyStyleIndex`, `beautifyMode`, `beautifyPadding`, `beautifyCornerRadius`, `beautifyShadowRadius`, `pencilSmoothEnabled`, `loupeSize`
-- Styles: `currentLineStyle`, `currentArrowStyle`, `currentRectFillStyle`, `currentRectCornerRadius`
-- Upload: `uploadProvider` (imgbb/gdrive), `googleDriveRefreshToken`, `uploadConfirmEnabled`
-
 ### Threading Model
 - **Capture:** Async/await TaskGroup for concurrent multi-display capture
 - **Scroll capture:** Background throttle/settlement timers, serialized captureAndStitch
 - **OCR:** VNImageRequestHandler on background thread, results to main
 - **Upload:** URLSession background task
 - **UI:** All drawing, state changes, and user interaction on main thread
-
-## Features
-
-### Core
-- Multi-screen capture (one overlay per screen, concurrent ScreenCaptureKit calls)
-- Rubber-band selection with 8-point resize handles
-- Full-screen capture (single click without drag)
-- Remember last selection rectangle
-
-### Annotation Tools (17)
-Pencil, Line, Arrow, Rectangle, Filled Rectangle, Ellipse, Marker/Highlighter, Text (rich formatting), Number (auto-incrementing), Stamp/Emoji, Pixelate, Blur, Measure (pixel ruler), Loupe (2x magnifier), Select & Edit, Crop (editor only), Color Sampler
-
-- **Line styles:** Solid, dashed, dotted
-- **Arrow styles:** Single, thick, double, open, tail
-- **Annotation rotation:** Rotate shapes via handle, Shift to snap to 90°
-- **Bend control points:** Draggable cubic bezier curve on lines and arrows
-- **Stamp tool:** Place emoji or custom images, load from file
-
-### Output Actions
-Copy to clipboard, Save to file (PNG/JPEG/HEIC/WebP), Pin (floating always-on-top), OCR (Chinese + English, auto-detected), Upload to imgbb or Google Drive (OAuth2), Remove background (VNGenerateForegroundInstanceMaskRequest), Open in editor, Beautify (30 gradient styles including 7 mesh gradients on macOS 15+), Flip horizontal/vertical
-
-### Advanced
-- **Editor Window:** Standalone resizable window for post-capture editing, full annotation tools, zoom 0.1x–8x via NSScrollView
-- **Scroll Capture:** Automatic scroll detection + stitching via SAD matching
-- **Auto-Redact:** Right-click filled rect → regex patterns (emails, phones, SSN, credit cards, IPs, AWS keys, bearer tokens)
-- **Barcode/QR Detection:** Live Vision detection with decoded payload, open/copy actions
-- **Floating Thumbnail:** Stackable, draggable, auto-dismiss, quick actions
-- **Screenshot History:** Local storage with thumbnails, "Recent Captures" menu, visual history overlay panel
-- **Delay Capture:** Configurable countdown (3s, 5s, 10s)
-- **Color Opacity:** Adjustable per annotation via custom color picker
-- **Smooth Pencil Strokes:** Toggle in settings
-- **Zoom:** 0.1x–8x, scroll/pinch, pan, clickable label to edit percentage
-- **Permission Onboarding:** First-run guide for granting Screen Recording permission
 
 ## Coding Conventions
 
@@ -332,7 +179,7 @@ Because the builds are unsigned, users may need to right-click the app and choos
 ### Manual trigger (fallback)
 
 If tag push doesn't trigger CI (e.g. after rapid tag create/delete), use:
-```
+```bash
 gh workflow run build-release.yml --ref main -f tag=v3.8.0-beta.3
 ```
 This dispatches from main and reads the tag from the input parameter. The tag must already exist on the remote. If you leave `tag` empty when dispatching manually, the workflow builds the selected ref as that branch's rolling `*-latest` pre-release instead.
@@ -342,137 +189,4 @@ This dispatches from main and reads the tag from the input parameter. The tag mu
 - `MARKETING_VERSION` in `project.pbxproj` is only used for local dev builds. CI always overrides it.
 - Never rapidly create/delete tags — GitHub throttles tag push events and may suppress triggers for 15-30 minutes.
 - The workflow was renamed from `release.yml` to `build-release.yml`.
-
-<!-- rtk-instructions v2 -->
-# RTK (Rust Token Killer) - Token-Optimized Commands
-
-## Golden Rule
-
-**Always prefix commands with `rtk`**. If RTK has a dedicated filter, it uses it. If not, it passes through unchanged. This means RTK is always safe to use.
-
-**Important**: Even in command chains with `&&`, use `rtk`:
-```bash
-# ❌ Wrong
-git add . && git commit -m "msg" && git push
-
-# ✅ Correct
-rtk git add . && rtk git commit -m "msg" && rtk git push
-```
-
-## RTK Commands by Workflow
-
-### Build & Compile (80-90% savings)
-```bash
-rtk cargo build         # Cargo build output
-rtk cargo check         # Cargo check output
-rtk cargo clippy        # Clippy warnings grouped by file (80%)
-rtk tsc                 # TypeScript errors grouped by file/code (83%)
-rtk lint                # ESLint/Biome violations grouped (84%)
-rtk prettier --check    # Files needing format only (70%)
-rtk next build          # Next.js build with route metrics (87%)
-```
-
-### Test (90-99% savings)
-```bash
-rtk cargo test          # Cargo test failures only (90%)
-rtk vitest run          # Vitest failures only (99.5%)
-rtk playwright test     # Playwright failures only (94%)
-rtk test <cmd>          # Generic test wrapper - failures only
-```
-
-### Git (59-80% savings)
-```bash
-rtk git status          # Compact status
-rtk git log             # Compact log (works with all git flags)
-rtk git diff            # Compact diff (80%)
-rtk git show            # Compact show (80%)
-rtk git add             # Ultra-compact confirmations (59%)
-rtk git commit          # Ultra-compact confirmations (59%)
-rtk git push            # Ultra-compact confirmations
-rtk git pull            # Ultra-compact confirmations
-rtk git branch          # Compact branch list
-rtk git fetch           # Compact fetch
-rtk git stash           # Compact stash
-rtk git worktree        # Compact worktree
-```
-
-Note: Git passthrough works for ALL subcommands, even those not explicitly listed.
-
-### GitHub (26-87% savings)
-```bash
-rtk gh pr view <num>    # Compact PR view (87%)
-rtk gh pr checks        # Compact PR checks (79%)
-rtk gh run list         # Compact workflow runs (82%)
-rtk gh issue list       # Compact issue list (80%)
-rtk gh api              # Compact API responses (26%)
-```
-
-### JavaScript/TypeScript Tooling (70-90% savings)
-```bash
-rtk pnpm list           # Compact dependency tree (70%)
-rtk pnpm outdated       # Compact outdated packages (80%)
-rtk pnpm install        # Compact install output (90%)
-rtk npm run <script>    # Compact npm script output
-rtk npx <cmd>           # Compact npx command output
-rtk prisma              # Prisma without ASCII art (88%)
-```
-
-### Files & Search (60-75% savings)
-```bash
-rtk ls <path>           # Tree format, compact (65%)
-rtk read <file>         # Code reading with filtering (60%)
-rtk grep <pattern>      # Search grouped by file (75%)
-rtk find <pattern>      # Find grouped by directory (70%)
-```
-
-### Analysis & Debug (70-90% savings)
-```bash
-rtk err <cmd>           # Filter errors only from any command
-rtk log <file>          # Deduplicated logs with counts
-rtk json <file>         # JSON structure without values
-rtk deps                # Dependency overview
-rtk env                 # Environment variables compact
-rtk summary <cmd>       # Smart summary of command output
-rtk diff                # Ultra-compact diffs
-```
-
-### Infrastructure (85% savings)
-```bash
-rtk docker ps           # Compact container list
-rtk docker images       # Compact image list
-rtk docker logs <c>     # Deduplicated logs
-rtk kubectl get         # Compact resource list
-rtk kubectl logs        # Deduplicated pod logs
-```
-
-### Network (65-70% savings)
-```bash
-rtk curl <url>          # Compact HTTP responses (70%)
-rtk wget <url>          # Compact download output (65%)
-```
-
-### Meta Commands
-```bash
-rtk gain                # View token savings statistics
-rtk gain --history      # View command history with savings
-rtk discover            # Analyze Claude Code sessions for missed RTK usage
-rtk proxy <cmd>         # Run command without filtering (for debugging)
-rtk init                # Add RTK instructions to CLAUDE.md
-rtk init --global       # Add RTK to ~/.claude/CLAUDE.md
-```
-
-## Token Savings Overview
-
-| Category | Commands | Typical Savings |
-|----------|----------|-----------------|
-| Tests | vitest, playwright, cargo test | 90-99% |
-| Build | next, tsc, lint, prettier | 70-87% |
-| Git | status, log, diff, add, commit | 59-80% |
-| GitHub | gh pr, gh run, gh issue | 26-87% |
-| Package Managers | pnpm, npm, npx | 70-90% |
-| Files | ls, read, grep, find | 60-75% |
-| Infrastructure | docker, kubectl | 85% |
-| Network | curl, wget | 65-70% |
-
-Overall average: **60-90% token reduction** on common development operations.
-<!-- /rtk-instructions -->
+- **RTK token filter:** Prefix common `git` / `gh` / file-inspection commands with `rtk` (e.g. `rtk git status`, `rtk git diff`, `rtk git commit`; keep `./build.sh` and `xcodebuild` direct).
