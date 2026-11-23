@@ -87,24 +87,34 @@ extension OverlayView {
         let pxH = Int(ceil(unrotatedBBox.height * scale))
         guard pxW > 0, pxH > 0, pxW < 8000, pxH < 8000 else { return }
 
-        // Render the annotation at rotation=0 into an offscreen bitmap.
-        // We temporarily zero out rotation so the glow is cached unrotated.
+        // Render the annotation at rotation=0 into an explicit 8-bit RGBA CGContext
+        // at exact backing pixel resolution (1x `scale`). Avoid NSImage(size: * scale)
+        // + lockFocus(), which double-scales on Retina into a 4x (16x area) buffer.
         let savedRotation = annotation.rotation
         annotation.rotation = 0
-        let offscreen = NSImage(size: NSSize(width: unrotatedBBox.width * scale, height: unrotatedBBox.height * scale))
-        offscreen.lockFocus()
-        guard let offNSCtx = NSGraphicsContext.current else {
+        let sRGB = CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB()
+        guard let cgCtx = CGContext(
+            data: nil,
+            width: pxW,
+            height: pxH,
+            bitsPerComponent: 8,
+            bytesPerRow: 0,
+            space: sRGB,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else {
             annotation.rotation = savedRotation
-            offscreen.unlockFocus()
             return
         }
-        offNSCtx.cgContext.scaleBy(x: scale, y: scale)
-        offNSCtx.cgContext.translateBy(x: -unrotatedBBox.origin.x, y: -unrotatedBBox.origin.y)
+        cgCtx.scaleBy(x: scale, y: scale)
+        cgCtx.translateBy(x: -unrotatedBBox.origin.x, y: -unrotatedBBox.origin.y)
+        let offNSCtx = NSGraphicsContext(cgContext: cgCtx, flipped: false)
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = offNSCtx
         annotation.draw(in: offNSCtx)
-        offscreen.unlockFocus()
+        NSGraphicsContext.restoreGraphicsState()
         annotation.rotation = savedRotation
 
-        guard let cgOrig = offscreen.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return }
+        guard let cgOrig = cgCtx.makeImage() else { return }
 
         let ciOrig = CIImage(cgImage: cgOrig)
         guard let dilateFilter = CIFilter(name: "CIMorphologyMaximum") else { return }
@@ -124,7 +134,9 @@ extension OverlayView {
         subtractFilter.setValue(ciOrig, forKey: kCIInputBackgroundImageKey)
         guard let outline = subtractFilter.outputImage else { return }
 
-        guard let outlineCG = Self.sharedCIContext.createCGImage(outline, from: ciOrig.extent) else { return }
+        guard let outlineCG = Self.sharedCIContext.createCGImage(
+            outline, from: ciOrig.extent, format: .RGBA8, colorSpace: sRGB
+        ) else { return }
 
         let outlineImage = NSImage(cgImage: outlineCG, size: unrotatedBBox.size)
         annotation.outlineGlowImage = outlineImage

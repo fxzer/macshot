@@ -73,6 +73,7 @@ final class CaptureFlowCoordinator {
             }
             overlayControllersStorage.removeAll()
         }
+        BeautifyRenderer.clearCachesIfInitialized()
         dismissStrayOverlayWindows(reason: "dismissOverlays")
         isCapturing = false
         activeCaptureIntent = nil

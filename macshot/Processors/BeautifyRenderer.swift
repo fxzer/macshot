@@ -3,19 +3,29 @@ import SwiftUI
 
 class BeautifyRenderer {
 
+    private static var ciContextInitialized = false
+
     /// Shared CIContext — reused across all blur and rendering operations.
     /// CIContext allocation is expensive (GPU/Metal resource setup); avoid creating per-call.
-    /// This is the canonical context used by ImageEffects, Annotation+DrawingCensor,
-    /// and OverlayView+AnnotationOutlineGlow to avoid redundant GPU resource allocation.
+    /// `.cacheIntermediates: false` prevents CoreImage from holding tens of megabytes of
+    /// half-float RGhA IOSurfaces after capture/editing ends.
     static let sharedCIContext: CIContext = {
+        ciContextInitialized = true
         let linearP3 = CGColorSpace(name: CGColorSpace.extendedLinearDisplayP3)
         let p3 = CGColorSpace(name: CGColorSpace.displayP3) ?? CGColorSpaceCreateDeviceRGB()
         return CIContext(options: [
             .useSoftwareRenderer: false,
+            .cacheIntermediates: false,
             .workingColorSpace: linearP3 ?? p3,
             .outputColorSpace: p3,
         ])
     }()
+
+    /// Release GPU/IOSurface caches held by `sharedCIContext` without lazily initializing it.
+    static func clearCachesIfInitialized() {
+        guard ciContextInitialized else { return }
+        sharedCIContext.clearCaches()
+    }
 
     /// Apply Gaussian blur to a CGImage and return the blurred result.
     /// Returns nil if the filter fails.

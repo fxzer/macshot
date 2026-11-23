@@ -61,21 +61,27 @@ enum ImageEncoder {
 
     // MARK: - Shared bitmap creation
 
-    /// Per-capture bitmap cache. Keyed by image identity + downscaleRetina flag.
-    /// Lets the save path and the clipboard path share one `makeBitmap` result
-    /// (avoiding a duplicate Lanczos downscale when confirming a capture that
-    /// both saves and copies). NSCache is thread-safe by contract — safe to
-    /// hit from `encode()` (caller thread) and `copyToClipboard` (background queue).
+    /// Short-lived bitmap cache used ONLY when `downscaleRetina` is enabled, so the
+    /// save path and clipboard path of the same capture share one Lanczos downscale.
+    /// When `downscaleRetina` is false, `NSBitmapImageRep(cgImage:)` is already a
+    /// zero-copy wrapper and must not pin large screenshots in memory after capture.
     private static let bitmapCache: NSCache<BitmapCacheKey, NSBitmapImageRep> = {
         let cache = NSCache<BitmapCacheKey, NSBitmapImageRep>()
-        cache.countLimit = 4  // bound to a handful of recent captures
-        // Bound the steady-state footprint: each entry pins both the source
-        // NSImage (via the key) and the bitmap copy, i.e. up to 2× the pixel
-        // bytes per 4K capture. Without a cost limit the last 4 captures stay
-        // resident until system memory pressure forces eviction.
-        cache.totalCostLimit = 128 * 1024 * 1024
+        cache.countLimit = 1
+        cache.totalCostLimit = 32 * 1024 * 1024
         return cache
     }()
+
+    private static let cacheLock = NSLock()
+    private static var cacheGeneration: UInt64 = 0
+
+    /// Drop any cached downscaled bitmap immediately.
+    static func clearBitmapCache() {
+        cacheLock.lock()
+        cacheGeneration &+= 1
+        cacheLock.unlock()
+        bitmapCache.removeAllObjects()
+    }
 
     /// Key holding a strong reference to the source NSImage (keeps the image
     /// alive so its ObjectIdentifier remains stable) plus the downscale flag.
@@ -104,24 +110,40 @@ enum ImageEncoder {
     /// This is the single conversion point — all encode paths go through here.
     /// Uses cgImage(forProposedRect:) instead of tiffRepresentation to preserve
     /// exact pixel data regardless of the current display's backing scale factor.
-    /// Result is cached per (image, downscaleRetina) so the save path and the
-    /// clipboard path share the Lanczos downscale instead of running it twice.
     private static func makeBitmap(_ image: NSImage) -> NSBitmapImageRep? {
         let downscale = downscaleRetina
-        let cacheKey = BitmapCacheKey(image: image, downscale: downscale)
+        guard downscale else {
+            // Fast path: wrapping CGImage in NSBitmapImageRep does no pixel copy;
+            // caching here would needlessly retain 30–120 MB of full-res raster data.
+            return makeBitmapUncached(image, downscale: false)
+        }
+
+        let cacheKey = BitmapCacheKey(image: image, downscale: true)
         if let cached = bitmapCache.object(forKey: cacheKey) {
             return cached
         }
 
-        let bitmap = makeBitmapUncached(image, downscale: downscale)
+        let bitmap = makeBitmapUncached(image, downscale: true)
 
         if let bitmap {
-            // Cost = bitmap copy + pinned source image, both counted so the
-            // totalCostLimit bounds the real resident footprint.
             let bitmapBytes = bitmap.bytesPerRow * bitmap.pixelsHigh
             let sourceBytes = image.cgImage(forProposedRect: nil, context: nil, hints: nil)
                 .map { $0.bytesPerRow * $0.height } ?? bitmapBytes
             bitmapCache.setObject(bitmap, forKey: cacheKey, cost: bitmapBytes + sourceBytes)
+
+            // Auto-evict after the save+clipboard handoff window so idle memory stays flat.
+            cacheLock.lock()
+            cacheGeneration &+= 1
+            let gen = cacheGeneration
+            cacheLock.unlock()
+            DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 3.0) {
+                cacheLock.lock()
+                let shouldClear = (cacheGeneration == gen)
+                cacheLock.unlock()
+                if shouldClear {
+                    bitmapCache.removeAllObjects()
+                }
+            }
         }
         return bitmap
     }

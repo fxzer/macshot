@@ -126,13 +126,19 @@ sync_app() {
 }
 
 DO_CLEAN=0
+BUILD_CONFIG="Release"
 for arg in "$@"; do
     case "$arg" in
         --clean) DO_CLEAN=1 ;;
+        --debug) BUILD_CONFIG="Debug" ;;
+        --release) BUILD_CONFIG="Release" ;;
         -h|--help)
-            echo "用法: $(basename "$0") [--clean]"
+            echo "用法: $(basename "$0") [--clean] [--debug|--release]"
+            echo "  默认以 Release 配置构建安装（更低内存占用与更优性能）"
             echo "  自签名证书放登录钥匙串，权限稳定 + 永不弹密码"
-            echo "  --clean: 全量重编"
+            echo "  --clean:   全量重编"
+            echo "  --debug:   以 Debug 配置构建（开启调试日志与诊断）"
+            echo "  --release: 以 Release 配置构建（默认）"
             exit 0
             ;;
     esac
@@ -141,7 +147,7 @@ done
 BUNDLE_ID="$(detect_bundle_id)"
 JOBS="$(sysctl -n hw.ncpu 2>/dev/null || echo 4)"
 
-echo "🚀 macshot 一键构建"
+echo "🚀 macshot 一键构建 ($BUILD_CONFIG)"
 echo "========================================"
 
 ensure_signing_cert
@@ -161,10 +167,10 @@ echo "   ✅ 已清理"
 # (Sparkle is no longer a project dependency — stale re-resolve branch removed.)
 
 if [ "$DO_CLEAN" -eq 1 ]; then
-    echo "📍 步骤 3/4: 构建（全量）..."
+    echo "📍 步骤 3/4: 构建（$BUILD_CONFIG 全量）..."
     BUILD_ACTIONS=(clean build)
 else
-    echo "📍 步骤 3/4: 构建（增量）..."
+    echo "📍 步骤 3/4: 构建（$BUILD_CONFIG 增量）..."
     BUILD_ACTIONS=(build)
 fi
 
@@ -177,7 +183,7 @@ configure_xcodebuild_cmd() {
         xcodebuild
         -project "$ROOT_DIR/macshot.xcodeproj"
         -scheme macshot
-        -configuration Debug
+        -configuration "$BUILD_CONFIG"
         -derivedDataPath "$DERIVED_DATA"
         -jobs "$JOBS"
         -skipPackageUpdates
@@ -223,7 +229,7 @@ echo "   ✅ 构建完成"
 
 # 4. 安装并启动
 echo "📍 步骤 4/4: 安装并启动..."
-sync_app "$DERIVED_DATA/Build/Products/Debug/MacShot.app" "$APP_INSTALL_PATH"
+sync_app "$DERIVED_DATA/Build/Products/$BUILD_CONFIG/MacShot.app" "$APP_INSTALL_PATH"
 rm -rf "$APP_WORKTREE_PATH"
 sign_app "$APP_INSTALL_PATH"
 

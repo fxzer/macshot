@@ -332,6 +332,7 @@ class DetachedEditorWindowController: NSObject, NSWindowDelegate {
         window = nil
         Self.activeControllers.removeAll { $0 === self }
         if Self.activeControllers.isEmpty {
+            BeautifyRenderer.clearCachesIfInitialized()
             (NSApp.delegate as? AppDelegate)?.returnFocusIfNeeded()
         }
     }
