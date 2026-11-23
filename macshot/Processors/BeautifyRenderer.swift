@@ -8,10 +8,11 @@ class BeautifyRenderer {
     /// This is the canonical context used by ImageEffects, Annotation+DrawingCensor,
     /// and OverlayView+AnnotationOutlineGlow to avoid redundant GPU resource allocation.
     static let sharedCIContext: CIContext = {
+        let linearP3 = CGColorSpace(name: CGColorSpace.extendedLinearDisplayP3)
         let p3 = CGColorSpace(name: CGColorSpace.displayP3) ?? CGColorSpaceCreateDeviceRGB()
         return CIContext(options: [
             .useSoftwareRenderer: false,
-            .workingColorSpace: p3,
+            .workingColorSpace: linearP3 ?? p3,
             .outputColorSpace: p3,
         ])
     }()
@@ -21,7 +22,7 @@ class BeautifyRenderer {
     static func applyGaussianBlur(to cgImage: CGImage, radius: CGFloat) -> CGImage? {
         let ci = CIImage(cgImage: cgImage)
         guard let filter = CIFilter(name: "CIGaussianBlur") else { return nil }
-        filter.setValue(ci, forKey: kCIInputImageKey)
+        filter.setValue(ci.clampedToExtent(), forKey: kCIInputImageKey)
         filter.setValue(radius, forKey: kCIInputRadiusKey)
         guard let output = filter.outputImage else { return nil }
         return sharedCIContext.createCGImage(output, from: ci.extent)

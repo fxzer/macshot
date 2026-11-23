@@ -167,14 +167,8 @@ final class OverlaySessionCoordinator {
         let pixelWidth = Int(globalRect.width * scale)
         let pixelHeight = Int(globalRect.height * scale)
 
-        let colorSpace: CGColorSpace
-        if let screenshot = primary.screenshotImage,
-           let cgImage = screenshot.cgImage(forProposedRect: nil, context: nil, hints: nil),
-           let sourceColorSpace = cgImage.colorSpace {
-            colorSpace = sourceColorSpace
-        } else {
-            colorSpace = CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB()
-        }
+        let sourceColorSpace = primary.screenshotImage?.cgImage(forProposedRect: nil, context: nil, hints: nil)?.colorSpace
+        let colorSpace = ImageRasterizer.safeRGBOutputColorSpace(for: sourceColorSpace)
 
         guard let context = CGContext(
             data: nil,

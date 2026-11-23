@@ -19,7 +19,10 @@ enum PinWindowSizing {
     }
 
     static func windowSize(imageSize: CGSize, scale: CGFloat) -> CGSize {
-        CGSize(width: round(imageSize.width * scale), height: round(imageSize.height * scale))
+        if abs(scale - oneToOneScale) < 0.001 {
+            return CGSize(width: ceil(imageSize.width), height: ceil(imageSize.height))
+        }
+        return CGSize(width: round(imageSize.width * scale), height: round(imageSize.height * scale))
     }
 
     static func clampedScale(_ scale: CGFloat) -> CGFloat {

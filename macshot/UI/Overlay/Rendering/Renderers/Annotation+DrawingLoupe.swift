@@ -37,7 +37,7 @@ extension Annotation {
         let scale: CGFloat = 2.0
         let targetWidth = max(1, Int(size * scale))
         let targetHeight = max(1, Int(size * scale))
-        let colorSpace = cgImage.colorSpace ?? CGColorSpaceCreateDeviceRGB()
+        let colorSpace = ImageRasterizer.safeRGBOutputColorSpace(for: cgImage.colorSpace)
         let bitmapInfo = CGImageAlphaInfo.premultipliedLast.rawValue
 
         if let ctx = CGContext(

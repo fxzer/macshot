@@ -1,4 +1,5 @@
 import Cocoa
+import Accelerate
 import UniformTypeIdentifiers
 import ImageIO
 import WebP
@@ -135,13 +136,13 @@ enum ImageEncoder {
         let bitmap = NSBitmapImageRep(cgImage: cgImage)
 
         if downscale {
-            let logicalW = Int(image.size.width)
-            let logicalH = Int(image.size.height)
+            let logicalW = max(1, Int(image.size.width.rounded()))
+            let logicalH = max(1, Int(image.size.height.rounded()))
             let pixelW = bitmap.pixelsWide
             let pixelH = bitmap.pixelsHigh
 
             if pixelW > logicalW && pixelH > logicalH {
-                let cs = cgImage.colorSpace ?? CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB()
+                let cs = ImageRasterizer.safeRGBOutputColorSpace(for: cgImage.colorSpace)
                 let bitmapInfo = CGImageAlphaInfo.premultipliedLast.rawValue
                 guard let ctx = CGContext(
                     data: nil,
@@ -196,13 +197,11 @@ enum ImageEncoder {
         }
     }
 
-    /// Encode PNG, optionally embedding the source color profile via CGImageDestination.
+    /// Encode PNG via CGImageDestination so DPI metadata and profile rules stay consistent.
     private static func encodePNG(bitmap: NSBitmapImageRep, scale: CGFloat = 1) -> Data? {
-        if embedColorProfile, let cgImage = bitmap.cgImage {
+        if let cgImage = bitmap.cgImage {
             return encodeWithCGImageDestination(cgImage: cgImage, type: "public.png", lossyQuality: nil, scale: scale)
         }
-        // Best-effort DPI in the non-destination path: the rep derives pHYs from
-        // its point size vs pixel count.
         bitmap.size = NSSize(width: CGFloat(bitmap.pixelsWide) / scale, height: CGFloat(bitmap.pixelsHigh) / scale)
         return bitmap.representation(using: .png, properties: [:])
     }
@@ -245,9 +244,9 @@ enum ImageEncoder {
         return CGImageDestinationFinalize(dest) ? data as Data : nil
     }
 
-    /// Encode JPEG, optionally embedding the source color profile via CGImageDestination.
+    /// Encode JPEG via CGImageDestination so DPI metadata (72 × scale) and profile rules apply consistently.
     private static func encodeJPEG(bitmap: NSBitmapImageRep, quality: CGFloat, scale: CGFloat = 1) -> Data? {
-        if embedColorProfile, let cgImage = bitmap.cgImage {
+        if let cgImage = bitmap.cgImage {
             return encodeWithCGImageDestination(cgImage: cgImage, type: "public.jpeg", lossyQuality: quality, scale: scale)
         }
         return bitmap.representation(using: .jpeg, properties: [.compressionFactor: quality])
@@ -260,31 +259,42 @@ enum ImageEncoder {
     }
 
     /// Encode WebP via Swift-WebP (libwebp).
-    /// Uses the CGImage RGBA path directly — the library's NSImage path has a bug
-    /// (assumes RGB stride and logical size instead of pixel size).
+    /// Unpremultiplies RGBA pixels before passing to `WebPPictureImportRGBA`
+    /// so translucent edges (corners, shadows, highlighter, cutouts) do not darken.
     private static func encodeWebP(bitmap: NSBitmapImageRep, quality: CGFloat) -> Data? {
         guard let srcImage = bitmap.cgImage else { return nil }
         let w = srcImage.width
         let h = srcImage.height
-        // Re-render into a known premultipliedLast RGBA context
+        let bytesPerRow = w * 4
         let cs = CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB()
         guard let ctx = CGContext(
             data: nil, width: w, height: h,
-            bitsPerComponent: 8, bytesPerRow: w * 4,
+            bitsPerComponent: 8, bytesPerRow: bytesPerRow,
             space: cs, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
         ) else { return nil }
         ctx.draw(srcImage, in: CGRect(x: 0, y: 0, width: w, height: h))
-        guard let rgbaImage = ctx.makeImage() else { return nil }
+        guard let dataPtr = ctx.data else { return nil }
+
+        var buffer = vImage_Buffer(
+            data: dataPtr,
+            height: vImagePixelCount(h),
+            width: vImagePixelCount(w),
+            rowBytes: bytesPerRow
+        )
+        let err = vImageUnpremultiplyData_RGBA8888(&buffer, &buffer, vImage_Flags(kvImageNoFlags))
+        guard err == kvImageNoError else { return nil }
 
         let encoder = WebPEncoder()
         let config = WebPEncoderConfig.preset(.picture, quality: Float(quality * 100))
-        return try? encoder.encode(RGBA: rgbaImage, config: config)
+        let ptr = dataPtr.assumingMemoryBound(to: UInt8.self)
+        return try? encoder.encode(RGBA: ptr, config: config, originWidth: w, originHeight: h, stride: bytesPerRow)
     }
 
     /// Generic CGImageDestination encoder — color profile handling.
     /// When embedding is enabled the image's native profile is preserved (e.g.
     /// Display P3 captures keep their gamut, matching macOS system screenshots);
-    /// images without a color space are converted to sRGB as a fallback.
+    /// when disabled, wide-gamut images are converted to sRGB and stripped of
+    /// non-standard ICC profiles.
     /// Writes DPI metadata (72 × scale) so retina captures display at logical
     /// size like system screenshots instead of being upscaled.
     private static func encodeWithCGImageDestination(cgImage: CGImage, type: String, lossyQuality: CGFloat?, scale: CGFloat = 1) -> Data? {
@@ -302,15 +312,32 @@ enum ImageEncoder {
         }
 
         var imageToEncode = cgImage
-        if embedColorProfile, cgImage.colorSpace == nil, let sRGB = CGColorSpace(name: CGColorSpace.sRGB) {
-            let w = cgImage.width, h = cgImage.height
-            if let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8,
-                                   bytesPerRow: w * 4, space: sRGB,
-                                   bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) {
-                ctx.draw(cgImage, in: CGRect(x: 0, y: 0, width: w, height: h))
-                if let converted = ctx.makeImage() {
-                    imageToEncode = converted
+        if embedColorProfile {
+            if cgImage.colorSpace == nil, let sRGB = CGColorSpace(name: CGColorSpace.sRGB) {
+                let w = cgImage.width, h = cgImage.height
+                if let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8,
+                                       bytesPerRow: w * 4, space: sRGB,
+                                       bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) {
+                    ctx.draw(cgImage, in: CGRect(x: 0, y: 0, width: w, height: h))
+                    if let converted = ctx.makeImage() {
+                        imageToEncode = converted
+                    }
                 }
+            }
+        } else if let sRGB = CGColorSpace(name: CGColorSpace.sRGB) {
+            let devRGB = CGColorSpaceCreateDeviceRGB()
+            if cgImage.colorSpace?.name != CGColorSpace.sRGB {
+                let w = cgImage.width, h = cgImage.height
+                if let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8,
+                                       bytesPerRow: w * 4, space: sRGB,
+                                       bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) {
+                    ctx.draw(cgImage, in: CGRect(x: 0, y: 0, width: w, height: h))
+                    if let converted = ctx.makeImage() {
+                        imageToEncode = converted.copy(colorSpace: devRGB) ?? converted
+                    }
+                }
+            } else if let stripped = cgImage.copy(colorSpace: devRGB) {
+                imageToEncode = stripped
             }
         }
 

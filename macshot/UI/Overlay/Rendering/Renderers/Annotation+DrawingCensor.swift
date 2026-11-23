@@ -81,7 +81,8 @@ extension Annotation {
         let pxW = max(1, Int((rect.width * scale).rounded()))
         let pxH = max(1, Int((rect.height * scale).rounded()))
 
-        let cs = CGColorSpaceCreateDeviceRGB()
+        let sourceCS = sourceImage?.cgImage(forProposedRect: nil, context: nil, hints: nil)?.colorSpace
+        let cs = ImageRasterizer.safeRGBOutputColorSpace(for: sourceCS)
         let bitmapInfo = CGImageAlphaInfo.premultipliedLast.rawValue
         guard let ctx = CGContext(
             data: nil, width: pxW, height: pxH,
@@ -122,11 +123,11 @@ extension Annotation {
         let ih = Int(rect.height * scaleY)
         guard iw > 0, ih > 0 else { return nil }
 
-        func samplePixel(_ x: Int, _ y: Int) -> (r: CGFloat, g: CGFloat, b: CGFloat) {
-            let cx = max(0, min(bmpW - 1, x))
-            let cy = max(0, min(bmpH - 1, y))
+        func samplePixel(_ x: Int, _ y: Int) -> (r: CGFloat, g: CGFloat, b: CGFloat)? {
+            guard x >= 0, x < bmpW, y >= 0, y < bmpH else { return nil }
             var pixel: [Int] = [0, 0, 0, 0]
-            bitmap.getPixel(&pixel, atX: cx, y: cy)
+            bitmap.getPixel(&pixel, atX: x, y: y)
+            guard pixel[3] >= 250 else { return nil }
             return (CGFloat(pixel[0]) / 255.0, CGFloat(pixel[1]) / 255.0, CGFloat(pixel[2]) / 255.0)
         }
 
@@ -138,15 +139,15 @@ extension Annotation {
         for row in 0..<ih {
             let sy = iy + row
             for d in 1...padX {
-                allBorderPixels.append(samplePixel(ix - d, sy))
-                allBorderPixels.append(samplePixel(ix + iw - 1 + d, sy))
+                if let px = samplePixel(ix - d, sy) { allBorderPixels.append(px) }
+                if let px = samplePixel(ix + iw - 1 + d, sy) { allBorderPixels.append(px) }
             }
         }
         for col in 0..<iw {
             let sx = ix + col
             for d in 1...padY {
-                allBorderPixels.append(samplePixel(sx, iy - d))
-                allBorderPixels.append(samplePixel(sx, iy + ih - 1 + d))
+                if let px = samplePixel(sx, iy - d) { allBorderPixels.append(px) }
+                if let px = samplePixel(sx, iy + ih - 1 + d) { allBorderPixels.append(px) }
             }
         }
 
@@ -180,7 +181,7 @@ extension Annotation {
         }
 
         let outW = iw, outH = ih
-        let cs = CGColorSpaceCreateDeviceRGB()
+        let cs = ImageRasterizer.safeRGBOutputColorSpace(for: cgImage.colorSpace)
         let bitmapInfo = CGImageAlphaInfo.premultipliedLast.rawValue
         guard let ctx = CGContext(
             data: nil, width: outW, height: outH,
@@ -224,8 +225,8 @@ extension Annotation {
                 var lp = [(r: CGFloat, g: CGFloat, b: CGFloat)]()
                 var rp = [(r: CGFloat, g: CGFloat, b: CGFloat)]()
                 for d in 1...padX {
-                    lp.append(samplePixel(ix - d, sy))
-                    rp.append(samplePixel(ix + iw - 1 + d, sy))
+                    if let px = samplePixel(ix - d, sy) { lp.append(px) }
+                    if let px = samplePixel(ix + iw - 1 + d, sy) { rp.append(px) }
                 }
                 leftColors.append(cleanSample(pixels: lp))
                 rightColors.append(cleanSample(pixels: rp))
@@ -238,8 +239,8 @@ extension Annotation {
                 var bp = [(r: CGFloat, g: CGFloat, b: CGFloat)]()
                 var tp = [(r: CGFloat, g: CGFloat, b: CGFloat)]()
                 for d in 1...padY {
-                    bp.append(samplePixel(sx, iy - d))
-                    tp.append(samplePixel(sx, iy + ih - 1 + d))
+                    if let px = samplePixel(sx, iy - d) { bp.append(px) }
+                    if let px = samplePixel(sx, iy + ih - 1 + d) { tp.append(px) }
                 }
                 bottomColors.append(cleanSample(pixels: bp))
                 topColors.append(cleanSample(pixels: tp))
@@ -279,9 +280,11 @@ extension Annotation {
         let shortSide = min(rect.width, rect.height)
         let radius = max(14.0, min(shortSide * 0.28, 48.0))
         let padding = ceil(radius * 2.0)
-        let sampleRect = rect.insetBy(dx: -padding, dy: -padding)
+        let validBounds = sourceImageBounds.isEmpty ? rect : sourceImageBounds
+        let sampleRect = rect.insetBy(dx: -padding, dy: -padding).intersection(validBounds)
 
-        guard let paddedRegionImage = cropRegion(rect: sampleRect),
+        guard !sampleRect.isEmpty,
+              let paddedRegionImage = cropRegion(rect: sampleRect),
               let paddedCG = paddedRegionImage.cgImage(forProposedRect: nil, context: nil, hints: nil)
         else { return nil }
 
@@ -305,8 +308,9 @@ extension Annotation {
         let cropH = rect.height * scale
         let outputRect = CGRect(x: cropX, y: cropY, width: cropW, height: cropH)
 
+        let outputCS = ImageRasterizer.safeRGBOutputColorSpace(for: paddedCG.colorSpace)
         guard let blurredCG = Annotation.ciContext.createCGImage(
-            output, from: outputRect, format: .RGBA8, colorSpace: paddedCG.colorSpace
+            output, from: outputRect, format: .RGBA8, colorSpace: outputCS
         ) else { return nil }
 
         return NSImage(cgImage: blurredCG, size: rect.size)
@@ -323,7 +327,7 @@ extension Annotation {
         let blockPt: CGFloat = max(8.0, min(14.0, min(rect.width, rect.height) * 0.22))
         let cols = max(3, Int(round(rect.width / blockPt)))
         let rows = max(2, Int(round(rect.height / blockPt)))
-        let cs = CGColorSpaceCreateDeviceRGB()
+        let cs = ImageRasterizer.safeRGBOutputColorSpace(for: cgImage.colorSpace)
         let bitmapInfo = CGImageAlphaInfo.premultipliedLast.rawValue
 
         // 阶段 1：高质量均值下采样，提取最具代表性的块均色
@@ -364,8 +368,9 @@ extension Annotation {
         let scale = ImageRasterizer.pixelScale(of: sourceImage)
         let pxW = max(1, Int((rect.width * scale).rounded()))
         let pxH = max(1, Int((rect.height * scale).rounded()))
-        let cs = sourceImage.cgImage(forProposedRect: nil, context: nil, hints: nil)?.colorSpace
-            ?? CGColorSpaceCreateDeviceRGB()
+        let cs = ImageRasterizer.safeRGBOutputColorSpace(
+            for: sourceImage.cgImage(forProposedRect: nil, context: nil, hints: nil)?.colorSpace
+        )
         guard let cgCtx = CGContext(
             data: nil, width: pxW, height: pxH,
             bitsPerComponent: 8, bytesPerRow: 0, space: cs,

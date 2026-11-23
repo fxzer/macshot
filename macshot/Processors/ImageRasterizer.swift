@@ -61,6 +61,22 @@ enum ImageRasterizer {
         return rasterized
     }
 
+    /// Returns an 8-bit RGBA CGContext-compatible RGB color space.
+    /// Filters out extended/linear/CMYK/Gray color spaces that make 8-bit `CGContext` return nil
+    /// or desaturate colored annotations into grayscale.
+    static func safeRGBOutputColorSpace(for source: CGColorSpace?) -> CGColorSpace {
+        let p3 = CGColorSpace(name: CGColorSpace.displayP3) ?? CGColorSpaceCreateDeviceRGB()
+        let srgb = CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB()
+        guard let source else { return srgb }
+        let name = (source.name as String?) ?? ""
+        let isExtendedOrLinear = name.localizedCaseInsensitiveContains("extended")
+            || name.localizedCaseInsensitiveContains("linear")
+        if source.model == .rgb && source.supportsOutput && source.numberOfComponents == 3 && !isExtendedOrLinear {
+            return source
+        }
+        return source.isWideGamutRGB ? p3 : srgb
+    }
+
     // MARK: - Core
 
     static func rasterize(_ image: NSImage, scale: CGFloat) -> NSImage? {

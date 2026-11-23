@@ -362,13 +362,25 @@ private class PinView: NSView {
     }
 
     override func draw(_ dirtyRect: NSRect) {
+        NSGraphicsContext.current?.imageInterpolation = .high
+
+        let drawRect: NSRect
+        if abs(bounds.width - ceil(image.size.width)) < 0.01,
+           abs(bounds.height - ceil(image.size.height)) < 0.01,
+           image.size.width <= bounds.width,
+           image.size.height <= bounds.height {
+            drawRect = NSRect(origin: .zero, size: image.size)
+        } else {
+            drawRect = bounds
+        }
+
         if showsDecorations {
             // Apply clipping path with rounded corners
             let path = NSBezierPath(roundedRect: bounds, xRadius: 6, yRadius: 6)
             path.addClip()
 
             // Draw the image
-            image.draw(in: bounds, from: .zero, operation: .copy, fraction: 1.0)
+            image.draw(in: drawRect, from: .zero, operation: .copy, fraction: 1.0)
 
             // Draw border
             NSColor.white.withAlphaComponent(0.3).setStroke()
@@ -377,7 +389,7 @@ private class PinView: NSView {
             border.stroke()
         } else {
             // No decorations - just draw the image directly
-            image.draw(in: bounds, from: .zero, operation: .copy, fraction: 1.0)
+            image.draw(in: drawRect, from: .zero, operation: .copy, fraction: 1.0)
         }
     }
 

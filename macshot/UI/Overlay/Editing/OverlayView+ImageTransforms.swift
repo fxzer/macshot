@@ -54,7 +54,7 @@ extension OverlayView {
 
         let w = cgImage.width
         let h = cgImage.height
-        let cs = cgImage.colorSpace ?? CGColorSpaceCreateDeviceRGB()
+        let cs = ImageRasterizer.safeRGBOutputColorSpace(for: cgImage.colorSpace)
         let bitmapInfo =
             CGImageAlphaInfo.premultipliedFirst.rawValue
             | CGBitmapInfo.byteOrder32Little.rawValue
@@ -101,7 +101,7 @@ extension OverlayView {
 
         let w = cgImage.width
         let h = cgImage.height
-        let cs = cgImage.colorSpace ?? CGColorSpaceCreateDeviceRGB()
+        let cs = ImageRasterizer.safeRGBOutputColorSpace(for: cgImage.colorSpace)
         let bitmapInfo =
             CGImageAlphaInfo.premultipliedFirst.rawValue
             | CGBitmapInfo.byteOrder32Little.rawValue
@@ -218,7 +218,7 @@ extension OverlayView {
         let newPxW = max(1, Int((newPtW * scale).rounded()))
         let newPxH = max(1, Int((newPtH * scale).rounded()))
 
-        let cs = oldCG.colorSpace ?? CGColorSpaceCreateDeviceRGB()
+        let cs = ImageRasterizer.safeRGBOutputColorSpace(for: oldCG.colorSpace)
         guard let ctx = CGContext(
             data: nil, width: newPxW, height: newPxH,
             bitsPerComponent: 8, bytesPerRow: 0, space: cs,

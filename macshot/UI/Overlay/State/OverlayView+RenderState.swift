@@ -214,11 +214,11 @@ extension OverlayView {
 
     func drawAnnotationListLive(_ annotations: [Annotation], in context: NSGraphicsContext) {
         for annotation in annotations {
-            if annotation.tool != .pixelate {
+            if annotation.tool != .pixelate && annotation.tool != .blur {
                 annotation.draw(in: context)
             }
         }
-        for annotation in annotations where annotation.tool == .pixelate {
+        for annotation in annotations where annotation.tool == .pixelate || annotation.tool == .blur {
             annotation.draw(in: context)
         }
     }

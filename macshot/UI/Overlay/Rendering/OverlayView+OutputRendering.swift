@@ -31,9 +31,9 @@ extension OverlayView {
         let scale = ImageRasterizer.pixelScale(of: screenshot)
         let pxW = max(1, Int((drawRect.width * scale).rounded()))
         let pxH = max(1, Int((drawRect.height * scale).rounded()))
-        let cs = screenshot.cgImage(forProposedRect: nil, context: nil, hints: nil)?.colorSpace
-            ?? CGColorSpace(name: CGColorSpace.displayP3)
-            ?? CGColorSpaceCreateDeviceRGB()
+        let cs = ImageRasterizer.safeRGBOutputColorSpace(
+            for: screenshot.cgImage(forProposedRect: nil, context: nil, hints: nil)?.colorSpace
+        )
         guard let cgCtx = CGContext(
             data: nil, width: pxW, height: pxH,
             bitsPerComponent: 8, bytesPerRow: 0, space: cs,
@@ -105,15 +105,9 @@ extension OverlayView {
             return nil
         }
 
-        let cs: CGColorSpace
-        if let screenshot = screenshotImage,
-            let cg = screenshot.cgImage(forProposedRect: nil, context: nil, hints: nil),
-            let srcCS = cg.colorSpace
-        {
-            cs = srcCS
-        } else {
-            cs = CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB()
-        }
+        let cs = ImageRasterizer.safeRGBOutputColorSpace(
+            for: screenshotImage?.cgImage(forProposedRect: nil, context: nil, hints: nil)?.colorSpace
+        )
         let bitmapInfo = CGImageAlphaInfo.premultipliedLast.rawValue
         guard
             let cgCtx = CGContext(
@@ -146,9 +140,7 @@ extension OverlayView {
         cgCtx.interpolationQuality = .high
 
         if includeAnnotations {
-            for annotation in annotations {
-                annotation.draw(in: nsContext)
-            }
+            drawAnnotationListLive(annotations, in: nsContext)
         }
 
         NSGraphicsContext.restoreGraphicsState()
