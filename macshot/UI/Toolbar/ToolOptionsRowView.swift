@@ -212,7 +212,9 @@ class ToolOptionsRowView: NSView {
     func updateSwatchColors() {
         guard let ov = overlayView else { return }
         // Draw color swatch (tag 974)
-        if let swatch = viewWithTag(ToolOptionTag.drawColorSwatch.rawValue) {
+        if let swatch = viewWithTag(ToolOptionTag.drawColorSwatch.rawValue) as? PaintSwatchButton {
+            applyPaintState(to: swatch, tool: editingAnnotation?.tool ?? currentTool, ov: ov)
+        } else if let swatch = viewWithTag(ToolOptionTag.drawColorSwatch.rawValue) {
             swatch.layer?.backgroundColor = (editingAnnotation?.color ?? ov.currentColor).cgColor
         }
         // Text background swatch (tag 975)

@@ -65,10 +65,18 @@ extension OverlayView {
         needsDisplay = true
     }
 
-    func applyColorToSelectedAnnotation() {
+    func applyColorToSelectedAnnotation(clearGradient: Bool = true) {
         guard !selectedAnnotations.isEmpty else { return }
         for ann in selectedAnnotations {
-            ann.color = opacityAppliedColor(for: ann.tool)
+            if clearGradient {
+                ann.strokeGradient = nil
+                ann.color = opacityAppliedColor(for: ann.tool)
+            } else if ann.strokeGradient != nil {
+                let alpha: CGFloat = (ann.tool == .marker || ann.tool == .measure) ? 1.0 : currentColorOpacity
+                ann.color = ann.color.withAlphaComponent(alpha)
+            } else {
+                ann.color = opacityAppliedColor(for: ann.tool)
+            }
             if ann.tool == .pixelate || ann.tool == .blur {
                 if ann.censorMode != .solid {
                     ann.sourceImage = ann.sourceImage ?? screenshotImage
@@ -77,6 +85,31 @@ extension OverlayView {
                 ann.bakedBlurNSImage = nil
                 ann.bakePixelate()
             }
+        }
+        toolOptionsRowView?.updateSwatchColors()
+        invalidateCommittedAnnotationRendering()
+    }
+
+    func applyGradientToSelectedAnnotations(_ gradient: AnnotationGradient) {
+        let targets = selectedAnnotations.filter { $0.tool != .text }
+        guard !targets.isEmpty else { return }
+        for ann in targets {
+            let alpha: CGFloat = (ann.tool == .marker || ann.tool == .measure) ? 1.0 : currentColorOpacity
+            ann.strokeGradient = gradient
+            ann.color = gradient.primaryColor.withAlphaComponent(alpha)
+        }
+        toolOptionsRowView?.updateSwatchColors()
+        invalidateCommittedAnnotationRendering()
+    }
+
+    func applyRandomGradientToSelectedAnnotations() {
+        let targets = selectedAnnotations.filter { $0.tool != .text }
+        guard !targets.isEmpty else { return }
+        for ann in targets {
+            let grad = AnnotationGradient.nextRandom()
+            let alpha: CGFloat = (ann.tool == .marker || ann.tool == .measure) ? 1.0 : currentColorOpacity
+            ann.strokeGradient = grad
+            ann.color = grad.primaryColor.withAlphaComponent(alpha)
         }
         toolOptionsRowView?.updateSwatchColors()
         invalidateCommittedAnnotationRendering()

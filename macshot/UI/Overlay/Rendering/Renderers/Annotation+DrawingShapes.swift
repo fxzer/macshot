@@ -20,7 +20,19 @@ extension Annotation {
                 oc.setStroke(); path.stroke()
                 path.lineWidth = strokeWidth
             }
-            color.setStroke(); path.stroke()
+            if let grad = strokeGradient {
+                drawWithGradientMask(
+                    grad,
+                    shapeBounds: effectiveShapeBounds,
+                    startPoint: pts.first,
+                    endPoint: pts.last,
+                    alpha: color.alphaComponent
+                ) {
+                    path.stroke()
+                }
+            } else {
+                color.setStroke(); path.stroke()
+            }
             return
         }
 
@@ -54,7 +66,19 @@ extension Annotation {
             oc.setStroke(); path.stroke()
             path.lineWidth = strokeWidth
         }
-        color.setStroke(); path.stroke()
+        if let grad = strokeGradient {
+            drawWithGradientMask(
+                grad,
+                shapeBounds: effectiveShapeBounds,
+                startPoint: startPoint,
+                endPoint: endPoint,
+                alpha: color.alphaComponent
+            ) {
+                path.stroke()
+            }
+        } else {
+            color.setStroke(); path.stroke()
+        }
     }
 
     func drawRectangle(forceFilled: Bool = false) {
@@ -81,13 +105,27 @@ extension Annotation {
                 oc.setStroke()
                 outlinePath.stroke()
             }
-            color.setFill()
-            NSBezierPath(roundedRect: rect, xRadius: cornerRadius, yRadius: cornerRadius).fill()
+            let fillPath = NSBezierPath(roundedRect: rect, xRadius: cornerRadius, yRadius: cornerRadius)
+            if let grad = strokeGradient {
+                drawWithGradientMask(grad, shapeBounds: rect, alpha: color.alphaComponent) {
+                    fillPath.fill()
+                }
+            } else {
+                color.setFill()
+                fillPath.fill()
+            }
 
         case .strokeAndFill:
+            let fillPath = NSBezierPath(roundedRect: rect, xRadius: cornerRadius, yRadius: cornerRadius)
             let fillAlpha = color.alphaComponent * RectFillStyle.strokeAndFillOpacity
-            color.withAlphaComponent(fillAlpha).setFill()
-            NSBezierPath(roundedRect: rect, xRadius: cornerRadius, yRadius: cornerRadius).fill()
+            if let grad = strokeGradient {
+                drawWithGradientMask(grad, shapeBounds: rect, alpha: fillAlpha) {
+                    fillPath.fill()
+                }
+            } else {
+                color.withAlphaComponent(fillAlpha).setFill()
+                fillPath.fill()
+            }
             let path = NSBezierPath(roundedRect: rect, xRadius: cornerRadius, yRadius: cornerRadius)
             path.lineWidth = strokeWidth
             path.lineJoinStyle = cornerRadius > 0 ? .round : .miter
@@ -99,15 +137,31 @@ extension Annotation {
                 oc.setStroke(); path.stroke()
                 path.lineWidth = strokeWidth
             }
-            color.setStroke()
-            path.stroke()
+            if let grad = strokeGradient {
+                drawWithGradientMask(grad, shapeBounds: rect, alpha: color.alphaComponent) {
+                    path.stroke()
+                }
+            } else {
+                color.setStroke()
+                path.stroke()
+            }
 
         case .stroke:
             if cornerRadius < 1 && (effectiveLineStyle == .dotted || effectiveLineStyle == .dashed) {
-                if effectiveLineStyle == .dotted {
-                    drawDottedRectPerSide(rect: rect)
+                if let grad = strokeGradient {
+                    drawWithGradientMask(grad, shapeBounds: rect, alpha: color.alphaComponent) {
+                        if effectiveLineStyle == .dotted {
+                            drawDottedRectPerSide(rect: rect, setColor: false)
+                        } else {
+                            drawDashedRectPerSide(rect: rect, setColor: false)
+                        }
+                    }
                 } else {
-                    drawDashedRectPerSide(rect: rect)
+                    if effectiveLineStyle == .dotted {
+                        drawDottedRectPerSide(rect: rect)
+                    } else {
+                        drawDashedRectPerSide(rect: rect)
+                    }
                 }
             } else {
                 let path = NSBezierPath(roundedRect: rect, xRadius: cornerRadius, yRadius: cornerRadius)
@@ -121,18 +175,24 @@ extension Annotation {
                     oc.setStroke(); path.stroke()
                     path.lineWidth = strokeWidth
                 }
-                color.setStroke()
-                path.stroke()
+                if let grad = strokeGradient {
+                    drawWithGradientMask(grad, shapeBounds: rect, alpha: color.alphaComponent) {
+                        path.stroke()
+                    }
+                } else {
+                    color.setStroke()
+                    path.stroke()
+                }
             }
         }
     }
 
     /// Draw a dotted rectangle with dots guaranteed at every corner.
     /// Each side is drawn independently so dots tile evenly per-side.
-    fileprivate func drawDottedRectPerSide(rect: NSRect) {
+    fileprivate func drawDottedRectPerSide(rect: NSRect, setColor: Bool = true) {
         let dotRadius = strokeWidth / 2
         let idealGap = max(strokeWidth * 2, 6)
-        color.setFill()
+        if setColor { color.setFill() }
 
         // Corner points (bottom-left origin, clockwise: BL → TL → TR → BR)
         let corners = [
@@ -167,12 +227,12 @@ extension Annotation {
 
     /// Draw a dashed rectangle with dashes evenly distributed per side.
     /// Each side is inset by half the stroke width so corners don't overlap.
-    fileprivate func drawDashedRectPerSide(rect: NSRect) {
+    fileprivate func drawDashedRectPerSide(rect: NSRect, setColor: Bool = true) {
         let idealDash = strokeWidth * 3
         let idealGap = strokeWidth * 2
         let idealCycle = idealDash + idealGap
         let hw = strokeWidth / 2  // half stroke width — inset to avoid corner overlap
-        color.setStroke()
+        if setColor { color.setStroke() }
 
         // Corners inset by half stroke width along each side's direction
         let sides: [(NSPoint, NSPoint)] = [
@@ -227,13 +287,27 @@ extension Annotation {
                 oc.setStroke()
                 outlinePath.stroke()
             }
-            color.setFill()
-            NSBezierPath(ovalIn: rect).fill()
+            let oval = NSBezierPath(ovalIn: rect)
+            if let grad = strokeGradient {
+                drawWithGradientMask(grad, shapeBounds: rect, alpha: color.alphaComponent) {
+                    oval.fill()
+                }
+            } else {
+                color.setFill()
+                oval.fill()
+            }
 
         case .strokeAndFill:
+            let fillOval = NSBezierPath(ovalIn: rect)
             let fillAlpha = color.alphaComponent * RectFillStyle.strokeAndFillOpacity
-            color.withAlphaComponent(fillAlpha).setFill()
-            NSBezierPath(ovalIn: rect).fill()
+            if let grad = strokeGradient {
+                drawWithGradientMask(grad, shapeBounds: rect, alpha: fillAlpha) {
+                    fillOval.fill()
+                }
+            } else {
+                color.withAlphaComponent(fillAlpha).setFill()
+                fillOval.fill()
+            }
             let path = NSBezierPath(ovalIn: rect)
             path.lineWidth = strokeWidth
             if effectiveLineStyle != .solid {
@@ -244,8 +318,14 @@ extension Annotation {
                 oc.setStroke(); path.stroke()
                 path.lineWidth = strokeWidth
             }
-            color.setStroke()
-            path.stroke()
+            if let grad = strokeGradient {
+                drawWithGradientMask(grad, shapeBounds: rect, alpha: color.alphaComponent) {
+                    path.stroke()
+                }
+            } else {
+                color.setStroke()
+                path.stroke()
+            }
 
         case .stroke:
             let path = NSBezierPath(ovalIn: rect)
@@ -258,8 +338,14 @@ extension Annotation {
                 oc.setStroke(); path.stroke()
                 path.lineWidth = strokeWidth
             }
-            color.setStroke()
-            path.stroke()
+            if let grad = strokeGradient {
+                drawWithGradientMask(grad, shapeBounds: rect, alpha: color.alphaComponent) {
+                    path.stroke()
+                }
+            } else {
+                color.setStroke()
+                path.stroke()
+            }
         }
     }
 }

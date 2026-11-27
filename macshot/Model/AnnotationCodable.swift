@@ -52,6 +52,9 @@ struct CodableAnnotation: Codable {
     var arrowReversed: Bool = false
     var rectFillStyle: Int = 0
     var outlineColorRGBA: [CGFloat]?
+    var gradientColorsRGBA: [[CGFloat]]?
+    var gradientLocations: [CGFloat]?
+    var gradientAngle: CGFloat?
 
     // Stamp
     var stampImagePNG: Data?
@@ -129,6 +132,11 @@ extension Annotation {
         c.arrowReversed = arrowReversed
         c.rectFillStyle = rectFillStyle.rawValue
         if let oc = outlineColor { c.outlineColorRGBA = Self.encodeColor(oc) }
+        if let grad = strokeGradient {
+            c.gradientColorsRGBA = grad.colors.map { Self.encodeColor($0) }
+            c.gradientLocations = grad.locations
+            c.gradientAngle = grad.angle
+        }
 
         // Stamp
         if let stamp = stampImage { c.stampImagePNG = Self.encodeImage(stamp) }
@@ -218,6 +226,14 @@ extension Annotation {
         ann.arrowReversed = c.arrowReversed
         ann.rectFillStyle = RectFillStyle(rawValue: c.rectFillStyle) ?? .stroke
         if let rgba = c.outlineColorRGBA { ann.outlineColor = decodeColor(rgba) }
+        if let stopsRGBA = c.gradientColorsRGBA, stopsRGBA.count >= 2 {
+            let stopColors = stopsRGBA.map { Self.decodeColor($0) }
+            ann.strokeGradient = AnnotationGradient(
+                colors: stopColors,
+                locations: c.gradientLocations,
+                angle: c.gradientAngle ?? -45
+            )
+        }
 
         // Stamp
         if let data = c.stampImagePNG { ann.stampImage = NSImage(data: data) }

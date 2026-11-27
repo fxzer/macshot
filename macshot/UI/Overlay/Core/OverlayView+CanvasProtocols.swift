@@ -33,6 +33,24 @@ extension OverlayView: AnnotationCanvas {
         nextNumberValueForNewAnnotation()
     }
 
+    func nextPaint(for tool: AnnotationTool) -> (color: NSColor, gradient: AnnotationGradient?) {
+        switch tool {
+        case .pencil, .line, .arrow, .rectangle, .filledRectangle, .ellipse, .marker, .number, .measure:
+            let alpha: CGFloat = (tool == .marker || tool == .measure) ? 1.0 : currentColorOpacity
+            switch drawPaintMode {
+            case .solid:
+                return (opacityAppliedColor(for: tool), nil)
+            case .gradient(let grad):
+                return (grad.primaryColor.withAlphaComponent(alpha), grad)
+            case .randomGradient:
+                let grad = AnnotationGradient.nextRandom()
+                return (grad.primaryColor.withAlphaComponent(alpha), grad)
+            }
+        default:
+            return (opacityAppliedColor(for: tool), nil)
+        }
+    }
+
     func initialStrokeWidth(for tool: AnnotationTool) -> CGFloat {
         switch tool {
         case .select:

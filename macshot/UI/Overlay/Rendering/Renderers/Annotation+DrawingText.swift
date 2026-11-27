@@ -141,6 +141,16 @@ extension Annotation {
             destinationRadius: radius
         )
 
+        let circleRect = NSRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2)
+        let calloutBounds = circleRect.union(
+            NSRect(
+                x: targetPoint.x - MagnifiedCalloutGeometry.sourceDotRadius,
+                y: targetPoint.y - MagnifiedCalloutGeometry.sourceDotRadius,
+                width: MagnifiedCalloutGeometry.sourceDotRadius * 2,
+                height: MagnifiedCalloutGeometry.sourceDotRadius * 2
+            )
+        )
+
         if showsDetachedCallout {
             if let funnelPath = MagnifiedCalloutGeometry.funnelPath(
                 sourceCenter: targetPoint,
@@ -148,23 +158,26 @@ extension Annotation {
                 destinationCenter: center,
                 destinationRadius: radius
             ) {
-                color.withAlphaComponent(0.22).setFill()
-                NSGraphicsContext.current?.cgContext.addPath(funnelPath)
-                NSGraphicsContext.current?.cgContext.fillPath()
+                if let grad = strokeGradient {
+                    drawWithGradientMask(
+                        grad,
+                        shapeBounds: calloutBounds,
+                        layerPadding: radius + 12,
+                        startPoint: targetPoint,
+                        endPoint: center,
+                        alpha: 0.22 * color.alphaComponent
+                    ) {
+                        NSGraphicsContext.current?.cgContext.addPath(funnelPath)
+                        NSGraphicsContext.current?.cgContext.fillPath()
+                    }
+                } else {
+                    color.withAlphaComponent(0.22).setFill()
+                    NSGraphicsContext.current?.cgContext.addPath(funnelPath)
+                    NSGraphicsContext.current?.cgContext.fillPath()
+                }
             }
-
-            let sourceDotRect = NSRect(
-                x: targetPoint.x - MagnifiedCalloutGeometry.sourceDotRadius,
-                y: targetPoint.y - MagnifiedCalloutGeometry.sourceDotRadius,
-                width: MagnifiedCalloutGeometry.sourceDotRadius * 2,
-                height: MagnifiedCalloutGeometry.sourceDotRadius * 2
-            )
-            color.setFill()
-            NSBezierPath(ovalIn: sourceDotRect).fill()
         }
 
-        // Draw the circle on top of the cone
-        let circleRect = NSRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2)
         // Outline behind circle
         if let oc = outlineColor {
             let outlineCircle = NSBezierPath(ovalIn: circleRect.insetBy(dx: -2, dy: -2))
@@ -172,17 +185,35 @@ extension Annotation {
             oc.setStroke()
             outlineCircle.stroke()
         }
-        color.setFill()
-        NSBezierPath(ovalIn: circleRect).fill()
+
+        let drawBubbleAndDot = {
+            if showsDetachedCallout {
+                let sourceDotRect = NSRect(
+                    x: targetPoint.x - MagnifiedCalloutGeometry.sourceDotRadius,
+                    y: targetPoint.y - MagnifiedCalloutGeometry.sourceDotRadius,
+                    width: MagnifiedCalloutGeometry.sourceDotRadius * 2,
+                    height: MagnifiedCalloutGeometry.sourceDotRadius * 2
+                )
+                NSBezierPath(ovalIn: sourceDotRect).fill()
+            }
+            NSBezierPath(ovalIn: circleRect).fill()
+        }
+
+        if let grad = strokeGradient {
+            drawWithGradientMask(
+                grad,
+                shapeBounds: circleRect,
+                layerPadding: max(radius + 12, calloutBounds.width, calloutBounds.height),
+                alpha: color.alphaComponent,
+                drawMask: drawBubbleAndDot
+            )
+        } else {
+            color.setFill()
+            drawBubbleAndDot()
+        }
 
         // Choose contrasting text color: black for light backgrounds, white for dark
-        let textColor: NSColor = {
-            guard let rgb = color.usingColorSpace(.sRGB) else { return .white }
-            var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
-            rgb.getRed(&r, green: &g, blue: &b, alpha: &a)
-            let luminance = 0.299 * r + 0.587 * g + 0.114 * b
-            return luminance > 0.6 ? .black : .white
-        }()
+        let textColor = NumberCalloutTextLayout.textColor(forLuminance: effectiveContrastLuminance)
         let fontSize = radius * 1.1
         let font = NSFont.boldSystemFont(ofSize: fontSize)
         let numberText = numberFormat.format(number)
@@ -190,7 +221,7 @@ extension Annotation {
             NumberCalloutTextLayout.draw(
                 text: numberText,
                 font: font,
-                fillColor: color,
+                textColor: textColor,
                 in: circleRect,
                 cgContext: cgContext
             )
@@ -223,34 +254,44 @@ extension Annotation {
 
         let scale = NSScreen.main?.backingScaleFactor ?? 2.0
 
-        // Main measurement line
-        let lineColor = color
-        let path = NSBezierPath()
-        path.lineWidth = 1.5
-        path.lineCapStyle = .round
-        lineColor.setStroke()
-        path.move(to: startPoint)
-        path.line(to: endPoint)
-        path.stroke()
-
-        // Perpendicular end caps (small ticks at each end)
         let angle = atan2(dy, dx)
         let perpAngle = angle + .pi / 2
         let capLength: CGFloat = 6
         let capDx = capLength * cos(perpAngle)
         let capDy = capLength * sin(perpAngle)
 
-        let capPath = NSBezierPath()
-        capPath.lineWidth = 1.5
-        capPath.lineCapStyle = .round
-        lineColor.setStroke()
-        // Start cap
-        capPath.move(to: NSPoint(x: startPoint.x - capDx, y: startPoint.y - capDy))
-        capPath.line(to: NSPoint(x: startPoint.x + capDx, y: startPoint.y + capDy))
-        // End cap
-        capPath.move(to: NSPoint(x: endPoint.x - capDx, y: endPoint.y - capDy))
-        capPath.line(to: NSPoint(x: endPoint.x + capDx, y: endPoint.y + capDy))
-        capPath.stroke()
+        let drawRuler = {
+            let path = NSBezierPath()
+            path.lineWidth = 1.5
+            path.lineCapStyle = .round
+            path.move(to: self.startPoint)
+            path.line(to: self.endPoint)
+            path.stroke()
+
+            let capPath = NSBezierPath()
+            capPath.lineWidth = 1.5
+            capPath.lineCapStyle = .round
+            capPath.move(to: NSPoint(x: self.startPoint.x - capDx, y: self.startPoint.y - capDy))
+            capPath.line(to: NSPoint(x: self.startPoint.x + capDx, y: self.startPoint.y + capDy))
+            capPath.move(to: NSPoint(x: self.endPoint.x - capDx, y: self.endPoint.y - capDy))
+            capPath.line(to: NSPoint(x: self.endPoint.x + capDx, y: self.endPoint.y + capDy))
+            capPath.stroke()
+        }
+
+        if let grad = strokeGradient {
+            drawWithGradientMask(
+                grad,
+                shapeBounds: boundingRect,
+                layerPadding: 14,
+                startPoint: startPoint,
+                endPoint: endPoint,
+                alpha: color.alphaComponent,
+                drawMask: drawRuler
+            )
+        } else {
+            color.setStroke()
+            drawRuler()
+        }
 
         // Dimension label
         let unit = measureInPoints ? "pt" : "px"

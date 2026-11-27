@@ -25,4 +25,8 @@ enum DefaultsKey {
     // Censor tool (pixelate/blur/solid)
     static let censorMode = "censorMode"
     static let censorTextOnly = "censorTextOnly"
+
+    // Annotation gradient paint mode
+    static let drawPaintMode = "drawPaintMode"
+    static let drawGradient = "drawGradient"
 }

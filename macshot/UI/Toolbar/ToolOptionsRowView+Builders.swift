@@ -44,9 +44,48 @@ private final class ToolOptionToggleView: NSStackView {
     }
 }
 
+final class PaintSwatchButton: NSButton {
+    var solidColor: NSColor = .systemRed { didSet { needsDisplay = true } }
+    var gradient: AnnotationGradient? { didSet { needsDisplay = true } }
+    var isRandomGradient: Bool = false { didSet { needsDisplay = true } }
+
+    override func draw(_ dirtyRect: NSRect) {
+        let r = bounds.insetBy(dx: 0.75, dy: 0.75)
+        let path = NSBezierPath(roundedRect: r, xRadius: 3, yRadius: 3)
+
+        if isRandomGradient {
+            Annotation.drawGradientFill(AnnotationGradient.randomPreviewSwatch, in: path)
+            if let sym = NSImage(systemSymbolName: "shuffle", accessibilityDescription: nil)?
+                .withSymbolConfiguration(.init(pointSize: 9, weight: .bold))
+            {
+                let tinted = NSImage(size: sym.size, flipped: false) { imgRect in
+                    sym.draw(in: imgRect, from: .zero, operation: .sourceOver, fraction: 1.0)
+                    NSColor.white.setFill()
+                    imgRect.fill(using: .sourceAtop)
+                    return true
+                }
+                let sz = tinted.size
+                tinted.draw(
+                    in: NSRect(x: r.midX - sz.width / 2, y: r.midY - sz.height / 2, width: sz.width, height: sz.height),
+                    from: .zero, operation: .sourceOver, fraction: 1.0
+                )
+            }
+        } else if let grad = gradient {
+            Annotation.drawGradientFill(grad, in: path)
+        } else {
+            solidColor.setFill()
+            path.fill()
+        }
+
+        ToolbarLayout.iconColor.withAlphaComponent(0.4).setStroke()
+        path.lineWidth = 1.5
+        path.stroke()
+    }
+}
+
 extension ToolOptionsRowView {
 
-    // MARK: - Section builders
+    // MARK: - 共用构件
 
     func addSeparator(to stack: NSStackView) {
         let sep = NSBox()
@@ -63,7 +102,7 @@ extension ToolOptionsRowView {
 
     func supportsDrawColor(_ tool: AnnotationTool) -> Bool {
         switch tool {
-        case .pencil, .line, .arrow, .rectangle, .ellipse, .marker, .number, .measure, .text:
+        case .pencil, .line, .arrow, .rectangle, .filledRectangle, .ellipse, .marker, .number, .measure, .text:
             return true
         default:
             return false
@@ -90,21 +129,44 @@ extension ToolOptionsRowView {
         stack.addArrangedSubview(label)
 
         let swatchSize: CGFloat = 18
-        let swatch = NSButton()
+        let swatch = PaintSwatchButton()
         swatch.translatesAutoresizingMaskIntoConstraints = false
         swatch.widthAnchor.constraint(equalToConstant: swatchSize).isActive = true
         swatch.heightAnchor.constraint(equalToConstant: swatchSize).isActive = true
         swatch.title = ""
         swatch.isBordered = false
-        swatch.wantsLayer = true
-        swatch.layer?.backgroundColor = (editingAnnotation?.color ?? ov.currentColor).cgColor
-        swatch.layer?.cornerRadius = 3
-        swatch.layer?.borderWidth = 1.5
-        swatch.layer?.borderColor = ToolbarLayout.iconColor.withAlphaComponent(0.4).cgColor
+        applyPaintState(to: swatch, tool: tool, ov: ov)
         swatch.tag = ToolOptionTag.drawColorSwatch.rawValue
         swatch.target = self
         swatch.action = #selector(drawColorClicked(_:))
         stack.addArrangedSubview(swatch)
+    }
+
+    func applyPaintState(to swatch: PaintSwatchButton, tool: AnnotationTool?, ov: OverlayView) {
+        if let ann = editingAnnotation {
+            swatch.solidColor = ann.color
+            swatch.gradient = ann.strokeGradient
+            swatch.isRandomGradient = false
+            return
+        }
+        let supportsGradient = (tool ?? ov.currentTool) != .text
+        swatch.solidColor = ov.currentColor
+        guard supportsGradient else {
+            swatch.gradient = nil
+            swatch.isRandomGradient = false
+            return
+        }
+        switch ov.drawPaintMode {
+        case .solid:
+            swatch.gradient = nil
+            swatch.isRandomGradient = false
+        case .gradient(let grad):
+            swatch.gradient = grad
+            swatch.isRandomGradient = false
+        case .randomGradient:
+            swatch.gradient = nil
+            swatch.isRandomGradient = true
+        }
     }
 
     func addStrokeSlider(to stack: NSStackView, tool: AnnotationTool, ov: OverlayView) {

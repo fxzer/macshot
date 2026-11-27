@@ -7,13 +7,15 @@ final class EllipseToolHandler: AnnotationToolHandler {
     let tool: AnnotationTool = .ellipse
 
     func start(at point: NSPoint, canvas: AnnotationCanvas) -> Annotation? {
+        let paint = canvas.nextPaint(for: .ellipse)
         let annotation = Annotation(
             tool: .ellipse,
             startPoint: point,
             endPoint: point,
-            color: canvas.opacityAppliedColor(for: .ellipse),
+            color: paint.color,
             strokeWidth: canvas.initialStrokeWidth(for: .ellipse)
         )
+        annotation.strokeGradient = paint.gradient
         annotation.rectFillStyle = canvas.currentRectFillStyle
         annotation.lineStyle = canvas.currentLineStyle
         applyDefaultOutlineIfNeeded(to: annotation, canvas: canvas)

@@ -68,8 +68,11 @@ private func overlayInitialGenericStrokeWidths() -> [AnnotationTool: CGFloat] {
 }
 
 final class OverlayToolState {
+    private static let initialPaint = DrawPaintMode.loadPersisted()
     var currentTool: AnnotationTool = overlayInitialTool()
     var currentColor: NSColor = overlayStoredColor()
+    var drawPaintMode: DrawPaintMode = initialPaint.mode
+    var currentGradient: AnnotationGradient = initialPaint.lastGradient
     var currentStrokeWidth: CGFloat = overlayStoredCGFloat("currentStrokeWidth", defaultValue: 3.0)
     var currentPencilStrokeWidth: CGFloat = overlayStoredCGFloat("pencilStrokeWidth", defaultValue: 8.0)
     var currentLineStrokeWidth: CGFloat = overlayStoredCGFloat("lineStrokeWidth", defaultValue: 8.0)
@@ -118,6 +121,32 @@ extension OverlayView {
                 UserDefaults.standard.set(data, forKey: "lastUsedColor")
             }
             updateToolbarColorSwatch()
+            refreshToolCursorPreview()
+        }
+    }
+
+    var drawPaintMode: DrawPaintMode {
+        get { toolState.drawPaintMode }
+        set {
+            toolState.drawPaintMode = newValue
+            if case .gradient(let grad) = newValue {
+                toolState.currentGradient = grad
+            }
+            newValue.persist(lastGradient: toolState.currentGradient)
+            toolOptionsRowView?.updateSwatchColors()
+            refreshToolCursorPreview()
+        }
+    }
+
+    var currentGradient: AnnotationGradient {
+        get { toolState.currentGradient }
+        set {
+            toolState.currentGradient = newValue
+            if case .gradient = toolState.drawPaintMode {
+                toolState.drawPaintMode = .gradient(newValue)
+            }
+            toolState.drawPaintMode.persist(lastGradient: newValue)
+            toolOptionsRowView?.updateSwatchColors()
             refreshToolCursorPreview()
         }
     }

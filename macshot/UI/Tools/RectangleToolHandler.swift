@@ -7,13 +7,15 @@ final class RectangleToolHandler: AnnotationToolHandler {
     let tool: AnnotationTool = .rectangle
 
     func start(at point: NSPoint, canvas: AnnotationCanvas) -> Annotation? {
+        let paint = canvas.nextPaint(for: .rectangle)
         let annotation = Annotation(
             tool: .rectangle,
             startPoint: point,
             endPoint: point,
-            color: canvas.opacityAppliedColor(for: .rectangle),
+            color: paint.color,
             strokeWidth: canvas.initialStrokeWidth(for: .rectangle)
         )
+        annotation.strokeGradient = paint.gradient
         annotation.rectCornerRadius = canvas.currentRectCornerRadius
         annotation.rectFillStyle = canvas.currentRectFillStyle
         annotation.lineStyle = canvas.currentLineStyle

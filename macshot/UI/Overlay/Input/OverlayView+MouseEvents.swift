@@ -122,9 +122,11 @@ extension OverlayView {
             if colorWheel.isVisible && colorWheel.isSticky {
                 colorWheel.updateHover(at: point)
                 if colorWheel.hoveredColor != nil {
+                    toolOptionsRowView?.ensureSnapshot()
+                    drawPaintMode = .solid
                     currentColor = colorWheel.hoveredColor!
                     applyColorToTextIfEditing()
-                    applyColorToSelectedAnnotation()
+                    applyColorToSelectedAnnotation(clearGradient: true)
                     rebuildToolbarLayout()
                 }
                 colorWheel.dismiss()
@@ -908,9 +910,11 @@ extension OverlayView {
         if colorWheel.isVisible && !colorWheel.isSticky {
             if colorWheel.hoveredColor != nil {
                 // User dragged to a color — pick it and dismiss
+                toolOptionsRowView?.ensureSnapshot()
+                drawPaintMode = .solid
                 currentColor = colorWheel.hoveredColor!
                 applyColorToTextIfEditing()
-                applyColorToSelectedAnnotation()
+                applyColorToSelectedAnnotation(clearGradient: true)
                 rebuildToolbarLayout()
                 colorWheel.dismiss()
             } else {

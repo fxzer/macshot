@@ -120,51 +120,65 @@ extension Annotation {
             }
         }
 
-        color.setStroke()
-        path.stroke()
+        let drawForeground = {
+            path.stroke()
 
-        // Draw arrowhead(s)
-        color.setFill()
-        color.setStroke()
-        switch arrowStyle {
-        case .single, .tail:
-            let head = NSBezierPath()
-            head.move(to: lastPt)
-            head.line(to: ep1)
-            head.line(to: ep2)
-            head.close()
-            head.fill()
-        case .double:
-            let endHead = NSBezierPath()
-            endHead.move(to: lastPt)
-            endHead.line(to: ep1)
-            endHead.line(to: ep2)
-            endHead.close()
-            endHead.fill()
-            let startHead = NSBezierPath()
-            startHead.move(to: firstPt)
-            startHead.line(to: sp1)
-            startHead.line(to: sp2)
-            startHead.close()
-            startHead.fill()
-        case .open:
-            let head = NSBezierPath()
-            head.lineWidth = strokeWidth
-            head.lineCapStyle = .round
-            head.lineJoinStyle = .round
-            head.move(to: ep1)
-            head.line(to: lastPt)
-            head.line(to: ep2)
-            head.stroke()
-        case .thick:
-            break // handled by early return above
+            switch self.arrowStyle {
+            case .single, .tail:
+                let head = NSBezierPath()
+                head.move(to: lastPt)
+                head.line(to: ep1)
+                head.line(to: ep2)
+                head.close()
+                head.fill()
+            case .double:
+                let endHead = NSBezierPath()
+                endHead.move(to: lastPt)
+                endHead.line(to: ep1)
+                endHead.line(to: ep2)
+                endHead.close()
+                endHead.fill()
+                let startHead = NSBezierPath()
+                startHead.move(to: firstPt)
+                startHead.line(to: sp1)
+                startHead.line(to: sp2)
+                startHead.close()
+                startHead.fill()
+            case .open:
+                let head = NSBezierPath()
+                head.lineWidth = self.strokeWidth
+                head.lineCapStyle = .round
+                head.lineJoinStyle = .round
+                head.move(to: ep1)
+                head.line(to: lastPt)
+                head.line(to: ep2)
+                head.stroke()
+            case .thick:
+                break // handled by early return above
+            }
+
+            if self.arrowStyle == .tail {
+                let circleRect = NSRect(x: firstPt.x - tailRadius, y: firstPt.y - tailRadius,
+                                        width: tailRadius * 2, height: tailRadius * 2)
+                NSBezierPath(ovalIn: circleRect).fill()
+            }
         }
 
-        // Tail: circle at start
-        if arrowStyle == .tail {
-            let circleRect = NSRect(x: firstPt.x - tailRadius, y: firstPt.y - tailRadius,
-                                    width: tailRadius * 2, height: tailRadius * 2)
-            NSBezierPath(ovalIn: circleRect).fill()
+        if let grad = strokeGradient {
+            let arrowPad = max(fullArrowLen + strokeWidth + 8, tailRadius + strokeWidth + 8)
+            drawWithGradientMask(
+                grad,
+                shapeBounds: effectiveShapeBounds,
+                layerPadding: arrowPad,
+                startPoint: firstPt,
+                endPoint: lastPt,
+                alpha: color.alphaComponent,
+                drawMask: drawForeground
+            )
+        } else {
+            color.setStroke()
+            color.setFill()
+            drawForeground()
         }
     }
 
@@ -313,7 +327,20 @@ extension Annotation {
             path.stroke()
         }
 
-        color.setFill()
-        path.fill()
+        if let grad = strokeGradient {
+            drawWithGradientMask(
+                grad,
+                shapeBounds: effectiveShapeBounds,
+                layerPadding: max(headHalf + strokeWidth + 8, 28),
+                startPoint: firstPt,
+                endPoint: lastPt,
+                alpha: color.alphaComponent
+            ) {
+                path.fill()
+            }
+        } else {
+            color.setFill()
+            path.fill()
+        }
     }
 }

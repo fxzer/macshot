@@ -24,13 +24,15 @@ final class PencilToolHandler: AnnotationToolHandler {
         shiftAnchor = .zero
         rawPointBuffer = [point]
         rawPressureBuffer = [canvas.currentPressure]
+        let paint = canvas.nextPaint(for: .pencil)
         let annotation = Annotation(
             tool: .pencil,
             startPoint: point,
             endPoint: point,
-            color: canvas.opacityAppliedColor(for: .pencil),
+            color: paint.color,
             strokeWidth: canvas.initialStrokeWidth(for: .pencil)
         )
+        annotation.strokeGradient = paint.gradient
         annotation.points = [point]
         if canvas.pencilPressureEnabled {
             annotation.pressures = [canvas.currentPressure]

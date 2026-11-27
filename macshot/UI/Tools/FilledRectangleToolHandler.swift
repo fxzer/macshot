@@ -7,13 +7,16 @@ final class FilledRectangleToolHandler: AnnotationToolHandler {
     let tool: AnnotationTool = .filledRectangle
 
     func start(at point: NSPoint, canvas: AnnotationCanvas) -> Annotation? {
-        Annotation(
+        let paint = canvas.nextPaint(for: .filledRectangle)
+        let annotation = Annotation(
             tool: .filledRectangle,
             startPoint: point,
             endPoint: point,
-            color: canvas.opacityAppliedColor(for: .filledRectangle),
+            color: paint.color,
             strokeWidth: canvas.initialStrokeWidth(for: .filledRectangle)
         )
+        annotation.strokeGradient = paint.gradient
+        return annotation
     }
 
     func update(to point: NSPoint, shiftHeld: Bool, canvas: AnnotationCanvas) {

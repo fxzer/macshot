@@ -4,12 +4,26 @@ import Cocoa
 /// Features: preset swatches, custom saveable slots, opacity slider, HSB gradient, brightness slider, hex display.
 class ColorPickerView: NSView {
 
+    enum Tab {
+        case solid
+        case gradient
+    }
+
     // MARK: - Public interface
 
     /// Called whenever the user picks a color (from swatches, gradient, or brightness).
     var onColorChanged: ((NSColor) -> Void)?
+    /// Called whenever the user picks or adjusts a fixed gradient.
+    var onGradientSelected: ((AnnotationGradient) -> Void)?
+    /// Called whenever the user enables or re-rolls Random Gradient mode.
+    var onRandomGradientSelected: (() -> Void)?
     /// Called whenever opacity changes.
     var onOpacityChanged: ((CGFloat) -> Void)?
+
+    let supportsGradient: Bool
+    var activeTab: Tab = .solid
+    var isRandomGradient: Bool = false
+    var selectedGradient: AnnotationGradient = AnnotationGradient.presets[0]
 
     private(set) var selectedColor: NSColor = .systemRed
     private(set) var opacity: CGFloat = 1.0
@@ -32,16 +46,25 @@ class ColorPickerView: NSView {
         needsDisplay = true
     }
 
+    func setGradient(_ gradient: AnnotationGradient, isRandom: Bool, selectGradientTab: Bool) {
+        self.selectedGradient = gradient
+        self.isRandomGradient = isRandom
+        if supportsGradient {
+            self.activeTab = selectGradientTab ? .gradient : .solid
+        }
+        needsDisplay = true
+    }
+
     // MARK: - Constants
 
     private static let presetColors: [NSColor] = ColorWheelRenderer.paletteColors
 
     private let cols = 8
     private let swatchSize: CGFloat = 24
-    private let padding: CGFloat = 6
+    let padding: CGFloat = 6
     private let customSlotSize: CGFloat = 20
     private let customSlotSpacing: CGFloat = 6
-    private let opacityBarHeight: CGFloat = 12
+    let opacityBarHeight: CGFloat = 12
     private let gradientSize: CGFloat = 140
     private let brightnessBarHeight: CGFloat = 16
     private let hexRowHeight: CGFloat = 22
@@ -56,11 +79,17 @@ class ColorPickerView: NSView {
 
     // MARK: - Layout rects (computed during draw)
 
-    private var opacitySliderRect: NSRect = .zero
+    var opacitySliderRect: NSRect = .zero
     private var gradientRect: NSRect = .zero
     private var brightnessSliderRect: NSRect = .zero
     private var hexDisplayRect: NSRect = .zero
     private var customSlotRects: [NSRect] = []
+    private var presetSwatchRects: [NSRect] = []
+    var solidTabRect: NSRect = .zero
+    var gradientTabRect: NSRect = .zero
+    var randomCardRect: NSRect = .zero
+    var gradientSwatchRects: [NSRect] = []
+    var angleChipRects: [NSRect] = []
 
     // MARK: - Drag state
 
@@ -73,7 +102,8 @@ class ColorPickerView: NSView {
     var preferredSize: NSSize {
         let pickerWidth = CGFloat(cols) * (swatchSize + padding) + padding
         let presetH = CGFloat(2) * (swatchSize + padding)
-        let pickerHeight = padding + presetH + padding + customSlotSize + padding
+        let topBarH: CGFloat = supportsGradient ? (Self.modeSwitchHeight + padding) : 0
+        let pickerHeight = topBarH + padding + presetH + padding + customSlotSize + padding
             + opacityBarHeight + padding + gradientSize + padding + brightnessBarHeight
             + padding + hexRowHeight + padding
         return NSSize(width: pickerWidth, height: pickerHeight)
@@ -81,7 +111,8 @@ class ColorPickerView: NSView {
 
     // MARK: - Init
 
-    init() {
+    init(supportsGradient: Bool = false) {
+        self.supportsGradient = supportsGradient
         super.init(frame: NSRect(origin: .zero, size: NSSize(width: 180, height: 400)))
         let size = preferredSize
         frame.size = size
@@ -95,14 +126,33 @@ class ColorPickerView: NSView {
         let pickerWidth = bounds.width
         var cursorY = bounds.maxY
 
+        if supportsGradient {
+            cursorY -= padding
+            let modeRect = NSRect(
+                x: padding,
+                y: cursorY - Self.modeSwitchHeight,
+                width: pickerWidth - padding * 2,
+                height: Self.modeSwitchHeight
+            )
+            drawModeSwitch(in: modeRect)
+            cursorY -= Self.modeSwitchHeight
+
+            if activeTab == .gradient {
+                drawGradientTab(startingAt: cursorY)
+                return
+            }
+        }
+
         // --- 1. Preset color swatches ---
         cursorY -= padding
+        presetSwatchRects = []
         for (i, color) in Self.presetColors.enumerated() {
             let col = i % cols
             let row = i / cols
             let x = padding + CGFloat(col) * (swatchSize + padding)
             let y = cursorY - swatchSize - CGFloat(row) * (swatchSize + padding)
             let r = NSRect(x: x, y: y, width: swatchSize, height: swatchSize)
+            presetSwatchRects.append(r)
 
             color.setFill()
             NSBezierPath(roundedRect: r, xRadius: 4, yRadius: 4).fill()
@@ -193,7 +243,7 @@ class ColorPickerView: NSView {
 
     // MARK: - Sub-draw helpers
 
-    private func drawOpacitySlider(in rect: NSRect) {
+    func drawOpacitySlider(in rect: NSRect) {
         // Checkerboard
         let checkSize = rect.height / 2
         NSGraphicsContext.saveGraphicsState()
@@ -210,7 +260,13 @@ class ColorPickerView: NSView {
 
         // Gradient overlay
         let path = NSBezierPath(roundedRect: rect, xRadius: 4, yRadius: 4)
-        NSGradient(starting: selectedColor.withAlphaComponent(0), ending: selectedColor.withAlphaComponent(1))?.draw(in: path, angle: 0)
+        let previewBaseColor: NSColor
+        if supportsGradient && activeTab == .gradient {
+            previewBaseColor = isRandomGradient ? AnnotationGradient.randomPreviewSwatch.primaryColor : selectedGradient.primaryColor
+        } else {
+            previewBaseColor = selectedColor
+        }
+        NSGradient(starting: previewBaseColor.withAlphaComponent(0), ending: previewBaseColor.withAlphaComponent(1))?.draw(in: path, angle: 0)
 
         // Border
         ToolbarLayout.iconColor.withAlphaComponent(0.3).setStroke()
@@ -318,13 +374,45 @@ class ColorPickerView: NSView {
     override func mouseDown(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
 
+        if supportsGradient {
+            if solidTabRect.contains(point) {
+                if activeTab != .solid {
+                    activeTab = .solid
+                    onColorChanged?(selectedColor)
+                    needsDisplay = true
+                }
+                return
+            }
+            if gradientTabRect.contains(point) {
+                if activeTab != .gradient {
+                    activeTab = .gradient
+                    if isRandomGradient {
+                        onRandomGradientSelected?()
+                    } else {
+                        onGradientSelected?(selectedGradient)
+                    }
+                    needsDisplay = true
+                }
+                return
+            }
+        }
+
+        // Opacity (available on both tabs)
+        if opacitySliderRect.contains(point) {
+            isDraggingOpacity = true
+            updateOpacity(at: point)
+            return
+        }
+
+        if supportsGradient && activeTab == .gradient {
+            _ = handleGradientMouseDown(at: point)
+            return
+        }
+
         // Preset swatches
-        for (i, color) in Self.presetColors.enumerated() {
-            let col = i % cols
-            let row = i / cols
-            let x = padding + CGFloat(col) * (swatchSize + padding)
-            let y = bounds.maxY - padding - swatchSize - CGFloat(row) * (swatchSize + padding)
-            if NSRect(x: x, y: y, width: swatchSize, height: swatchSize).contains(point) {
+        for (i, rect) in presetSwatchRects.enumerated() {
+            if rect.contains(point) {
+                let color = Self.presetColors[i]
                 selectedColor = color
                 syncHSBFromColor(color)
                 onColorChanged?(color)
@@ -346,13 +434,6 @@ class ColorPickerView: NSView {
                 needsDisplay = true
                 return
             }
-        }
-
-        // Opacity
-        if opacitySliderRect.contains(point) {
-            isDraggingOpacity = true
-            updateOpacity(at: point)
-            return
         }
 
         // Gradient

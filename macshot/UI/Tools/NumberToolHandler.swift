@@ -39,13 +39,21 @@ enum NumberCalloutTextLayout {
         var a: CGFloat = 0
         rgb.getRed(&r, green: &g, blue: &b, alpha: &a)
         let luminance = 0.299 * r + 0.587 * g + 0.114 * b
-        return luminance > 0.6 ? .black : .white
+        return textColor(forLuminance: luminance)
+    }
+
+    static func textColor(forLuminance luminance: CGFloat) -> NSColor {
+        luminance > 0.6 ? .black : .white
     }
 
     static func metrics(for text: String, font: NSFont, fillColor: NSColor) -> Metrics {
+        metrics(for: text, font: font, textColor: textColor(for: fillColor))
+    }
+
+    static func metrics(for text: String, font: NSFont, textColor: NSColor) -> Metrics {
         let attributes: [NSAttributedString.Key: Any] = [
             .font: font,
-            .foregroundColor: textColor(for: fillColor)
+            .foregroundColor: textColor
         ]
         let attributed = NSAttributedString(string: text, attributes: attributes)
         let line = CTLineCreateWithAttributedString(attributed)
@@ -120,6 +128,17 @@ enum NumberCalloutTextLayout {
         cgContext: CGContext
     ) {
         let metrics = metrics(for: text, font: font, fillColor: fillColor)
+        draw(text: text, metrics: metrics, in: rect, cgContext: cgContext)
+    }
+
+    static func draw(
+        text: String,
+        font: NSFont,
+        textColor: NSColor,
+        in rect: CGRect,
+        cgContext: CGContext
+    ) {
+        let metrics = metrics(for: text, font: font, textColor: textColor)
         draw(text: text, metrics: metrics, in: rect, cgContext: cgContext)
     }
 
@@ -344,13 +363,15 @@ final class NumberToolHandler: AnnotationToolHandler {
 
     func start(at point: NSPoint, canvas: AnnotationCanvas) -> Annotation? {
         let numberValue = canvas.nextNumberValue()
+        let paint = canvas.nextPaint(for: .number)
         let annotation = Annotation(
             tool: .number,
             startPoint: point,
             endPoint: point,
-            color: canvas.opacityAppliedColor(for: .number),
+            color: paint.color,
             strokeWidth: canvas.currentNumberSize
         )
+        annotation.strokeGradient = paint.gradient
         annotation.number = numberValue
         annotation.numberFormat = canvas.currentNumberFormat
         applyDefaultOutlineIfNeeded(to: annotation, canvas: canvas)

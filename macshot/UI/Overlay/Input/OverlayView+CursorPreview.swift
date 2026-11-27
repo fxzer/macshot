@@ -58,8 +58,33 @@ extension OverlayView {
         switch currentTool {
         case .pixelate, .blur:
             return NSColor.white
-        default:
+        case .text:
             return opacityAppliedColor(for: currentTool)
+        default:
+            switch drawPaintMode {
+            case .solid:
+                return opacityAppliedColor(for: currentTool)
+            case .gradient(let grad):
+                let alpha: CGFloat = (currentTool == .marker || currentTool == .measure) ? 1.0 : currentColorOpacity
+                return grad.primaryColor.withAlphaComponent(alpha)
+            case .randomGradient:
+                let alpha: CGFloat = (currentTool == .marker || currentTool == .measure) ? 1.0 : currentColorOpacity
+                return AnnotationGradient.randomPreviewSwatch.primaryColor.withAlphaComponent(alpha)
+            }
+        }
+    }
+
+    /// Optional gradient for drawing cursor preview (nil in solid mode or unsupported tools).
+    var activeDrawingPreviewGradient: AnnotationGradient? {
+        switch currentTool {
+        case .pencil, .line, .arrow, .rectangle, .filledRectangle, .ellipse, .marker, .number, .measure:
+            switch drawPaintMode {
+            case .solid: return nil
+            case .gradient(let grad): return grad
+            case .randomGradient: return AnnotationGradient.randomPreviewSwatch
+            }
+        default:
+            return nil
         }
     }
 
@@ -304,8 +329,12 @@ extension OverlayView {
             height: dotRadius * 2)
         let path = NSBezierPath(ovalIn: circleRect)
         if filled {
-            color.withAlphaComponent(0.95).setFill()
-            path.fill()
+            if let grad = activeDrawingPreviewGradient {
+                Annotation.drawGradientFill(grad, in: path, alpha: 0.95 * color.alphaComponent)
+            } else {
+                color.withAlphaComponent(0.95).setFill()
+                path.fill()
+            }
             let border = NSBezierPath(ovalIn: circleRect.insetBy(dx: -0.5, dy: -0.5))
             border.lineWidth = 1.0
             NSColor.white.withAlphaComponent(0.55).setStroke()
@@ -484,9 +513,14 @@ extension OverlayView {
             let circleRect = NSRect(
                 x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2)
             let path = NSBezierPath(ovalIn: circleRect)
-            currentColor.withAlphaComponent(0.35).setFill()
-            path.fill()
-            currentColor.withAlphaComponent(0.7).setStroke()
+            if let grad = activeDrawingPreviewGradient {
+                Annotation.drawGradientFill(grad, in: path, alpha: 0.35)
+                color.withAlphaComponent(0.7).setStroke()
+            } else {
+                currentColor.withAlphaComponent(0.35).setFill()
+                path.fill()
+                currentColor.withAlphaComponent(0.7).setStroke()
+            }
             path.lineWidth = 1.0
             path.stroke()
             return
@@ -496,8 +530,12 @@ extension OverlayView {
             let circleRect = NSRect(
                 x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2)
             let path = NSBezierPath(ovalIn: circleRect)
-            annotationColor.setFill()
-            path.fill()
+            if let grad = activeDrawingPreviewGradient {
+                Annotation.drawGradientFill(grad, in: path, alpha: currentColorOpacity)
+            } else {
+                annotationColor.setFill()
+                path.fill()
+            }
             let border = NSBezierPath(ovalIn: circleRect.insetBy(dx: -0.5, dy: -0.5))
             border.lineWidth = 1.0
             NSColor.white.withAlphaComponent(0.6).setStroke()

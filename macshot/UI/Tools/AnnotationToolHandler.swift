@@ -38,6 +38,8 @@ protocol AnnotationCanvas: AnyObject {
 
     /// currentColor with tool-appropriate opacity applied.
     func opacityAppliedColor(for tool: AnnotationTool) -> NSColor
+    /// Resolves color + optional gradient for a brand-new annotation (rolling a fresh random gradient if active).
+    func nextPaint(for tool: AnnotationTool) -> (color: NSColor, gradient: AnnotationGradient?)
     /// Returns the persisted stroke/size value that should seed a brand-new annotation for this tool.
     func initialStrokeWidth(for tool: AnnotationTool) -> CGFloat
 

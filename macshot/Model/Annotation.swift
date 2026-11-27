@@ -228,6 +228,18 @@ class Annotation {
     var textAlignment: NSTextAlignment = .left // text alignment within the box
     var fontFamilyName: String?       // font family for text (nil = system default)
     var outlineColor: NSColor?        // shape/arrow/line outline color (nil = no outline)
+    var strokeGradient: AnnotationGradient? // linear gradient paint (nil = solid `color`)
+
+    /// Average contrast reference color for child labels (e.g. number bubble text).
+    var effectiveContrastLuminance: CGFloat {
+        if let grad = strokeGradient {
+            return grad.averageLuminance
+        }
+        guard let rgb = color.usingColorSpace(.sRGB) else { return 0.5 }
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        rgb.getRed(&r, green: &g, blue: &b, alpha: &a)
+        return 0.299 * r + 0.587 * g + 0.114 * b
+    }
 
     init(tool: AnnotationTool, startPoint: NSPoint, endPoint: NSPoint, color: NSColor, strokeWidth: CGFloat) {
         self.tool = tool
@@ -278,6 +290,7 @@ class Annotation {
         c.textAlignment = textAlignment
         c.fontFamilyName = fontFamilyName
         c.outlineColor = outlineColor
+        c.strokeGradient = strokeGradient
         c.sourceImage = sourceImage
         c.sourceImageBounds = sourceImageBounds
         if includeBakedRenderAssets {
@@ -325,6 +338,7 @@ class Annotation {
               censorMode == other.censorMode,
               censorDrawScope == other.censorDrawScope,
               hasSameColor(outlineColor, other.outlineColor),
+              strokeGradient == other.strokeGradient,
               sourceImage === other.sourceImage,
               sourceImageBounds == other.sourceImageBounds,
               loupeMagnification == other.loupeMagnification
@@ -360,6 +374,7 @@ class Annotation {
         textAlignment = src.textAlignment
         fontFamilyName = src.fontFamilyName
         outlineColor = src.outlineColor
+        strokeGradient = src.strokeGradient
         numberFormat = src.numberFormat
         measureInPoints = src.measureInPoints
         censorMode = src.censorMode

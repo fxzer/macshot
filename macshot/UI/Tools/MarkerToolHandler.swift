@@ -76,13 +76,15 @@ final class MarkerToolHandler: AnnotationToolHandler {
             smartMode: canvas.smartMarkerEnabled,
             initialStrokeWidth: strokeWidth
         )
+        let paint = canvas.nextPaint(for: .marker)
         let annotation = Annotation(
             tool: .marker,
             startPoint: point,
             endPoint: point,
-            color: canvas.opacityAppliedColor(for: .marker),
+            color: paint.color,
             strokeWidth: strokeWidth
         )
+        annotation.strokeGradient = paint.gradient
         annotation.points = [point]
         return annotation
     }

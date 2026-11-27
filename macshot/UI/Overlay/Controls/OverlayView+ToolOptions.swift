@@ -55,11 +55,36 @@ extension OverlayView {
         anchorRect: NSRect = .zero
     ) {
         colorPickerTarget = target
-        let picker = ColorPickerView()
+        let activeTool = selectedAnnotations.first?.tool ?? currentTool
+        let supportsGradient = (target == .drawColor) && activeTool != .text
+        let picker = ColorPickerView(supportsGradient: supportsGradient)
         let initialColor: NSColor
         switch target {
         case .drawColor:
-            initialColor = currentColor
+            if selectedAnnotations.count == 1, let ann = selectedAnnotations.first {
+                initialColor = ann.color.withAlphaComponent(1.0)
+                if supportsGradient {
+                    if let grad = ann.strokeGradient {
+                        picker.setGradient(grad, isRandom: drawPaintMode == .randomGradient, selectGradientTab: true)
+                    } else if drawPaintMode == .randomGradient {
+                        picker.setGradient(currentGradient, isRandom: true, selectGradientTab: true)
+                    } else {
+                        picker.setGradient(currentGradient, isRandom: false, selectGradientTab: false)
+                    }
+                }
+            } else {
+                initialColor = currentColor
+                if supportsGradient {
+                    switch drawPaintMode {
+                    case .solid:
+                        picker.setGradient(currentGradient, isRandom: false, selectGradientTab: false)
+                    case .gradient(let grad):
+                        picker.setGradient(grad, isRandom: false, selectGradientTab: true)
+                    case .randomGradient:
+                        picker.setGradient(currentGradient, isRandom: true, selectGradientTab: true)
+                    }
+                }
+            }
         case .textBg:
             initialColor = textEditor.bgColor
         case .textOutline:
@@ -84,12 +109,30 @@ extension OverlayView {
             self.toolOptionsRowView?.updateSwatchColors()
             self.needsDisplay = true
         }
+        picker.onGradientSelected = { [weak self] gradient in
+            guard let self = self else { return }
+            self.toolOptionsRowView?.ensureSnapshot()
+            self.currentGradient = gradient
+            self.drawPaintMode = .gradient(gradient)
+            self.applyGradientToSelectedAnnotations(gradient)
+            self.toolOptionsRowView?.updateSwatchColors()
+            self.needsDisplay = true
+        }
+        picker.onRandomGradientSelected = { [weak self] in
+            guard let self = self else { return }
+            self.toolOptionsRowView?.ensureSnapshot()
+            self.drawPaintMode = .randomGradient
+            self.applyRandomGradientToSelectedAnnotations()
+            self.toolOptionsRowView?.updateSwatchColors()
+            self.needsDisplay = true
+        }
         picker.onOpacityChanged = { [weak self] opacity in
             guard let self = self else { return }
+            self.toolOptionsRowView?.ensureSnapshot()
             self.currentColorOpacity = opacity
             OverlayView.lastUsedOpacity = opacity
             UserDefaults.standard.set(Double(opacity), forKey: "lastUsedColorOpacity")
-            self.applyColorToSelectedAnnotation()
+            self.applyColorToSelectedAnnotation(clearGradient: false)
             self.needsDisplay = true
         }
         picker.onCustomSlotSelected = { [weak self] idx in
@@ -119,9 +162,11 @@ extension OverlayView {
     private func applyPickedColor(_ color: NSColor) {
         switch colorPickerTarget {
         case .drawColor:
+            toolOptionsRowView?.ensureSnapshot()
+            drawPaintMode = .solid
             currentColor = color
             applyColorToTextIfEditing()
-            applyColorToSelectedAnnotation()
+            applyColorToSelectedAnnotation(clearGradient: true)
         case .textBg:
             textEditor.bgColor = color
             if let data = try? NSKeyedArchiver.archivedData(

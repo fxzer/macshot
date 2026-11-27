@@ -7,13 +7,15 @@ final class LineToolHandler: AnnotationToolHandler {
     let tool: AnnotationTool = .line
 
     func start(at point: NSPoint, canvas: AnnotationCanvas) -> Annotation? {
+        let paint = canvas.nextPaint(for: .line)
         let annotation = Annotation(
             tool: .line,
             startPoint: point,
             endPoint: point,
-            color: canvas.opacityAppliedColor(for: .line),
+            color: paint.color,
             strokeWidth: canvas.initialStrokeWidth(for: .line)
         )
+        annotation.strokeGradient = paint.gradient
         annotation.lineStyle = canvas.currentLineStyle
         applyDefaultOutlineIfNeeded(to: annotation, canvas: canvas)
         return annotation

@@ -7,13 +7,15 @@ final class ArrowToolHandler: AnnotationToolHandler {
     let tool: AnnotationTool = .arrow
 
     func start(at point: NSPoint, canvas: AnnotationCanvas) -> Annotation? {
+        let paint = canvas.nextPaint(for: .arrow)
         let annotation = Annotation(
             tool: .arrow,
             startPoint: point,
             endPoint: point,
-            color: canvas.opacityAppliedColor(for: .arrow),
+            color: paint.color,
             strokeWidth: canvas.initialStrokeWidth(for: .arrow)
         )
+        annotation.strokeGradient = paint.gradient
         annotation.lineStyle = canvas.currentLineStyle
         annotation.arrowStyle = canvas.currentArrowStyle
         annotation.arrowReversed = canvas.arrowReversed

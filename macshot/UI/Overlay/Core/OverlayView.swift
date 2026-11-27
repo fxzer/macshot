@@ -193,9 +193,17 @@ class OverlayView: NSView {
                 toolOptionsRowView?.clearEditingAnnotation()
 
                 if selectedAnnotations.count == 1, let ann = newSingle {
-                    // Sync global color to the selected annotation's color (base color)
-                    // This ensures the next drawing tool uses the color of the last selected object.
-                    self.currentColor = ann.color.withAlphaComponent(1.0)
+                    // Sync global paint to the selected annotation when not in random-gradient mode
+                    // so auto-selecting a just-drawn random annotation never disables random mode.
+                    if drawPaintMode != .randomGradient {
+                        if let grad = ann.strokeGradient {
+                            self.currentGradient = grad
+                            self.drawPaintMode = .gradient(grad)
+                        } else {
+                            self.currentColor = ann.color.withAlphaComponent(1.0)
+                            self.drawPaintMode = .solid
+                        }
+                    }
 
                     // Load text annotation properties into textEditor so toolbar shows correct state
                     if ann.tool == .text {

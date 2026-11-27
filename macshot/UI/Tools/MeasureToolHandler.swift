@@ -7,13 +7,15 @@ final class MeasureToolHandler: AnnotationToolHandler {
     let tool: AnnotationTool = .measure
 
     func start(at point: NSPoint, canvas: AnnotationCanvas) -> Annotation? {
+        let paint = canvas.nextPaint(for: .measure)
         let annotation = Annotation(
             tool: .measure,
             startPoint: point,
             endPoint: point,
-            color: canvas.opacityAppliedColor(for: .measure),
+            color: paint.color,
             strokeWidth: canvas.initialStrokeWidth(for: .measure)
         )
+        annotation.strokeGradient = paint.gradient
         annotation.measureInPoints = canvas.currentMeasureInPoints
         return annotation
     }
