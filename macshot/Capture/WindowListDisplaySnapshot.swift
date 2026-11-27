@@ -14,21 +14,34 @@ enum WindowListDisplaySnapshot {
     private typealias CGWindowListCreateImageFromArrayFunc = @convention(c) (CGRect, CFArray, CGWindowImageOption) -> Unmanaged<CGImage>?
 
     // RTLD_DEFAULT ((void*)-2)：直接在当前进程已加载符号表中查找，无需额外的 dlopen 句柄。
-    private static let rtldDefault = UnsafeMutableRawPointer(bitPattern: -2)
+    nonisolated(unsafe) private static let rtldDefault = UnsafeMutableRawPointer(bitPattern: -2)
 
-    private static let cgDisplayCreateImage: CGDisplayCreateImageFunc? = {
+    nonisolated private static let cgDisplayCreateImage: CGDisplayCreateImageFunc? = {
         guard let sym = dlsym(rtldDefault, "CGDisplayCreateImage") else { return nil }
         return unsafeBitCast(sym, to: CGDisplayCreateImageFunc.self)
     }()
 
-    private static let cgWindowListCreateImageFromArray: CGWindowListCreateImageFromArrayFunc? = {
+    nonisolated private static let cgWindowListCreateImageFromArray: CGWindowListCreateImageFromArrayFunc? = {
         guard let sym = dlsym(rtldDefault, "CGWindowListCreateImageFromArray") else { return nil }
         return unsafeBitCast(sym, to: CGWindowListCreateImageFromArrayFunc.self)
     }()
 
+    /// 项目默认隔离到 MainActor；必须显式脱离，避免同步 WindowServer 调用阻塞输入。
+    nonisolated static func captureDisplayInBackground(
+        _ displayID: CGDirectDisplayID,
+        excludingWindowIDs: Set<CGWindowID> = []
+    ) async -> CGImage? {
+        await Task.detached(priority: .userInitiated) {
+            dispatchPrecondition(condition: .notOnQueue(.main))
+            return autoreleasepool {
+                captureDisplay(displayID, excludingWindowIDs: excludingWindowIDs)
+            }
+        }.value
+    }
+
     /// Capture display using CoreGraphics with window shadows preserved.
     /// Falls back to nil if CG symbols are unavailable, letting caller fallback to ScreenCaptureKit.
-    static func captureDisplay(
+    nonisolated static func captureDisplay(
         _ displayID: CGDirectDisplayID,
         excludingWindowIDs: Set<CGWindowID> = []
     ) -> CGImage? {
@@ -61,7 +74,7 @@ enum WindowListDisplaySnapshot {
     }
 
     /// Capture a CG-coordinate region excluding the given window IDs via CoreGraphics.
-    static func captureRegion(
+    nonisolated static func captureRegion(
         _ cgRect: CGRect,
         excludingWindowIDs: Set<CGWindowID>,
         imageOption: CGWindowImageOption = [.boundsIgnoreFraming, .bestResolution]
@@ -76,7 +89,7 @@ enum WindowListDisplaySnapshot {
         return img
     }
 
-    private static func makeFilteredWindowArray(excluding excluded: Set<CGWindowID>) -> CFArray? {
+    nonisolated private static func makeFilteredWindowArray(excluding excluded: Set<CGWindowID>) -> CFArray? {
         let windowInfo = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]] ?? []
         let onScreenIDs = windowInfo.compactMap { $0[kCGWindowNumber as String] as? CGWindowID }
         let filteredIDs = onScreenIDs.filter { !excluded.contains($0) }

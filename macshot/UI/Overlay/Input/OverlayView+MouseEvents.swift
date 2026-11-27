@@ -671,16 +671,25 @@ extension OverlayView {
                 if !hasPendingAutoAction { showToolbars = true }
                 overlayDelegate?.overlayViewDidFinishSelection(selectionRect)
                 clearSelectionSizeSnapState()
-            } else if windowSnapEnabled, let snapRect = hoveredWindowRect, !snapRect.isEmpty {
-                // Click (or tiny jitter) with snap on — snap to hovered window
+            } else if windowSnapEnabled,
+                      let snapTarget = confirmWindowSnapTarget(at: convert(event.locationInWindow, from: nil)),
+                      !snapTarget.rect.isEmpty
+            {
+                // Click (or tiny jitter) with snap on — snap to the window under the release point.
+                // 悬停高亮是异步算出来的，点击时以松开位置重新识别，避免选中上一次高亮的窗口。
+                let snapRect = snapTarget.rect
+                let windowID = snapTarget.windowID
                 selectionRect = snapRect
                 selectionIsWindowSnap = true
-                snappedWindowID = hoveredWindowID
+                snappedWindowID = windowID
+                CaptureDiagnostics.log(
+                    "[macshot-window-snap] select windowID=\(windowID) rect=\(snapTarget.screenRect)"
+                )
                 // Capture the window independently for beautify (transparent corners)
-                if let wid = hoveredWindowID, let screen = window?.screen {
+                if let screen = window?.screen {
                     Task { [weak self] in
                         guard let self = self else { return }
-                        if let cgImage = await ScreenCaptureManager.captureWindow(windowID: wid, screen: screen) {
+                        if let cgImage = await ScreenCaptureManager.captureWindow(windowID: windowID, screen: screen) {
                             self.snappedWindowImage = NSImage(cgImage: cgImage,
                                 size: NSSize(width: CGFloat(cgImage.width) / screen.backingScaleFactor,
                                              height: CGFloat(cgImage.height) / screen.backingScaleFactor))
@@ -727,7 +736,7 @@ extension OverlayView {
                 overlayDelegate?.overlayViewDidFinishSelection(selectionRect)
                 clearSelectionSizeSnapState()
             }
-            hoveredWindowRect = nil
+            clearWindowSnapHover()
             // Update cursor to match the selected tool (replaces resize cursor from dragging)
             if let win = window {
                 let point = convert(win.mouseLocationOutsideOfEventStream, from: nil)
