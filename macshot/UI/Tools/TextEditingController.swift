@@ -115,7 +115,7 @@ private final class NoFocusRingTextView: NSTextView {
     }
     override func noteFocusRingMaskChanged() {}
 
-    /// 锁住选中文本样式，防止系统在重新聚焦时恢复强调色描边效果。
+    /// 锁住选中文本样式：选区只画淡色底纹，防止系统在重新聚焦时改回强调色底或描边。
     private var lockedSelectedTextAttributes: [NSAttributedString.Key: Any]?
 
     override var selectedTextAttributes: [NSAttributedString.Key: Any] {
@@ -164,7 +164,6 @@ private final class NoFocusRingTextView: NSTextView {
         let result = super.becomeFirstResponder()
         if result {
             inputContext?.discardMarkedText()
-            collapseSelection()
             sanitizeTextStorage()
             applyEditingChrome()
             stripAllFocusBorders()
@@ -191,7 +190,6 @@ private final class NoFocusRingTextView: NSTextView {
         let result = super.resignFirstResponder()
         if result {
             inputContext?.discardMarkedText()
-            collapseSelection()
             sanitizeTextStorage()
             applyEditingChrome()
             stripAllFocusBorders()
@@ -218,12 +216,6 @@ private final class NoFocusRingTextView: NSTextView {
         stripLayerBorders(self)
     }
 
-    private func collapseSelection() {
-        let range = selectedRange()
-        let insertionLocation = range.location + range.length
-        super.setSelectedRange(NSRange(location: insertionLocation, length: 0))
-    }
-
     private func sanitizeTextStorage() {
         guard let textStorage, textStorage.length > 0 else { return }
         let fullRange = NSRange(location: 0, length: textStorage.length)
@@ -243,8 +235,10 @@ private final class NoFocusRingTextView: NSTextView {
 
         focusRingType = .none
         insertionPointColor = color
+        // 选区用工具栏强调色的 40% 作底纹，在任意截图背景上都看得出选中了哪段文字。
+        // 描边保持透明：这个面板不激活应用，系统默认会把选区画成强调色描边。
         let selectedAttrs: [NSAttributedString.Key: Any] = [
-            .backgroundColor: NSColor.clear,
+            .backgroundColor: ToolbarLayout.accentColor.withAlphaComponent(0.4),
             .foregroundColor: color,
             .strokeColor: NSColor.clear,
             .strokeWidth: 0,
@@ -811,16 +805,41 @@ class TextEditingController {
         tv.frame.size = NSSize(width: width, height: newHeight)
     }
 
-    func applyLiveFrame(_ frame: NSRect, fitHeightToContent: Bool) {
+    /// 文字左右内边距之和。
+    var liveTextHorizontalInsets: CGFloat { (textView?.textContainerInset.width ?? 0) * 2 }
+
+    /// 拖动手柄过程中的一步排版：按新字号和新的换行宽度排好版，返回文字框应当采用的高度。
+    /// 高度取自 NSTextView 实际使用的排版引擎。外框只要比文字视图矮，文字就会被滚动裁掉，
+    /// 而且每一步都会在「贴合外框」和「被排版撑到文字高度」之间来回跳。
+    func relayoutLiveText(fontSize newFontSize: CGFloat? = nil, width: CGFloat) -> CGFloat {
+        if let newFontSize {
+            scaleLiveText(to: newFontSize)
+        }
+        guard let tv = textView, let textStorage = tv.textStorage else { return 0 }
+        let inset = tv.textContainerInset
+        // 文字容器宽度跟随文字视图，先换宽度再排版，量到的才是新宽度下的断行结果。
+        tv.frame.size.width = width
+        updateTextContainerWidth(for: width)
+
+        let textHeight: CGFloat
+        if let layoutManager = tv.layoutManager, let container = tv.textContainer {
+            layoutManager.ensureLayout(for: container)
+            textHeight = layoutManager.usedRect(for: container).height
+        } else {
+            textHeight = textStorage.boundingRect(
+                with: NSSize(width: max(1, width - inset.width * 2), height: .greatestFiniteMagnitude),
+                options: [.usesLineFragmentOrigin, .usesFontLeading]
+            ).height
+        }
+        return max(max(28, ceil(fontSize) + 12), ceil(textHeight) + inset.height * 2)
+    }
+
+    /// 套用画布算出的外框；高度必须已经包住排好版的文字。
+    func applyLiveFrame(_ frame: NSRect) {
         guard let tv = textView, let sv = scrollView else { return }
 
         sv.frame = frame
         tv.frame.size = frame.size
-        updateTextContainerWidth(for: frame.width)
-
-        if fitHeightToContent {
-            resizeToFit()
-        }
 
         (tv as? NoFocusRingTextView)?.applyEditingChrome()
     }
@@ -851,7 +870,6 @@ class TextEditingController {
         typingAttrs[.font] = currentFont()
         tv.typingAttributes = typingAttrs
         tv.font = currentFont()
-        (tv as? NoFocusRingTextView)?.applyEditingChrome()
     }
 
     /// Lock auto-width mode off (called when user manually resizes the text box).

@@ -164,10 +164,13 @@ class ToolOptionsRowView: NSView {
 
     /// Lightweight update: sync font size label in the text tool options row.
     func updateFontSizeDisplay(value: CGFloat) {
-        if let field = viewWithTag(ToolOptionTag.textFontSizeLabel.rawValue) as? NSTextField,
-           field.currentEditor() == nil
-        {
-            field.stringValue = "\(Int(value))"
+        guard let field = viewWithTag(ToolOptionTag.textFontSizeLabel.rawValue) as? NSTextField,
+              field.currentEditor() == nil
+        else { return }
+        // 拖动缩放时每一步都会调用；显示的整数没变就不触碰文本框。
+        let text = "\(Int(value))"
+        if field.stringValue != text {
+            field.stringValue = text
         }
     }
 
@@ -407,6 +410,10 @@ class ToolOptionsRowView: NSView {
             addOutlineControls(to: stackView, tool: tool, ov: ov)
         }
 
+        // 按钮一律不抢第一响应者。文字编辑时点击 B/I/U/S、对齐、色块等按钮，
+        // 选区必须留在文字视图里，按钮动作才会作用到选中的文字而不是整段文字。
+        refuseFirstResponderForButtons(in: stackView)
+
         // Since NSStackView manages layout, we update layout and calculate width
         stackView.needsLayout = true
         stackView.layoutSubtreeIfNeeded()
@@ -417,6 +424,15 @@ class ToolOptionsRowView: NSView {
         // Add a flexible spacer before text buttons if needed to right-align them
         // Actually, for simplicity we just let them sit next to the other options.
 
+    }
+
+    private func refuseFirstResponderForButtons(in view: NSView) {
+        if let button = view as? NSButton {
+            button.refusesFirstResponder = true
+        }
+        for subview in view.subviews {
+            refuseFirstResponderForButtons(in: subview)
+        }
     }
 
     // MARK: - Partial Updates
