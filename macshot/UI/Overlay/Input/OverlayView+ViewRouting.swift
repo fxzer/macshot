@@ -30,6 +30,7 @@ extension OverlayView {
         DispatchQueue.main.asyncAfter(deadline: .now() + Self.initialWindowSnapDelay) { [weak self] in
             guard let self else { return }
             self.windowSnapCooldown = false
+            self.refreshWindowSnapHoverAtMouseLocation()
         }
 
         if showToolbars {
@@ -113,14 +114,7 @@ extension OverlayView {
         }
 
         if windowSnapCooldown { return }
-        if state == .idle && windowSnapEnabled && !windowSnapQueryInFlight
-            && !(remoteSelectionRect.width >= 1 && remoteSelectionRect.height >= 1)
-        {
-            guard
-                let screenPoint = window.map({
-                    NSPoint(x: $0.frame.origin.x + point.x, y: $0.frame.origin.y + point.y)
-                })
-            else { return }
+        if canHoverWindowSnap, let screenPoint = screenPointForWindowSnap(point) {
             queryWindowSnap(at: screenPoint)
         }
 
@@ -143,6 +137,10 @@ extension OverlayView {
         clearLoupePreview()
         clearStampPreview()
         NSCursor.arrow.set()
+        if state == .idle {
+            // 鼠标离开这块屏幕后不再收到移动事件，清掉高亮，避免另一块屏幕上残留旧窗口。
+            clearWindowSnapHover()
+        }
         needsDisplay = true
     }
 

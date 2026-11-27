@@ -66,6 +66,8 @@ class OverlayWindowController {
     var overlayWindow: OverlayWindow?
     var shareDelegate: SharePickerDelegate?
     var onFirstFrameShown: (() -> Void)?
+    var presentationStartedAt: CFAbsoluteTime = 0
+    var onInputReady: (() -> Void)?
     var captureAsset: CaptureImageAsset?
     var shareDismissTime: Date = .distantPast
     var windowNumber: CGWindowID {
@@ -87,7 +89,7 @@ class OverlayWindowController {
 
         let window = OverlayWindow(
             contentRect: screen.frame,
-            styleMask: [.borderless],
+            styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
         )
@@ -95,7 +97,8 @@ class OverlayWindowController {
         window.isOpaque = false
         window.backgroundColor = .clear
         window.hasShadow = false
-        window.ignoresMouseEvents = false
+        window.ignoresMouseEvents = true
+        window.hidesOnDeactivate = false
         window.acceptsMouseMovedEvents = true
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         window.isReleasedWhenClosed = false
@@ -134,10 +137,6 @@ class OverlayWindowController {
         screen = capture.screen
         captureAsset = capture.asset
 
-        // 截图已就绪，恢复鼠标事件接收（占位 overlay 在捕获前被设为
-        // ignoresMouseEvents = true 以保持目标应用 hover 状态）。
-        overlayWindow?.ignoresMouseEvents = false
-
         let nsImage = capture.asset.displayImage
         CaptureDiagnostics.log(
             "[macshot-perf][OWC.capture] apply displayImage \(String(format: "%.0f", nsImage.size.width))x\(String(format: "%.0f", nsImage.size.height))"
@@ -166,7 +165,7 @@ class OverlayWindowController {
         }
     }
 
-    func showOverlay(activateAppIfNeeded: Bool = true) {
+    func showOverlay(acceptInputIfReady: Bool = true) {
         var perf = PerfMonitor(label: "showOverlay[\(screen.localizedName)]")
         var memory = MemoryDiagnostics.makeScope(
             "OverlayWindowController.showOverlay",
@@ -174,35 +173,21 @@ class OverlayWindowController {
             metadata: "screen=\(screen.localizedName)"
         )
         guard let window = overlayWindow else { return }
-        // Show immediately; do not call displayIfNeeded() here — it blocks the main thread
-        // until the full frame is rendered and makes the hotkey→drag path feel sluggish.
+        // 透明占位窗口先呈现；截图就绪后由 makeKey() 绘制背景，再接管输入。
         overlayView?.needsDisplay = true
-
-        // Lazy-preload toolbar icons on first overlay appearance (no-op on
-        // subsequent calls). Moved out of the launch path so app startup doesn't
-        // pay the ~80 SF Symbol rasterization cost. Async on main so it doesn't
-        // delay this first frame — runs on the next runloop while the overlay
-        // is already interactive.
-        DispatchQueue.main.async {
-            ToolbarButtonView.preloadCommonIcons()
-        }
 
         // Prepare color sampling image BEFORE showing the window to avoid blocking first frame
         prepareCaptureImageInBackground()
         perf.step("prepareCaptureImage")
         memory.step("prepareCaptureImage")
 
-        presentWindow(window, activateAppIfNeeded: activateAppIfNeeded)
+        presentWindow(window, acceptInputIfReady: acceptInputIfReady)
         perf.step("presentWindow")
         perf.finish()
         memory.finish("presented", metadata: "windowVisible=\(window.isVisible)")
         CaptureDiagnostics.log(
             "[macshot-mem][OWC.showOverlay] presented screen=\(screen.localizedName) windowVisible=\(window.isVisible) \(MemoryDiagnostics.currentSummary())"
         )
-    }
-
-    func makeKey() {
-        promoteWindowToKeyWhenReady()
     }
 
     func prepareCaptureImageInBackground() {
@@ -226,49 +211,6 @@ class OverlayWindowController {
                 metadata: "screen=\(self?.screen.localizedName ?? "?")"
             )
             self?.overlayView?.setColorSamplingCGImage(converted)
-        }
-    }
-
-    private func presentWindow(_ window: OverlayWindow, activateAppIfNeeded: Bool) {
-        guard activateAppIfNeeded else {
-            window.orderFrontRegardless()
-            return
-        }
-
-        if NSApp.isActive {
-            promoteWindowToKey(window)
-            return
-        }
-
-        window.orderFrontRegardless()
-        promoteWindowToKeyWhenReady()
-    }
-
-    private func promoteWindowToKeyWhenReady(attempt: Int = 0) {
-        guard let window = overlayWindow else { return }
-        if NSApp.isActive {
-            promoteWindowToKey(window)
-            return
-        }
-
-        if attempt == 0 {
-            NSRunningApplication.current.activate(options: .activateIgnoringOtherApps)
-        }
-
-        guard attempt < 12 else {
-            promoteWindowToKey(window)
-            return
-        }
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) { [weak self] in
-            self?.promoteWindowToKeyWhenReady(attempt: attempt + 1)
-        }
-    }
-
-    private func promoteWindowToKey(_ window: OverlayWindow) {
-        window.makeKeyAndOrderFront(nil)
-        if let view = overlayView {
-            window.makeFirstResponder(view)
         }
     }
 
@@ -312,7 +254,7 @@ class OverlayWindowController {
         overlayView?.remoteSelectionRect = rect
         overlayView?.remoteSelectionFullRect = fullRect.width >= 1 ? fullRect : rect
         if rect.width >= 1 && rect.height >= 1 {
-            overlayView?.hoveredWindowRect = nil
+            overlayView?.clearWindowSnapHover()
         }
         overlayView?.needsDisplay = true
     }
@@ -367,6 +309,7 @@ class OverlayWindowController {
     func dismiss() {
         guard !isDismissed else { return }
         isDismissed = true
+        onInputReady = nil
 
         let cacheSummary = overlayView.map {
             "annotations=\($0.annotations.count) undo=\($0.undoStack.count) redo=\($0.redoStack.count) cacheEstimate=\(MemoryDiagnostics.format(bytes: UInt64($0.estimatedCacheMemory)))"

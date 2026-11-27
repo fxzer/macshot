@@ -776,7 +776,6 @@ extension DetachedEditorWindowController: OverlayViewDelegate {
             }
             self.addCaptureHandler = handler
 
-            NSApp.activate(ignoringOtherApps: true)
             for capture in captures {
                 let controller = OverlayWindowController(capture: capture)
                 controller.overlayDelegate = handler

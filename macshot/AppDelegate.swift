@@ -90,6 +90,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             defaultInteractionScreen: { [weak self] in self?.defaultInteractionScreen() },
             statusBarInteractionScreen: { [weak self] in self?.statusBarController.interactionScreen },
             showOnboarding: { [weak self] screen in self?.showOnboarding(on: screen) },
+            showCaptureError: { [weak self] in self?.showStatusError(message: L("Capture timed out. Please try again.")) },
             hideThumbnails: { [weak self] in self?.hideOutputThumbnails() },
             showThumbnails: { [weak self] in self?.showOutputThumbnails() },
             excludedWindowNumbers: { [weak self] in self?.currentCaptureExcludedWindowNumbers() ?? [] }

@@ -26,14 +26,10 @@ class ToolbarButtonView: NSView {
     private static var iconCache: [String: NSImage] = [:]
     private static var hasPreloaded = false
 
-    /// Warm the icon cache after launch (must run on the main thread — AppKit image drawing is not thread-safe).
-    /// DispatchQueue.main.async from applicationDidFinishLaunching keeps startup responsive.
-    static func preloadCommonIcons() {
+    /// 每轮只预热一个图标；截图期间暂停，避免一批 SF Symbols 堵在截图任务前面。
+    static func preloadCommonIconsWhenIdle(isCapturing: @escaping () -> Bool) {
         guard !hasPreloaded else { return }
         hasPreloaded = true
-
-        let defaultColor = ToolbarLayout.iconColor
-        let onColor = ToolbarLayout.iconColor
 
         let bottomSymbols = [
             "checkmark", "scribble", "line.diagonal", "arrow.up.right", "rectangle", "oval",
@@ -51,16 +47,24 @@ class ToolbarButtonView: NSView {
             "scroll",
         ]
 
-        let allSymbols = Array(Set(bottomSymbols + rightSymbols))
+        let symbols = Array(Set(bottomSymbols + rightSymbols)).sorted()
+        preloadNextIcon(symbols[...], isCapturing: isCapturing)
+    }
 
-        for symbol in allSymbols {
+    private static func preloadNextIcon(_ symbols: ArraySlice<String>, isCapturing: @escaping () -> Bool) {
+        guard let symbol = symbols.first else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.02) {
+            guard !isCapturing() else {
+                preloadNextIcon(symbols, isCapturing: isCapturing)
+                return
+            }
             for isOn in [false, true] {
-                let color = isOn ? onColor : defaultColor
-                let key = cacheKey(name: symbol, isOn: isOn, color: color)
-                if iconCache[key] == nil, let img = renderSymbol(named: symbol, color: color) {
+                let key = cacheKey(name: symbol, isOn: isOn, color: ToolbarLayout.iconColor)
+                if iconCache[key] == nil, let img = renderSymbol(named: symbol, color: ToolbarLayout.iconColor) {
                     iconCache[key] = img
                 }
             }
+            preloadNextIcon(symbols.dropFirst(), isCapturing: isCapturing)
         }
     }
 

@@ -207,7 +207,8 @@ extension OverlayView {
             if state == .idle {
                 // Toggle window snapping in idle state
                 windowSnapEnabled = !windowSnapEnabled
-                hoveredWindowRect = nil
+                clearWindowSnapHover()
+                refreshWindowSnapHoverAtMouseLocation()
                 // Notify all other overlays to redraw (they will check if mouse is on their screen)
                 overlayDelegate?.overlayViewDidChangeWindowSnapState()
                 needsDisplay = true
@@ -227,7 +228,7 @@ extension OverlayView {
                 }
 
                 aspectRatioLock = .none  // 全屏时重置锁定
-                hoveredWindowRect = nil
+                clearWindowSnapHover()
                 if autoQuickSaveMode {
                     autoQuickSaveMode = false
                     overlayDelegate?.overlayViewDidRequestQuickSave()

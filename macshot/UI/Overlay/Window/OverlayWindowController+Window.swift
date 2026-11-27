@@ -2,9 +2,9 @@ import Cocoa
 
 // MARK: - Custom Window subclass
 
-class OverlayWindow: NSWindow {
+class OverlayWindow: NSPanel {
     override var canBecomeKey: Bool { true }
-    override var canBecomeMain: Bool { true }
+    override var canBecomeMain: Bool { false }
     override var autorecalculatesKeyViewLoop: Bool {
         get { false }
         set { }
@@ -38,4 +38,10 @@ class OverlayWindow: NSWindow {
         ]
         return textView
     }
+}
+
+/// 倒计时接收 Escape，但不激活应用，避免目标设置窗口在截图前隐藏。
+final class CaptureCountdownPanel: NSPanel {
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { false }
 }

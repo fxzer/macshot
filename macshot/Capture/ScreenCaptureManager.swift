@@ -151,9 +151,8 @@ class ScreenCaptureManager {
         }
     }
 
-    /// Warm ScreenCaptureKit's screenshot path with tiny throwaway captures.
-    /// This reduces the cold-start spike without holding large screenshots in memory or
-    /// risking menu-window ghosts from reusing a real cached capture.
+    /// 预热实际优先使用的 CoreGraphics 通道；失败时再预热 ScreenCaptureKit。
+    /// 预热截图立即释放，不缓存桌面内容，也不复用于后续截图。
     private static func warmScreenshotPipelineIfNeeded(screen: NSScreen?) {
         Task {
             guard await CacheManager.shared.shouldStartScreenshotWarm() else {
@@ -166,6 +165,15 @@ class ScreenCaptureManager {
                 }
 
                 let t0 = CFAbsoluteTimeGetCurrent()
+                guard !Task.isCancelled, !(await CacheManager.shared.isCaptureInProgress()) else { return }
+                if let targetScreen = screen ?? NSScreen.main,
+                   let displayID = screenDisplayID(for: targetScreen),
+                   await WindowListDisplaySnapshot.captureDisplayInBackground(displayID) != nil {
+                    guard !Task.isCancelled, !(await CacheManager.shared.isCaptureInProgress()) else { return }
+                    await CacheManager.shared.recordScreenshotWarmTime()
+                    CaptureDiagnostics.log("[macshot-perf][prewarm] CoreGraphics pipeline warm=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - t0) * 1000))ms")
+                    return
+                }
                 guard let content = try? await shareableContent() else { return }
                 guard !Task.isCancelled, !(await CacheManager.shared.isCaptureInProgress()) else { return }
 
@@ -224,7 +232,7 @@ class ScreenCaptureManager {
             var allSucceeded = true
             for screen in screens {
                 guard let displayID = screenDisplayID(for: screen),
-                      let cgImage = WindowListDisplaySnapshot.captureDisplay(displayID, excludingWindowIDs: allExcluded) else {
+                      let cgImage = await WindowListDisplaySnapshot.captureDisplayInBackground(displayID, excludingWindowIDs: allExcluded) else {
                     allSucceeded = false
                     break
                 }
@@ -384,7 +392,7 @@ class ScreenCaptureManager {
             // 亚像素文字抗锯齿与激活状态，耗时仅 5~15ms，彻底避免 ScreenCaptureKit
             // 在多层合成时丢弃弹出窗口阴影的系统级缺陷。
             if let displayID = screenDisplayID(for: screen),
-               let cgImage = WindowListDisplaySnapshot.captureDisplay(displayID, excludingWindowIDs: allExcluded) {
+               let cgImage = await WindowListDisplaySnapshot.captureDisplayInBackground(displayID, excludingWindowIDs: allExcluded) {
                 let capture = ScreenCapture(
                     screen: screen,
                     asset: makeAsset(screen: screen, image: cgImage)

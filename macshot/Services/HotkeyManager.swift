@@ -149,6 +149,7 @@ class HotkeyManager {
                                   nil, MemoryLayout<EventHotKeyID>.size, nil, &hotkeyID)
 
                 if let slot = HotkeySlot(rawValue: Int(hotkeyID.id)), let callback = mgr.callbacks[slot] {
+                    CaptureDiagnostics.log("[macshot-perf][hotkey] received slot=\(slot.rawValue) eventAge=\(String(format: "%.1f", max(0, GetCurrentEventTime() - GetEventTime(event)) * 1000))ms")
                     if NSApp.modalWindow != nil {
                         NSApp.stopModal()
                         NSApp.modalWindow?.close()

@@ -11,6 +11,7 @@ final class CaptureFlowCoordinator {
         let defaultInteractionScreen: () -> NSScreen?
         let statusBarInteractionScreen: () -> NSScreen?
         let showOnboarding: (NSScreen?) -> Void
+        let showCaptureError: () -> Void
         let hideThumbnails: () -> Void
         let showThumbnails: () -> Void
         let excludedWindowNumbers: () -> [CGWindowID]
@@ -23,6 +24,7 @@ final class CaptureFlowCoordinator {
     private var activeCaptureIntent: CaptureIntent?
     private var overlayScreenSwitchInFlight = false
     private var captureRequestID = 0
+    private let captureWatchdog = CaptureRequestWatchdog()
     private var overlayMouseScreenTimer: Timer?
     private var overlayEscMonitor: Any?
     private var countdownWindow: NSWindow?
@@ -62,6 +64,8 @@ final class CaptureFlowCoordinator {
             "CaptureFlow.dismissOverlays.before",
             metadata: "overlayCount=\(overlayControllersStorage.count) refocus=\(refocusPreviousApp)"
         )
+        captureWatchdog.cancel()
+        captureRequestID += 1
         stopOverlayMouseScreenTracking()
         removeOverlayEscMonitor()
         overlayScreenSwitchInFlight = false
@@ -95,7 +99,12 @@ final class CaptureFlowCoordinator {
     }
 
     private func startCapture(intent: CaptureIntent, triggerOrigin: String) {
-        guard !isCapturing else { return }
+        guard !isCapturing else {
+            // 已有画面时恢复遮罩的前置与焦点；捕获仍在等待时合并重复按键。
+            CaptureDiagnostics.log("[macshot-perf][capture] repeated trigger overlays=\(overlayControllersStorage.count)")
+            makePrimaryOverlayKey()
+            return
+        }
         guard !dependencies.isRecordingInProgress() else { return }
         isCapturing = true
         activeCaptureIntent = intent
@@ -153,6 +162,15 @@ final class CaptureFlowCoordinator {
 
     private func currentMouseScreen() -> NSScreen? {
         NSScreen.screens.first { $0.frame.contains(NSEvent.mouseLocation) }
+    }
+
+    private func armCaptureWatchdog(requestID: Int) {
+        captureWatchdog.start { [weak self] in
+            guard let self, self.isCapturing, self.captureRequestID == requestID else { return }
+            CaptureDiagnostics.log("[macshot-perf][capture] timed out requestID=\(requestID)")
+            self.dismissOverlays()
+            self.dependencies.showCaptureError()
+        }
     }
 
     private func nextCaptureRequestID(reason: String) -> Int {
@@ -287,7 +305,10 @@ final class CaptureFlowCoordinator {
     }
 
     private func makePrimaryOverlayKey() {
-        controllerHandlingEscape(for: nil)?.makeKey()
+        guard let controller = controllerHandlingEscape(for: nil) else { return }
+        // 已在编辑文字或数值时保留当前 firstResponder，重复热键不打断输入。
+        guard controller.overlayWindow?.isKeyWindow != true else { return }
+        controller.makeKey()
     }
 
     private func clearOverlayControllersForScreenSwitch() {
@@ -321,6 +342,7 @@ final class CaptureFlowCoordinator {
 
         clearOverlayControllersForScreenSwitch()
         dependencies.hideThumbnails()
+        armCaptureWatchdog(requestID: requestID)
 
         ScreenCaptureManager.captureScreen(screen, excludingWindowNumbers: excludeIDs) { [weak self] capture in
             guard let self else { return }
@@ -334,6 +356,7 @@ final class CaptureFlowCoordinator {
             self.overlayScreenSwitchInFlight = false
 
             guard let capture else {
+                self.captureWatchdog.cancel()
                 self.stopOverlayMouseScreenTracking()
                 self.removeOverlayEscMonitor()
                 self.isCapturing = false
@@ -347,7 +370,6 @@ final class CaptureFlowCoordinator {
             self.showOverlays(
                 for: [capture],
                 t0: t0,
-                activateApp: false,
                 restoreLastSelection: false
             )
         }
@@ -361,9 +383,9 @@ final class CaptureFlowCoordinator {
             y: screen.frame.midY - size.height / 2
         )
 
-        let window = NSWindow(
+        let window = CaptureCountdownPanel(
             contentRect: NSRect(origin: origin, size: size),
-            styleMask: [.borderless],
+            styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
         )
@@ -371,12 +393,15 @@ final class CaptureFlowCoordinator {
         window.backgroundColor = .clear
         window.level = .floating
         window.hasShadow = false
+        window.hidesOnDeactivate = false
+        window.ignoresMouseEvents = true
+        window.animationBehavior = .none
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
 
         let countdownView = CountdownView(frame: NSRect(origin: .zero, size: size))
         countdownView.remaining = seconds
         window.contentView = countdownView
-        NSApp.activate(ignoringOtherApps: true)
+        // 倒计时不激活 MacShot，保留原应用设置窗口与弹出内容，直到截图完成。
         window.makeKeyAndOrderFront(nil)
         countdownWindow = window
 
@@ -472,6 +497,7 @@ final class CaptureFlowCoordinator {
         // window and ScreenCaptureKit will occasionally capture the dimming mask itself.
         let effectiveExcludeIDs = Array(Set(excludeIDs + placeholderExcludeIDs))
 
+        armCaptureWatchdog(requestID: requestID)
         CaptureDiagnostics.log(
             "[macshot-perf][capture] captureScreen BEGIN screen=\(targetScreen.localizedName) excludes=\(effectiveExcludeIDs.count)"
         )
@@ -506,6 +532,7 @@ final class CaptureFlowCoordinator {
             ScreenCaptureManager.setCaptureInProgress(false)
 
             guard let capture else {
+                self.captureWatchdog.cancel()
                 self.stopOverlayMouseScreenTracking()
                 self.removeOverlayEscMonitor()
                 if let placeholderController {
@@ -562,7 +589,7 @@ final class CaptureFlowCoordinator {
         // 若以默认拦截鼠标状态呈现，目标应用（浏览器/Electron 等）会立即收到 mouseleave、
         // 导致 tooltip / hover-only 元素在截图瞬间消失。截图就绪后 applyCapture 会恢复交互。
         controller.overlayWindow?.ignoresMouseEvents = true
-        controller.showOverlay(activateAppIfNeeded: false)
+        controller.showOverlay(acceptInputIfReady: false)
         perf.step("controller screen=\(screen.localizedName)")
         memory.step("controller ready", metadata: "overlayCountBeforeAppend=\(overlayControllersStorage.count)")
         overlayControllersStorage.append(controller)
@@ -582,28 +609,21 @@ final class CaptureFlowCoordinator {
     private func showOverlays(
         for captures: [ScreenCapture],
         t0: CFAbsoluteTime = 0,
-        activateApp: Bool = true,
         restoreLastSelection: Bool = true
     ) {
         var perf = PerfMonitor(label: "overlay")
         var memory = MemoryDiagnostics.makeScope(
             "CaptureFlow.showOverlays",
-            metadata: "captures=\(captures.count) activateApp=\(activateApp)"
+            metadata: "captures=\(captures.count)"
         )
         let captureIntent = activeCaptureIntent
 
         stopOverlayMouseScreenTracking()
         dismissStrayOverlayWindows(reason: "showOverlays preflight")
-        if activateApp {
-            NSApp.activate(ignoringOtherApps: true)
-            perf.step("NSApp.activate")
-            memory.step("activate app")
-        }
-
         for (index, capture) in captures.enumerated() {
             let controller = OverlayWindowController(capture: capture)
             configureController(controller, screenName: capture.screen.localizedName, t0: t0)
-            controller.showOverlay()
+            controller.showOverlay(acceptInputIfReady: false)
             perf.step("controller[\(index)] screen=\(capture.screen.localizedName)")
             memory.step(
                 "controller[\(index)] showOverlay",
@@ -634,6 +654,8 @@ final class CaptureFlowCoordinator {
 
     private func configureController(_ controller: OverlayWindowController, screenName: String, t0: CFAbsoluteTime) {
         controller.overlayDelegate = dependencies.overlayDelegateProvider()
+        controller.presentationStartedAt = t0
+        controller.onInputReady = { [weak self] in self?.captureWatchdog.cancel() }
         controller.onFirstFrameShown = {
             CaptureDiagnostics.log(
                 "[macshot-perf][overlay] FIRST FRAME DRAWN total=\(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - t0) * 1000))ms screen=\(screenName)"

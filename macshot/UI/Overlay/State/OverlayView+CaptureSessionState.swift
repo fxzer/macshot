@@ -23,13 +23,11 @@ final class OverlayCaptureSessionState {
     var scrollCaptureLocalKeyMonitor: Any?
     var windowSnapEnabled =
         UserDefaults.standard.object(forKey: "windowSnapEnabled") as? Bool ?? true
-    var hoveredWindowRect: NSRect?
-    var hoveredWindowID: CGWindowID?
+    let windowSnapHover = WindowSnapHoverTracker()
     var windowSnapCooldown = true
     var selectionIsWindowSnap = false
     var snappedWindowID: CGWindowID?
     var snappedWindowImage: NSImage?
-    var windowSnapQueryInFlight = false
 }
 
 extension OverlayView {
@@ -135,13 +133,11 @@ extension OverlayView {
     }
 
     var hoveredWindowRect: NSRect? {
-        get { captureSessionState.hoveredWindowRect }
-        set { captureSessionState.hoveredWindowRect = newValue }
+        captureSessionState.windowSnapHover.target?.rect
     }
 
     var hoveredWindowID: CGWindowID? {
-        get { captureSessionState.hoveredWindowID }
-        set { captureSessionState.hoveredWindowID = newValue }
+        captureSessionState.windowSnapHover.target?.windowID
     }
 
     var windowSnapCooldown: Bool {
@@ -164,74 +160,13 @@ extension OverlayView {
         set { captureSessionState.snappedWindowImage = newValue }
     }
 
-    var windowSnapQueryInFlight: Bool {
-        get { captureSessionState.windowSnapQueryInFlight }
-        set { captureSessionState.windowSnapQueryInFlight = newValue }
-    }
-
     func activateAppUnderSelection() {
         guard selectionRect.width > 0, let window else { return }
-        let centerLocal = NSPoint(x: selectionRect.midX, y: selectionRect.midY)
-        let centerScreen = window.convertToScreen(NSRect(origin: centerLocal, size: .zero)).origin
+        let centerInWindow = convert(
+            NSPoint(x: selectionRect.midX, y: selectionRect.midY), to: nil)
+        let centerScreen = window.convertToScreen(NSRect(origin: centerInWindow, size: .zero)).origin
 
-        guard
-            let windowList = CGWindowListCopyWindowInfo(
-                [.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID
-            ) as? [[String: Any]]
-        else { return }
-
-        let overlayWindowNumber = window.windowNumber
-        let screenHeight = NSScreen.screens.first?.frame.height ?? 0
-
-        for info in windowList {
-            guard let layer = info[kCGWindowLayer as String] as? Int, layer == 0,
-                let boundsDict = info[kCGWindowBounds as String] as? [String: CGFloat],
-                let windowNumber = info[kCGWindowNumber as String] as? Int,
-                let pid = info[kCGWindowOwnerPID as String] as? pid_t,
-                windowNumber != overlayWindowNumber
-            else { continue }
-
-            let cgX = boundsDict["X"] ?? 0
-            let cgY = boundsDict["Y"] ?? 0
-            let cgW = boundsDict["Width"] ?? 0
-            let cgH = boundsDict["Height"] ?? 0
-            let appKitRect = NSRect(x: cgX, y: screenHeight - cgY - cgH, width: cgW, height: cgH)
-
-            if appKitRect.contains(centerScreen) {
-                NSRunningApplication(processIdentifier: pid)?.activate(options: [])
-                return
-            }
-        }
-    }
-
-    func queryWindowSnap(at screenPoint: NSPoint) {
-        guard !windowSnapQueryInFlight,
-            state == .idle && windowSnapEnabled,
-            !(remoteSelectionRect.width >= 1 && remoteSelectionRect.height >= 1),
-            let viewWindow = window
-        else { return }
-        let overlayWindowNumber = viewWindow.windowNumber
-        let windowOrigin = viewWindow.frame.origin
-        let viewBounds = bounds
-        let screenHeight = NSScreen.screens.first?.frame.height ?? NSScreen.main?.frame.height ?? 0
-        windowSnapQueryInFlight = true
-        DispatchQueue.global(qos: .userInteractive).async { [weak self] in
-            let result = Self.windowRectOnBackground(
-                screenPoint: screenPoint,
-                overlayWindowNumber: overlayWindowNumber,
-                windowOrigin: windowOrigin,
-                viewBounds: viewBounds,
-                screenH: screenHeight)
-            DispatchQueue.main.async {
-                guard let self else { return }
-                self.windowSnapQueryInFlight = false
-                let newRect = result?.rect
-                if newRect != self.hoveredWindowRect {
-                    self.hoveredWindowRect = newRect
-                    self.hoveredWindowID = result?.windowID
-                    self.needsDisplay = true
-                }
-            }
-        }
+        guard let target = windowSnapTarget(atScreenPoint: centerScreen) else { return }
+        NSRunningApplication(processIdentifier: target.ownerPID)?.activate(options: [])
     }
 }

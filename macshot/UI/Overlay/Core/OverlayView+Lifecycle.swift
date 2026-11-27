@@ -191,7 +191,7 @@ extension OverlayView {
         overlayErrorTimer = nil
         overlayErrorMessage = nil
         barcodeDetector.cancel()
-        hoveredWindowRect = nil
+        clearWindowSnapHover()
         hideColorSamplerMagnifier()
         if let trackingArea = mouseMovedTrackingArea {
             removeTrackingArea(trackingArea)

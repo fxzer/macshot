@@ -40,15 +40,14 @@ extension OverlayView {
     func handleWindowSnapPinClick(at point: NSPoint, event: NSEvent) -> Bool {
         guard state == .idle,
               windowSnapEnabled,
-              let snapRect = hoveredWindowRect,
-              !snapRect.isEmpty,
-              snapRect.contains(point),
               ToolShortcutManager.lookupAction(forMouseButton: event.buttonNumber) == .pin
         else { return false }
 
-        selectionRect = snapRect
+        // 右键贴图同样以点击瞬间的鼠标位置为准，不沿用异步悬停的结果。
+        guard let target = confirmWindowSnapTarget(at: point), !target.rect.isEmpty else { return false }
+        selectionRect = target.rect
         selectionIsWindowSnap = true
-        snappedWindowID = hoveredWindowID
+        snappedWindowID = target.windowID
         state = .selected
 
         hideColorSamplerMagnifier()
@@ -57,7 +56,7 @@ extension OverlayView {
         }
 
         showToolbars = false
-        hoveredWindowRect = nil
+        clearWindowSnapHover()
         overlayDelegate?.overlayViewDidFinishSelection(selectionRect)
         clearSelectionSizeSnapState()
         overlayDelegate?.overlayViewDidRequestPin()

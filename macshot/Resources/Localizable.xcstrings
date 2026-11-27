@@ -1,6 +1,13 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Capture timed out. Please try again." : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Capture timed out. Please try again." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "截图超时，请重试。" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "截圖逾時，請重試。" } }
+      }
+    },
     "" : {
 
     },

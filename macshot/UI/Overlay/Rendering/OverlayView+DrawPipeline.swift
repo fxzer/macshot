@@ -36,7 +36,7 @@ extension OverlayView {
         drawHoveredTooltip()
 
         let totalDrawMs = (CFAbsoluteTimeGetCurrent() - drawT0) * 1000
-        if !hasEmittedFirstFrame {
+        if !hasEmittedFirstFrame, screenshotImage != nil, !suppressBackdropUntilCapture {
             CaptureDiagnostics.log(
                 "[macshot-perf] draw() FIRST FRAME: backdrop=\(String(format: "%.1f", backdropMs))ms total=\(String(format: "%.1f", totalDrawMs))ms size=\(bounds.size)"
             )
@@ -56,7 +56,13 @@ extension OverlayView {
                 context.cgContext.clear(bounds)
                 return
             }
-            if let image = screenshotImage {
+            if let image = displayCGImage {
+                // 直接绘制已捕获的像素，省去 NSImage 首次绘制时的惰性缓存构建。
+                context.cgContext.saveGState()
+                context.cgContext.setBlendMode(.copy)
+                context.cgContext.draw(image, in: bounds)
+                context.cgContext.restoreGState()
+            } else if let image = screenshotImage {
                 image.draw(in: bounds, from: .zero, operation: .copy, fraction: 1.0)
             }
 

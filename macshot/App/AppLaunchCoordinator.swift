@@ -98,6 +98,7 @@ final class AppLaunchCoordinator: NSObject {
         registerObservers()
         checkScreenRecordingPermission()
         scheduleInitialCapturePrewarm()
+        scheduleToolbarIconPrewarm()
 
         isFinishLaunchingComplete = true
         if !pendingOpenURLs.isEmpty {
@@ -114,7 +115,7 @@ final class AppLaunchCoordinator: NSObject {
             UserDefaults.standard.set(false, forKey: "hideMenuBarIcon")
             dependencies.setMenuBarIconVisible(true)
         }
-        if !hasVisibleWindows {
+        if !hasVisibleWindows && !dependencies.hasActiveOverlaySession() {
             dependencies.openSettings()
         }
         return false
@@ -130,25 +131,25 @@ final class AppLaunchCoordinator: NSObject {
     func registerHotkey() {
         HotkeyManager.shared.registerAll(
             captureArea: { [weak self] in
-                DispatchQueue.main.async { self?.dependencies.captureAreaFromHotkey() }
+                self?.dependencies.captureAreaFromHotkey()
             },
             captureFullScreen: { [weak self] in
-                DispatchQueue.main.async { self?.dependencies.captureFullScreenFromHotkey() }
+                self?.dependencies.captureFullScreenFromHotkey()
             },
             historyOverlay: { [weak self] in
-                DispatchQueue.main.async { self?.dependencies.showHistoryOverlay() }
+                self?.dependencies.showHistoryOverlay()
             },
             captureOCR: { [weak self] in
-                DispatchQueue.main.async { self?.dependencies.captureOCRFromHotkey() }
+                self?.dependencies.captureOCRFromHotkey()
             },
             quickCapture: { [weak self] in
-                DispatchQueue.main.async { self?.dependencies.quickCaptureFromHotkey() }
+                self?.dependencies.quickCaptureFromHotkey()
             },
             scrollCapture: { [weak self] in
-                DispatchQueue.main.async { self?.dependencies.scrollCaptureFromHotkey() }
+                self?.dependencies.scrollCaptureFromHotkey()
             },
             openFromClipboard: { [weak self] in
-                DispatchQueue.main.async { self?.dependencies.openImageFromClipboard() }
+                self?.dependencies.openImageFromClipboard()
             }
         )
     }
@@ -249,6 +250,12 @@ final class AppLaunchCoordinator: NSObject {
         }
     }
 
+    private func scheduleToolbarIconPrewarm() {
+        ToolbarButtonView.preloadCommonIconsWhenIdle { [weak self] in
+            self?.dependencies.hasActiveOverlaySession() ?? true
+        }
+    }
+
     private func scheduleInitialCapturePrewarm(attempt: Int = 0) {
         initialCapturePrewarmWorkItem?.cancel()
 
@@ -273,6 +280,7 @@ final class AppLaunchCoordinator: NSObject {
     }
 
     @objc private func handleShowAndOpenPrefs() {
+        guard !dependencies.hasActiveOverlaySession() else { return }
         if UserDefaults.standard.bool(forKey: "hideMenuBarIcon") {
             UserDefaults.standard.set(false, forKey: "hideMenuBarIcon")
             dependencies.setMenuBarIconVisible(true)
