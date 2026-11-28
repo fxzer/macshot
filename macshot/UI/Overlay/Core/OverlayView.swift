@@ -195,13 +195,26 @@ class OverlayView: NSView {
                 if selectedAnnotations.count == 1, let ann = newSingle {
                     // Sync global paint to the selected annotation when not in random-gradient mode
                     // so auto-selecting a just-drawn random annotation never disables random mode.
-                    if drawPaintMode != .randomGradient {
+                    // Skip non-paint tools (stamp/loupe/non-solid censor) so they never wipe gradient/color state.
+                    let supportsColorSync: Bool = {
+                        switch ann.tool {
+                        case .pencil, .line, .arrow, .rectangle, .filledRectangle, .ellipse, .marker, .number, .measure, .text:
+                            return true
+                        case .pixelate:
+                            return ann.censorMode == .solid
+                        default:
+                            return false
+                        }
+                    }()
+                    if drawPaintMode != .randomGradient && supportsColorSync {
                         if let grad = ann.strokeGradient {
                             self.currentGradient = grad
                             self.drawPaintMode = .gradient(grad)
-                        } else {
+                        } else if ann.tool != .text {
                             self.currentColor = ann.color.withAlphaComponent(1.0)
                             self.drawPaintMode = .solid
+                        } else {
+                            self.currentColor = ann.color.withAlphaComponent(1.0)
                         }
                     }
 

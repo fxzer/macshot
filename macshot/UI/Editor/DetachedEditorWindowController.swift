@@ -61,7 +61,7 @@ class DetachedEditorWindowController: NSObject, NSWindowDelegate {
     /// Open an editor window with the given image (typically from captureSelectedRegion).
     /// When `disableBeautify` is true, beautify starts off regardless of UserDefaults
     /// (used when the image already has beautify baked in).
-    static func open(image: NSImage, tool: AnnotationTool = .arrow, color: NSColor = .systemRed, strokeWidth: CGFloat = 3, annotations: [Annotation] = [], historyEntryID: String? = nil, fromCapture: Bool = false, disableBeautify: Bool = false) {
+    static func open(image: NSImage, tool: AnnotationTool? = nil, color: NSColor? = nil, strokeWidth: CGFloat? = nil, annotations: [Annotation] = [], historyEntryID: String? = nil, fromCapture: Bool = false, disableBeautify: Bool = false) {
         MemoryDiagnostics.snapshot(
             "DetachedEditor.open",
             images: [("image", image)],
@@ -77,7 +77,7 @@ class DetachedEditorWindowController: NSObject, NSWindowDelegate {
         (NSApp.delegate as? AppDelegate)?.updateDockIconVisibility()
     }
 
-    private func show(image: NSImage, tool: AnnotationTool, color: NSColor, strokeWidth: CGFloat, annotations: [Annotation]) {
+    private func show(image: NSImage, tool: AnnotationTool?, color: NSColor?, strokeWidth: CGFloat?, annotations: [Annotation]) {
         var memory = MemoryDiagnostics.makeScope(
             "DetachedEditor.show",
             images: [("image", image)],
@@ -141,9 +141,9 @@ class DetachedEditorWindowController: NSObject, NSWindowDelegate {
         view.autoresizingMask = []  // fixed size — scroll view handles viewport
         view.screenshotImage = image
         view.overlayDelegate = self
-        view.currentTool = tool
-        view.currentColor = color
-        view.currentStrokeWidth = strokeWidth
+        if let tool { view.currentTool = tool }
+        if let color { view.currentColor = color }
+        if let strokeWidth { view.currentStrokeWidth = strokeWidth }
         if disableBeautifyOnOpen {
             view.beautifyEnabled = false
         }

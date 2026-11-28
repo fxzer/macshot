@@ -68,11 +68,10 @@ private func overlayInitialGenericStrokeWidths() -> [AnnotationTool: CGFloat] {
 }
 
 final class OverlayToolState {
-    private static let initialPaint = DrawPaintMode.loadPersisted()
     var currentTool: AnnotationTool = overlayInitialTool()
     var currentColor: NSColor = overlayStoredColor()
-    var drawPaintMode: DrawPaintMode = initialPaint.mode
-    var currentGradient: AnnotationGradient = initialPaint.lastGradient
+    var drawPaintMode: DrawPaintMode
+    var currentGradient: AnnotationGradient
     var currentStrokeWidth: CGFloat = overlayStoredCGFloat("currentStrokeWidth", defaultValue: 3.0)
     var currentPencilStrokeWidth: CGFloat = overlayStoredCGFloat("pencilStrokeWidth", defaultValue: 8.0)
     var currentLineStrokeWidth: CGFloat = overlayStoredCGFloat("lineStrokeWidth", defaultValue: 8.0)
@@ -85,6 +84,12 @@ final class OverlayToolState {
         UserDefaults.standard.object(forKey: "numberStartAt") as? Int ?? 1)
     var currentNumberFormat =
         NumberFormat(rawValue: UserDefaults.standard.integer(forKey: "numberFormat")) ?? .decimal
+
+    init() {
+        let persistedPaint = DrawPaintMode.loadPersisted()
+        self.drawPaintMode = persistedPaint.mode
+        self.currentGradient = persistedPaint.lastGradient
+    }
 }
 
 extension OverlayView {
