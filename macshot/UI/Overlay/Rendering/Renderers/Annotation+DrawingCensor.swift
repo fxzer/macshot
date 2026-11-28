@@ -39,7 +39,7 @@ extension Annotation {
     /// Unified censor drawing — dispatches based on censorMode.
     func drawCensor(in context: NSGraphicsContext) {
         let rect = boundingRect
-        guard rect.width > 4, rect.height > 4 else { return }
+        guard rect.width > 2, rect.height > 2 else { return }
 
         // Baked (finalized) — draw the result
         if let baked = bakedBlurNSImage {
@@ -151,7 +151,23 @@ extension Annotation {
             }
         }
 
-        guard !allBorderPixels.isEmpty else { return nil }
+        if allBorderPixels.isEmpty {
+            // 贴边或外围透明时回退到选区内部非透明像素采样，避免返回 nil 露出未打码的预览虚线框
+            for row in 0..<ih {
+                for col in 0..<iw {
+                    if let px = samplePixel(ix + col, iy + row) { allBorderPixels.append(px) }
+                }
+            }
+        }
+        guard !allBorderPixels.isEmpty else {
+            let cs = ImageRasterizer.safeRGBOutputColorSpace(for: cgImage.colorSpace)
+            guard let emptyCtx = CGContext(
+                data: nil, width: 1, height: 1,
+                bitsPerComponent: 8, bytesPerRow: 4,
+                space: cs, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            ), let emptyCG = emptyCtx.makeImage() else { return nil }
+            return NSImage(cgImage: emptyCG, size: rect.size)
+        }
 
         // 计算亮度中位数（排除对比度高的文字噪点）
         let sortedByLum = allBorderPixels.sorted {
@@ -381,8 +397,9 @@ extension Annotation {
         let nsContext = NSGraphicsContext(cgContext: cgCtx, flipped: false)
         NSGraphicsContext.saveGraphicsState()
         NSGraphicsContext.current = nsContext
+        let drawTarget = srcBounds.isEmpty ? NSRect(origin: .zero, size: sourceImage.size) : srcBounds
         sourceImage.draw(
-            in: NSRect(origin: .zero, size: srcBounds.size),
+            in: drawTarget,
             from: .zero, operation: .copy, fraction: 1.0)
         NSGraphicsContext.restoreGraphicsState()
 

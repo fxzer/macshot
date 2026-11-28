@@ -38,6 +38,8 @@ extension OverlayView {
         }
         redoStack.removeAll()
         selectedAnnotations = newAnnotations
+        ensureCensorAndLoupeAnnotationsBaked()
+        invalidateAnnotationCaches()
         cachedCompositedImage = nil
         needsDisplay = true
     }

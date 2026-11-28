@@ -132,6 +132,9 @@ extension OverlayView {
             if state == .selected {
                 switch key {
                 case 8:  // C
+                    if let active = currentAnnotation {
+                        finishAnnotation(active)
+                    }
                     if !selectedAnnotations.isEmpty {
                         copySelectedAnnotations()
                     } else {
@@ -241,6 +244,9 @@ extension OverlayView {
             }
         case 36:  // Return/Enter — quick capture using the configured post-capture actions
             if textEditView == nil, state == .selected {
+                if let active = currentAnnotation {
+                    finishAnnotation(active)
+                }
                 overlayDelegate?.overlayViewDidRequestQuickSave()
             }
         case 51:  // Backspace/Delete — remove selected annotation(s)
@@ -348,6 +354,9 @@ extension OverlayView {
                 // Use keyCode for letters so shortcuts work with any keyboard layout.
                 if event.keyCode == 1 {  // S
                     if state == .selected {
+                        if let active = currentAnnotation {
+                            finishAnnotation(active)
+                        }
                         overlayDelegate?.overlayViewDidRequestSave()
                     }
                     return

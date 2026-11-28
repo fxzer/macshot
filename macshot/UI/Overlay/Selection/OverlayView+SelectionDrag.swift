@@ -133,6 +133,8 @@ extension OverlayView {
         for annotation in selectedAnnotations {
             annotation.move(dx: dx, dy: dy)
         }
+        ensureCensorAndLoupeAnnotationsBaked()
+        invalidateAnnotationCaches()
         cachedCompositedImage = nil
         needsDisplay = true
     }

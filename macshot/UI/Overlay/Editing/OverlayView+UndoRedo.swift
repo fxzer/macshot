@@ -100,6 +100,7 @@ extension OverlayView {
             cachedCompositedImage = nil
             resetZoom()
         }
+        ensureCensorAndLoupeAnnotationsBaked()
         invalidateAnnotationCaches()
         cachedCompositedImage = nil
         syncToolOptionsForCurrentSelection()
@@ -181,6 +182,7 @@ extension OverlayView {
             cachedCompositedImage = nil
             if !isInsideScrollView { resetZoom() }
         }
+        ensureCensorAndLoupeAnnotationsBaked()
         invalidateAnnotationCaches()
         cachedCompositedImage = nil
         syncToolOptionsForCurrentSelection()

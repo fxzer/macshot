@@ -421,6 +421,19 @@ class OverlayWindowController {
         ) {
             windowImage.draw(in: NSRect(origin: .zero, size: size), from: .zero, operation: .copy, fraction: 1.0)
             guard let ctx = NSGraphicsContext.current else { return false }
+            // Ensure any censor/loupe annotation without baked image is baked against windowImage before drawing.
+            let drawBounds = NSRect(origin: sel.origin, size: size)
+            for annotation in annotations where annotation.bakedBlurNSImage == nil {
+                if annotation.tool == .pixelate || annotation.tool == .blur {
+                    annotation.sourceImage = annotation.sourceImage ?? windowImage
+                    annotation.sourceImageBounds = drawBounds
+                    annotation.bakePixelate()
+                } else if annotation.tool == .loupe {
+                    annotation.sourceImage = annotation.sourceImage ?? windowImage
+                    annotation.sourceImageBounds = drawBounds
+                    annotation.bakeLoupe()
+                }
+            }
             // Translate so annotation coords (relative to selectionRect) map to image coords
             ctx.cgContext.translateBy(x: -sel.origin.x, y: -sel.origin.y)
             for annotation in annotations {

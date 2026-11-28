@@ -84,8 +84,18 @@ extension OverlayView {
                     NSPoint(x: selectionRect.minX + (selectionRect.maxX - $0.x), y: $0.y)
                 }
             }
+            if let srcPt = ann.loupeSourcePoint {
+                ann.loupeSourcePoint = NSPoint(
+                    x: selectionRect.minX + (selectionRect.maxX - srcPt.x), y: srcPt.y)
+            }
+            if ann.tool == .pixelate || ann.tool == .blur || ann.tool == .loupe {
+                ann.sourceImage = nil
+                ann.bakedBlurNSImage = nil
+            }
         }
 
+        ensureCensorAndLoupeAnnotationsBaked()
+        invalidateAnnotationCaches()
         cachedCompositedImage = nil
         needsDisplay = true
     }
@@ -131,8 +141,18 @@ extension OverlayView {
                     NSPoint(x: $0.x, y: selectionRect.minY + (selectionRect.maxY - $0.y))
                 }
             }
+            if let srcPt = ann.loupeSourcePoint {
+                ann.loupeSourcePoint = NSPoint(
+                    x: srcPt.x, y: selectionRect.minY + (selectionRect.maxY - srcPt.y))
+            }
+            if ann.tool == .pixelate || ann.tool == .blur || ann.tool == .loupe {
+                ann.sourceImage = nil
+                ann.bakedBlurNSImage = nil
+            }
         }
 
+        ensureCensorAndLoupeAnnotationsBaked()
+        invalidateAnnotationCaches()
         cachedCompositedImage = nil
         needsDisplay = true
     }
@@ -253,6 +273,14 @@ extension OverlayView {
 
         selectionRect = NSRect(origin: .zero, size: newPtSize)
         frame.size = newPtSize
+        if shiftDx != 0 || shiftDy != 0 {
+            for ann in annotations where ann.tool == .pixelate || ann.tool == .blur || ann.tool == .loupe {
+                ann.sourceImage = nil
+                ann.bakedBlurNSImage = nil
+            }
+            ensureCensorAndLoupeAnnotationsBaked()
+            invalidateAnnotationCaches()
+        }
         cachedCompositedImage = nil
     }
 

@@ -44,7 +44,7 @@ extension OverlayView {
                     ann.sourceImage = img
                     ann.sourceImageBounds = bounds
                     if ann.tool == .loupe { ann.bakeLoupe() }
-                    if ann.tool == .pixelate { ann.bakePixelate() }
+                    if ann.tool == .pixelate || ann.tool == .blur { ann.bakePixelate() }
                 }
             }
         }

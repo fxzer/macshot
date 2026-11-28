@@ -250,6 +250,12 @@ extension OverlayView {
             height: CGFloat(croppedCG.height) / pixScale)
         replaceScreenshotImage(croppedCG, size: croppedPointSize)
         selectionRect = NSRect(origin: .zero, size: croppedPointSize)
+        for ann in annotations where ann.tool == .pixelate || ann.tool == .blur || ann.tool == .loupe {
+            ann.sourceImage = nil
+            ann.bakedBlurNSImage = nil
+        }
+        ensureCensorAndLoupeAnnotationsBaked()
+        invalidateAnnotationCaches()
         cachedCompositedImage = nil
 
         if isInsideScrollView {

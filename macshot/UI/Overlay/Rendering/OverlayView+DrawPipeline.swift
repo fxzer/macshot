@@ -155,6 +155,10 @@ extension OverlayView {
                     layer.draw(in: bounds, from: .zero, operation: .sourceOver, fraction: 1.0)
                 }
             } else if !annotations.isEmpty {
+                let excluded: Set<ObjectIdentifier> = (isDraggingAnnotation || isResizingAnnotation)
+                    ? Set(selectedAnnotations.map { ObjectIdentifier($0) })
+                    : []
+                ensureCensorAndLoupeAnnotationsBaked(excluding: excluded)
                 beginCanvasGraphicsStateIfNeeded()
                 drawAnnotationListLive(annotations, in: context)
             }
@@ -303,6 +307,10 @@ extension OverlayView {
                 NSBezierPath(rect: selectionRect).setClip()
                 let effectsImage = effectsProcessedScreenshot(screenshot)
                 effectsImage.draw(in: captureDrawRect, from: .zero, operation: .copy, fraction: 1.0)
+                let excluded: Set<ObjectIdentifier> = (isDraggingAnnotation || isResizingAnnotation)
+                    ? Set(selectedAnnotations.map { ObjectIdentifier($0) })
+                    : []
+                ensureCensorAndLoupeAnnotationsBaked(excluding: excluded)
                 drawAnnotationListLive(annotations, in: context)
                 drawCurrentAnnotationIfNeeded(in: context)
             }

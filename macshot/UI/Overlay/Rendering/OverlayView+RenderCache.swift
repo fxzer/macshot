@@ -15,6 +15,7 @@ extension OverlayView {
     /// Reused across frames until annotations change, avoiding per-frame iteration.
     func annotationLayerImage() -> NSImage {
         if let cached = cachedAnnotationLayer { return cached }
+        ensureCensorAndLoupeAnnotationsBaked()
         let image = renderAnnotationBitmap(annotations: annotations)
         setCachedAnnotationLayer(image)
         return image
@@ -64,6 +65,7 @@ extension OverlayView {
 
     /// Build annotation layer excluding specific annotations (used during drag/resize).
     func buildAnnotationLayer(excluding: Set<ObjectIdentifier>) -> NSImage {
+        ensureCensorAndLoupeAnnotationsBaked(excluding: excluding)
         let filtered = annotations.filter { !excluding.contains(ObjectIdentifier($0)) }
         return renderAnnotationBitmap(annotations: filtered)
     }

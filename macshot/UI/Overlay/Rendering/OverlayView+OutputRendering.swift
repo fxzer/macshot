@@ -11,23 +11,83 @@ extension OverlayView {
 
     // MARK: - Output
 
-    /// Render screenshot + all existing annotations into a full-size image.
+    /// Ensure all committed censor/loupe annotations (not in `excluded`) have baked images.
+    /// Prevents leaking raw underlying content with the dashed live-preview border on export or redraw.
+    func ensureCensorAndLoupeAnnotationsBaked(excluding excluded: Set<ObjectIdentifier> = []) {
+        guard let screenshot = screenshotImage else { return }
+        let drawBounds = captureDrawRect
+
+        // 1. Bake any unbaked loupes first (loupes sample the raw screenshot).
+        for ann in annotations where ann.tool == .loupe && ann.bakedBlurNSImage == nil {
+            guard !excluded.contains(ObjectIdentifier(ann)) else { continue }
+            if ann.sourceImage == nil {
+                ann.sourceImage = screenshot
+                ann.sourceImageBounds = drawBounds
+            }
+            ann.bakeLoupe()
+        }
+
+        // 2. Collect unbaked censor annotations that need baking.
+        let unbakedCensors = annotations.filter { ann in
+            guard (ann.tool == .pixelate || ann.tool == .blur),
+                  ann.bakedBlurNSImage == nil,
+                  !excluded.contains(ObjectIdentifier(ann))
+            else { return false }
+            let r = ann.boundingRect
+            return r.width > 2 && r.height > 2
+        }
+        guard !unbakedCensors.isEmpty else { return }
+
+        var sharedCompositedSource: NSImage?
+        let needsComposited = unbakedCensors.contains { $0.sourceImage == nil && $0.censorMode != .solid }
+        if needsComposited {
+            let censorExcluded = excluded.union(unbakedCensors.map { ObjectIdentifier($0) })
+            let backgroundList = annotations.filter { !censorExcluded.contains(ObjectIdentifier($0)) }
+            sharedCompositedSource = backgroundList.isEmpty ? screenshot : (renderCompositedImage(annotations: backgroundList) ?? screenshot)
+        }
+
+        for ann in unbakedCensors {
+            if ann.sourceImage == nil {
+                ann.sourceImage = (ann.censorMode == .solid) ? screenshot : (sharedCompositedSource ?? screenshot)
+                ann.sourceImageBounds = drawBounds
+            }
+            ann.bakePixelate()
+        }
+    }
+
+    func compositedImage() -> NSImage? {
+        compositedImage(excluding: [])
+    }
+
+    /// Render screenshot + existing annotations into a full-size image.
     /// Used as source for pixelate/blur so they operate on the composited result.
     /// Rasterized at the screenshot's native pixel scale — censor tools extract
     /// pixels via cgImage(forProposedRect:), which rasterizes closure-based
     /// images at 72dpi (half resolution on retina).
-    func compositedImage() -> NSImage? {
-        if let cached = cachedCompositedImage { return cached }
+    func compositedImage(excluding excluded: Set<ObjectIdentifier>) -> NSImage? {
+        if excluded.isEmpty, let cached = cachedCompositedImage { return cached }
         guard let screenshot = screenshotImage else { return nil }
-        if annotations.isEmpty { return screenshot }
+        ensureCensorAndLoupeAnnotationsBaked(excluding: excluded)
+        let filtered = excluded.isEmpty
+            ? annotations
+            : annotations.filter { !excluded.contains(ObjectIdentifier($0)) }
+        if filtered.isEmpty { return screenshot }
+        guard let image = renderCompositedImage(annotations: filtered) else { return screenshot }
+        if excluded.isEmpty {
+            cachedCompositedImage = image
+        }
+        return image
+    }
+
+    private func renderCompositedImage(annotations annotationsCopy: [Annotation]) -> NSImage? {
+        guard let screenshot = screenshotImage else { return nil }
         var memory = MemoryDiagnostics.makeScope(
             "OverlayView.compositedImage",
             images: [("screenshot", screenshot)],
-            metadata: "annotations=\(annotations.count)"
+            metadata: "annotations=\(annotationsCopy.count)"
         )
 
         let drawRect = captureDrawRect
-        let annotationsCopy = annotations
         let scale = ImageRasterizer.pixelScale(of: screenshot)
         let pxW = max(1, Int((drawRect.width * scale).rounded()))
         let pxH = max(1, Int((drawRect.height * scale).rounded()))
@@ -40,7 +100,7 @@ extension OverlayView {
             bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
         ) else {
             memory.finish("context allocation failed")
-            return screenshot
+            return nil
         }
         cgCtx.scaleBy(x: scale, y: scale)
         let nsContext = NSGraphicsContext(cgContext: cgCtx, flipped: false)
@@ -55,10 +115,9 @@ extension OverlayView {
 
         guard let cgImage = cgCtx.makeImage() else {
             memory.finish("render failed")
-            return screenshot
+            return nil
         }
         let image = NSImage(cgImage: cgImage, size: drawRect.size)
-        cachedCompositedImage = image
         memory.finish("rendered", images: [("composited", image)], metadata: "drawRect=\(NSStringFromRect(drawRect)) pixels=\(pxW)x\(pxH)")
         return image
     }
@@ -140,6 +199,7 @@ extension OverlayView {
         cgCtx.interpolationQuality = .high
 
         if includeAnnotations {
+            ensureCensorAndLoupeAnnotationsBaked()
             drawAnnotationListLive(annotations, in: nsContext)
         }
 
