@@ -4,7 +4,7 @@ extension OverlayView {
 
     /// 当前是否处于“鼠标悬停即高亮窗口”的状态。
     var canHoverWindowSnap: Bool {
-        state == .idle && windowSnapEnabled
+        state == .idle && windowSnapEnabled && !isRegionSnapKeyHeld
             && !(remoteSelectionRect.width >= 1 && remoteSelectionRect.height >= 1)
     }
 
@@ -91,7 +91,8 @@ extension OverlayView {
     }
 
     func drawWindowSnapHighlight() {
-        guard state == .idle, windowSnapEnabled, let rect = hoveredWindowRect, !rect.isEmpty else {
+        guard state == .idle, windowSnapEnabled, !isRegionSnapKeyHeld,
+              let rect = hoveredWindowRect, !rect.isEmpty else {
             return
         }
 

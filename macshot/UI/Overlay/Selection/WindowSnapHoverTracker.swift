@@ -4,10 +4,9 @@ import AppKit
 /// 同一时刻只保留一个在途查询；查询期间到达的鼠标位置只保留最后一个，返回后立即补查。
 /// 失效之后返回的旧结果直接丢弃，避免旧鼠标位置的结果覆盖新状态。
 @MainActor
-final class WindowSnapHoverTracker {
-    typealias Target = WindowSnapDetector.Target
+final class SnapHoverTracker<Target: Equatable> {
     typealias Query = (
-        _ screenPoint: NSPoint,
+        _ point: NSPoint,
         _ completion: @escaping @MainActor (Target?) -> Void
     ) -> Void
     typealias Handler = @MainActor (_ target: Target?) -> Void
@@ -19,17 +18,17 @@ final class WindowSnapHoverTracker {
     private var query: Query?
     private var handler: Handler?
 
-    /// 识别 `screenPoint` 下的窗口。已有查询在途时只记下最新的点，不丢弃这次移动。
-    func track(_ screenPoint: NSPoint, query: @escaping Query, handler: @escaping Handler) {
+    /// 识别 `point` 下的目标。已有查询在途时只记下最新的点，不丢弃这次移动。
+    func track(_ point: NSPoint, query: @escaping Query, handler: @escaping Handler) {
         self.query = query
         self.handler = handler
         guard !isQueryInFlight else {
-            pendingPoint = screenPoint
+            pendingPoint = point
             return
         }
         isQueryInFlight = true
         let generation = self.generation
-        query(screenPoint) { [weak self] target in
+        query(point) { [weak self] target in
             self?.finishQuery(with: target, generation: generation)
         }
     }
@@ -60,3 +59,5 @@ final class WindowSnapHoverTracker {
         }
     }
 }
+
+typealias WindowSnapHoverTracker = SnapHoverTracker<WindowSnapDetector.Target>

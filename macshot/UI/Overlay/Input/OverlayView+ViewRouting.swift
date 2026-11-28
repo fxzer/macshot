@@ -30,7 +30,12 @@ extension OverlayView {
         DispatchQueue.main.asyncAfter(deadline: .now() + Self.initialWindowSnapDelay) { [weak self] in
             guard let self else { return }
             self.windowSnapCooldown = false
-            self.refreshWindowSnapHoverAtMouseLocation()
+            self.syncRegionSnapModifierState(with: NSEvent.modifierFlags)
+            if self.canHoverRegionSnap {
+                self.refreshRegionSnapHoverAtMouseLocation()
+            } else {
+                self.refreshWindowSnapHoverAtMouseLocation()
+            }
         }
 
         if showToolbars {
@@ -113,8 +118,14 @@ extension OverlayView {
             updateAutoMeasurePreview()
         }
 
+        if state == .idle {
+            syncRegionSnapModifierState(with: event.modifierFlags)
+        }
+
         if windowSnapCooldown { return }
-        if canHoverWindowSnap, let screenPoint = screenPointForWindowSnap(point) {
+        if canHoverRegionSnap {
+            queryRegionSnap(at: point)
+        } else if canHoverWindowSnap, let screenPoint = screenPointForWindowSnap(point) {
             queryWindowSnap(at: screenPoint)
         }
 
@@ -127,6 +138,9 @@ extension OverlayView {
     override func mouseEntered(with event: NSEvent) {
         super.mouseEntered(with: event)
         let point = convert(event.locationInWindow, from: nil)
+        if state == .idle {
+            syncRegionSnapModifierState(with: event.modifierFlags)
+        }
         updateCursorForPoint(point)
         updateToolCursorPreviews(at: point)
     }
@@ -138,8 +152,9 @@ extension OverlayView {
         clearStampPreview()
         NSCursor.arrow.set()
         if state == .idle {
-            // 鼠标离开这块屏幕后不再收到移动事件，清掉高亮，避免另一块屏幕上残留旧窗口。
+            // 鼠标离开这块屏幕后不再收到移动事件，清掉高亮，避免另一块屏幕上残留旧窗口或区域。
             clearWindowSnapHover()
+            clearRegionSnapHover()
         }
         needsDisplay = true
     }

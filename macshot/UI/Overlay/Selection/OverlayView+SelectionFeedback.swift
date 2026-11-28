@@ -75,7 +75,13 @@ extension OverlayView {
         var lines: [(elements: [(type: String, text: String, width: CGFloat)], height: CGFloat)] = []
 
         var line1Elements: [(type: String, text: String, width: CGFloat)] = []
-        let modeText = (windowSnapEnabled ? L("Click window") : L("Drag to select")) + " · "
+        let regionActive = isRegionSnapActive
+        let modeText: String
+        if regionActive {
+            modeText = L("Click region") + " · "
+        } else {
+            modeText = (windowSnapEnabled ? L("Click window") : L("Drag to select")) + " · "
+        }
         let modeSize = (modeText as NSString).size(withAttributes: [.font: baseFont, .foregroundColor: labelColor])
         line1Elements.append(("label", modeText, modeSize.width))
 
@@ -84,6 +90,12 @@ extension OverlayView {
         line1Elements.append(("state", snapText, (snapText as NSString).size(withAttributes: [.font: keyFont, .foregroundColor: snapColor]).width))
         // Don't insert an empty label here — keep Tab close to the switch state.
         line1Elements.append(("key", "Tab", ("Tab" as NSString).size(withAttributes: [.font: keyFont]).width))
+
+        let regionSpacer = "  "
+        line1Elements.append(("label", regionSpacer, (regionSpacer as NSString).size(withAttributes: [.font: baseFont]).width))
+        line1Elements.append((regionActive ? "active_key" : "key", "⌥", ("⌥" as NSString).size(withAttributes: [.font: keyFont]).width))
+        let regionLabel = L("Region snap")
+        line1Elements.append(("label", regionLabel, (regionLabel as NSString).size(withAttributes: [.font: baseFont, .foregroundColor: labelColor]).width))
 
         lines.append((line1Elements, 14))
 
@@ -196,10 +208,42 @@ extension OverlayView {
         let bgWidth = maxWidth + bgPadding * 2
         let bgHeight = totalHeight + bgPadding * 2
 
-        // Position in bottom-left
-        let bgX = margin
+        // 避让逻辑：若光标或当前高亮框靠近左下角提示面板，自动迁移到右下角，避免遮挡目标卡片。
+        let leftRect = NSRect(x: margin, y: margin, width: bgWidth, height: bgHeight)
+        let rightX = max(margin, bounds.maxX - bgWidth - margin)
+        let rightRect = NSRect(x: rightX, y: margin, width: bgWidth, height: bgHeight)
+
+        let viewCursor: NSPoint? = window.map {
+            convert($0.mouseLocationOutsideOfEventStream, from: nil)
+        }
+        let activeHighlightRect: NSRect? = canHoverRegionSnap
+            ? hoveredRegionRect
+            : (canHoverWindowSnap ? hoveredWindowRect : nil)
+
+        func blocksPanel(_ panelRect: NSRect) -> Bool {
+            let safeZone = panelRect.insetBy(dx: -24, dy: -24)
+            if let cursor = viewCursor, safeZone.contains(cursor) {
+                return true
+            }
+            if let highlight = activeHighlightRect, !highlight.isEmpty,
+               panelRect.insetBy(dx: -8, dy: -8).intersects(highlight)
+            {
+                return true
+            }
+            return false
+        }
+
+        let leftBlocked = blocksPanel(leftRect)
+        let rightBlocked = blocksPanel(rightRect)
+        let bgX = leftBlocked && !rightBlocked ? rightX : margin
         let bgY = margin
         let bgRect = NSRect(x: bgX, y: bgY, width: bgWidth, height: bgHeight)
+
+        // 若左右两角都被当前选区或光标压住，压低面板透明度防止干扰视线。
+        let panelAlpha: CGFloat = (leftBlocked && rightBlocked) ? 0.22 : 1.0
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current?.cgContext.setAlpha(panelAlpha)
+        defer { NSGraphicsContext.restoreGraphicsState() }
 
         // Draw background
         NSColor.black.withAlphaComponent(0.6).setFill()

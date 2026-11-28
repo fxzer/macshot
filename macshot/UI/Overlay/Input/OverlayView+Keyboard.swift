@@ -64,6 +64,10 @@ extension OverlayView {
     }
 
     override func flagsChanged(with event: NSEvent) {
+        if state == .idle {
+            syncRegionSnapModifierState(with: event.modifierFlags)
+        }
+
         // Re-apply shift constraint immediately when Shift is pressed/released during annotation drag
         if currentAnnotation != nil, let lastPoint = lastDragPoint {
             let shiftHeld = event.modifierFlags.contains(.shift)

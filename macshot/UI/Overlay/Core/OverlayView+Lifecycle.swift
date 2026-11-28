@@ -99,7 +99,7 @@ extension OverlayView {
         showToolbars = false
         PopoverHelper.dismiss()
         colorWheel.dismiss()
-        if screenshotImage != nil {
+        if screenshotImage != nil && !isRegionSnapKeyHeld {
             showColorSamplerMagnifier()
         }
         needsDisplay = true
@@ -192,6 +192,9 @@ extension OverlayView {
         overlayErrorMessage = nil
         barcodeDetector.cancel()
         clearWindowSnapHover()
+        clearRegionSnapHover()
+        invalidateRegionSnapCache()
+        isRegionSnapKeyHeld = false
         hideColorSamplerMagnifier()
         if let trackingArea = mouseMovedTrackingArea {
             removeTrackingArea(trackingArea)

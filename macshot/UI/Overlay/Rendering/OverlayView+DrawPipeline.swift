@@ -10,6 +10,7 @@ extension OverlayView {
         drawOverlayBackdrop(in: context)
         let backdropMs = (CFAbsoluteTimeGetCurrent() - drawT0) * 1000
         drawWindowSnapHighlight()
+        drawRegionSnapHighlight()
 
         if !suppressBackdropUntilCapture, state == .idle {
             drawIdleHelperText()
@@ -75,6 +76,13 @@ extension OverlayView {
             if !isZoomed {
                 if state != .idle && selectionRect.width >= 1 && selectionRect.height >= 1 {
                     maskPath.appendRect(selectionRect)
+                    maskPath.windingRule = .evenOdd
+                } else if state == .idle, canHoverRegionSnap,
+                          let regionRect = hoveredRegionRect,
+                          regionRect.width >= 1, regionRect.height >= 1
+                {
+                    // 区域识别悬停时同步挖空遮罩，让命中的封面/卡片直接以 100% 亮度呈现，边界一目了然。
+                    maskPath.appendRect(regionRect)
                     maskPath.windingRule = .evenOdd
                 }
                 if remoteSelectionRect.width >= 1 && remoteSelectionRect.height >= 1 {

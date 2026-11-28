@@ -49,7 +49,7 @@ class OverlayView: NSView {
             needsDisplay = true
             // Defer color sampler magnifier until the view is in a window.
             DispatchQueue.main.async {
-                if self.state == .idle && self.screenshotImage != nil {
+                if self.state == .idle && self.screenshotImage != nil && !self.isRegionSnapKeyHeld {
                     self.showColorSamplerMagnifier()
                 }
             }

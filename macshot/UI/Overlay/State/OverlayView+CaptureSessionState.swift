@@ -25,6 +25,9 @@ final class OverlayCaptureSessionState {
         UserDefaults.standard.object(forKey: "windowSnapEnabled") as? Bool ?? true
     let windowSnapHover = WindowSnapHoverTracker()
     var windowSnapCooldown = true
+    var isRegionSnapKeyHeld = false
+    let regionSnapHover = SnapHoverTracker<RegionSnapDetector.Target>()
+    var regionSnapBitmap: RegionSnapDetector.Bitmap?
     var selectionIsWindowSnap = false
     var snappedWindowID: CGWindowID?
     var snappedWindowImage: NSImage?
@@ -143,6 +146,24 @@ extension OverlayView {
     var windowSnapCooldown: Bool {
         get { captureSessionState.windowSnapCooldown }
         set { captureSessionState.windowSnapCooldown = newValue }
+    }
+
+    var isRegionSnapKeyHeld: Bool {
+        get { captureSessionState.isRegionSnapKeyHeld }
+        set { captureSessionState.isRegionSnapKeyHeld = newValue }
+    }
+
+    /// 按住辅助键（Option）且处于空闲选区阶段时启用局部同色区域识别。
+    var isRegionSnapActive: Bool {
+        state == .idle
+            && isRegionSnapKeyHeld
+            && !isEditorMode
+            && !isScrollCapturing
+            && !(remoteSelectionRect.width >= 1 && remoteSelectionRect.height >= 1)
+    }
+
+    var hoveredRegionRect: NSRect? {
+        captureSessionState.regionSnapHover.target?.rect
     }
 
     var selectionIsWindowSnap: Bool {

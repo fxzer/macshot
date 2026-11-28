@@ -18,6 +18,7 @@ extension OverlayView {
             originalCGImage = cgImage
         }
         _loupeSourceCGImage = nil
+        invalidateRegionSnapCache()
     }
 
     func setOriginalCGImage(_ cgImage: CGImage) {
@@ -29,6 +30,7 @@ extension OverlayView {
         colorSamplingCGImage = cgImage
         originalCGImage = cgImage
         _loupeSourceCGImage = cgImage
+        invalidateRegionSnapCache()
     }
 
     func updateColorAccurateImage(_ cgImage: CGImage) {
@@ -41,6 +43,7 @@ extension OverlayView {
         colorSamplingCGImage = cgImage
         originalCGImage = cgImage
         _loupeSourceCGImage = cgImage
+        invalidateRegionSnapCache()
     }
 
     func flipImageHorizontally() {

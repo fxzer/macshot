@@ -678,6 +678,25 @@ extension OverlayView {
                 if !hasPendingAutoAction { showToolbars = true }
                 overlayDelegate?.overlayViewDidFinishSelection(selectionRect)
                 clearSelectionSizeSnapState()
+            } else if isRegionSnapKeyHeld || event.modifierFlags.contains(.option),
+                      let regionTarget = confirmRegionSnapTarget(at: convert(event.locationInWindow, from: nil)),
+                      !regionTarget.rect.isEmpty
+            {
+                // 按住辅助键（Option）点选局部同色区域：直接选定该区域矩形，不触发整窗截图替换。
+                selectionRect = regionTarget.rect
+                selectionIsWindowSnap = false
+                snappedWindowID = nil
+                snappedWindowImage = nil
+                state = .selected
+
+                hideColorSamplerMagnifier()
+                if currentTool == .colorSampler {
+                    showColorSamplerMagnifier()
+                }
+
+                if !hasPendingAutoAction { showToolbars = true }
+                overlayDelegate?.overlayViewDidFinishSelection(selectionRect)
+                clearSelectionSizeSnapState()
             } else if windowSnapEnabled,
                       let snapTarget = confirmWindowSnapTarget(at: convert(event.locationInWindow, from: nil)),
                       !snapTarget.rect.isEmpty
@@ -744,6 +763,7 @@ extension OverlayView {
                 clearSelectionSizeSnapState()
             }
             clearWindowSnapHover()
+            clearRegionSnapHover()
             // Update cursor to match the selected tool (replaces resize cursor from dragging)
             if let win = window {
                 let point = convert(win.mouseLocationOutsideOfEventStream, from: nil)

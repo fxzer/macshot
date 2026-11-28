@@ -1410,6 +1410,22 @@
         }
       }
     },
+    "Click region" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Click region"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "点按区域"
+          }
+        }
+      }
+    },
     "Click window" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -5407,6 +5423,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "区域"
+          }
+        }
+      }
+    },
+    "Region snap" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Region snap"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "区域识别"
           }
         }
       }
