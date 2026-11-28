@@ -12,18 +12,21 @@ extension ToolOptionsRowView {
     // MARK: - 打码模式
 
     func addCensorModeSegment(to stack: NSStackView, ov: OverlayView) {
+        let modes = CensorMode.orderedCases
         let seg = NSSegmentedControl()
-        seg.segmentCount = CensorMode.allCases.count
+        seg.segmentCount = modes.count
         seg.trackingMode = .selectOne
         seg.target = self
         seg.action = #selector(censorModeChanged(_:))
         seg.font = NSFont.systemFont(ofSize: 10, weight: .medium)
         (seg.cell as? NSSegmentedCell)?.segmentStyle = .roundRect
-        for (i, mode) in CensorMode.allCases.enumerated() {
+        for (i, mode) in modes.enumerated() {
             seg.setLabel(mode.label, forSegment: i)
         }
-        let currentMode = CensorMode(rawValue: UserDefaults.standard.integer(forKey: "censorMode")) ?? .pixelate
-        seg.selectedSegment = currentMode.rawValue
+        let currentMode = editingAnnotation?.censorMode
+            ?? CensorMode(rawValue: UserDefaults.standard.integer(forKey: "censorMode"))
+            ?? .pixelate
+        seg.selectedSegment = modes.firstIndex(of: currentMode) ?? 0
         seg.sizeToFit()
         stack.addArrangedSubview(seg)
     }

@@ -269,7 +269,10 @@ class ToolOptionsRowView: NSView {
 
         currentTool = tool
 
-        if supportsDrawColor(tool) {
+        let activeCensorMode: CensorMode? = (tool == .pixelate)
+            ? (editingAnnotation?.censorMode ?? ov.currentCensorMode)
+            : nil
+        if supportsDrawColor(tool, censorMode: activeCensorMode) {
             addDrawColorControl(to: stackView, tool: tool, ov: ov)
             addSeparator(to: stackView)
         }

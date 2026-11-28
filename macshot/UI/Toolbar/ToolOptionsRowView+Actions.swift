@@ -141,22 +141,39 @@ extension ToolOptionsRowView {
     }
 
     @objc func censorModeChanged(_ sender: NSSegmentedControl) {
+        let modes = CensorMode.orderedCases
         guard let ov = overlayView,
-              let mode = CensorMode(rawValue: sender.selectedSegment) else { return }
+              sender.selectedSegment >= 0,
+              sender.selectedSegment < modes.count else { return }
+        let mode = modes[sender.selectedSegment]
         UserDefaults.standard.set(mode.rawValue, forKey: "censorMode")
         guard let ann = editingAnnotation,
               ann.tool == .pixelate || ann.tool == .blur
         else {
+            rebuild(for: currentTool ?? .pixelate)
+            ov.repositionToolbars()
             ov.needsDisplay = true
             return
         }
 
+        let previousMode = ann.censorMode
         ensureSnapshot()
         ann.censorMode = mode
-        ann.sourceImage = ann.sourceImage ?? ov.screenshotImage
+        if ann.sourceImage == nil {
+            let excluded = Set(ov.annotations.filter {
+                ($0 === ann) || (($0.tool == .pixelate || $0.tool == .blur) && $0.bakedBlurNSImage == nil)
+            }.map { ObjectIdentifier($0) })
+            ann.sourceImage = (mode == .solid)
+                ? ov.screenshotImage
+                : (ov.compositedImage(excluding: excluded) ?? ov.screenshotImage)
+        }
         ann.sourceImageBounds = ov.captureDrawRect
         ann.bakedBlurNSImage = nil
         ann.bakePixelate()
+        if (previousMode == .solid) != (mode == .solid) {
+            rebuild(forAnnotation: ann)
+            ov.repositionToolbars()
+        }
         ov.invalidateCommittedAnnotationRendering()
         ov.needsDisplay = true
     }

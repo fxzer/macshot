@@ -132,6 +132,9 @@ enum CensorMode: Int, CaseIterable {
     case solid = 2
     case erase = 3
 
+    /// UI 展示顺序：擦除、模糊、像素化、纯色（rawValue 保持不变以兼容已保存偏好与历史标注）。
+    static let orderedCases: [CensorMode] = [.erase, .blur, .pixelate, .solid]
+
     var label: String {
         switch self {
         case .pixelate: return LanguageManager.shared.localizedString("Pixelate")

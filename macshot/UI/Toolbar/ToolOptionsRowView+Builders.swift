@@ -100,10 +100,12 @@ extension ToolOptionsRowView {
         stack.addArrangedSubview(sep)
     }
 
-    func supportsDrawColor(_ tool: AnnotationTool) -> Bool {
+    func supportsDrawColor(_ tool: AnnotationTool, censorMode: CensorMode? = nil) -> Bool {
         switch tool {
         case .pencil, .line, .arrow, .rectangle, .filledRectangle, .ellipse, .marker, .number, .measure, .text:
             return true
+        case .pixelate:
+            return censorMode == .solid
         default:
             return false
         }

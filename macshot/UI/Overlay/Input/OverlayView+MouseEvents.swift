@@ -641,7 +641,12 @@ extension OverlayView {
                 // .blur shares the bakedBlurNSImage/bakePixelate pipeline with .pixelate.
                 if ann.tool == .pixelate || ann.tool == .blur {
                     if ann.sourceImage == nil {
-                        ann.sourceImage = compositedImage() ?? screenshotImage
+                        let excluded = Set(annotations.filter {
+                            ($0 === ann) || (($0.tool == .pixelate || $0.tool == .blur) && $0.bakedBlurNSImage == nil)
+                        }.map { ObjectIdentifier($0) })
+                        ann.sourceImage = (ann.censorMode == .solid)
+                            ? screenshotImage
+                            : (compositedImage(excluding: excluded) ?? screenshotImage)
                         ann.sourceImageBounds = captureDrawRect
                     }
                     ann.bakedBlurNSImage = nil
@@ -797,7 +802,12 @@ extension OverlayView {
                     // (see Annotation+DrawingCensor); both must rebake after a drag.
                     if ann.tool == .pixelate || ann.tool == .blur {
                         if ann.sourceImage == nil {
-                            ann.sourceImage = compositedImage() ?? screenshotImage
+                            let excluded = Set(annotations.filter {
+                                ($0 === ann) || (($0.tool == .pixelate || $0.tool == .blur) && $0.bakedBlurNSImage == nil)
+                            }.map { ObjectIdentifier($0) })
+                            ann.sourceImage = (ann.censorMode == .solid)
+                                ? screenshotImage
+                                : (compositedImage(excluding: excluded) ?? screenshotImage)
                             ann.sourceImageBounds = captureDrawRect
                         }
                         ann.bakedBlurNSImage = nil
@@ -888,6 +898,8 @@ extension OverlayView {
         }
 
         if state == .selected && pointIsInSelection(point) {
+            // 擦除 / 模糊 / 像素化三种打码模式不依赖前景色，右键不弹出调色盘；仅纯色模式允许弹出。
+            guard shouldShowColorWheelOnRightClick else { return }
             // Show radial color wheel
             colorWheel.show(at: point)
 
@@ -895,6 +907,23 @@ extension OverlayView {
             needsDisplay = true
             return
         }
+    }
+
+    private var shouldShowColorWheelOnRightClick: Bool {
+        if !selectedAnnotations.isEmpty {
+            let hasNonCensor = selectedAnnotations.contains { $0.tool != .pixelate && $0.tool != .blur }
+            if !hasNonCensor {
+                return selectedAnnotations.contains { $0.tool == .pixelate && $0.censorMode == .solid }
+            }
+            return true
+        }
+        if currentTool == .pixelate {
+            return currentCensorMode == .solid
+        }
+        if currentTool == .blur {
+            return false
+        }
+        return true
     }
 
     override func rightMouseDragged(with event: NSEvent) {
